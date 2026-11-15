@@ -471,6 +471,39 @@ func _pouso_e_batida() -> void:
 	# abaixar e sentar
 	a.recomecar()
 	await _esperar(1.0)
+	# o L3 de verdade (evento do controle) dispara correr, voar e abaixar ao mesmo tempo
+	var l3 := InputEventJoypadButton.new()
+	l3.button_index = JOY_BUTTON_LEFT_STICK
+	l3.pressed = true
+	Input.parse_input_event(l3)
+	await _esperar(0.15)
+	var l3s := l3.duplicate() as InputEventJoypadButton
+	l3s.pressed = false
+	Input.parse_input_event(l3s)
+	await _esperar(0.3)
+	_ok(a.postura == 1 and a.estado == Armadura.Estado.CHAO, "L3 do controle, parado, abaixa (postura %d, %s)" % [a.postura, a.nome_estado()])
+	Input.parse_input_event(l3)
+	await _esperar(0.1)
+	Input.parse_input_event(l3s)
+	await _esperar(0.3)
+	_ok(a.postura == 0, "L3 do controle de novo levanta (%d)" % a.postura)
+	# o clique empurrando o analógico para o lado (0,5) ainda conta como parado
+	var torto := InputEventJoypadMotion.new()
+	torto.axis = JOY_AXIS_LEFT_X
+	torto.axis_value = 0.5
+	Input.parse_input_event(torto)
+	Input.parse_input_event(l3)
+	await _esperar(0.9)
+	Input.parse_input_event(l3s)
+	var reto := torto.duplicate() as InputEventJoypadMotion
+	reto.axis_value = 0.0
+	Input.parse_input_event(reto)
+	await _esperar(0.3)
+	_ok(a.postura == 2 and _hv() < 0.1, "L3 segurado senta, mesmo com o analógico empurrado no clique (%d)" % a.postura)
+	Input.parse_input_event(l3)
+	await _esperar(0.1)
+	Input.parse_input_event(l3s)
+	await _esperar(0.5)
 	await _apertar("abaixar")
 	await _esperar(0.2)
 	_ok(a.postura == 1, "toque no botão de abaixar abaixa (%d)" % a.postura)

@@ -300,12 +300,16 @@ func _plano_camera() -> Basis:
 
 func _chao(delta: float, mov: Vector2) -> void:
 	# o L3 corre com o robô andando; parado, abaixa
-	if Input.is_action_just_pressed("correr_alternar") and mov.length() >= 0.15:
+	# clicar o analógico costuma empurrá-lo um pouco: "parado" aqui é quase sem andar, com folga
+	var quieto := mov.length() < 0.6 and Vector2(velocity.x, velocity.z).length() < 1.2
+	if Input.is_action_pressed("abaixar") and (postura != 0 or quieto):
+		mov = Vector2.ZERO  # com o L3 apertado, o empurrão do clique não vira passo
+	if Input.is_action_just_pressed("correr_alternar") and not quieto and postura == 0:
 		_correr_alt = not _correr_alt
 	if mov.length() < 0.15:
 		_correr_alt = false
 	var correr := Input.is_action_pressed("correr") or _correr_alt
-	_abaixar(delta, mov, correr)
+	_abaixar(delta, mov, correr, quieto)
 	var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
 	if dir.length() > 1.0:
 		dir = dir.normalized()
@@ -347,12 +351,12 @@ func _chao(delta: float, mov: Vector2) -> void:
 
 ## Abaixar e sentar (L3 parado / Ctrl): um toque abaixa, segurar senta; outro toque levanta. Abaixado ele
 ## anda devagar; sentado, mexer o analógico ou apertar o X levanta. Correr sempre levanta.
-func _abaixar(delta: float, mov: Vector2, correr: bool) -> void:
+func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	if estado != Estado.CHAO or esquivando > 0.0:
 		postura = 0
 		_abaixar_seg = false
 		return
-	var parado := mov.length() < 0.15
+	var parado := quieto
 	if Input.is_action_just_pressed("abaixar") and (parado or postura != 0 or not Input.is_action_just_pressed("correr_alternar")):
 		if postura == 0:
 			postura = 1
@@ -364,12 +368,12 @@ func _abaixar(delta: float, mov: Vector2, correr: bool) -> void:
 	elif _abaixar_seg:
 		if Input.is_action_pressed("abaixar"):
 			_abaixar_t += delta
-			if _abaixar_t >= Ajustes.SENTAR_SEGURAR and parado:
+			if _abaixar_t >= Ajustes.SENTAR_SEGURAR:
 				postura = 2
 				_abaixar_seg = false
 		else:
 			_abaixar_seg = false
-	if postura == 2 and mov.length() > 0.35:
+	if postura == 2 and mov.length() > 0.5 and not Input.is_action_pressed("abaixar"):
 		postura = 0
 	if postura != 0 and correr:
 		postura = 0
