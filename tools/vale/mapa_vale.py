@@ -152,6 +152,22 @@ for k in range(-160, 160, 20):
     for (x0, z0, w, d) in [(k, -160, 12, 4), (k, 156, 12, 4), (-160, k, 4, 12), (156, k, 4, 12)]:
         bloco(x0, z0, w, d, (1.0, 1.0, 1.0))
 
+# ---------- dados para o jogo: relevo e cobertura, um ponto a cada 4 m (501 × 501) ----------
+if len(sys.argv) > sys.argv.index("--") + 2:
+    import os
+    pasta = sys.argv[sys.argv.index("--") + 2]
+    os.makedirs(pasta, exist_ok=True)
+    idx = np.minimum(np.arange(501) * 2, N - 1)
+    hj = np.maximum(h, -14.0)[np.ix_(idx, idx)].astype("<f4")  # o fundo do mar não passa de 14 m
+    cob = np.zeros((N, N), np.uint8)  # 0 campo, 1 mata, 2 mata fechada, 3 flores, 4 areia
+    cob[arvores] = 1
+    cob[arv_fechada] = 2
+    cob[flor] = 3
+    cob[praia | mar] = 4
+    hj.tofile(os.path.join(pasta, "alturas.bin"))
+    cob[np.ix_(idx, idx)].tofile(os.path.join(pasta, "cobertura.bin"))
+    print("dados em", pasta, "altura de %.1f a %.1f" % (hj.min(), hj.max()))
+
 # ---------- folha: mapa + legenda ----------
 LARG = 430
 tela = np.zeros((N + 40, N + LARG + 60, 4), np.float32)

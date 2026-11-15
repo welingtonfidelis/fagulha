@@ -35,6 +35,8 @@ func rodar(main: Node) -> void:
 	await _ponto_12()
 	await _ponto_13()
 	await _ponto_14()
+	await _ponto_15()
+	await _ponto_16()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -520,3 +522,88 @@ func _ponto_14() -> void:
 	await _esperar(3.5)
 	_soltar_tudo()
 	_zerar()
+
+
+## O vale maior: a clareira emenda no terreno de fora sem degrau, dá para pisar fora dela e o mar existe.
+func _ponto_15() -> void:
+	if not (m.ilha is Vale):
+		return
+	var v: Vale = m.ilha
+	_soltar_tudo()
+	_zerar()
+	# degrau na linha dos 160 m: compara 5 cm para dentro e 5 cm para fora, em volta toda
+	var pior := 0.0
+	for k in range(-158, 159, 4):
+		for lado: Array in [[160.0, float(k)], [-160.0, float(k)], [float(k), 160.0], [float(k), -160.0]]:
+			var x: float = lado[0]
+			var z: float = lado[1]
+			var dentro := v.altura(x * 0.9997, z * 0.9997)
+			var fora := v.altura(x * 1.0003, z * 1.0003)
+			pior = maxf(pior, absf(dentro - fora))
+	# pisar fora da clareira: campo ao sul
+	var p := Vector3(-100.0, 0.0, 500.0)
+	p.y = v.altura(p.x, p.z)
+	a.teleportar(p + Vector3(0, 3.0, 0), Armadura.Estado.AR)
+	await _esperar(1.5)
+	var no_chao := a.is_on_floor() and absf(a.global_position.y - v.altura(a.global_position.x, a.global_position.z)) < 0.6
+	# mar: bem ao sul há água no nível zero, e na terra não
+	var mar := v.agua(0.0, 980.0)
+	var seco := v.agua(p.x, p.z)
+	_ok(pior < 0.12 and no_chao and is_equal_approx(mar, Vale.MAR) and seco == -INF and v.arvores_fora > 5000,
+		"vale: maior degrau na borda da clareira %.3f m; pisa no campo do sul (%s, a %.2f m do chão); mar em z=980: %.1f; %d árvores fora"
+			% [pior, no_chao, a.global_position.y - v.altura(a.global_position.x, a.global_position.z), mar, v.arvores_fora])
+	a.recomecar()
+	await _esperar(0.5)
+
+
+## Rio e mar: o rio sai da lagoa e chega ao mar descendo; longe da costa o robô entra em pane e volta à praia.
+func _ponto_16() -> void:
+	if not (m.ilha is Vale):
+		return
+	var v: Vale = m.ilha
+	_soltar_tudo()
+	_zerar()
+	# o rio: água ao longo do trajeto, nível que só desce, e termina no mar
+	var niveis: Array[float] = []
+	var com_agua := 0
+	var total := 0
+	var s := v._rio_s_borda + 10.0
+	while s < v._rio_s_foz - 10.0:
+		var p := v._rio_ponto(s)
+		var n := v.agua(p.x, p.y)
+		total += 1
+		if n > -INF:
+			com_agua += 1
+			niveis.append(n)
+		s += 20.0
+	var desce := true
+	for i in range(1, niveis.size()):
+		if niveis[i] > niveis[i - 1] + 0.01:
+			desce = false
+	var foz := v._rio_ponto(v._rio_s_foz + 15.0)
+	# o mar: de pé na praia não há pane; a 300 m da costa há, e o robô volta para terra firme
+	var lim: LimiteMar = null
+	for n2 in m.get_children():
+		if n2 is LimiteMar:
+			lim = n2
+	var ciclo: CicloDia = m.ciclo
+	ciclo.parado = true
+	var panes0: int = a.panes
+	var longe := Vector3(0.0, 40.0, 1000.0)
+	var dist_longe := v.distancia_da_costa(longe.x, longe.z)
+	while dist_longe < LimiteMar.PANE + 30.0:
+		longe.z += 40.0
+		dist_longe = v.distancia_da_costa(longe.x, longe.z)
+	a.teleportar(longe, Armadura.Estado.VOO, Vector3(0, 0, 5))
+	await _esperar(0.6)
+	var entrou: bool = a.em_pane
+	await _esperar(Ajustes.PANE_TEMPO + 3.0)
+	var em_terra := v.altura(a.global_position.x, a.global_position.z) > 1.0 and v.distancia_da_costa(a.global_position.x, a.global_position.z) < 1.0
+	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1,
+		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e volta para a terra (%s, altura %.1f m)"
+			% [com_agua, total, desce, v.agua(foz.x, foz.y), dist_longe, entrou, em_terra, v.altura(a.global_position.x, a.global_position.z)])
+	a.graca_pane = 0.0
+	ciclo.hora = 10.0
+	ciclo.parado = false
+	a.recomecar()
+	await _esperar(0.5)

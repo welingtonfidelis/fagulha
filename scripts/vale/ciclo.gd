@@ -19,6 +19,7 @@ var minutos_por_dia := 60.0
 var chuva := 0.0  # 0 a 1 (suave)
 var chovendo := false  # ligado de fora (testes), fica até desligarem
 var parado := false  # hora fixa (fotos)
+var nevoa_longe := false  # vale grande: névoa por distância, que embaça perto como antes mas deixa ver longe
 
 var _prox_chuva := 0.0
 var _fim_chuva := 0.0
@@ -132,7 +133,26 @@ func _aplicar() -> void:
 	env.ambient_light_color = amb.lerp(cinza * claro, nublado * 0.6)
 	env.ambient_light_energy = lerpf(a[4], b[4], t) * lerpf(1.0, 1.1, nublado)
 	env.fog_light_color = nev.lerp(cinza * 1.15 * claro, nublado * 0.8)
-	env.fog_density = lerpf(a[8], b[8], t) + nublado * 0.007
+	var dens := lerpf(a[8], b[8], t) + nublado * 0.007
+	if nevoa_longe:
+		# quanto mais densa a hora (manhã, chuva), mais perto a névoa fecha
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_depth_begin = 0.0
+		env.fog_depth_curve = 0.3
+		env.fog_depth_end = 6000.0 * 0.0022 / maxf(dens, 0.0005)
+		env.fog_aerial_perspective = 1.0  # a névoa pega a cor do céu atrás: o horizonte do mar some no céu
+		# do alto a névoa pesa menos, para a vista do vale não lavar
+		var alto := 0.0
+		var vista := get_viewport().get_camera_3d() if is_inside_tree() else null
+		if vista:
+			alto = smoothstep(50.0, 260.0, vista.global_position.y)
+		env.fog_density = 0.9 * lerpf(1.0, 0.6, alto)
+		var ag := OS.get_cmdline_user_args()
+		if "--nevoa" in ag:  # experiência: densidade e curva fixas
+			env.fog_density = float(ag[ag.find("--nevoa") + 1])
+			env.fog_depth_curve = float(ag[ag.find("--nevoa") + 2])
+	else:
+		env.fog_density = dens
 	env.adjustment_saturation = lerpf(a[9], b[9], t) * lerpf(1.0, 0.8, nublado)
 	env.tonemap_exposure = lerpf(a[10], b[10], t)
 	# sol de dia, lua de noite (a mesma luz)

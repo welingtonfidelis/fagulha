@@ -303,6 +303,11 @@ func _por(nome: String, xf: Transform3D, colisao := false) -> void:
 			_corpo_pedras.add_child(cs)
 
 
+## A mata da clareira pode pôr árvore aqui? (o vale maior corta os cantos do quadrado)
+func _arvore_cabe(_x: float, _z: float) -> bool:
+	return true
+
+
 func _arvore(tipo: String, x: float, z: float, s: float, giro: float) -> void:
 	var h := altura(x, z)
 	arv_pos.append(Vector3(x, h - 0.15, z))
@@ -312,6 +317,7 @@ func _arvore(tipo: String, x: float, z: float, s: float, giro: float) -> void:
 
 
 var _fila_arv: Array = []
+var capim_malha: ArrayMesh  # a touceira com o material do capim (o capim de fora da clareira reusa)
 
 
 func _arvores_e_pedras() -> void:
@@ -341,7 +347,11 @@ func _arvores_e_pedras() -> void:
 			var sorte := rng.randf()
 			var alto := altura(px, pz) > 34.0
 			var tipo := "pinheiro" if (sorte < (0.55 if alto else 0.15)) else ("betula" if sorte > 0.86 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
-			_arvore(tipo, px, pz, rng.randf_range(0.85, 1.5), rng.randf() * TAU)
+			# os sorteios acontecem sempre, para as árvores da clareira ficarem onde sempre estiveram
+			var esc := rng.randf_range(0.85, 1.5)
+			var giro := rng.randf() * TAU
+			if _arvore_cabe(px, pz):
+				_arvore(tipo, px, pz, esc, giro)
 		z += 6.5
 	for i in arv_pos.size():
 		var cel := Vector2i(floori(arv_pos[i].x / CELULA_ARVORE), floori(arv_pos[i].z / CELULA_ARVORE))
@@ -443,6 +453,7 @@ func _capim() -> void:
 	mat.shader = load("res://scripts/shaders/vale_capim.gdshader")
 	mat.set_shader_parameter("ruido", _tex)
 	touceira.surface_set_material(0, mat)
+	capim_malha = touceira
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12
 	var blocos := {}

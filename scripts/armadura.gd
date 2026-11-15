@@ -50,6 +50,7 @@ var graca_pane := 0.0  # depois de religar, as máquinas não o enxergam por est
 var panes := 0
 var _avaria_tempo := 0.0
 var _pane_t := 0.0
+var _pane_volta := Vector3.INF  # para onde o robô volta no meio da pane (pane no mar)
 var queda_altura := 0.0  # metros caídos no último pouso
 
 var camera: CameraVoo
@@ -140,6 +141,18 @@ func levar_golpe(direcao: Vector3, forca: float) -> void:
 		entrou_pane.emit()
 
 
+## Pane sem golpe (longe demais no mar): desliga e, com a tela já escura, volta para `volta` (a praia).
+func pane_forcada(volta: Vector3) -> void:
+	if em_pane:
+		return
+	em_pane = true
+	_pane_t = 0.0
+	_pane_volta = volta
+	if estado != Estado.CHAO:
+		_mudar(Estado.AR)
+	entrou_pane.emit()
+
+
 ## Laço do robô desligado: só cai e espera. Devolve true enquanto a pane durar.
 func _pane(delta: float) -> bool:
 	graca_pane = maxf(0.0, graca_pane - delta)
@@ -151,13 +164,20 @@ func _pane(delta: float) -> bool:
 	if not em_pane:
 		return false
 	_pane_t += delta
+	if _pane_volta.is_finite() and _pane_t >= 2.3:
+		# a tela já escureceu: o robô reaparece na praia
+		global_position = _pane_volta
+		velocity = Vector3.ZERO
+		_pane_volta = Vector3.INF
+		_pico_y = global_position.y
+		_mudar(Estado.AR)
 	velocity.x = move_toward(velocity.x, 0.0, 12.0 * delta)
 	velocity.z = move_toward(velocity.z, 0.0, 12.0 * delta)
 	velocity.y -= Ajustes.GRAVIDADE * delta
 	move_and_slide()
 	if is_on_floor() and estado != Estado.CHAO:
 		_mudar(Estado.CHAO)
-	if _pane_t >= Ajustes.PANE_TEMPO and is_on_floor():
+	if _pane_t >= Ajustes.PANE_TEMPO and is_on_floor() and not _pane_volta.is_finite():
 		em_pane = false
 		avaria = 0
 		calor = 0.0

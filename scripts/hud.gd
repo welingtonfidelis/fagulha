@@ -37,6 +37,13 @@ func ligar_locais(l: Locais) -> void:
 	l.chegou.connect(_ao_chegar)
 
 
+## Aviso curto no mesmo lugar do nome dos lugares (ex.: sinal fraco no mar).
+func avisar(titulo: String, sub := "") -> void:
+	_nome_lugar = titulo
+	_sub_lugar = sub
+	_tempo_lugar = 0.0
+
+
 func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 	_nome_lugar = nome
 	_sub_lugar = ""

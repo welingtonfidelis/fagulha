@@ -22,6 +22,9 @@ func rodar(main: Node) -> void:
 	if "--curta" in args:
 		await _curta()
 		return
+	if "--largo" in args:
+		await _largo()
+		return
 	if "--mirando" in args:
 		await _mirando()
 		return
@@ -472,3 +475,55 @@ func _mirando() -> void:
 func _soltar() -> void:
 	for ac in ["frente", "tras", "esquerda", "direita", "atirar", "mirar", "correr"]:
 		Input.action_release(ac)
+
+
+## O vale inteiro visto do alto e de alguns lugares (`--largo`), com câmera solta.
+func _largo() -> void:
+	await _esperar(3.0)
+	a.recomecar()
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 60.0
+	livre.far = 9000.0
+	livre.make_current()
+	var vistas := [
+		["l1_do_alto_norte", Vector3(0, 330, 520), Vector3(0, 40, -300)],
+		["l2_do_alto_leste", Vector3(-420, 300, 120), Vector3(500, 20, 120)],
+		["l3_da_serra", Vector3(-640, 0, -700), Vector3(200, 20, 300)],
+		["l4_praia", Vector3(250, 0, 800), Vector3(700, 10, 500)],
+		["l5_borda_sul", Vector3(40, 0, 230), Vector3(0, 20, 0)],
+		["f1_campo_sul", Vector3(-100, 0, 500), Vector3(100, 10, 700)],
+		["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)],
+		["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)],
+		["f4_beira_rio", Vector3(262, 0, 392), Vector3(300, 6, 520)],
+		["r1_saida_lagoa", Vector3(30, 0, 20), Vector3(100, 18, 100)],
+		["r2_garganta", Vector3(150, 0, 200), Vector3(100, 20, 100)],
+		["r3_rio_campo", Vector3(250, 0, 330), Vector3(300, 5, 520)],
+		["r4_foz", Vector3(300, 0, 760), Vector3(350, 0, 900)],
+		["r5_rio_do_alto", Vector3(120, 190, 420), Vector3(260, 5, 420)],
+		["l6_campos_sul", Vector3(-100, 0, 500), Vector3(300, 0, 900)],
+		["l7_mata_fechada", Vector3(120, 0, -560), Vector3(-200, 60, -500)],
+		["l8_ruinas", Vector3(-560, 0, 420), Vector3(-700, 30, 250)],
+	]
+	if "--uma" in OS.get_cmdline_user_args():
+		vistas = [vistas[0]]
+	if "--serra" in OS.get_cmdline_user_args():
+		var cm: Vector3 = (c as Vale).cume
+		vistas = [["s1_cume_perto", Vector3(cm.x + 24, cm.y + 6, cm.z + 30), cm + Vector3(0, 6, 0)], ["s2_vista_do_cume", Vector3(cm.x, cm.y + 12, cm.z), Vector3(200, 20, 200)],
+			["s3_cume_de_longe", Vector3(-250, 0, -250), cm]]
+	if "--norte" in OS.get_cmdline_user_args():
+		vistas = [["n1_cachoeira", Vector3(-268, 128, -440), Vector3(-300, 120, -512)], ["n2_poco", Vector3(-283, 0, -470), Vector3(-300, 124, -515)], ["n3_de_cima", Vector3(-316, 0, -540), Vector3(-270, 100, -430)], ["n4_riacho_mata", Vector3(-200, 0, -250), Vector3(-250, 80, -360)], ["n5_entrada_clareira", Vector3(-88, 0, -60), Vector3(-150, 34, -150)], ["n6_nascente", Vector3(-470, 0, -640), Vector3(-380, 170, -600)], ["n7_do_alto", Vector3(-120, 200, -300), Vector3(-300, 110, -500)]]
+	if "--flores" in OS.get_cmdline_user_args():
+		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
+	for v: Array in vistas:
+		var de: Vector3 = v[1]
+		if de.y == 0.0:
+			de.y = c.altura(de.x, de.z) + 3.0
+		# o robô vai junto, para as árvores perto dele aparecerem completas
+		a.teleportar(Vector3(de.x, c.altura(de.x, de.z) + 0.3, de.z), Armadura.Estado.CHAO)
+		livre.global_position = de
+		livre.look_at(v[2])
+		await _esperar(2.2)
+		await _foto(v[0])
+	get_tree().quit()

@@ -1,0 +1,764 @@
+class_name Vale
+extends Clareira
+## O vale maior (2026-11-15): 2 km × 2 km em volta da clareira, que fica no meio sem mudar.
+## O relevo e a cobertura de fora vêm da maquete aprovada (tools/vale/mapa_vale.py → assets/vale/mapa/),
+## um ponto a cada 4 m. Na borda da clareira (de 108 a 156 m do centro) o chão dela se mistura ao de fora,
+## e na linha dos 160 m os dois são iguais, sem degrau.
+## Primeira etapa: só a base (chão, mar e mata de longe). Cada canto ganha capricho depois.
+
+const F_N := 501
+const F_PASSO := 4.0
+const F_META := 1000.0
+const MAR := 0.0
+const DADOS := "res://assets/vale/mapa/"
+const BORDA_DE := 108.0
+const BORDA_ATE := 156.0
+const AGUA_DENTRO := 110.0  # a água doce da clareira só vale até aqui (a lâmina dela vai até aí)
+
+# O rio que sai da lagoa e vai até o mar, ao sul (x, z). Dentro da clareira a água é a lâmina dela (NIVEL);
+# da borda em diante o nível desce até o mar, numa fita própria.
+const RIO: Array[Vector2] = [Vector2(34, -2), Vector2(52, 30), Vector2(74, 66), Vector2(104, 104), Vector2(132, 150), Vector2(170, 215),
+	Vector2(232, 320), Vector2(282, 430), Vector2(316, 560), Vector2(332, 700), Vector2(344, 820), Vector2(352, 1000)]
+const RIO_LEITO := 4.5  # metade da largura do leito chato
+const RIO_FAIXA := 11.0  # metade da largura da fita d'água (as margens escondem a sobra)
+const RIO_FUNDO := 1.3
+
+# O riacho que vem do norte: nasce na serra, cai na cachoeira (o fim do trecho de cima) dentro do poço
+# e desce pela mata fechada até o começo do riacho da clareira.
+const NASCENTE := Vector2(-306, -530)  # o alto da cachoeira, onde a água brota (um pouco atrás da beira do paredão)
+const RIO_BAIXO: Array[Vector2] = [Vector2(-290, -485), Vector2(-276, -430), Vector2(-260, -380), Vector2(-222, -295), Vector2(-180, -200),
+	Vector2(-140, -136), Vector2(-108, -88), Vector2(-96, -70)]
+const POCO := Vector3(-290, -485, 17)  # x, z, raio
+const POCO_NIVEL := 108.0
+
+var _cursos: Array = []  # de Curso: [0] sul, [1] norte (do poço até a clareira)
+var _rio_s_borda := 0.0  # onde o rio do sul sai da lâmina da clareira
+var _rio_s_foz := 0.0  # onde chega ao mar
+var cume := Vector3.ZERO  # o ponto mais alto do vale (Serra do Mirante)
+var queda_topo := Vector3.ZERO
+var quedas: Array[Vector3] = []  # o meio de cada cachoeira (para o som)
+var _fora_h := PackedFloat32Array()
+var _cob := PackedByteArray()
+var arvores_fora := 0
+
+# distância até a terra, numa grade de 16 m (para o limite do mar)
+const C_PASSO := 16.0
+const C_N2 := 126
+var _costa_dist := PackedFloat32Array()
+var _costa_terra := PackedInt32Array()  # índice da célula de terra mais perto
+
+
+func gerar(_semente := 7) -> void:
+	var t0 := Time.get_ticks_msec()
+	_carregar()
+	_preparar_rio()
+	super.gerar(_semente)
+	_malha_fora()
+	_colisao_fora()
+	_mar()
+	_fita_rio()
+	_preparar_costa()
+	_cume()
+	_mata_fora()
+	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
+
+
+func _carregar() -> void:
+	_fora_h = FileAccess.get_file_as_bytes(DADOS + "alturas.bin").to_float32_array()
+	_cob = FileAccess.get_file_as_bytes(DADOS + "cobertura.bin")
+	if _fora_h.size() != F_N * F_N or _cob.size() != F_N * F_N:
+		push_error("vale: dados do mapa ausentes ou do tamanho errado em %s" % DADOS)
+		_fora_h.resize(F_N * F_N)
+		_fora_h.fill(22.0)
+		_cob.resize(F_N * F_N)
+
+
+## Altura do terreno de fora (a grade de 4 m), em qualquer ponto.
+func _fora(x: float, z: float) -> float:
+	var fx := clampf((x + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var fz := clampf((z + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var ix := int(fx)
+	var iz := int(fz)
+	var i := iz * F_N + ix
+	return lerpf(lerpf(_fora_h[i], _fora_h[i + 1], fx - ix), lerpf(_fora_h[i + F_N], _fora_h[i + F_N + 1], fx - ix), fz - iz)
+
+
+func cobertura(x: float, z: float) -> int:
+	var ix := clampi(roundi((x + F_META) / F_PASSO), 0, F_N - 1)
+	var iz := clampi(roundi((z + F_META) / F_PASSO), 0, F_N - 1)
+	return _cob[iz * F_N + ix]
+
+
+func _dentro(x: float, z: float) -> bool:
+	return maxf(absf(x), absf(z)) <= C_META
+
+
+## O chão da clareira, misturado ao de fora perto da borda, e com o leito do rio que sai da lagoa.
+func _alt(x: float, z: float) -> float:
+	var t := smoothstep(BORDA_DE, BORDA_ATE, maxf(absf(x), absf(z)))
+	var h := super._alt(x, z)
+	if t > 0.0:
+		h = lerpf(h, _fora(x, z), t)
+	return _cavar_rio(x, z, h) if t < 1.0 else h
+
+
+# ---------------------------------------------------------------- os cursos d'água
+
+## Um trecho de rio: uma linha no chão com o nível da água em cada ponto. O chão ganha o leito e um vale
+## de encostas suaves em volta; a água é uma fita que acompanha o nível.
+class Curso:
+	var pts := PackedVector2Array()
+	var s := PackedFloat32Array()  # comprimento acumulado
+	var niv := PackedFloat32Array()  # nível da água em cada ponto
+	var fita_de := 0.0  # trecho que ganha fita d'água (fora dele a água é de outra lâmina)
+	var fita_ate := 0.0
+	var mn := Vector2.ZERO
+	var mx := Vector2.ZERO
+
+	func fechar() -> void:
+		s.resize(pts.size())
+		s[0] = 0.0
+		mn = pts[0]
+		mx = pts[0]
+		for i in range(1, pts.size()):
+			s[i] = s[i - 1] + pts[i].distance_to(pts[i - 1])
+			mn = mn.min(pts[i])
+			mx = mx.max(pts[i])
+
+	func total() -> float:
+		return s[s.size() - 1]
+
+	## Vector2(distância até a linha, comprimento andado até o ponto mais perto); INF se longe (mais de `raio`).
+	func perto(x: float, z: float, raio: float) -> Vector2:
+		if x < mn.x - raio or x > mx.x + raio or z < mn.y - raio or z > mx.y + raio:
+			return Vector2(INF, 0.0)
+		var p := Vector2(x, z)
+		var melhor := Vector2(INF, 0.0)
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var ab := pts[i + 1] - a
+			var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			var d := p.distance_to(a + ab * t)
+			if d < melhor.x:
+				melhor = Vector2(d, s[i] + ab.length() * t)
+		return melhor
+
+	func _trecho(sv: float) -> int:
+		for i in pts.size() - 1:
+			if sv <= s[i + 1]:
+				return i
+		return pts.size() - 2
+
+	func ponto(sv: float) -> Vector2:
+		var i := _trecho(sv)
+		return pts[i].lerp(pts[i + 1], clampf((sv - s[i]) / maxf(0.001, s[i + 1] - s[i]), 0.0, 1.0))
+
+	func nivel(sv: float) -> float:
+		var i := _trecho(sv)
+		return lerpf(niv[i], niv[i + 1], clampf((sv - s[i]) / maxf(0.001, s[i + 1] - s[i]), 0.0, 1.0))
+
+
+## Refaz uma linha com um ponto a cada `passo` metros.
+func _linha_fina(linha: Array[Vector2], passo: float) -> PackedVector2Array:
+	var saida := PackedVector2Array()
+	for i in linha.size() - 1:
+		var n := maxi(1, roundi(linha[i].distance_to(linha[i + 1]) / passo))
+		for k in n:
+			saida.append(linha[i].lerp(linha[i + 1], float(k) / n))
+	saida.append(linha[linha.size() - 1])
+	return saida
+
+
+func _preparar_rio() -> void:
+	_cursos.clear()
+	# 1. sul: da lagoa ao mar. Na clareira vale a lâmina dela (NIVEL); da borda em diante desce até o mar.
+	var sul := Curso.new()
+	sul.pts = _linha_fina(RIO, 20.0)
+	sul.fechar()
+	var borda := 0.0
+	var foz := sul.total()
+	var achou := false
+	for i in sul.pts.size():
+		var q := sul.pts[i]
+		if not achou and maxf(absf(q.x), absf(q.y)) >= AGUA_DENTRO - 2.0:
+			borda = sul.s[i]
+			achou = true
+		if achou and _fora(q.x, q.y) < MAR + 0.3:
+			foz = sul.s[i]
+			break
+	sul.niv.resize(sul.pts.size())
+	for i in sul.pts.size():
+		sul.niv[i] = NIVEL if sul.s[i] <= borda else lerpf(NIVEL, MAR + 0.05, clampf((sul.s[i] - borda) / (foz - borda), 0.0, 1.0))
+	sul.fita_de = borda
+	sul.fita_ate = minf(foz + 24.0, sul.total())
+	_rio_s_borda = borda
+	_rio_s_foz = foz
+	_cursos.append(sul)
+	# 2. norte de baixo: do poço da cachoeira até o riacho da clareira. O nível acompanha o chão, sempre descendo.
+	var baixo := Curso.new()
+	baixo.pts = _linha_fina(RIO_BAIXO, 20.0)
+	baixo.fechar()
+	baixo.niv.resize(baixo.pts.size())
+	var n := POCO_NIVEL
+	var fim_fita := baixo.total()
+	var achou2 := false
+	for i in baixo.pts.size():
+		var q := baixo.pts[i]
+		var resta := baixo.total() - baixo.s[i]
+		n = minf(n - 0.02, _fora(q.x, q.y) - 0.9) if i > 0 else POCO_NIVEL
+		# nos últimos 90 m o nível chega ao da clareira
+		n = maxf(n, NIVEL)
+		if resta < 90.0:
+			n = minf(n, lerpf(NIVEL, n, resta / 90.0))
+		baixo.niv[i] = n
+		if not achou2 and maxf(absf(q.x), absf(q.y)) <= AGUA_DENTRO - 2.0:
+			fim_fita = baixo.s[i]
+			achou2 = true
+	baixo.fita_de = 0.0
+	baixo.fita_ate = fim_fita
+	_cursos.append(baixo)
+	# 3. a nascente: a água brota no alto do paredão e já cai (um rio descendo a serra íngreme ficava
+	# parecendo uma rampa; a queda saindo da pedra é mais simples e mais bonita)
+	queda_topo = Vector3(NASCENTE.x, _fora(NASCENTE.x, NASCENTE.y) - 0.6, NASCENTE.y)
+	# o relevo de fora ganha os leitos e o poço (a clareira ganha os dela em _alt)
+	for gz in F_N:
+		for gx in F_N:
+			var x := -F_META + gx * F_PASSO
+			var z := -F_META + gz * F_PASSO
+			var i := gz * F_N + gx
+			_fora_h[i] = _cavar_rio(x, z, _fora_h[i])
+
+
+## Compatível com os testes: ponto do rio do sul no comprimento s.
+func _rio_ponto(sv: float) -> Vector2:
+	return (_cursos[0] as Curso).ponto(sv)
+
+
+## O chão com o leito dos rios: fundo chato, e a margem sobe da água em rampa suave até achar o terreno.
+func _cavar_rio(x: float, z: float, h: float) -> float:
+	for c: Curso in _cursos:
+		var r := c.perto(x, z, 190.0)
+		if r.x > 190.0:
+			continue
+		# atrás do começo ou depois do fim da linha o vale não se abre (senão ele aplainava o paredão da cachoeira)
+		if (r.y < 0.5 or r.y > c.total() - 0.5) and r.x > RIO_LEITO:
+			continue
+		var n := c.nivel(r.y)
+		var leito := minf(h, n - RIO_FUNDO)
+		var rampa := n + 0.55 + maxf(0.0, r.x - 10.0) * 0.25
+		var margem := minf(maxf(h, n + 0.55), maxf(rampa, n + 0.55))
+		if h < n + 0.55:
+			margem = n + 0.55 + (h - n - 0.55) * smoothstep(12.0, 40.0, r.x)  # terreno baixo: dique que some aos poucos
+		h = lerpf(leito, margem, smoothstep(RIO_LEITO, 10.0, r.x))
+	# a bacia da nascente, no alto do paredão
+	var dn := Vector2(x, z).distance_to(NASCENTE)
+	if dn < 9.0 and queda_topo.y > 0.0:
+		h = minf(h, lerpf(queda_topo.y - 0.9, h, smoothstep(3.0, 8.0, dn)))
+	# o poço da cachoeira
+	var d := Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y))
+	if d < 44.0:
+		# um anfiteatro: chão chato em volta do poço e paredão em volta, por onde a água cai
+		h = minf(h, lerpf(POCO_NIVEL + 0.5, h, smoothstep(31.0, 38.5, d)))
+	if d < POCO.z * 1.6:
+		h = minf(h, lerpf(POCO_NIVEL - 2.4, maxf(h, POCO_NIVEL + 0.4), smoothstep(POCO.z * 0.55, POCO.z * 1.1, d)))
+	return h
+
+
+func _mat_rio(semente: int, veloc: float) -> ShaderMaterial:
+	var ruido_agua := NoiseTexture2D.new()
+	ruido_agua.width = 256
+	ruido_agua.height = 256
+	ruido_agua.seamless = true
+	ruido_agua.noise = _ruido(semente, 1.0 / 11.0, 3)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/rio.gdshader")
+	mat.set_shader_parameter("ruido", ruido_agua)
+	mat.set_shader_parameter("raso", Color(0.20, 0.45, 0.42))
+	mat.set_shader_parameter("fundo", Color(0.04, 0.16, 0.20))
+	mat.set_shader_parameter("fluxo", Vector2(0.35, 0.9))
+	mat.set_shader_parameter("velocidade", veloc)
+	return mat
+
+
+## As fitas d'água dos cursos, o espelho do poço e a cachoeira.
+func _fita_rio() -> void:
+	var mat := _mat_rio(63, 0.5)
+	for c: Curso in _cursos:
+		var verts := PackedVector3Array()
+		var nrms := PackedVector3Array()
+		var uvs := PackedVector2Array()
+		var idx := PackedInt32Array()
+		var sv := c.fita_de
+		var k := 0
+		while sv <= c.fita_ate:
+			var p := c.ponto(sv)
+			var q := c.ponto(sv + 1.0)
+			var dir := (q - p).normalized() if q.distance_to(p) > 0.01 else Vector2(0, 1)
+			var lado := Vector2(-dir.y, dir.x)
+			var y := c.nivel(sv)
+			for sinal: float in [-1.0, 1.0]:
+				var v := p + lado * RIO_FAIXA * sinal
+				verts.append(Vector3(v.x, y, v.y))
+				nrms.append(Vector3.UP)
+				uvs.append(Vector2(sinal * 0.5 + 0.5, sv / 22.0))
+			if k > 0:
+				var b := k * 2
+				idx.append_array(PackedInt32Array([b - 2, b - 1, b + 1, b - 2, b + 1, b]))
+			k += 1
+			sv += 5.0
+		if k < 2:
+			continue
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		arr[Mesh.ARRAY_NORMAL] = nrms
+		arr[Mesh.ARRAY_TEX_UV] = uvs
+		arr[Mesh.ARRAY_INDEX] = idx
+		var m := ArrayMesh.new()
+		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		var mi := MeshInstance3D.new()
+		mi.name = "Rio"
+		mi.mesh = m
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	# o espelho do poço
+	var disco := MeshInstance3D.new()
+	var cil := CylinderMesh.new()
+	cil.top_radius = POCO.z * 1.15
+	cil.bottom_radius = POCO.z * 1.15
+	cil.height = 0.02
+	cil.radial_segments = 28
+	cil.cap_bottom = false
+	disco.mesh = cil
+	disco.material_override = _mat_rio(64, 0.15)
+	disco.position = Vector3(POCO.x, POCO_NIVEL - 0.01, POCO.y)
+	disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(disco)
+	# o espelho da nascente
+	var olho := MeshInstance3D.new()
+	var co := CylinderMesh.new()
+	co.top_radius = 5.0
+	co.bottom_radius = 5.0
+	co.height = 0.02
+	co.radial_segments = 20
+	co.cap_bottom = false
+	olho.mesh = co
+	olho.material_override = disco.material_override
+	olho.position = Vector3(NASCENTE.x, queda_topo.y - 0.01, NASCENTE.y)
+	olho.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(olho)
+	_cachoeira()
+
+
+## A queda: uma cortina d'água da beira do paredão até o poço, com névoa de respingo embaixo.
+func _cachoeira() -> void:
+	var ruido_q := NoiseTexture2D.new()
+	ruido_q.width = 256
+	ruido_q.height = 256
+	ruido_q.seamless = true
+	ruido_q.noise = _ruido(65, 1.0 / 14.0, 3)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/cachoeira.gdshader")
+	mat.set_shader_parameter("ruido", ruido_q)
+	var para := Vector2(POCO.x, POCO.y) - NASCENTE
+	var dir2 := para.normalized()
+	var beira := NASCENTE + dir2 * 5.0
+	var topo := Vector3(beira.x, queda_topo.y - 0.2, beira.y)
+	para = Vector2(POCO.x, POCO.y) - beira
+	var pe2 := Vector2(topo.x, topo.z) + dir2 * maxf(4.0, para.length() - POCO.z * 0.75)
+	var pe := Vector3(pe2.x, POCO_NIVEL - 0.3, pe2.y)
+	var dir := Vector3(dir2.x, 0, dir2.y)
+	var lado := Vector3(-dir.z, 0, dir.x)
+	var largura := 4.2
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var linhas := 24
+	for k in linhas:
+		var t0 := float(k) / linhas
+		var t1 := float(k + 1) / linhas
+		var p0 := Vector3(topo.x + (pe.x - topo.x) * pow(t0, 0.55), lerpf(topo.y, pe.y, t0 * t0 * 0.35 + t0 * 0.65), topo.z + (pe.z - topo.z) * pow(t0, 0.55))
+		var p1 := Vector3(topo.x + (pe.x - topo.x) * pow(t1, 0.55), lerpf(topo.y, pe.y, t1 * t1 * 0.35 + t1 * 0.65), topo.z + (pe.z - topo.z) * pow(t1, 0.55))
+		var l0 := largura * lerpf(0.8, 1.25, t0)
+		var l1 := largura * lerpf(0.8, 1.25, t1)
+		for v: Array in [[p0 - lado * l0, Vector2(0, t0)], [p0 + lado * l0, Vector2(1, t0)], [p1 + lado * l1, Vector2(1, t1)],
+				[p0 - lado * l0, Vector2(0, t0)], [p1 + lado * l1, Vector2(1, t1)], [p1 - lado * l1, Vector2(0, t1)]]:
+			st.set_normal((dir + Vector3.UP * 0.2).normalized())
+			st.set_uv(v[1])
+			st.add_vertex(v[0])
+	var mi := MeshInstance3D.new()
+	mi.name = "Cachoeira"
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	quedas.append((topo + pe) * 0.5)
+	# névoa de respingo no pé da queda
+	var mp := StandardMaterial3D.new()
+	mp.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mp.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mp.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mp.vertex_color_use_as_albedo = true
+	mp.albedo_color = Color(1, 1, 1, 0.22)
+	if ResourceLoader.exists("res://assets/fx/kenney/smoke_04.png"):
+		mp.albedo_texture = load("res://assets/fx/kenney/smoke_04.png")
+	var quad := QuadMesh.new()
+	quad.size = Vector2(5.0, 5.0)
+	quad.material = mp
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+	g.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
+	var gt := GradientTexture1D.new()
+	gt.gradient = g
+	var pp := ParticleProcessMaterial.new()
+	pp.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pp.emission_box_extents = Vector3(largura * 1.2, 0.5, 2.0)
+	pp.direction = Vector3(0, 1, 0)
+	pp.spread = 40.0
+	pp.initial_velocity_min = 1.0
+	pp.initial_velocity_max = 2.6
+	pp.gravity = Vector3(0, 0.2, 0)
+	pp.scale_min = 0.7
+	pp.scale_max = 1.6
+	pp.color_ramp = gt
+	var nev := GPUParticles3D.new()
+	nev.amount = 26
+	nev.lifetime = 3.2
+	nev.process_material = pp
+	nev.draw_pass_1 = quad
+	nev.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	nev.visibility_aabb = AABB(Vector3(-16, -4, -16), Vector3(32, 20, 32))
+	nev.position = pe + Vector3(0, 0.8, 0)
+	nev.rotation.y = atan2(lado.x, lado.z) - PI * 0.5
+	add_child(nev)
+
+
+func altura(x: float, z: float) -> float:
+	return super.altura(x, z) if _dentro(x, z) else _fora(x, z)
+
+
+func agua(x: float, z: float) -> float:
+	if maxf(absf(x), absf(z)) < AGUA_DENTRO:
+		return super.agua(x, z)
+	var h := altura(x, z)
+	if h < MAR:
+		return MAR
+	for c: Curso in _cursos:
+		var r := c.perto(x, z, RIO_FAIXA)
+		if r.x < RIO_FAIXA and r.y >= c.fita_de - 2.0 and r.y <= c.fita_ate + 2.0:
+			var n := c.nivel(r.y)
+			if h < n:
+				return n
+	if Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.15 and h < POCO_NIVEL:
+		return POCO_NIVEL
+	if Vector2(x, z).distance_to(NASCENTE) < 5.0 and h < queda_topo.y:
+		return queda_topo.y
+	return -INF
+
+
+func normal_em(x: float, z: float) -> Vector3:
+	if _dentro(x, z):
+		return super.normal_em(x, z)
+	var e := F_PASSO
+	return Vector3(_fora(x - e, z) - _fora(x + e, z), 2.0 * e, _fora(x, z - e) - _fora(x, z + e)).normalized()
+
+
+## A mata que fechava o quadro da clareira vira um anel de borda torta; fora dele vale a cobertura do mapa,
+## para o quadrado não aparecer visto de cima.
+func _arvore_cabe(x: float, z: float) -> bool:
+	var r := Vector2(x, z).length()
+	if r < 122.0 + _n_mata.get_noise_2d(x * 0.7, z * 0.7) * 26.0:
+		return true
+	var c := cobertura(x, z)
+	return c == 1 or c == 2
+
+
+## O cume da serra: acha o ponto mais alto e põe um marco de pedras em pé, que se vê de longe e serve de mirante.
+func _cume() -> void:
+	var melhor := 0
+	for i in _fora_h.size():
+		if _fora_h[i] > _fora_h[melhor]:
+			melhor = i
+	var x := -F_META + (melhor % F_N) * F_PASSO
+	var z := -F_META + (melhor / F_N) * F_PASSO
+	cume = Vector3(x, _fora_h[melhor], z)
+	for d: Array in [[Vector2(0, -7), 7.5, 0.4, "pedra_alta"], [Vector2(8, 3), 5.5, 2.2, "pedra_alta"], [Vector2(-8, 5), 4.6, 4.1, "pedra_alta"],
+			[Vector2(3, 9), 2.6, 1.0, "pedra_b"], [Vector2(-4, -1), 2.0, 3.0, "pedra_a"]]:
+		var o: Vector2 = d[0]
+		var esc: float = d[1]
+		var px := x + o.x
+		var pz := z + o.y
+		_por(d[3], Transform3D(Basis(Vector3.UP, d[2]).scaled(Vector3.ONE * esc), Vector3(px, _fora(px, pz) + esc * 0.35, pz)), true)
+
+
+# ---------------------------------------------------------------- a costa
+
+## Grade grossa com a distância de cada ponto do mar até a terra mais perto (busca em largura a partir da terra).
+func _preparar_costa() -> void:
+	_costa_dist.resize(C_N2 * C_N2)
+	_costa_dist.fill(INF)
+	_costa_terra.resize(C_N2 * C_N2)
+	_costa_terra.fill(-1)
+	var fila := PackedInt32Array()
+	for iz in C_N2:
+		for ix in C_N2:
+			var x := -F_META + ix * C_PASSO
+			var z := -F_META + iz * C_PASSO
+			if _fora(x, z) > 1.2:
+				var i := iz * C_N2 + ix
+				_costa_dist[i] = 0.0
+				_costa_terra[i] = i
+				fila.append(i)
+	var k := 0
+	while k < fila.size():
+		var i := fila[k]
+		k += 1
+		var ix := i % C_N2
+		var iz := i / C_N2
+		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var jx := ix + d.x
+			var jz := iz + d.y
+			if jx < 0 or jz < 0 or jx >= C_N2 or jz >= C_N2:
+				continue
+			var j := jz * C_N2 + jx
+			if _costa_terra[j] >= 0:
+				continue
+			_costa_terra[j] = _costa_terra[i]
+			var t := _costa_terra[i]
+			_costa_dist[j] = Vector2(jx - t % C_N2, jz - t / C_N2).length() * C_PASSO
+			fila.append(j)
+
+
+func _celula_costa(x: float, z: float) -> int:
+	var ix := clampi(roundi((x + F_META) / C_PASSO), 0, C_N2 - 1)
+	var iz := clampi(roundi((z + F_META) / C_PASSO), 0, C_N2 - 1)
+	return iz * C_N2 + ix
+
+
+## Metros até a terra mais perto (0 em terra). Fora do mapa soma o que passou da borda.
+func distancia_da_costa(x: float, z: float) -> float:
+	var fora_mapa := Vector2(maxf(0.0, absf(x) - F_META), maxf(0.0, absf(z) - F_META)).length()
+	return _costa_dist[_celula_costa(x, z)] + fora_mapa
+
+
+## Um ponto de terra firme perto de (x, z), para o robô voltar depois da pane no mar.
+func praia_perto(x: float, z: float) -> Vector3:
+	var t := _costa_terra[_celula_costa(x, z)]
+	if t < 0:
+		return spawn
+	var px := -F_META + (t % C_N2) * C_PASSO
+	var pz := -F_META + (t / C_N2) * C_PASSO
+	# alguns passos para dentro da terra, para não nascer na linha d'água
+	var dentro := (Vector2(px, pz) - Vector2(x, z)).normalized()
+	for passo in 6:
+		var q := Vector2(px, pz) + dentro * 4.0
+		if _fora(q.x, q.y) < 1.2:
+			break
+		px = q.x
+		pz = q.y
+		if _fora(px, pz) > 2.5:
+			break
+	return Vector3(px, altura(px, pz) + 0.4, pz)
+
+
+# ---------------------------------------------------------------- chão de fora
+
+func _malha_fora() -> void:
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/vale_chao.gdshader")
+	mat.set_shader_parameter("ruido", _tex)
+	var bl := 50  # quadrados por bloco: 200 m
+	var lado := bl + 1
+	var furo := int(C_META / F_PASSO)  # quadrados da clareira, de cada lado do centro
+	var meio := (F_N - 1) / 2
+	for bz in (F_N - 1) / bl:
+		for bx in (F_N - 1) / bl:
+			var verts := PackedVector3Array()
+			var nrms := PackedVector3Array()
+			var cols := PackedColorArray()
+			verts.resize(lado * lado)
+			nrms.resize(lado * lado)
+			cols.resize(lado * lado)
+			for j in lado:
+				for i in lado:
+					var gx := bx * bl + i
+					var gz := bz * bl + j
+					var x := -F_META + gx * F_PASSO
+					var z := -F_META + gz * F_PASSO
+					var h := _fora_h[gz * F_N + gx]
+					var k := j * lado + i
+					verts[k] = Vector3(x, h, z)
+					nrms[k] = normal_em_fora(gx, gz)
+					var c := _cob[gz * F_N + gx]
+					var areia := 1.0 if c == 4 else (1.0 - smoothstep(1.5, 4.5, h))
+					cols[k] = Color(0.3 if c == 2 else 0.0, 0.0, areia, 0.0 if c == 3 else 1.0)
+			var idx := PackedInt32Array()
+			for j in bl:
+				for i in bl:
+					var gx := bx * bl + i
+					var gz := bz * bl + j
+					# o quadrado da clareira fica de fora: lá o chão é o dela
+					if gx >= meio - furo and gx < meio + furo and gz >= meio - furo and gz < meio + furo:
+						continue
+					var a := j * lado + i
+					idx.append_array(PackedInt32Array([a, a + 1, a + lado + 1, a, a + lado + 1, a + lado]))
+			if idx.is_empty():
+				continue
+			var arr := []
+			arr.resize(Mesh.ARRAY_MAX)
+			arr[Mesh.ARRAY_VERTEX] = verts
+			arr[Mesh.ARRAY_NORMAL] = nrms
+			arr[Mesh.ARRAY_COLOR] = cols
+			arr[Mesh.ARRAY_INDEX] = idx
+			var m := ArrayMesh.new()
+			m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			m.surface_set_material(0, mat)
+			var mi := MeshInstance3D.new()
+			mi.mesh = m
+			add_child(mi)
+
+
+func normal_em_fora(gx: int, gz: int) -> Vector3:
+	var hl := _fora_h[gz * F_N + maxi(gx - 1, 0)]
+	var hr := _fora_h[gz * F_N + mini(gx + 1, F_N - 1)]
+	var hd := _fora_h[maxi(gz - 1, 0) * F_N + gx]
+	var hu := _fora_h[mini(gz + 1, F_N - 1) * F_N + gx]
+	return Vector3(hl - hr, 2.0 * F_PASSO, hd - hu).normalized()
+
+
+func _colisao_fora() -> void:
+	# o mesmo relevo da malha; dentro da clareira fica um metro abaixo do chão dela
+	var dados := _fora_h.duplicate()
+	var furo := int(C_META / F_PASSO) - 1
+	var meio := (F_N - 1) / 2
+	for gz in range(meio - furo, meio + furo + 1):
+		for gx in range(meio - furo, meio + furo + 1):
+			# o relevo de fora não vale dentro da clareira (lá ele pode passar por cima do chão dela)
+			var x := -F_META + gx * F_PASSO
+			var z := -F_META + gz * F_PASSO
+			dados[gz * F_N + gx] = minf(dados[gz * F_N + gx], super.altura(x, z)) - 1.0
+	var corpo := StaticBody3D.new()
+	corpo.name = "ChaoFora"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	add_child(corpo)
+	var forma := HeightMapShape3D.new()
+	forma.map_width = F_N
+	forma.map_depth = F_N
+	forma.map_data = dados
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	cs.scale = Vector3(F_PASSO, 1.0, F_PASSO)
+	corpo.add_child(cs)
+
+
+func _mar() -> void:
+	var ruido_agua := NoiseTexture2D.new()
+	ruido_agua.width = 256
+	ruido_agua.height = 256
+	ruido_agua.seamless = true
+	ruido_agua.noise = _ruido(91, 1.0 / 32.0, 3)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/rio.gdshader")
+	mat.set_shader_parameter("ruido", ruido_agua)
+	mat.set_shader_parameter("raso", Color(0.22, 0.56, 0.56))
+	mat.set_shader_parameter("fundo", Color(0.03, 0.16, 0.30))
+	mat.set_shader_parameter("fluxo", Vector2(0.3, 0.8))
+	mat.set_shader_parameter("velocidade", 0.22)
+	mat.set_shader_parameter("prof_max", 12.0)
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(40000, 40000)
+	var mi := MeshInstance3D.new()
+	mi.name = "Mar"
+	mi.mesh = pm
+	mi.material_override = mat
+	mi.position = Vector3(0, MAR, 0)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	# fundo escuro além do mapa, na mesma profundidade, para a cor do mar não mudar na borda dos dados
+	var fundo := MeshInstance3D.new()
+	var pf := PlaneMesh.new()
+	pf.size = Vector2(40000, 40000)
+	fundo.mesh = pf
+	var mf := StandardMaterial3D.new()
+	mf.albedo_color = Color(0.30, 0.25, 0.16)
+	mf.roughness = 1.0
+	fundo.material_override = mf
+	fundo.position = Vector3(0, -14.05, 0)
+	fundo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(fundo)
+
+
+# ---------------------------------------------------------------- mata de fora
+
+## Dentro d'água ou na beira dos rios e do poço: árvore não nasce.
+func _perto_dagua(x: float, z: float) -> bool:
+	for c: Curso in _cursos:
+		if c.perto(x, z, 9.0).x < 9.0:
+			return true
+	return Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.4 or Vector2(x, z).distance_to(NASCENTE) < 12.0
+
+
+func _mata_fora() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	var primeiro := arv_pos.size()
+	var fila: Array = []
+	var passo := 9.0
+	var z := -F_META + 12.0
+	while z < F_META - 12.0:
+		var x := -F_META + 12.0
+		while x < F_META - 12.0:
+			var px := x + rng.randf_range(-3.6, 3.6)
+			var pz := z + rng.randf_range(-3.6, 3.6)
+			x += passo
+			if maxf(absf(px), absf(pz)) < C_META + 2.0:
+				continue
+			var c := cobertura(px, pz)
+			if c != 1 and c != 2:
+				continue
+			if rng.randf() > (0.92 if c == 2 else 0.5):
+				continue
+			var h := _fora(px, pz)
+			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz):
+				continue
+			var sorte := rng.randf()
+			var tipo := "carvalho_a"
+			var s := rng.randf_range(0.9, 1.5)
+			if h > 95.0:
+				tipo = "pinheiro" if sorte < 0.85 else "betula"
+			elif c == 2:
+				# mata fechada: árvores maiores, mais carvalho e pinheiro escuro
+				tipo = "carvalho_b" if sorte < 0.5 else ("pinheiro" if sorte < 0.8 else "carvalho_a")
+				s = rng.randf_range(1.3, 2.0)
+			else:
+				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
+			arv_pos.append(Vector3(px, h - 0.15, pz))
+			arv_escala.append(s * 0.8)
+			arv_tipo.append(0 if tipo == "pinheiro" else 1)
+			fila.append([tipo, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(px, h - 0.15, pz))])
+		z += passo
+	arvores_fora = fila.size()
+	# grade para a colisão e para as folhas ao atravessar as copas
+	for i in range(primeiro, arv_pos.size()):
+		var cel := Vector2i(floori(arv_pos[i].x / CELULA_ARVORE), floori(arv_pos[i].z / CELULA_ARVORE))
+		var l: PackedInt32Array = _grade_arv.get(cel, PackedInt32Array())
+		l.append(i)
+		_grade_arv[cel] = l
+	# desenho: por tipo e por bloco de 160 m; completo perto, leve de longe, e nada além de 1.300 m
+	var grupos := {}
+	for item in fila:
+		var xf: Transform3D = item[1]
+		var chave := "%s|%d|%d" % [item[0], floori(xf.origin.x / 160.0), floori(xf.origin.z / 160.0)]
+		if not grupos.has(chave):
+			grupos[chave] = []
+		(grupos[chave] as Array).append(xf)
+	for chave in grupos:
+		var tipo: String = (chave as String).split("|")[0]
+		var xfs: Array = grupos[chave]
+		var centro := Vector3.ZERO
+		for xf in xfs:
+			centro += (xf as Transform3D).origin
+		centro /= xfs.size()
+		_multi(tipo, xfs, centro, 0.0, 170.0, true)
+		_multi(tipo + "_longe", xfs, centro, 170.0, 1300.0, false)

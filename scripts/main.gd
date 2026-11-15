@@ -48,7 +48,7 @@ func _ready() -> void:
 		ilha = Mundo.new()
 	elif mapa == "clareira":
 		_ambiente_vale()
-		ilha = Clareira.new()
+		ilha = Clareira.new() if "--so-clareira" in args else Vale.new()
 	else:
 		_ambiente()
 		ilha = Ilha.new()
@@ -76,6 +76,7 @@ func _ready() -> void:
 	armadura.camera = camera
 	if ciclo:
 		ciclo.camera = camera
+		ciclo.nevoa_longe = ilha is Vale  # aqui o mapa já existe
 	var camada := CanvasLayer.new()
 	add_child(camada)
 	hud = Hud.new()
@@ -120,6 +121,31 @@ func _ready() -> void:
 		mato.armadura = armadura
 		mato.mapa = ilha
 		add_child(mato)
+		if ilha is Vale:
+			var limite := LimiteMar.new()
+			limite.armadura = armadura
+			limite.mapa = ilha
+			limite.hud = hud
+			add_child(limite)
+			for q in (ilha as Vale).quedas:
+				sons.cachoeira_em(q)
+			# lugares com nome: aparecem na tela na chegada (os da maquete aprovada; as ruínas entram quando existirem)
+			var mapa_vale := ilha as Vale
+			locais = Locais.new()
+			locais.armadura = armadura
+			add_child(locais)
+			var foz := mapa_vale._rio_ponto(mapa_vale._rio_s_foz)
+			for l: Array in [["Clareira", Vector2(0, 0), 95.0], ["Cachoeira", Vector2(Vale.POCO.x, Vale.POCO.y), 55.0],
+					["Mata Fechada", Vector2(140, -600), 190.0], ["Serra do Mirante", Vector2(mapa_vale.cume.x, mapa_vale.cume.z), 120.0],
+					["Platô das Flores", Vector2(640, 120), 210.0], ["Campos do Sul", Vector2(-100, 540), 190.0],
+					["Foz do Riacho", foz, 60.0]]:
+				var lp: Vector2 = l[1]
+				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
+			hud.ligar_locais(locais)
+			var capim := CapimVivo.new()
+			capim.mapa = ilha
+			capim.alvo = armadura
+			add_child(capim)
 		var pane := Pane.new()
 		pane.armadura = armadura
 		pane.ciclo = ciclo
