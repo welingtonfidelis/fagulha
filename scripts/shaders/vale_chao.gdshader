@@ -34,8 +34,10 @@ void fragment() {
 		c = mix(c, cf, smoothstep(0.55, 0.62, p1) * flor * 0.85);
 		c = mix(c, cf2, smoothstep(0.60, 0.66, p2) * flor * 0.75);
 	}
-	vec3 pedra = mix(vec3(0.16, 0.165, 0.18), vec3(0.23, 0.23, 0.24), smoothstep(0.4, 0.6, r));  // cinza de rocha (antes clara demais: parecia neve)
-	c = mix(c, pedra, smoothstep(0.80, 0.68, wnrm.y + (r - 0.5) * 0.15));
+	vec3 pedra = cor_rocha(ruido, wpos, wnrm);
+	// tufos de mato nos degraus: a pedra não começa numa linha reta
+	float borda = wnrm.y + (r - 0.5) * 0.22 + (texture(ruido, wpos.xz * 0.31).r - 0.5) * 0.12;
+	c = mix(c, pedra, smoothstep(0.80, 0.68, borda));
 	ALBEDO = c;
 	ROUGHNESS = mix(0.95, 0.4, COLOR.g);
 	SPECULAR = 0.1;

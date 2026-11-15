@@ -33,6 +33,12 @@ var _raiz_y := 0.0
 var _alvos := {}
 var _chama_tamanho := 0.0
 var _yaw := 0.0
+var _abaixa := 0.0  # 0 de pé, 1 abaixado (suavizado)
+var _senta := 0.0  # 0 de pé, 1 sentado (suavizado)
+var _levanta := 0.0  # sentado: quanto a bacia sobe para nenhuma peça entrar no chão
+var _malhas: Array[MeshInstance3D] = []
+const ABAIXA_DESCE := 0.42  # quanto a bacia desce abaixado, em alturas de armadura de 1 m de porte
+const SENTA_DESCE := 1.1
 
 
 func _ready() -> void:
@@ -231,6 +237,16 @@ func _alvo(nome: String, x: float, y := 0.0, z := 0.0) -> void:
 	_alvos[nome] = Vector3(deg_to_rad(x), deg_to_rad(y), deg_to_rad(z))
 
 
+func _soma(nome: String, x: float) -> void:
+	if _alvos.has(nome):
+		_alvos[nome] += Vector3(deg_to_rad(x), 0.0, 0.0)
+
+
+func _soma_lados(nome: String, x: float, z_esq: float) -> void:
+	_alvos[nome + "E"] += Vector3(deg_to_rad(x), 0.0, deg_to_rad(z_esq))
+	_alvos[nome + "D"] += Vector3(deg_to_rad(x), 0.0, deg_to_rad(-z_esq))
+
+
 func _lados(nome: String, x: float, z_esq: float) -> void:
 	# z_esq é o ângulo do lado esquerdo; o direito espelha
 	_alvo(nome + "E", x, 0.0, z_esq)
@@ -266,7 +282,9 @@ func atualizar(delta: float, a: Armadura) -> void:
 		yaw_alvo = atan2(-a.dir_voo.x, -a.dir_voo.z)
 		if a.estado != Armadura.Estado.DECOLAGEM:
 			pitch_alvo = asin(clampf(a.dir_voo.y, -1.0, 1.0))
-			roll_alvo = clampf(a.giro_lateral * 0.35, -0.8, 0.8)
+			roll_alvo = clampf(a.giro_lateral * 0.35 - a.inclinar * 0.45, -1.0, 1.0)
+	elif a.estado == Armadura.Estado.FREAR:
+		yaw_alvo = atan2(-a.dir_voo.x, -a.dir_voo.z)  # freando: de pé no ar, de frente para onde ia
 	elif hv > 0.5:
 		yaw_alvo = atan2(-a.velocity.x, -a.velocity.z)
 	_torcao = lerp_angle(_torcao, torcao_alvo, 1.0 - exp(-10.0 * delta))
@@ -360,6 +378,14 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_lados("joelho", 32.0, 0.0)
 			_lados("ombro", 10.0, 32.0)
 			_lados("cotovelo", -30.0, 0.0)
+			if a.mergulhando:
+				# mergulho com impacto: pernas recolhidas, punho direito armado para baixo
+				_alvo("raiz", 20.0)
+				_lados("quadril", -70.0, 6.0)
+				_lados("joelho", 110.0, 0.0)
+				_alvo("ombroD", -150.0, 0.0, -8.0)
+				_alvo("cotoveloD", -70.0)
+				_alvo("ombroE", 40.0, 0.0, 30.0)
 			aletas = 0.0
 		Armadura.Estado.DECOLAGEM:
 			if a._tempo_estado < 0.12:
@@ -403,6 +429,18 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_lados("cotovelo", -22.0, 0.0)
 			_alvo("tronco", 4.0)
 			chama = 0.6
+		Armadura.Estado.FREAR:
+			# corpo jogado para trás, pernas e braços esticados à frente: os jatos dos pés e das mãos freiam
+			_alvo("raiz", -26.0)
+			_alvo("tronco", 8.0)
+			_alvo("cabeca", 14.0)
+			_lados("quadril", -62.0, 7.0)
+			_lados("joelho", 14.0, 0.0)
+			_lados("tornozelo", -18.0, 0.0)
+			_lados("ombro", -78.0, 12.0)
+			_lados("cotovelo", -8.0, 0.0)
+			_lados("punho", -8.0, 0.0)
+			chama = 1.8
 		Armadura.Estado.PLANAR:
 			_alvo("raiz", 64.0)
 			_alvo("cabeca", -48.0)
@@ -412,6 +450,34 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_lados("joelho", 10.0, 0.0)
 			_lados("tornozelo", 35.0, 0.0)
 			aletas = 1.0
+	# abaixado ou sentado (só no chão): soma à pose de pé ou de passada
+	_abaixa = lerpf(_abaixa, 1.0 if a.postura == 1 else 0.0, 1.0 - exp(-9.0 * delta))
+	_senta = lerpf(_senta, 1.0 if a.postura == 2 else 0.0, 1.0 - exp(-6.0 * delta))
+	if a.estado == Armadura.Estado.CHAO and not a.em_pane:
+		if _abaixa > 0.01:
+			_soma_lados("quadril", -58.0 * _abaixa, 3.0 * _abaixa)
+			_soma_lados("joelho", 96.0 * _abaixa, 0.0)
+			_soma_lados("tornozelo", -38.0 * _abaixa, 0.0)
+			_soma("tronco", 26.0 * _abaixa)
+			_soma("cabeca", -20.0 * _abaixa)
+			_soma_lados("ombro", -14.0 * _abaixa, 6.0 * _abaixa)
+			_soma_lados("cotovelo", -30.0 * _abaixa * (1.0 - _passada), 0.0)
+			bob -= ABAIXA_DESCE * _abaixa * Armadura.porte
+		if _senta > 0.01:
+			# sentado no chão, pernas esticadas à frente, mãos nas coxas, olhando a paisagem
+			var s := smoothstep(0.0, 1.0, _senta)
+			var olha := sin(Time.get_ticks_msec() * 0.0004) * 14.0
+			_lados("quadril", -98.0 * s, 13.0 * s)
+			_lados("joelho", 16.0 * s, 0.0)
+			_lados("tornozelo", 6.0 * s, 0.0)
+			_alvo("raiz", -8.0 * s)
+			_alvo("tronco", 10.0 * s, 0.0, 0.0)
+			_alvo("cabeca", -4.0 * s, olha * s)
+			_lados("ombro", -34.0 * s, 9.0 * s)
+			_lados("cotovelo", -42.0 * s, 0.0)
+			bob = (-SENTA_DESCE * s + _levanta) * Armadura.porte
+	if _senta <= 0.01:
+		_levanta = 0.0
 	# mirando: o braço direito aponta para onde a câmera olha (sem arma ainda)
 	if (a.mirando_agora() or (a.atirando > 0.0 and not a.em_voo() and not a.em_pane)) and a.camera:
 		var p := rad_to_deg(a.camera.pitch)
@@ -469,6 +535,21 @@ func atualizar(delta: float, a: Armadura) -> void:
 			(j["aleta" + lado] as Node3D).rotation = Vector3(0, 0, deg_to_rad(78.0 * s * ab))
 			for i in 3:
 				(j["aleta%s%d" % [lado, i]] as Node3D).rotation = Vector3(deg_to_rad(i * 10.0 * ab), 0, deg_to_rad(i * 9.0 * s * ab))
+	# sentado: mede a peça mais baixa do corpo e sobe a bacia até ela encostar no chão, sem entrar
+	if _senta > 0.01 and not esqueleto:
+		if _malhas.is_empty():
+			for n in modelo.find_children("*", "MeshInstance3D", true, false):
+				var mi := n as MeshInstance3D
+				if mi.mesh and not (mi in chamas) and not (mi in chamas_pequenas):
+					_malhas.append(mi)
+		var baixo := INF
+		for mi in _malhas:
+			var cx := mi.mesh.get_aabb()
+			var gt := mi.global_transform
+			for i in 8:
+				baixo = minf(baixo, (gt * cx.get_endpoint(i)).y)
+		var folga := (baixo - a.global_position.y) / Armadura.porte
+		_levanta = clampf(_levanta - folga * 0.4, 0.0, 0.6)
 	# chamas e brilho do calor
 	_chama_tamanho = lerpf(_chama_tamanho, chama, 1.0 - exp(-10.0 * delta))
 	# a origem das peças do modelo fica no chão (não no bocal), então a chama não escala: muda o brilho

@@ -35,17 +35,19 @@ func _ready() -> void:
 	ajuda.add_theme_color_override("font_color", Color(0.85, 0.85, 0.82))
 	ajuda.text = "\n".join([
 		"Controle",
-		"  analógico esquerdo: andar · L3: correr / arrancada no voo",
-		"  X: pular · X no ar: pulo duplo · segure X: decolar / ligar o voo · X no voo: planar ↔ motor",
-		"  O: esquiva (no voo: soltar) · L2: mirar (no ar: pairar) · R2: atirar · R1: marcar um ponto",
-		"  analógico direito: olhar e mirar o voo · Options: pausa · Create: medidor",
+		"  analógico esquerdo: andar · L3 andando: correr · L3 parado: abaixar (segure para sentar)",
+		"  X: pular (segure para subir mais) · X no ar: pulo duplo · L3 no ar: liga e desliga o voo",
+		"  no voo, analógico esquerdo: frente acelera, trás segura, lado inclina e fecha a curva",
+		"  O: esquiva (no voo: freia e desliga os jatos) · triângulo no ar: mergulho com impacto",
+		"  L2 ou R3: parar no ar e mirar · R2: atirar · R1: marcar um ponto",
+		"  analógico direito: olhar e guiar o voo · Options: pausa · Create: medidor",
 		"",
 		"Teclado e mouse",
-		"  WASD: andar · Shift: correr / arrancada · Espaço: pular, pulo duplo, decolar, voar, planar",
-		"  C: esquiva (no voo: soltar) · botão direito: mirar / pairar · botão esquerdo: atirar · Q: marcar",
-		"  mouse: olhar · Esc: pausa · F3: medidor",
+		"  WASD: andar e acelerador do voo · Shift: correr (no ar: liga e desliga o voo) · Ctrl: abaixar",
+		"  Espaço: pular, pulo duplo · C: esquiva (no voo: freia e desliga) · V: mergulho · F: parar no ar",
+		"  botão direito: mirar / parar no ar · botão esquerdo: atirar · Q: marcar · Esc: pausa · F3: medidor",
 		"",
-		"Calor: subir e acelerar esquentam; planar, mergulhar e passar rente à água esfriam.",
+		"Calor: subir e acelerar esquentam; mergulhar, a chuva e passar rente à água esfriam.",
 	])
 	caixa.add_child(ajuda)
 	visible = false
@@ -82,10 +84,28 @@ func _abrir() -> void:
 	_primeiro.grab_focus()
 
 
+## Fecha o menu, mas o jogo só volta quando os botões do menu forem soltos: senão a bolinha que fecha a
+## pausa também desligava o voo, e o X do "Continuar" também pulava.
 func _continuar() -> void:
 	visible = false
-	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_saindo = true
+
+
+var _saindo := false
+
+
+func _process(_delta: float) -> void:
+	if not _saindo:
+		return
+	if visible:
+		_saindo = false
+		return
+	for acao in ["ui_cancel", "ui_accept", "soltar", "pular"]:
+		if Input.is_action_pressed(acao):
+			return
+	_saindo = false
+	get_tree().paused = false
 
 
 const NOMES_MAPA := {"clareira": "a clareira (novo rumo)", "mundo": "a ilha de 4 km", "ilha": "ilha de teste antiga", "canion": "cânion realista", "canion_b": "cânion pintado"}

@@ -31,6 +31,9 @@ func rodar(main: Node) -> void:
 	if "--passada" in args:
 		await _passada()
 		return
+	if "--posturas" in args:
+		await _posturas()
+		return
 	if "--pouso" in args:
 		await _pouso()
 		return
@@ -403,6 +406,108 @@ func _pouso() -> void:
 	get_tree().quit()
 
 
+## Abaixado, andando abaixado, sentado e a freada no ar (`--posturas`), com câmera solta e com a do jogo.
+func _posturas() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	var claro := Clareira.CLAROS[0]
+	var capim := c.find_children("*", "MultiMeshInstance3D", true, false)
+	for n in capim:
+		(n as Node3D).visible = false
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 26.0
+	livre.make_current()
+	var chao := Vector3(claro.x, c.altura(claro.x, claro.y) + 0.2, claro.y)
+	a.teleportar(chao, Armadura.Estado.CHAO)
+	cam.yaw = PI * 0.5
+	cam.pitch = 0.0
+	await _esperar(0.8)
+	var tirar := func(nome: String) -> void:
+		var p: Vector3 = a.global_position + a.velocity * (1.0 / 60.0)
+		for v: Array in [["lado", Vector3(0, 0.6, 4.6)], ["frente", Vector3(-3.6, 0.9, 2.6)]]:
+			livre.global_position = p + v[1]
+			livre.look_at(p + Vector3(0, 0.5, 0))
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(pasta + "%s_%s.png" % [nome, v[0]])
+	await tirar.call("a_de_pe")
+	Input.action_press("abaixar")
+	await _esperar(0.1)
+	Input.action_release("abaixar")
+	await _esperar(0.8)
+	await tirar.call("b_abaixado")
+	Input.action_press("frente")
+	await _esperar(1.0)
+	await tirar.call("c_abaixado_andando")
+	Input.action_release("frente")
+	await _esperar(0.6)
+	Input.action_press("abaixar")
+	await _esperar(0.1)
+	Input.action_release("abaixar")
+	await _esperar(0.4)
+	Input.action_press("abaixar")
+	await _esperar(1.0)
+	Input.action_release("abaixar")
+	await _esperar(1.2)
+	await tirar.call("d_sentado")
+	# sentado, pela câmera do jogo, com o capim
+	for n in capim:
+		(n as Node3D).visible = true
+	cam.cam.make_current()
+	cam.yaw = PI * 0.5 + 0.5
+	cam.pitch = -0.1
+	await _esperar(1.5)
+	await _foto("e_sentado_jogo")
+	# freada: voando para -X, desliga os jatos
+	livre.make_current()
+	a.teleportar(chao + Vector3(40, 30, 0), Armadura.Estado.VOO, Vector3(-30, 0, 0))
+	cam.yaw = PI * 0.5
+	cam.pitch = 0.0
+	await _esperar(0.6)
+	Input.action_press("soltar")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("soltar")
+	for q in 2:
+		await _esperar(0.17)
+		await tirar.call("f_freando_%d" % q)
+	# mergulho com impacto: no ar e batendo
+	await _esperar(2.0)
+	a.teleportar(chao + Vector3(0, 26, 0), Armadura.Estado.VOO, Vector3(-18, 0, 0))
+	await _esperar(0.3)
+	Input.action_press("golpe")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("golpe")
+	await _esperar(0.3)
+	await tirar.call("j_mergulho")
+	for i in 240:
+		await get_tree().physics_frame
+		if a.estado == Armadura.Estado.POUSO:
+			break
+	await _esperar(0.15)
+	await tirar.call("k_impacto")
+	if "--chuva" in OS.get_cmdline_user_args():
+		# chuva no voo, pela câmera do jogo: voo reto, arrancada e parado no ar
+		m.hud.visible = true
+		cam.cam.make_current()
+		a.calor = 0.0
+		a.teleportar(chao + Vector3(300, 60, 0), Armadura.Estado.VOO, Vector3(-30, 0, 0))
+		cam.pitch = -0.05
+		await _esperar(2.5)
+		await _foto("g_chuva_voo")
+		Input.action_press("frente")
+		await _esperar(2.0)
+		await _foto("h_chuva_arrancada")
+		Input.action_release("frente")
+		Input.action_press("mirar")
+		await _esperar(2.5)
+		await _foto("i_chuva_parado")
+		Input.action_release("mirar")
+	get_tree().quit()
+
+
 ## A passada vista de lado, quadro a quadro (`--passada`): 8 fotos do andar e 8 da corrida.
 func _passada() -> void:
 	await _esperar(2.5)
@@ -514,6 +619,25 @@ func _largo() -> void:
 			["s3_cume_de_longe", Vector3(-250, 0, -250), cm]]
 	if "--norte" in OS.get_cmdline_user_args():
 		vistas = [["n1_cachoeira", Vector3(-268, 128, -440), Vector3(-300, 120, -512)], ["n2_poco", Vector3(-283, 0, -470), Vector3(-300, 124, -515)], ["n3_de_cima", Vector3(-316, 0, -540), Vector3(-270, 100, -430)], ["n4_riacho_mata", Vector3(-200, 0, -250), Vector3(-250, 80, -360)], ["n5_entrada_clareira", Vector3(-88, 0, -60), Vector3(-150, 34, -150)], ["n6_nascente", Vector3(-470, 0, -640), Vector3(-380, 170, -600)], ["n7_do_alto", Vector3(-120, 200, -300), Vector3(-300, 110, -500)]]
+	if "--ruinas" in OS.get_cmdline_user_args():
+		# [nome, lugar, de (na medida do lugar; y acima do chão dele), para onde olha]
+		vistas = []
+		for u: Array in [["u1_arcos", Ruinas.ARCOS, Vector3(-6, 5, 30), Vector3(0, 8, 0)], ["u2_arcos_baixo", Ruinas.ARCOS, Vector3(-30, 2.5, 7), Vector3(10, 9, -1)],
+				["u3_arcos_alto", Ruinas.ARCOS, Vector3(-34, 30, 34), Vector3(4, 6, 0)],
+				["u4_torre", Ruinas.TORRE, Vector3(-8, 4, 27), Vector3(5, 7, 0)], ["u5_torre_alto", Ruinas.TORRE, Vector3(30, 26, 24), Vector3(5, 5, 2)],
+				["u6_torre_dentro", Ruinas.TORRE, Vector3(-2.6, 2.2, 2.4), Vector3(3, 10, -3)],
+				["u7_patio", Ruinas.PATIO, Vector3(27, 5, 9), Vector3(0, 3, 0)], ["u8_patio_alto", Ruinas.PATIO, Vector3(-20, 24, 26), Vector3(0, 1, 0)],
+				["u9_patio_berco", Ruinas.PATIO, Vector3(8.5, 3.4, 6.5), Vector3(0, 2.2, 0)]]:
+			var lugar: Vector3 = u[1]
+			var tl := Transform3D(Basis(Vector3.UP, lugar.z), Vector3(lugar.x, c.altura(lugar.x, lugar.y), lugar.y))
+			vistas.append([u[0], tl * (u[2] as Vector3), tl * (u[3] as Vector3)])
+	if "--paredes" in OS.get_cmdline_user_args():
+		var cm2: Vector3 = (c as Vale).cume
+		vistas = [["n1_cachoeira", Vector3(-268, 128, -440), Vector3(-300, 120, -512)], ["n2_poco", Vector3(-283, 0, -470), Vector3(-300, 124, -515)], ["p3_poco_lado", Vector3(-262, 0, -478), Vector3(-320, 122, -490)],
+			["p4_serra_encosta", Vector3(cm2.x + 90, cm2.y - 20, cm2.z + 110), cm2 + Vector3(0, -15, 0)], ["r0_rio_inteiro", Vector3(-250, 620, 560), Vector3(230, 0, 430)], ["r3_rio_campo", Vector3(250, 0, 330), Vector3(300, 5, 520)]]
+	if "--rio" in OS.get_cmdline_user_args():
+		vistas = [["r0_rio_inteiro", Vector3(-250, 620, 560), Vector3(230, 0, 430)], ["r1_saida_lagoa", Vector3(30, 0, 20), Vector3(100, 18, 100)], ["r3_rio_campo", Vector3(250, 0, 330), Vector3(300, 5, 520)],
+			["r5_rio_do_alto", Vector3(120, 190, 420), Vector3(260, 5, 420)], ["r6_riacho_norte_alto", Vector3(-60, 260, -200), Vector3(-230, 60, -330)], ["r4_foz", Vector3(300, 0, 760), Vector3(350, 0, 900)]]
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
 	for v: Array in vistas:

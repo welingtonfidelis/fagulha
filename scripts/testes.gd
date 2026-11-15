@@ -49,7 +49,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "mirar", "marcar", "atirar"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar"]:
 		Input.action_release(acao)
 
 
@@ -91,27 +91,38 @@ func _pulo_e_decolagem() -> void:
 	_ok(a.estado == Armadura.Estado.AR, "toque no pulo pula (%s)" % a.nome_estado())
 	await _esperar(1.5)
 	_ok(a.estado == Armadura.Estado.CHAO and a.calor < 1.0, "pulo curto volta ao chão sem aquecer (calor %d)" % a.calor)
+	# segurar o pulo sobe mais; não há mais decolagem do chão
 	var chao := a.global_position.y
 	cam.pitch = 0.0
 	Input.action_press("pular")
-	await _esperar(0.45)
+	var topo := 0.0
+	for i in 80:
+		await get_tree().physics_frame
+		topo = maxf(topo, a.global_position.y - chao)
 	Input.action_release("pular")
-	_ok(a.estado == Armadura.Estado.DECOLAGEM or a.estado == Armadura.Estado.VOO, "segurar o pulo decola (%s)" % a.nome_estado())
-	_ok(a.calor >= 14.0, "decolagem esquenta ~15%% (%.0f)" % a.calor)
-	await _esperar(0.75)
-	_ok(a.global_position.y - chao > 12.0, "sobe mais de 12 m em ~1 s (%.1f m)" % (a.global_position.y - chao))
-	_ok(a.estado == Armadura.Estado.VOO, "depois da decolagem entra no voo (%s)" % a.nome_estado())
-	# decolar com a câmera olhando para baixo não pode bater no chão
+	_ok(topo > 3.2 and topo < 7.0 and (a.estado == Armadura.Estado.AR or a.estado == Armadura.Estado.CHAO), "segurar o pulo sobe mais e não decola (%.1f m, %s)" % [topo, a.nome_estado()])
+	await _esperar(1.0)
+	# pulo e botão de voo no ar: liga os jatos e vai para onde a câmera aponta
+	cam.pitch = 0.5
+	chao = a.global_position.y
+	await _apertar("pular")
+	await _esperar(0.15)
+	await _apertar("voar")
+	_ok(a.estado == Armadura.Estado.VOO, "pulo e L3 no ar liga o voo (%s)" % a.nome_estado())
+	_ok(a.calor >= 3.5 and a.calor < 7.0, "ligar os jatos esquenta ~4%% (%.0f)" % a.calor)
+	await _esperar(1.5)
+	_ok(a.global_position.y - chao > 6.0, "com a câmera para cima sobe mais de 6 m em 1,5 s (%.1f m)" % (a.global_position.y - chao))
+	# ligar o voo com a câmera olhando para baixo não pode bater no chão logo de saída
 	a.recomecar()
 	cam.yaw = m.ilha.rumo_livre(a.global_position, 30.0)
 	await _esperar(0.5)
 	cam.pitch = -0.25
-	var chao2 := a.global_position.y
-	Input.action_press("pular")
-	await _esperar(0.45)
-	Input.action_release("pular")
-	await _esperar(2.4)
-	_ok(a.estado == Armadura.Estado.VOO and a.altura_do_chao() > 8.0, "decolar olhando para baixo segue voando (%s, %.1f m do chão, subiu %.1f m)" % [a.nome_estado(), a.altura_do_chao(), a.global_position.y - chao2])
+	await _apertar("pular")
+	await _esperar(0.15)
+	await _apertar("voar")
+	await _esperar(1.4)
+	_ok(a.estado == Armadura.Estado.VOO and a.altura_do_chao() > 1.5, "ligar o voo olhando para baixo segue voando (%s, %.1f m do chão)" % [a.nome_estado(), a.altura_do_chao()])
+	cam.pitch = 0.0
 	a.calor = 0.0
 
 
@@ -149,10 +160,10 @@ func _pulo_duplo_e_esquiva() -> void:
 	await _esperar(1.5)
 	await _apertar("pular")
 	await _esperar(0.2)
-	Input.action_press("pular")
-	await _esperar(0.4)
-	Input.action_release("pular")
-	_ok(a.estado == Armadura.Estado.VOO, "pulo duplo segurado liga o voo (%s)" % a.nome_estado())
+	await _apertar("pular")
+	await _esperar(0.2)
+	await _apertar("voar")
+	_ok(a.estado == Armadura.Estado.VOO, "pulo duplo e L3 liga o voo (%s)" % a.nome_estado())
 	# esquiva
 	a.recomecar()
 	cam.yaw = m.ilha.rumo_livre(a.global_position, 30.0)
@@ -187,7 +198,7 @@ func _pairar_e_mirar() -> void:
 	var c := a.calor
 	await _esperar(2.0)
 	_ok(absf(a.global_position.y - y) < 1.5, "pairando segura a altura (%.2f m)" % (a.global_position.y - y))
-	_ok(a.calor - c > 6.0 and a.calor - c < 10.0, "pairar esquenta devagar (%.1f em 2 s)" % (a.calor - c))
+	_ok(a.calor - c > 2.2 and a.calor - c < 4.0, "pairar esquenta devagar (%.1f em 2 s)" % (a.calor - c))
 	_ok(cam.cam.fov < 64.0, "a câmera fecha para mirar (campo de visão %.0f°)" % cam.cam.fov)
 	Input.action_press("direita")
 	await _esperar(1.0)
@@ -249,24 +260,66 @@ func _voo_e_arrancada() -> void:
 	a.calor = 0.0
 	a.superaquecido = false
 	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 20.0)
+	a.calor = 0.0
 	var y0 := a.global_position.y
 	await _esperar(6.0)
 	var v := a.velocity.length()
 	_ok(absf(v - Ajustes.VOO_ALVO) < 3.0, "voo reto chega a ~30 m/s (%.1f)" % v)
 	_ok(absf(a.global_position.y - y0) < 25.0, "mantém a altura com a mira no horizonte (%.1f m)" % (a.global_position.y - y0))
-	_ok(a.calor > 22.0 and a.calor < 38.0, "6 s de voo reto esquentam ~30%% (%.0f)" % a.calor)
+	Input.action_press("frente")
+	await _esperar(3.0)
+	_ok(absf(a.velocity.length() - Ajustes.ARRANCADA_ALVO) < 4.0 and a.arrancada, "analógico todo para a frente é a arrancada, ~45 m/s (%.1f)" % a.velocity.length())
+	Input.action_release("frente")
+	Input.action_press("tras")
+	await _esperar(3.0)
+	_ok(absf(a.velocity.length() - Ajustes.FREIO_ALVO) < 3.0, "analógico para trás segura a ~18 m/s (%.1f)" % a.velocity.length())
+	Input.action_release("tras")
+	Input.action_press("esquerda")
+	await _esperar(0.6)
+	_ok(a.inclinar < -0.7 and a.visual.rotation.z > 0.25, "analógico de lado inclina o corpo (%.2f rad)" % a.visual.rotation.z)
+	Input.action_release("esquerda")
+	a.calor = 0.0
+	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 30.0)
+	await _esperar(6.0)
+	_ok(a.calor > 5.0 and a.calor < 9.0, "6 s de voo reto esquentam ~7%%: 90 s de voo (%.1f)" % a.calor)
 	var c0 := a.calor
-	Input.action_press("correr")
+	Input.action_press("frente")
 	await _esperar(3.0)
 	v = a.velocity.length()
-	_ok(v > 40.0, "arrancada passa de 40 m/s (%.1f)" % v)
-	_ok(a.calor - c0 > 35.0, "arrancada esquenta 3× (%.0f em 3 s)" % (a.calor - c0))
-	Input.action_release("correr")
-	await _apertar("correr_alternar")
-	_ok(a.arrancada, "L3 liga a arrancada")
-	await _apertar("correr_alternar")
-	await _esperar(0.1)
-	_ok(not a.arrancada, "L3 de novo desliga")
+	_ok(v > Ajustes.ARRANCADA_ALVO - 3.0, "arrancada chega perto de 28 m/s (%.1f)" % v)
+	_ok(a.calor - c0 > 8.5 and a.calor - c0 < 12.0, "arrancada esquenta 3× (%.1f em 3 s)" % (a.calor - c0))
+	Input.action_release("frente")
+	# L3 no voo corta os jatos; L3 de novo religa
+	var vh := _hv()
+	await _apertar("voar")
+	_ok(a.estado == Armadura.Estado.AR and _hv() > vh * 0.8, "L3 no voo corta os jatos na hora e leva o embalo (%s, %.0f m/s)" % [a.nome_estado(), _hv()])
+	await _esperar(0.5)
+	await _apertar("voar")
+	_ok(a.estado == Armadura.Estado.VOO, "L3 de novo religa no ar (%s)" % a.nome_estado())
+	# R3 paira e R3 de novo cancela
+	await _esperar(0.5)
+	await _apertar("pairar")
+	_ok(a.estado == Armadura.Estado.PAIRAR, "R3 no voo freia e paira (%s)" % a.nome_estado())
+	await _esperar(0.5)
+	await _apertar("pairar")
+	_ok(a.estado == Armadura.Estado.AR, "R3 de novo cancela o voo parado (%s)" % a.nome_estado())
+	# mergulho com impacto
+	_voo_reto(a.ilha.altura(a.ilha.spawn.x, a.ilha.spawn.z) + 60.0, 0.0, Armadura.Estado.VOO, 20.0)
+	a.global_position = Vector3(a.ilha.spawn.x, a.global_position.y, a.ilha.spawn.z)
+	await _esperar(0.3)
+	var bateu := [false]
+	var ouvir := func(_p: Vector3) -> void: bateu[0] = true
+	a.golpe_chao.connect(ouvir)
+	await _apertar("golpe")
+	await _esperar(0.5)
+	_ok(a.mergulhando and a.velocity.y < -30.0 and _hv() < 6.0, "triângulo no voo despenca reto (%.0f m/s para baixo, %.1f de lado)" % [a.velocity.y, _hv()])
+	var t_m := 0.0
+	while a.estado == Armadura.Estado.AR and t_m < 4.0:
+		await _esperar(0.05)
+		t_m += 0.05
+	_ok(bateu[0] and a.estado == Armadura.Estado.POUSO and a.pouso_forca > 0.9, "o mergulho termina num impacto no chão (%s, força %.1f)" % [a.nome_estado(), a.pouso_forca])
+	a.golpe_chao.disconnect(ouvir)
+	await _esperar(1.5)
 
 
 func _planar_e_mergulho() -> void:
@@ -275,7 +328,9 @@ func _planar_e_mergulho() -> void:
 	_voo_reto(700.0, 1.0, Armadura.Estado.VOO, 30.0)
 	await _esperar(0.2)
 	await _apertar("pular")
-	_ok(a.estado == Armadura.Estado.PLANAR, "X no voo passa a planar (%s)" % a.nome_estado())
+	await _esperar(0.3)
+	_ok(a.estado == Armadura.Estado.VOO, "X no voo segue voando (%s)" % a.nome_estado())
+	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.velocity)
 	cam.pitch = -0.2
 	var y0 := a.global_position.y
 	await _esperar(3.0)
@@ -284,12 +339,12 @@ func _planar_e_mergulho() -> void:
 	_ok(a.velocity.length() > 15.0, "planando mantém velocidade (%.1f)" % a.velocity.length())
 	_ok(visual_aletas() > 0.9, "aletas abertas ao planar")
 	await _apertar("pular")
-	_ok(a.estado == Armadura.Estado.VOO, "X de novo liga o motor (%s)" % a.nome_estado())
-	await _apertar("pular")
+	_ok(a.estado == Armadura.Estado.VOO, "X planando liga o motor (%s)" % a.nome_estado())
+	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.velocity)
 	a.calor = 80.0
 	cam.pitch = -1.15
 	await _esperar(5.0)
-	_ok(a.velocity.length() > 50.0, "mergulho planando passa de 50 m/s (%.1f)" % a.velocity.length())
+	_ok(a.velocity.length() > 36.0, "mergulho planando passa de 36 m/s (%.1f)" % a.velocity.length())
 	_ok(a.calor < 80.0 - 60.0, "mergulho esfria mais rápido (%.0f)" % a.calor)
 
 
@@ -314,14 +369,16 @@ func _superaquecer() -> void:
 	print("superaquecimento, queda e pouso")
 	a.superaquecido = false
 	_voo_reto(600.0, 2.0, Armadura.Estado.VOO, 30.0)
-	a.calor = 98.0
-	Input.action_press("correr")
+	a.calor = 99.2
+	Input.action_press("frente")
 	await _esperar(0.5)
-	Input.action_release("correr")
+	Input.action_release("frente")
 	_ok(a.superaquecido, "passa de 100% e superaquece")
 	_ok(a.estado == Armadura.Estado.AR, "o motor trava e o robô cai (%s)" % a.nome_estado())
 	await _apertar("pular")
-	_ok(a.estado == Armadura.Estado.AR, "superaquecido, X não religa nem dá pulo duplo")
+	await _apertar("voar")
+	await _apertar("pairar")
+	_ok(a.estado == Armadura.Estado.AR and a.caido, "superaquecido, nada religa nem paira")
 	await _esperar(5.5)
 	_ok(a.superaquecido and a.calor > 40.0 and a.calor < 62.0, "no ar esfria devagar: ~50%% depois de 6 s (%.0f)" % a.calor)
 	var pousou := false
@@ -344,10 +401,10 @@ func _superaquecer() -> void:
 		if a.global_position.y < 400.0:
 			a.global_position.y += 400.0  # mantém no ar
 	_ok(t > 10.5 and t < 13.0, "superaquecido no ar libera em ~12 s (%.1f s)" % t)
-	await _apertar("pular")
+	await _apertar("voar")
 	await _esperar(0.3)
-	_ok(a.estado == Armadura.Estado.VOO, "depois de esfriar, segurar ou apertar X volta a voar (%s)" % a.nome_estado())
-	# soltar perto do chão: queda com estilo leve
+	_ok(a.estado == Armadura.Estado.AR and a.caido, "mesmo frio, quem caiu superaquecido só volta a voar depois de tocar o chão (%s)" % a.nome_estado())
+	# soltar perto do chão	# soltar perto do chão: queda com estilo leve
 	var il: Ilha = m.ilha
 	a.calor = 0.0
 	a.teleportar(il.spawn + Vector3(0, 7.0, 0), Armadura.Estado.VOO, Vector3.ZERO)
@@ -396,7 +453,52 @@ func _pouso_e_batida() -> void:
 	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 30.0)
 	await _esperar(0.2)
 	await _apertar("soltar")
-	_ok(a.estado == Armadura.Estado.AR, "O / C solta do voo (%s)" % a.nome_estado())
+	_ok(a.estado == Armadura.Estado.FREAR, "O / C no voo vira os jatos para a frente e freia (%s)" % a.nome_estado())
+	await _esperar(0.7)
+	_ok(a.estado == Armadura.Estado.AR and _hv() < 12.0, "depois da freada os jatos desligam e ele cai (%s, %.1f m/s)" % [a.nome_estado(), _hv()])
+	# sair da pausa com a bolinha não desliga o voo
+	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 30.0)
+	await _esperar(0.3)
+	m.pausa._abrir()
+	Input.action_press("soltar")
+	m.pausa._continuar()
+	for i in 6:
+		await get_tree().process_frame
+	var segurou := get_tree().paused
+	Input.action_release("soltar")
+	await _esperar(0.3)
+	_ok(segurou and not get_tree().paused and a.estado == Armadura.Estado.VOO, "sair da pausa com a bolinha segue voando (%s)" % a.nome_estado())
+	# abaixar e sentar
+	a.recomecar()
+	await _esperar(1.0)
+	await _apertar("abaixar")
+	await _esperar(0.2)
+	_ok(a.postura == 1, "toque no botão de abaixar abaixa (%d)" % a.postura)
+	Input.action_press("frente")
+	await _esperar(1.0)
+	_ok(a.postura == 1 and absf(_hv() - Ajustes.ANDAR_ABAIXADO * Armadura.vel_chao) < 0.4, "abaixado anda devagar (%.1f m/s)" % _hv())
+	Input.action_release("frente")
+	await _esperar(0.5)
+	await _apertar("abaixar")
+	_ok(a.postura == 0, "outro toque levanta (%d)" % a.postura)
+	Input.action_press("abaixar")
+	await _esperar(0.9)
+	Input.action_release("abaixar")
+	_ok(a.postura == 2, "segurar o botão de abaixar senta (%d)" % a.postura)
+	await _esperar(1.0)
+	_ok(a.postura == 2 and _hv() < 0.1, "sentado, fica sentado depois de soltar o botão")
+	Input.action_press("frente")
+	await _esperar(0.3)
+	_ok(a.postura == 0, "mexer o analógico levanta (%d)" % a.postura)
+	Input.action_press("correr_alternar")
+	Input.action_press("abaixar")
+	await _esperar(0.1)
+	Input.action_release("correr_alternar")
+	Input.action_release("abaixar")
+	await _esperar(1.0)
+	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 andando corre em vez de abaixar (%.1f m/s)" % _hv())
+	Input.action_release("frente")
+	await _esperar(0.5)
 	# batida numa árvore: voa reto contra a copa
 	var k := _arvore_em_plano(il)
 	var base := il.arv_pos[k]

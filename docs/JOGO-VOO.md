@@ -84,7 +84,7 @@ Na Godot, a geração vira compute shader (erosão e mapas) com o FastNoiseLite 
 | Voar reto | 30 m/s (108 km/h) | enche em ~20 s |
 | Subir | perde velocidade | 2× mais rápido |
 | Arrancada (L3 no voo) | 45 m/s | 3× mais rápido |
-| Planar (motor desligado; X no voo alterna) | desce devagar e ganha velocidade | esfria |
+| Planar (motor desligado; fora do jogo desde a §32, o estado segue no código) | desce devagar e ganha velocidade | esfria |
 | Mergulhar | até 70 m/s | esfria mais |
 | Rasante na água, cachoeira, chuva | — | esfria quase na hora |
 | Superaquecido (100%) | o motor apaga ~3 s, com alarme; o robô cai ou plana | volta a 40% |
@@ -96,16 +96,17 @@ Na Godot, a geração vira compute shader (erosão e mapas) com o FastNoiseLite 
 
 | Ação | DualSense | Teclado e mouse |
 |---|---|---|
-| Andar / correr | analógico esquerdo; L3 corre | WASD; Shift |
-| Pular / decolar | X; segurar X decola | Espaço; segurar |
+| Andar / correr | analógico esquerdo; L3 andando corre | WASD; Shift |
+| Abaixar / sentar | L3 parado: toque abaixa, segurar 0,6 s senta | Ctrl |
+| Pular | X; segurar sobe mais | Espaço |
 | Pulo duplo | X no ar (uma vez) | Espaço no ar |
-| Ligar o voo no ar | segurar X no ar | segurar Espaço no ar |
+| Ligar e desligar o voo | L3 no ar | Shift no ar |
+| Mergulho com impacto | triângulo no ar | V |
 | Esquiva | O no chão, no ar (uma vez) ou pairando | C |
-| Mirar / pairar | L2 (no voo, apertar o L2 freia e paira) | botão direito |
+| Mirar / pairar | L2 ou R3 (no voo, freia e paira) | botão direito |
 | Marcar um ponto | R2 mirando (mirar o céu apaga) | botão esquerdo mirando |
-| Planar ↔ motor | X no voo | Espaço no voo |
-| Arrancada | L3 no voo | Shift no voo |
-| Soltar do voo | O no voo | C no voo |
+| Acelerador do voo (arrancada no talo) | analógico esquerdo | W / S |
+| Frear e desligar o voo | O no voo | C no voo |
 | Direção e câmera | analógico direito | mouse |
 | Pausa | Options | Esc |
 
@@ -783,3 +784,123 @@ O usuário foi dormir e autorizou seguir sozinho. Nada foi commitado.
 1. Commit do que foi feito (base do vale e a madrugada).
 2. Qual ruína construir (ou as três, espalhadas).
 3. Se a rocha cinza e o vão que o rio abriu na borda sudeste da clareira estão aprovados (mudaram um pouco a clareira).
+
+## 31. Rio com curvas, paredões de pedra e as três ruínas (2026-11-15)
+
+![Rio e paredões](vale/rio_paredoes_v1.png)
+![Ruínas](vale/ruinas_v2.png)
+
+Retorno do usuário sobre a madrugada: commit liberado (feito, `284dd29`); construir as **três ruínas espalhadas**; **o rio precisa de curvas**, em estilo natural; **os paredões perto da cachoeira, e qualquer lugar com ângulo perto de 90°, estavam artificiais**: faltavam imperfeições na parede e rochas.
+
+- **Rio com curvas** (`Vale._linha_curva`): os pontos de `RIO` e `RIO_BAIXO` viraram só o rumo. A linha passa por eles em curva suave (Catmull-Rom) e serpenteia para os lados com três voltas de tamanhos que não casam (46 m de saída e voltas de 280 m no rio do sul; 16 m e 150 m no riacho do norte). Nas pontas a linha fica presa (na lagoa, no poço e na entrada da clareira). O rio do sul anda 1,17 vez a reta. `Curso.perto` ficou mais rápido (passada larga e depois a vizinhança), porque a linha agora tem um ponto a cada 8 m.
+- **Foz:** o leito se desfaz no fundo do mar (`Curso.cava_ate`). Antes as margens seguiam mar adentro como dois diques.
+- **Paredões** (`scripts/vale/paredoes.gd`, `Paredoes.montar`): o relevo é uma grade de 4 m, então parede em pé saía lisa. Agora cada ponto íngreme (normal.y < 0,66) ganha de um a cinco blocos de pedra encaixados (pedregulhos de faces chatas feitos por código, `Paredoes.rocha`), pedras caídas no pé e arbustos na beira. Uns 1.560 blocos e 250 pedras no vale; os maiores têm colisão. Vale para a cachoeira, a serra e qualquer encosta.
+- **Pedra com camadas** (`cor_rocha` em `vale_comum.gdshaderinc`, usada pelo chão e pelas rochas): faixas deitadas e tortas, frestas, escorridos, líquen, e um tom por face para o volume aparecer na sombra. As rochas soltas (`vale_rocha.gdshader`) ganham mato nas faces de cima.
+- **Anfiteatro da cachoeira:** o contorno deixou de ser um círculo de compasso: a parede avança e recua, e o poço também ficou irregular.
+- **Ruínas** (`scripts/vale/ruinas.gd`, `Ruinas.montar`): montadas pedra por pedra por código, cada bloco com colisão própria (481 formas). Cada uma fica num claro pequeno da mata (`Ruinas.livre` tira as árvores de perto), a uns 270 m uma da outra:
+  - **Os Arcos** (−730, 30): aqueduto de seis pilares; três arcos inteiros com o leito por cima (dá para pousar a 15 m do chão), um arco partido e dois pilares em toco, com as lajes caídas.
+  - **A Torre Caída** (−640, 440): meia torre de 18 m com porta, janelas e restos de dois pisos; o topo tombado é um tubo deitado que dá para atravessar voando; no meio, o núcleo apagado de uma máquina.
+  - **O Pátio das Máquinas** (−680, 170): muro baixo em volta, seis colunas (duas ainda seguram a viga, uma tombou), o estrado de pedra e o berço de metal com a lente vermelha fraca.
+  - A pedra (`vale_ruina.gdshader`) é mais clara e quente que a dos paredões, com musgo em cima e em manchas.
+- **Nomes na tela:** Os Arcos, A Torre Caída, O Pátio das Máquinas.
+- **Fotos:** `--vale-captura --largo` com `--rio`, `--paredes` ou `--ruinas`.
+- **Testes:** `--teste-vale` 19 pontos (o 17º confere as curvas do rio, as rochas, as ruínas e o pouso no aqueduto); `--teste` 76.
+
+**Não verificado / defeitos conhecidos:** nada disso foi jogado; o musgo das ruínas sai em manchas meio riscadas; a torre vista de lado parece fina (só metade da parede está de pé); o riacho do norte continua íngreme na entrada da clareira; não há máquinas no Pátio (os inimigos novos ficaram para depois).
+
+### 31.1 Paredões no jeito da referência (2026-11-15)
+
+![Rio e paredões, segunda versão](vale/rio_paredoes_v2.png)
+
+O usuário mandou uma foto de referência para paredões e montanhas (só a técnica; nada de copiar arte): rocha em **massas grandes e lisas**, cinza claro **pintado em manchas macias**, fendas escuras entre uma massa e outra e **capim no topo** com a beira marcada. A primeira versão (blocos pequenos de faces chatas) parecia entulho.
+
+- `Paredoes.rocha`: agora uma forma entre a bola e o cubo (lados quase em pé, topo quase chato), com calombos largos, poucas faces aparadas e normais suaves. 432 triângulos cada.
+- Posição: poucas e grandes (uns 450 no vale, de 4 a 12 m de largura e até o dobro de altura), de pé, encostadas na parede; todas com colisão.
+- `cor_rocha`: pinceladas compridas de cima para baixo e manchas redondas, sem linha dura; as faces viradas para baixo escurecem. Saiu o tom por face (com normais suaves virava faixa).
+- `vale_rocha.gdshader`: capim só no topo chato (normal.y > 0,9).
+- Árvore colada em paredão não nasce mais (sumia dentro da rocha). Isso mudou o sorteio: a mata de fora ficou com as árvores em outros lugares.
+- Baterias: `--teste-vale` 19, `--teste` 76.
+
+## 32. X no voo, freada e abaixar/sentar (2026-11-15)
+
+![Abaixado, sentado e a freada](vale/posturas_freada.png)
+
+Pedido do usuário: o X no voo desligava os propulsores e o robô parecia planar; ao desligar os jatos faltava uma freada; e faltava abaixar (L3), sentando ao segurar, para descansar olhando a paisagem.
+
+- **X no voo:** não faz mais nada, o robô segue voando. O estado `PLANAR` continua no código (fotos e testes chegam nele por `teleportar`), mas nenhum botão leva a ele. Para esfriar no ar sobram o mergulho, a água e a chuva.
+- **Freada** (`Estado.FREAR`, `Armadura._frear`): o O no voo joga o corpo para trás, com pernas e braços esticados à frente e os jatos dos pés e das mãos acesos. Dura de 0,25 s (devagar) a 0,5 s (a 30 m/s ou mais) e tira ~75% do embalo; depois o motor desliga e ele cai pesado, como antes. O X durante a freada volta a voar. Números em `Ajustes.FREAR_*`.
+- **Abaixar e sentar** (`Armadura.postura`: 0 de pé, 1 abaixado, 2 sentado; ação `abaixar` = L3 ou Ctrl): um toque com o robô parado abaixa; outro toque levanta; segurar 0,6 s senta. Abaixado ele anda a 1,6 m/s. Sentado fica até mexer o analógico, apertar o X ou o L3. Correr, pular, esquivar e sair do chão levantam. O L3 com o robô andando continua sendo correr, e no voo, arrancada. A câmera desce junto.
+- **Fotos:** `--vale-captura --posturas`.
+- **Testes:** `--teste` 84 pontos (X no voo, freada, abaixar, sentar, L3 andando); `--teste-vale` 19 (o 14º mede a queda depois da freada).
+
+**Não verificado:** nada disso foi jogado no controle; abaixar não muda a colisão nem o que o Sentinela enxerga; sentado em ladeira o robô não acompanha a inclinação do chão.
+
+### 32.1 Sentado, chuva no voo e a bolinha na pausa (2026-11-15)
+
+![Sentado e a chuva no voo](vale/sentado_chuva.png)
+
+Retorno do usuário: sentado, as pernas entravam no chão; voando na chuva, a chuva sumia e só voltava parando no ar; sair da pausa com a bolinha desligava o voo.
+
+- **Sentado:** a pose passou a ser de pernas esticadas à frente e mãos nas coxas (o robô tem coxa curta e bota comprida; de joelhos para cima a bota afundava). Além disso `ArmaduraVisual` mede a peça mais baixa do corpo a cada quadro e sobe a bacia até ela encostar no chão (`_levanta`).
+- **Chuva no voo** (`CicloDia`): as gotas nascem 9 m acima da câmera e levam meio segundo para chegar à altura do olho; a 30 m/s o robô saía de baixo do bloco. Agora o bloco nasce adiantado meio segundo na direção em que a câmera anda, é um pouco maior (40 × 40 m) e tem 3.400 gotas (eram 2.600).
+- **Pausa:** fechar o menu esconde a tela, mas o jogo só volta quando os botões do menu (bolinha, X) forem soltos. Antes o mesmo aperto fechava a pausa e chegava ao robô como "desligar o voo" (ou pulo, no X do Continuar).
+- **Testes:** `--teste` 85 pontos (sair da pausa com a bolinha segue voando); `--teste-vale` 19.
+
+**Não verificado:** nada jogado no controle; a chuva em mergulho rápido (70 m/s) só foi conferida em voo reto e arrancada.
+
+### 32.2 Voo bem mais longo (2026-11-15)
+
+Pedido do usuário: como há pouco o que fazer no chão, aumentar bastante o tempo de voo; atividades no ar vêm depois.
+
+| | antes | agora |
+|---|---|---|
+| Voo reto até superaquecer | ~25 s (4 %/s) | ~90 s (1,1 %/s) |
+| Arrancada | ~8 s | ~30 s |
+| Parado no ar | 25 s (4 %/s) | ~66 s (1,5 %/s) |
+| Decolagem | +15% | +6% |
+
+Subir segue custando até 3× e a chuva (−6 %/s) agora esfria mais do que o voo reto esquenta: na chuva dá para voar sem parar. Testes: `--teste` 85, `--teste-vale` 19.
+
+O usuário também trouxe a descrição da movimentação de um jogo de armadura voadora como referência (só a mecânica). O que já temos igual: voo guiado pela câmera, pairar com o L2, calor com mergulho/água/chuva, superaquecer e cair, esquiva no chão e no ar, pouso já correndo. O que é diferente e fica para ele escolher: ligar o voo com o L3 no ar (hoje é segurar o X), acelerador no analógico esquerdo, pulo mais alto segurando o botão, impulsos de jato na corrida, mergulho com impacto no chão, e nadar com os jatos.
+
+### 32.3 Acelerador e inclinação no analógico esquerdo (2026-11-15)
+
+Primeiro item adotado da referência de movimentação (só a mecânica). No voo, o analógico esquerdo passou a ser:
+
+- **Frente:** acelera do cruzeiro (30 m/s) até 38 m/s e esquenta até 1,6×. A arrancada (L3, 45 m/s) continua acima disso.
+- **Trás:** segura até 18 m/s, agora com freio de jato de 10 m/s² (antes só cortava o motor e esperava o arrasto).
+- **Lado:** além do deslize de antes, o corpo e a câmera inclinam, e inclinar para o lado em que a câmera está virando fecha a curva até 1,7× mais rápido.
+
+Números em `Ajustes` (`VOO_RAPIDO`, `FREIO_AR`, `CALOR_ACELERADOR`, `CURVA_INCLINADA`). Testes: `--teste` 88, `--teste-vale` 19. Não jogado no controle.
+
+## 33. Controles no jeito da referência e voo mais lento (2026-11-15)
+
+O usuário mandou a descrição da movimentação de um jogo de armadura voadora (inclusive as cinco formas de parar o voo) e pediu para adaptar os nossos controles a ela. Só a mecânica; nomes, personagens e arte não entram. Depois pediu velocidade de voo menor, porque o vale é pequeno.
+
+**Controles**
+
+- **Sem decolagem do chão.** Segurar o X só estende o pulo (os jatos empurram por até 0,32 s; o pulo vai de ~1,7 m para ~4 m). O estado `DECOLAGEM` ficou no código sem botão.
+- **Ligar o voo: L3 no ar** (ação `voar`, Shift no teclado), depois do pulo ou do pulo duplo. Há uma pausa de ignição de 0,16 s, o robô deita e leva um empurrão para onde a câmera aponta; apontar para cima sobe. Ligar custa 4% de calor. Perto do chão, o nariz não desce abaixo do horizonte por 1,6 s.
+- **Desligar: L3 de novo** corta os jatos na hora; ele fica de pé e cai com a gravidade comum, levando o embalo e com controle leve, e o L3 religa a qualquer momento. **O** continua sendo a freada com os jatos à frente (§32).
+- **X no voo não faz nada.** Na referência o pulo também desliga os jatos; ficou de fora porque o usuário pediu nesta mesma data que o X no voo não desligasse.
+- **Acelerador único no analógico esquerdo:** neutro é o cruzeiro, todo para a frente é a arrancada (3× o calor), para trás segura. A arrancada saiu do L3.
+- **Parar no ar: L2 ou R3** (ação `pairar`, F no teclado). R3 de novo cancela e ele cai.
+- **Mergulho com impacto: triângulo** (ação `golpe`, V) no voo, parado no ar ou caindo, acima de 2,5 m: corta os jatos, desce reto a 42 m/s e bate em pouso de herói, com tremor e o sinal `Armadura.golpe_chao`. Ainda não afeta nada em volta (o Sentinela não reage).
+- **Superaquecer:** cai e não religa nem paira até tocar o chão, mesmo que esfrie no ar (`caido`); no chão leva 1,4 s para se recompor.
+- **Pouso:** já era como na referência (raso e rápido emenda na corrida; devagar, planta os pés).
+
+**Não adotado:** impulsos de jato na corrida e nadar com os jatos.
+
+**Velocidade** (o vale tem 2 km)
+
+| | antes | agora |
+|---|---|---|
+| Cruzeiro | 30 m/s (108 km/h) | 18 m/s (65 km/h) |
+| Arrancada | 45 m/s (162 km/h) | 28 m/s (100 km/h) |
+| Segurando | 18 m/s | 10 m/s |
+| Mergulho | ~70 m/s | ~47 m/s |
+| Atravessar o vale no cruzeiro | ~65 s | ~110 s |
+
+A câmera (campo de visão, distância, tremor), o giro, a sustentação e os limites de batida e de pouso forte passaram a seguir esses números.
+
+**Testes:** `--teste` 92 pontos, `--teste-vale` 19. **Não verificado:** nada jogado no controle; a pose do mergulho não ficou enquadrada nas fotos (só o impacto com a poeira); os outros mapas (ilha de 8 km, cânion) usam os mesmos números e ficaram mais lentos também.

@@ -25,13 +25,24 @@ static func configurar() -> void:
 	for a in ["olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo"]:
 		InputMap.action_set_deadzone(a, 0.12)
 
-	# Pular / decolar / ligar o voo / alternar planar.
+	# Pular / decolar / ligar o voo. No voo o X não desliga nada.
 	_tecla("pular", [KEY_SPACE])
 	_botao("pular", JOY_BUTTON_A)
-	# Correr no chão e arrancada no voo: Shift segurado; L3 alterna.
+	# Correr no chão e arrancada no voo: Shift segurado; L3 alterna (no chão, só andando).
 	_tecla("correr", [KEY_SHIFT])
 	_botao("correr_alternar", JOY_BUTTON_LEFT_STICK)
-	# No voo, solta (motor desligado, sem planar); no chão, no ar e pairando, esquiva.
+	# Ligar e desligar o voo, só no ar: L3 / Shift.
+	_tecla("voar", [KEY_SHIFT])
+	_botao("voar", JOY_BUTTON_LEFT_STICK)
+	# Voo parado: R3 / F (o L2 também paira). Mergulho com impacto: triângulo / V.
+	_tecla("pairar", [KEY_F])
+	_botao("pairar", JOY_BUTTON_RIGHT_STICK)
+	_tecla("golpe", [KEY_V])
+	_botao("golpe", JOY_BUTTON_Y)
+	# Abaixar: L3 com o robô parado / Ctrl. Um toque abaixa, segurar senta.
+	_tecla("abaixar", [KEY_CTRL])
+	_botao("abaixar", JOY_BUTTON_LEFT_STICK)
+	# No voo, freia e desliga o motor; no chão, no ar e pairando, esquiva.
 	_tecla("soltar", [KEY_C])
 	_botao("soltar", JOY_BUTTON_B)
 	# Mirar (pairar no ar) e marcar um ponto: L2 / botão direito e R2 / botão esquerdo.

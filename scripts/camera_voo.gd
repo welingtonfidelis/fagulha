@@ -64,13 +64,14 @@ func _process(delta: float) -> void:
 	var v := alvo.velocity.length()
 	var kp := pow(Armadura.porte, 0.75)  # robô pequeno: câmera mais perto e mais baixa
 	var alvo_pivo := alvo.global_position + Vector3(0.0, lerpf(lerpf(2.15, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
+	alvo_pivo.y -= [0.0, 0.45, 0.85][alvo.postura] * Armadura.porte  # abaixado e sentado, a câmera desce junto
 	if not _iniciado:
 		_pivo = alvo_pivo
 		_iniciado = true
 	# seguir com atraso: na decolagem a câmera fica para trás e depois alcança
 	var taxa := lerpf(16.0, 14.0, m)
 	_pivo = _pivo.lerp(alvo_pivo, 1.0 - exp(-taxa * delta))
-	var dist_alvo := lerpf(Ajustes.CAM_DIST_CHAO, Ajustes.CAM_DIST_VOO, m) + clampf(v - 30.0, 0.0, 40.0) * 0.02 * m
+	var dist_alvo := lerpf(Ajustes.CAM_DIST_CHAO, Ajustes.CAM_DIST_VOO, m) + clampf(v - Ajustes.VOO_ALVO, 0.0, 30.0) * 0.03 * m
 	dist_alvo = lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) * kp
 	_dist = lerpf(_dist, dist_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))
 	var b := Basis.from_euler(Vector3(pitch, yaw, 0.0))
@@ -89,16 +90,16 @@ func _process(delta: float) -> void:
 		desejado.y = maxf(desejado.y, ilha.altura(desejado.x, desejado.z) + 0.6)
 	global_position = desejado
 	# inclinar nas curvas do voo
-	var roll_alvo := clampf(alvo.giro_lateral * 0.08, -0.14, 0.14) * m
+	var roll_alvo := clampf(alvo.giro_lateral * 0.08 - alvo.inclinar * 0.05, -0.17, 0.17) * m
 	_roll = lerpf(_roll, roll_alvo, 1.0 - exp(-4.0 * delta))
 	global_basis = Basis.from_euler(Vector3(pitch, yaw, _roll))
 	# campo de visão pela velocidade
-	var fov_alvo := lerpf(Ajustes.FOV_CHAO, Ajustes.FOV_MAX, clampf((v - 8.0) / 62.0, 0.0, 1.0) * m)
+	var fov_alvo := lerpf(Ajustes.FOV_CHAO, Ajustes.FOV_MAX, clampf((v - 6.0) / (Ajustes.VEL_TOPO - 6.0), 0.0, 1.0) * m)
 	if not voando and v > Ajustes.ANDAR + 1.0:
 		fov_alvo += 3.0
 	fov_alvo = lerpf(fov_alvo, Ajustes.FOV_MIRA, mi)
 	cam.fov = lerpf(cam.fov, fov_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))
 	# tremor
-	var forca := alvo.tremor + maxf(0.0, v - 45.0) * 0.004 * m + (0.05 if alvo.superaquecido else 0.0)
+	var forca := alvo.tremor + maxf(0.0, v - Ajustes.ARRANCADA_ALVO) * 0.006 * m + (0.05 if alvo.superaquecido else 0.0)
 	var tr := Vector3(sin(_t * 37.0) + sin(_t * 23.0) * 0.5, cos(_t * 31.0) + sin(_t * 17.0) * 0.5, 0.0)
 	cam.position = tr * forca * 0.12

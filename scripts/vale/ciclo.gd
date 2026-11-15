@@ -25,6 +25,8 @@ var _prox_chuva := 0.0
 var _fim_chuva := 0.0
 var _t := 0.0
 var _gotas: GPUParticles3D
+var _cam_ant := Vector3.INF
+var _cam_vel := Vector3.ZERO
 var _rng := RandomNumberGenerator.new()
 
 # hora: [céu alto, horizonte, luz ambiente, energia ambiente, cor do sol, energia do sol,
@@ -98,7 +100,15 @@ func _process(delta: float) -> void:
 	Armadura.chuva = chuva
 	_aplicar()
 	if _gotas and camera:
-		_gotas.global_position = camera.global_position + Vector3(0, 9.0, 0)
+		# a gota leva meio segundo para cair até a altura do olho: no voo o bloco de chuva nasce adiantado,
+		# onde a câmera vai estar, senão o robô sai de baixo dele
+		var cp: Vector3 = camera.global_position
+		if delta > 0.0 and _cam_ant.is_finite() and cp.distance_to(_cam_ant) < 8.0:
+			_cam_vel = _cam_vel.lerp((cp - _cam_ant) / delta, 1.0 - exp(-8.0 * delta))
+		else:
+			_cam_vel = Vector3.ZERO
+		_cam_ant = cp
+		_gotas.global_position = cp + Vector3(0, 9.0, 0) + _cam_vel * 0.5
 		_gotas.emitting = chuva > 0.05
 		_gotas.amount_ratio = clampf(chuva, 0.05, 1.0)
 
@@ -188,18 +198,18 @@ func _criar_gotas() -> void:
 	gota.material = mat
 	var pp := ParticleProcessMaterial.new()
 	pp.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pp.emission_box_extents = Vector3(18, 0.5, 18)
+	pp.emission_box_extents = Vector3(20, 3.0, 20)
 	pp.direction = Vector3(0.12, -1, 0.05)
 	pp.spread = 2.0
 	pp.initial_velocity_min = 15.0
 	pp.initial_velocity_max = 19.0
 	pp.gravity = Vector3.ZERO
 	_gotas = GPUParticles3D.new()
-	_gotas.amount = 2600
+	_gotas.amount = 3400
 	_gotas.lifetime = 1.0
 	_gotas.process_material = pp
 	_gotas.draw_pass_1 = gota
-	_gotas.visibility_aabb = AABB(Vector3(-22, -22, -22), Vector3(44, 44, 44))
+	_gotas.visibility_aabb = AABB(Vector3(-60, -60, -60), Vector3(120, 120, 120))
 	_gotas.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_gotas.emitting = false
 	_gotas.top_level = true

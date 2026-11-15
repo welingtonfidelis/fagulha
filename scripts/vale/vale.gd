@@ -60,6 +60,8 @@ func gerar(_semente := 7) -> void:
 	_preparar_costa()
 	_cume()
 	_mata_fora()
+	Paredoes.montar(self)
+	Ruinas.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
 
@@ -112,8 +114,10 @@ class Curso:
 	var niv := PackedFloat32Array()  # nível da água em cada ponto
 	var fita_de := 0.0  # trecho que ganha fita d'água (fora dele a água é de outra lâmina)
 	var fita_ate := 0.0
+	var cava_ate := INF  # dali em diante o chão não ganha leito (o mar)
 	var mn := Vector2.ZERO
 	var mx := Vector2.ZERO
+	const SALTO := 5
 
 	func fechar() -> void:
 		s.resize(pts.size())
@@ -133,8 +137,20 @@ class Curso:
 		if x < mn.x - raio or x > mx.x + raio or z < mn.y - raio or z > mx.y + raio:
 			return Vector2(INF, 0.0)
 		var p := Vector2(x, z)
+		# passada larga primeiro (a linha tem um ponto a cada poucos metros), depois só a vizinhança do melhor
+		var perto_i := 0
+		var perto_d := INF
+		var i0 := 0
+		while i0 < pts.size():
+			var dd := p.distance_squared_to(pts[i0])
+			if dd < perto_d:
+				perto_d = dd
+				perto_i = i0
+			i0 += SALTO
+		if sqrt(perto_d) > raio + 60.0:
+			return Vector2(INF, 0.0)
 		var melhor := Vector2(INF, 0.0)
-		for i in pts.size() - 1:
+		for i in range(maxi(0, perto_i - SALTO - 1), mini(pts.size() - 1, perto_i + SALTO + 1)):
 			var a := pts[i]
 			var ab := pts[i + 1] - a
 			var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
@@ -158,14 +174,52 @@ class Curso:
 		return lerpf(niv[i], niv[i + 1], clampf((sv - s[i]) / maxf(0.001, s[i + 1] - s[i]), 0.0, 1.0))
 
 
-## Refaz uma linha com um ponto a cada `passo` metros.
-func _linha_fina(linha: Array[Vector2], passo: float) -> PackedVector2Array:
-	var saida := PackedVector2Array()
-	for i in linha.size() - 1:
-		var n := maxi(1, roundi(linha[i].distance_to(linha[i + 1]) / passo))
-		for k in n:
-			saida.append(linha[i].lerp(linha[i + 1], float(k) / n))
-	saida.append(linha[linha.size() - 1])
+## Refaz uma linha como um rio de verdade: passa pelos pontos em curva suave (sem quinas) e serpenteia
+## para os lados. `amp` é quanto sai para o lado, `onda` o comprimento de cada volta; nas pontas
+## (`firme_ini`, `firme_fim` metros) fica presa ao traçado, para encaixar no que já existe.
+func _linha_curva(linha: Array[Vector2], passo: float, amp: float, onda: float, fase: float, firme_ini: float, firme_fim: float) -> PackedVector2Array:
+	var base := PackedVector2Array()
+	var n := linha.size()
+	for i in n - 1:
+		var p0 := linha[maxi(i - 1, 0)]
+		var p1 := linha[i]
+		var p2 := linha[i + 1]
+		var p3 := linha[mini(i + 2, n - 1)]
+		var k := maxi(2, roundi(p1.distance_to(p2) / 4.0))
+		for j in k:
+			var t := float(j) / k
+			base.append(0.5 * ((2.0 * p1) + (p2 - p0) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t + (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t))
+	base.append(linha[n - 1])
+	var comp := PackedFloat32Array()
+	comp.resize(base.size())
+	comp[0] = 0.0
+	for i in range(1, base.size()):
+		comp[i] = comp[i - 1] + base[i].distance_to(base[i - 1])
+	var total := comp[comp.size() - 1]
+	var torta := PackedVector2Array()
+	for i in base.size():
+		var a := base[maxi(i - 3, 0)]
+		var b := base[mini(i + 3, base.size() - 1)]
+		var lado := (b - a).normalized().orthogonal()
+		var sv := comp[i]
+		var solta := smoothstep(0.0, firme_ini, sv) * smoothstep(0.0, firme_fim, total - sv)
+		# três voltas de tamanhos que não casam: nenhuma curva repete a anterior
+		var sai := sin(TAU * sv / onda + fase) * 0.58 + sin(TAU * sv / (onda * 0.47) + fase * 2.3 + 1.1) * 0.30 + sin(TAU * sv / (onda * 2.3) + fase * 0.6) * 0.42
+		torta.append(base[i] + lado * sai * amp * solta)
+	# pontos a cada `passo` metros
+	var saida := PackedVector2Array([torta[0]])
+	var resto := passo
+	for i in range(1, torta.size()):
+		var a := torta[i - 1]
+		var d := a.distance_to(torta[i])
+		while d >= resto and d > 0.0:
+			a = a.move_toward(torta[i], resto)
+			saida.append(a)
+			d = a.distance_to(torta[i])
+			resto = passo
+		resto -= d
+	if saida[saida.size() - 1].distance_to(torta[torta.size() - 1]) > 1.0:
+		saida.append(torta[torta.size() - 1])
 	return saida
 
 
@@ -173,7 +227,7 @@ func _preparar_rio() -> void:
 	_cursos.clear()
 	# 1. sul: da lagoa ao mar. Na clareira vale a lâmina dela (NIVEL); da borda em diante desce até o mar.
 	var sul := Curso.new()
-	sul.pts = _linha_fina(RIO, 20.0)
+	sul.pts = _linha_curva(RIO, 8.0, 46.0, 280.0, 0.9, 260.0, 60.0)
 	sul.fechar()
 	var borda := 0.0
 	var foz := sul.total()
@@ -191,12 +245,13 @@ func _preparar_rio() -> void:
 		sul.niv[i] = NIVEL if sul.s[i] <= borda else lerpf(NIVEL, MAR + 0.05, clampf((sul.s[i] - borda) / (foz - borda), 0.0, 1.0))
 	sul.fita_de = borda
 	sul.fita_ate = minf(foz + 24.0, sul.total())
+	sul.cava_ate = foz
 	_rio_s_borda = borda
 	_rio_s_foz = foz
 	_cursos.append(sul)
 	# 2. norte de baixo: do poço da cachoeira até o riacho da clareira. O nível acompanha o chão, sempre descendo.
 	var baixo := Curso.new()
-	baixo.pts = _linha_fina(RIO_BAIXO, 20.0)
+	baixo.pts = _linha_curva(RIO_BAIXO, 8.0, 16.0, 150.0, 2.2, 70.0, 80.0)
 	baixo.fechar()
 	baixo.niv.resize(baixo.pts.size())
 	var n := POCO_NIVEL
@@ -249,18 +304,29 @@ func _cavar_rio(x: float, z: float, h: float) -> float:
 		var margem := minf(maxf(h, n + 0.55), maxf(rampa, n + 0.55))
 		if h < n + 0.55:
 			margem = n + 0.55 + (h - n - 0.55) * smoothstep(12.0, 40.0, r.x)  # terreno baixo: dique que some aos poucos
-		h = lerpf(leito, margem, smoothstep(RIO_LEITO, 10.0, r.x))
+		var novo := lerpf(leito, margem, smoothstep(RIO_LEITO, 10.0, r.x))
+		# na foz o leito se desfaz no fundo do mar (senão as margens seguiam mar adentro como dois diques)
+		h = lerpf(novo, h, smoothstep(c.cava_ate - 40.0, c.cava_ate + 6.0, r.y))
 	# a bacia da nascente, no alto do paredão
 	var dn := Vector2(x, z).distance_to(NASCENTE)
 	if dn < 9.0 and queda_topo.y > 0.0:
 		h = minf(h, lerpf(queda_topo.y - 0.9, h, smoothstep(3.0, 8.0, dn)))
 	# o poço da cachoeira
-	var d := Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y))
-	if d < 44.0:
+	var dp := Vector2(x, z) - Vector2(POCO.x, POCO.y)
+	var d := dp.length()
+	if d < 60.0:
+		# o contorno não é um círculo de compasso: a parede avança e recua em volta (e chega mais perto
+		# da beira justamente onde a água cai, para a queda sair da pedra)
+		var da := angle_difference(atan2(NASCENTE.y - POCO.y, NASCENTE.x - POCO.x), dp.angle())
+		var w := cos(da * 3.0) * 0.45 + cos(da * 5.0) * 0.3 + cos(da * 8.0 + 0.6) * 0.25
+		var w2 := sin(da * 2.0 + 0.8) * 0.5 + sin(da * 7.0 + 2.0) * 0.3 + sin(da * 11.0) * 0.2
+		var dparede := d - w * 4.5
 		# um anfiteatro: chão chato em volta do poço e paredão em volta, por onde a água cai
-		h = minf(h, lerpf(POCO_NIVEL + 0.5, h, smoothstep(31.0, 38.5, d)))
-	if d < POCO.z * 1.6:
-		h = minf(h, lerpf(POCO_NIVEL - 2.4, maxf(h, POCO_NIVEL + 0.4), smoothstep(POCO.z * 0.55, POCO.z * 1.1, d)))
+		if dparede < 46.0:
+			h = minf(h, lerpf(POCO_NIVEL + 0.5, h, smoothstep(31.0, 38.5 + w2 * 3.0, dparede)))
+		var dpoco := d - w2 * 2.6
+		if dpoco < POCO.z * 1.6:
+			h = minf(h, lerpf(POCO_NIVEL - 2.4, maxf(h, POCO_NIVEL + 0.4), smoothstep(POCO.z * 0.55, POCO.z * 1.1, dpoco)))
 	return h
 
 
@@ -325,8 +391,8 @@ func _fita_rio() -> void:
 	# o espelho do poço
 	var disco := MeshInstance3D.new()
 	var cil := CylinderMesh.new()
-	cil.top_radius = POCO.z * 1.15
-	cil.bottom_radius = POCO.z * 1.15
+	cil.top_radius = POCO.z * 1.32
+	cil.bottom_radius = POCO.z * 1.32
 	cil.height = 0.02
 	cil.radial_segments = 28
 	cil.cap_bottom = false
@@ -720,7 +786,14 @@ func _mata_fora() -> void:
 			if rng.randf() > (0.92 if c == 2 else 0.5):
 				continue
 			var h := _fora(px, pz)
-			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz):
+			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz) or not Ruinas.livre(px, pz):
+				continue
+			# colada num paredão a árvore sumia dentro da rocha
+			var na_parede := false
+			for viz: Vector2 in [Vector2(8, 0), Vector2(-8, 0), Vector2(0, 8), Vector2(0, -8)]:
+				if normal_em(px + viz.x, pz + viz.y).y < 0.62:
+					na_parede = true
+			if na_parede:
 				continue
 			var sorte := rng.randf()
 			var tipo := "carvalho_a"

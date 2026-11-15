@@ -37,6 +37,7 @@ func rodar(main: Node) -> void:
 	await _ponto_14()
 	await _ponto_15()
 	await _ponto_16()
+	await _ponto_17()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -60,7 +61,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "mirar", "marcar", "atirar"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar"]:
 		Input.action_release(acao)
 
 
@@ -143,35 +144,36 @@ func _ponto_2() -> void:
 ## 3. segurar o pulo no chão decola e entra em voo, subindo mais de 18 m; com a câmera para baixo
 ## (pitch -0,3), continua em voo 2,5 s depois com mais de 6 m do chão.
 func _ponto_3() -> void:
-	print("decolagem segurando o pulo")
+	print("pulo e botão de voo no ar")
 	_zerar()
 	a.recomecar()
 	await _esperar(0.6)
 	var y0 := a.global_position.y
 	var topo := 0.0
-	Input.action_press("pular")
-	await _esperar(0.45)
-	Input.action_release("pular")
+	cam.pitch = 0.5
+	await _apertar("pular")
+	await _esperar(0.15)
+	await _apertar("voar")
 	for i in roundi(1.5 * 60.0):
 		await get_tree().physics_frame
 		topo = maxf(topo, a.global_position.y - y0)
 	var estado_1 := a.nome_estado()
 	var voo_1 := a.estado == Armadura.Estado.VOO
-	# segunda decolagem, com a câmera olhando para baixo
+	# de novo, com a câmera olhando para baixo
 	_soltar_tudo()
 	a.recomecar()
 	await _esperar(0.6)
 	cam.pitch = -0.3
-	Input.action_press("pular")
-	await _esperar(0.45)
-	Input.action_release("pular")
-	await _esperar(2.5)
+	await _apertar("pular")
+	await _esperar(0.15)
+	await _apertar("voar")
+	await _esperar(1.4)
 	var alt := a.altura_do_chao()
-	var voo_2 := a.estado == Armadura.Estado.VOO and alt > 6.0
+	var voo_2 := a.estado == Armadura.Estado.VOO and alt > 1.0
 	var estado_2 := a.nome_estado()
 	cam.pitch = -0.12
-	_ok(voo_1 and topo > 18.0 and voo_2,
-		"segurar o pulo decola e sobe %.1f m (esperado mais de 18, %s); com pitch -0,3, 2,5 s depois: %s a %.1f m do chão (esperado voo com mais de 6 m)"
+	_ok(voo_1 and topo > 6.0 and voo_2,
+		"pulo e L3 no ar liga o voo e sobe %.1f m com a câmera para cima (esperado mais de 6, %s); com pitch -0,3, 1,4 s depois: %s a %.1f m do chão (esperado voo com mais de 1 m)"
 		% [topo, estado_1, estado_2, alt])
 	_soltar_tudo()
 
@@ -467,7 +469,7 @@ func _ponto_13() -> void:
 			% [longe, desligado, nome, float(st.get("calor"))])
 
 
-## Desligar o voo despenca (robô pesado, não plana) e o tiro sai sem mirar.
+## Desligar o voo freia e despenca (robô pesado, não plana) e o tiro sai sem mirar.
 func _ponto_14() -> void:
 	_soltar_tudo()
 	_zerar()
@@ -482,14 +484,14 @@ func _ponto_14() -> void:
 	var v_antes := _hv()
 	await _apertar("soltar")
 	Input.action_release("soltar")
-	await _esperar(1.0)
+	await _esperar(1.5)  # meio segundo de freada com os jatos à frente, depois 1 s de queda
 	var v_depois := _hv()
 	var vy := a.velocity.y
 	var est := a.nome_estado()
 	await _esperar(3.5)
 	var pousou := a.estado == Armadura.Estado.CHAO or a.estado == Armadura.Estado.POUSO
 	_ok(v_antes > 20.0 and v_depois < v_antes * 0.45 and vy < -18.0 and pousou,
-		"soltar o voo: de %.0f m/s de lado para %.0f em 1 s, caindo a %.0f m/s (%s); pousou: %s" % [v_antes, v_depois, vy, est, pousou])
+		"soltar o voo: de %.0f m/s de lado para %.0f em 1,5 s, caindo a %.0f m/s (%s); pousou: %s" % [v_antes, v_depois, vy, est, pousou])
 	await _esperar(1.5)
 	_zerar()
 	var t: Node = m.get("tiro")
@@ -607,3 +609,36 @@ func _ponto_16() -> void:
 	ciclo.parado = false
 	a.recomecar()
 	await _esperar(0.5)
+
+
+## Rio com curvas, paredões e ruínas: o rio serpenteia, as rochas e as três ruínas existem com colisão,
+## e dá para pousar em cima do aqueduto.
+func _ponto_17() -> void:
+	if not (m.ilha is Vale):
+		return
+	var v: Vale = m.ilha
+	_soltar_tudo()
+	_zerar()
+	# o rio do sul anda bem mais do que a linha reta entre a borda da clareira e a foz
+	var de := v._rio_ponto(v._rio_s_borda)
+	var ate := v._rio_ponto(v._rio_s_foz)
+	var sinuoso := (v._rio_s_foz - v._rio_s_borda) / de.distance_to(ate)
+	var rochas := 0
+	var pedras := 0
+	var obras := 0
+	for n in v.get_children():
+		if n.name == "Paredoes":
+			rochas = n.get_child_count()
+		elif String(n.name).begins_with("Ruina"):
+			obras += 1
+			pedras += n.get_child_count()
+	# em cima do leito do aqueduto, sobre o segundo arco
+	var lugar := Ruinas.ARCOS
+	var chao := v.altura(lugar.x, lugar.y)
+	var em_cima := Transform3D(Basis(Vector3.UP, lugar.z), Vector3(lugar.x, chao, lugar.y)) * Vector3(-11.0, Ruinas.NASCENCA + 8.2, 0.0)
+	a.teleportar(em_cima, Armadura.Estado.AR)
+	await _esperar(1.6)
+	var sobre: float = a.global_position.y - chao
+	_ok(sinuoso > 1.05 and rochas > 50 and obras == 3 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
+		"rio, paredões e ruínas: o rio anda %.2f vezes a reta; %d rochas com colisão nos paredões; %d ruínas com %d pedras; o robô pousa no aqueduto a %.1f m do chão"
+			% [sinuoso, rochas, obras, pedras, sobre])

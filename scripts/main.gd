@@ -129,7 +129,7 @@ func _ready() -> void:
 			add_child(limite)
 			for q in (ilha as Vale).quedas:
 				sons.cachoeira_em(q)
-			# lugares com nome: aparecem na tela na chegada (os da maquete aprovada; as ruínas entram quando existirem)
+			# lugares com nome: aparecem na tela na chegada (os da maquete aprovada e as três ruínas)
 			var mapa_vale := ilha as Vale
 			locais = Locais.new()
 			locais.armadura = armadura
@@ -138,7 +138,8 @@ func _ready() -> void:
 			for l: Array in [["Clareira", Vector2(0, 0), 95.0], ["Cachoeira", Vector2(Vale.POCO.x, Vale.POCO.y), 55.0],
 					["Mata Fechada", Vector2(140, -600), 190.0], ["Serra do Mirante", Vector2(mapa_vale.cume.x, mapa_vale.cume.z), 120.0],
 					["Platô das Flores", Vector2(640, 120), 210.0], ["Campos do Sul", Vector2(-100, 540), 190.0],
-					["Foz do Riacho", foz, 60.0]]:
+					["Foz do Riacho", foz, 60.0], ["Os Arcos", Vector2(Ruinas.ARCOS.x, Ruinas.ARCOS.y), 60.0],
+					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0]]:
 				var lp: Vector2 = l[1]
 				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
 			hud.ligar_locais(locais)
