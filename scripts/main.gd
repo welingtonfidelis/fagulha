@@ -12,6 +12,9 @@ var armadura: Armadura
 var camera: CameraVoo
 var hud: Hud
 var pausa: Pausa
+var vida: VidaVale
+var inimigos: InimigosVale
+var som_lugar: SomAmbiente
 var sons: Sons
 var locais: Locais
 var ciclo: CicloDia
@@ -119,10 +122,12 @@ func _ready() -> void:
 		tiro = Tiro.new()
 		tiro.armadura = armadura
 		add_child(tiro)
+		tiro.disparou.connect(sons.ao_atirar)
 		var mato := EfeitosMato.new()
 		mato.armadura = armadura
 		mato.mapa = ilha
 		add_child(mato)
+		mato.atravessou_copa.connect(sons.ao_atravessar_copa)
 		if ilha is Vale:
 			var limite := LimiteMar.new()
 			limite.armadura = armadura
@@ -144,6 +149,9 @@ func _ready() -> void:
 					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0]]:
 				var lp: Vector2 = l[1]
 				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
+			for cav: Dictionary in Cavernas.lista:
+				var mc: Vector2 = ((cav["a"] as Vector2) + (cav["b"] as Vector2)) * 0.5
+				locais.adicionar(cav["nome"], Vector3(mc.x, mapa_vale.altura(mc.x, mc.y) + 3.0, mc.y), float(cav["comp"]) * 0.45)
 			hud.ligar_locais(locais)
 			var capim := CapimVivo.new()
 			capim.mapa = ilha
@@ -161,13 +169,15 @@ func _ready() -> void:
 		agua_fx.armadura = armadura
 		agua_fx.mapa = ilha
 		add_child(agua_fx)
-		var som_lugar := SomAmbiente.new()
+		som_lugar = SomAmbiente.new()
 		som_lugar.ouvinte = armadura
 		add_child(som_lugar)
 		var pts: Array[Vector3] = []
 		for r in Clareira.RIACHO:
 			pts.append(Vector3(r.x, Clareira.NIVEL, r.y))
 		som_lugar.riacho_em(pts)
+		if ilha is Vale:
+			som_lugar.rio_em((ilha as Vale).pontos_do_rio(SomAmbiente.RIO_PASSO))
 		# bichos pequenos: pássaros em bando, coelhos e o cardume da lagoa
 		var pinta := func(no: Node) -> void: _pintar(no, ilha as Clareira)
 		var k_b := 0
@@ -208,6 +218,18 @@ func _ready() -> void:
 		add_child(peixes)
 		peixes.ligar_respingo(agua_fx)
 		peixes.saltou.connect(func(pos: Vector3) -> void: agua_fx._anel(pos, 0.2, 1.6, 0.8, 0.8))
+		if ilha is Vale:
+			# a vida fora da clareira: nasce e some conforme o robô chega e se afasta
+			vida = VidaVale.new()
+			vida.mapa = ilha
+			vida.alvo = armadura
+			vida.pintar = pinta
+			add_child(vida)
+			inimigos = InimigosVale.new()
+			inimigos.mapa = ilha
+			inimigos.alvo = armadura
+			inimigos.pintar = pinta
+			add_child(inimigos)
 	if ilha is Mundo:
 		var chao := ChaoVivo.new()
 		chao.mapa = ilha

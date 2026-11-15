@@ -34,6 +34,15 @@ func rodar(main: Node) -> void:
 	if "--posturas" in args:
 		await _posturas()
 		return
+	if "--cavernas" in args:
+		await _cavernas()
+		return
+	if "--inimigos" in args:
+		await _inimigos()
+		return
+	if "--vida" in args:
+		await _vida()
+		return
 	if "--base" in args:
 		await _base()
 		return
@@ -406,6 +415,140 @@ func _pouso() -> void:
 		await _esperar(0.1)
 		await _foto("p_%s_pouso" % par[1])
 		await _esperar(1.2)
+	get_tree().quit()
+
+
+## Cada caverna de fora (a boca), por dentro e de cima (`--cavernas`).
+func _cavernas() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 62.0
+	livre.make_current()
+	var k := 0
+	for cav: Dictionary in Cavernas.lista:
+		var pa: Vector2 = cav["a"]
+		var pb: Vector2 = cav["b"]
+		var d2 := (pb - pa).normalized()
+		var dir := Vector3(d2.x, 0, d2.y)
+		var ini := Vector3(pa.x, float(cav["ha"]), pa.y)
+		a.teleportar(ini + Vector3(0, 60, 0), Armadura.Estado.PAIRAR)
+		Input.action_press("mirar")
+		await _esperar(1.2)
+		var boca := ini + dir * maxf(0.0, float(cav["de"]) - 26.0)
+		livre.global_position = boca + Vector3(0, 4.0, 0) + dir.cross(Vector3.UP) * 5.0
+		livre.look_at(ini + dir * (float(cav["de"]) + 8.0) + Vector3(0, 3.5, 0))
+		await _esperar(0.4)
+		await _foto("g%d_boca" % k)
+		var meio := ini + dir * lerpf(float(cav["de"]), float(cav["ate"]), 0.25)
+		meio.y = c.altura(meio.x, meio.z) + 2.2
+		livre.global_position = meio
+		livre.look_at(meio + dir * 20.0 + Vector3(0, 1.0, 0))
+		await _esperar(0.4)
+		await _foto("g%d_dentro" % k)
+		var centro := ini + dir * float(cav["comp"]) * 0.5
+		livre.global_position = centro + Vector3(0, 75, 0) - dir * 45.0
+		livre.look_at(centro)
+		await _esperar(0.4)
+		await _foto("g%d_cima" % k)
+		k += 1
+	Input.action_release("mirar")
+	get_tree().quit()
+
+
+## O Zangão e o Carrapato de perto, e os dois em ação vistos de fora (`--inimigos`).
+func _inimigos() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 30.0
+	livre.make_current()
+	var z: Zangao = null
+	var cr: Carrapato = null
+	for n: Node3D in m.inimigos.todas:
+		if n is Zangao and z == null:
+			z = n
+		if n is Carrapato and cr == null:
+			cr = n
+	# de perto, parados
+	a.teleportar(z.global_position + Vector3(120, 60, 0), Armadura.Estado.PAIRAR)
+	Input.action_press("mirar")
+	await _esperar(1.0)
+	z.pose_foto = 1
+	z.global_position.y = c.altura(z.global_position.x, z.global_position.z) + 22.0
+	for v: Array in [["z1_frente", Vector3(0.6, 0.5, -2.6)], ["z2_lado", Vector3(2.6, 0.9, -0.4)]]:
+		livre.global_position = z.global_position + z.global_basis * (v[1] as Vector3)
+		livre.look_at(z.global_position)
+		await _esperar(0.3)
+		await _foto(v[0])
+	z.pose_foto = -1
+	cr.pose_foto = 1
+	for v: Array in [["c1_frente", Vector3(0.7, 0.7, -2.2)], ["c2_lado", Vector3(2.2, 0.8, 0.2)]]:
+		livre.global_position = cr.global_position + cr.global_basis * (v[1] as Vector3)
+		livre.look_at(cr.global_position + Vector3(0, 0.25, 0))
+		await _esperar(0.3)
+		await _foto(v[0])
+	cr.pose_foto = -1
+	Input.action_release("mirar")
+	# em ação: o robô no chão perto dos carrapatos
+	var p := cr.casa + Vector3(14, 0, 0)
+	a.teleportar(Vector3(p.x, c.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+	a.graca_pane = 0.0
+	for i in 200:
+		await get_tree().physics_frame
+		if cr.estado == Carrapato.Estado.INVESTE:
+			break
+	await _esperar(0.25)
+	livre.fov = 50.0
+	livre.global_position = a.global_position + Vector3(4, 3.0, 9)
+	livre.look_at((a.global_position + cr.global_position) * 0.5)
+	await _foto("c3_investida")
+	# o robô perto dos zangões
+	a.avaria = 0
+	p = z.casa + Vector3(0, 0, 22)
+	a.teleportar(Vector3(p.x, c.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+	for i in 600:
+		await get_tree().physics_frame
+		a.avaria = 0
+		if z.disparos > 0:
+			break
+	await _esperar(0.3)
+	livre.global_position = a.global_position + Vector3(7, 2.5, 8)
+	livre.look_at((a.global_position + z.global_position) * 0.5)
+	await _foto("z3_tiro")
+	get_tree().quit()
+
+
+## A vida fora da clareira (`--vida`): duas manadas, uma toca, um bando e o cardume do poço.
+func _vida() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 38.0
+	livre.make_current()
+	var vistos := {}
+	for l: Dictionary in m.vida.lugares:
+		var tipo: String = l["tipo"]
+		var limite := 3 if tipo == "cervo" else 1
+		if int(vistos.get(tipo, 0)) >= limite:
+			continue
+		vistos[tipo] = int(vistos.get(tipo, 0)) + 1
+		var p: Vector3 = l["pos"]
+		var longe := p + Vector3(60, 0, 60)
+		a.teleportar(Vector3(longe.x, c.altura(longe.x, longe.z) + 40.0, longe.z), Armadura.Estado.PAIRAR)
+		Input.action_press("mirar")
+		await _esperar(4.0)
+		var dist := 16.0 if tipo == "cervo" else (9.0 if tipo == "peixe" else 6.0)
+		var de := p + Vector3(dist, dist * 0.35, dist * 0.6)
+		de.y = maxf(de.y, c.altura(de.x, de.z) + 1.2)
+		livre.global_position = de
+		livre.look_at(p + Vector3(0, 0.5, 0))
+		await _esperar(0.5)
+		await _foto("v_%s_%d" % [tipo, vistos[tipo]])
+	Input.action_release("mirar")
 	get_tree().quit()
 
 

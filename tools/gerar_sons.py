@@ -460,5 +460,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-    ambiente()
+    # Desde 2026-11-15 o resto vem de gravações (tools/montar_sons.py). Sem argumento, só os três avisos
+    # que continuam sintetizados; com --tudo, gera a versão sintetizada inteira (cobre as gravações).
+    import sys
+    if "--tudo" in sys.argv:
+        main()
+        ambiente()
+    else:
+        alarme_calor()
+        religar()
+        marcar()

@@ -52,6 +52,7 @@ func gerar(_semente := 7) -> void:
 	var t0 := Time.get_ticks_msec()
 	_carregar()
 	_preparar_rio()
+	Cavernas.cavar(self)
 	super.gerar(_semente)
 	_malha_fora()
 	_colisao_fora()
@@ -61,6 +62,7 @@ func gerar(_semente := 7) -> void:
 	_cume()
 	_mata_fora()
 	Paredoes.montar(self)
+	Cavernas.montar(self)
 	Ruinas.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
@@ -282,6 +284,18 @@ func _preparar_rio() -> void:
 			var z := -F_META + gz * F_PASSO
 			var i := gz * F_N + gx
 			_fora_h[i] = _cavar_rio(x, z, _fora_h[i])
+
+
+## Pontos ao longo dos rios, um a cada `passo` metros, na altura da água (para o som).
+func pontos_do_rio(passo: float) -> Array[Vector3]:
+	var lista: Array[Vector3] = []
+	for c: Curso in _cursos:
+		var sv := c.fita_de + passo * 0.5
+		while sv < minf(c.fita_ate, c.total()):
+			var p := c.ponto(sv)
+			lista.append(Vector3(p.x, agua(p.x, p.y), p.y))
+			sv += passo
+	return lista
 
 
 ## Compatível com os testes: ponto do rio do sul no comprimento s.
@@ -786,7 +800,7 @@ func _mata_fora() -> void:
 			if rng.randf() > (0.92 if c == 2 else 0.5):
 				continue
 			var h := _fora(px, pz)
-			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz) or not Ruinas.livre(px, pz):
+			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz) or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
 				continue
 			# colada num paredão a árvore sumia dentro da rocha
 			var na_parede := false

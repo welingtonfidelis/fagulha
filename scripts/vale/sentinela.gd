@@ -87,6 +87,7 @@ var _malha_projetil: SphereMesh
 var _malha_faisca: SphereMesh
 var _pe_w: Array[Vector3] = []  # pés plantados, no mundo
 var _passo_i := -1
+var _ronco: AudioStreamPlayer3D
 var _passo_t := 0.0
 var _passo_de := Vector3.ZERO
 var _passo_ate := Vector3.ZERO
@@ -200,6 +201,7 @@ func _ready() -> void:
 	for i in 3:
 		_pe_w.append(_repouso_w(i))
 	_pronto = true
+	_ronco = Som.laco3d(self, "sentinela_loop", -5.0, 7.0, 60.0)
 
 
 func _copia(orig: MeshInstance3D) -> MeshInstance3D:
@@ -313,6 +315,20 @@ func levar_tiro(ponto: Vector3) -> void:
 	_tempo_sem_tiro = 0.0
 	_empurrao = 1.0
 	_pisca = PISCA_BRANCO
+	Som.toque3d(self, Som.variacao("impacto", 3), ponto, -2.0)
+	if estado == Estado.PATRULHA:
+		_mudar(Estado.ALERTA)
+	if calor >= 100.0:
+		_desligar()
+
+
+## O mergulho com impacto do robô por perto: esquenta muito (dois impactos desligam).
+func levar_impacto(ponto: Vector3) -> void:
+	if not _pronto or estado == Estado.DESLIGADO or ponto.distance_to(global_position) > 9.0:
+		return
+	calor = minf(100.0, calor + 60.0)
+	_tempo_sem_tiro = 0.0
+	_pisca = PISCA_BRANCO
 	if estado == Estado.PATRULHA:
 		_mudar(Estado.ALERTA)
 	if calor >= 100.0:
@@ -342,6 +358,8 @@ func religar() -> void:
 	_restante = TEMPO_DESLIGADO
 	_fumaca.emitting = false
 	_corpo_tiro.set_deferred("collision_layer", 2)
+	if _ronco:
+		_ronco.play()
 	_mudar(Estado.PATRULHA)
 
 
@@ -355,6 +373,9 @@ func _desligar() -> void:
 	_fumaca.emitting = true
 	_corpo_tiro.set_deferred("collision_layer", 0)
 	_faisca(_cabeca.global_position)
+	if _ronco:
+		_ronco.stop()
+	Som.toque3d(self, "sentinela_desliga", _cabeca.global_position, 0.0, 12.0, 140.0)
 	desligou.emit()
 
 
@@ -594,6 +615,7 @@ func _passos(delta: float) -> void:
 	_pe_w[_passo_i] = p
 	if _passo_t >= 1.0:
 		_pe_w[_passo_i] = _passo_ate
+		Som.toque3d(self, "sentinela_passo", _passo_ate, -4.0, 10.0, 110.0)
 		_passo_i = -1
 
 
@@ -750,6 +772,7 @@ func _disparar() -> void:
 	var origem := _lente.global_position
 	var destino := _mira
 	disparou.emit(origem, destino)
+	Som.toque3d(self, "tiro_sentinela", origem, 0.0, 14.0, 160.0)
 	_clarao(origem, 0.12)
 	_projetil_iniciar(origem, destino)
 

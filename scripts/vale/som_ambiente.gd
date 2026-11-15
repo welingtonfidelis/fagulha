@@ -1,7 +1,8 @@
 class_name SomAmbiente
 extends Node3D
 ## O som do vale: mata de dia e de noite (com a transição pela hora), chuva, trovão e a água do riacho
-## e da lagoa da Clareira. Os WAV vêm de tools/gerar_sons.py (assets/sons/).
+## e da lagoa da Clareira, o rio do vale e o eco das cavernas. Os WAV saem de tools/montar_sons.py
+## (gravações; créditos em CREDITOS.md).
 ## Uso: crie o nó, atribua `ouvinte` (o robô ou a câmera), depois add_child e chame `riacho_em(pontos)`.
 ## Sem CicloDia.atual (null), toca só a mata de dia.
 
@@ -13,6 +14,12 @@ const RIACHO_DB := -10.0
 const TROVAO_DB := -6.0
 const REDUCAO_CHUVA_DB := -8.0  # a mata se cala com chuva forte
 const SILENCIO_DB := -60.0
+const FUNDO_DB := -17.0  # o fundo de floresta, por baixo dos pássaros e dos grilos
+const FUNDO_NOITE_DB := -22.0
+const CAVERNA_DB := -9.0
+const ABAFA_CAVERNA_DB := -14.0  # quanto a mata e a chuva caem lá dentro
+const RIO_DB := -8.0
+const RIO_PASSO := 110.0  # metros entre um som e outro ao longo do rio
 const SUAVIDADE := 2.0  # quanto maior, mais rápido o volume segue o alvo
 const RIACHO_UNIT_SIZE := 6.0
 const RIACHO_MAX_DIST := 45.0
@@ -27,6 +34,9 @@ var debug := {}
 var _mata_dia: AudioStreamPlayer
 var _mata_noite: AudioStreamPlayer
 var _chuva: AudioStreamPlayer
+var _fundo: AudioStreamPlayer
+var _caverna: AudioStreamPlayer
+var _na_caverna := 0.0
 var _riacho_players: Array[AudioStreamPlayer3D] = []
 var _cache := {}
 var _contagem_trovao := 0.0
@@ -36,6 +46,8 @@ func _ready() -> void:
 	_mata_dia = _laco("mata_dia_loop", SILENCIO_DB)
 	_mata_noite = _laco("mata_noite_loop", SILENCIO_DB)
 	_chuva = _laco("chuva_loop", SILENCIO_DB)
+	_fundo = _laco("mata_fundo_loop", SILENCIO_DB)
+	_caverna = _laco("caverna_loop", SILENCIO_DB)
 	_contagem_trovao = randf_range(8.0, 20.0)
 
 
@@ -65,6 +77,24 @@ func riacho_em(pontos: Array[Vector3]) -> void:
 		_riacho_players.append(p)
 
 
+## O rio do vale: um som a cada RIO_PASSO metros ao longo de cada curso (pontos já com a altura da água).
+func rio_em(pontos: Array[Vector3]) -> void:
+	for pos in pontos:
+		var p := Som.laco3d(self, "rio_loop", RIO_DB, 9.0, 80.0)
+		p.global_position = pos
+
+
+## 0 fora, 1 debaixo do teto de alguma caverna (perto do eixo e abaixo do chão que havia antes de cavar).
+func _peso_caverna() -> float:
+	if ouvinte == null or Cavernas.lista.is_empty():
+		return 0.0
+	var o := ouvinte.global_position
+	for c in Cavernas.lista:
+		if Cavernas._eixo(c, o.x, o.z).x < Cavernas.MEIA + 2.0 and o.y < Cavernas.chao_antes(o.x, o.z) - 1.5:
+			return 1.0
+	return 0.0
+
+
 func _process(delta: float) -> void:
 	var com_ciclo := CicloDia.atual != null
 	var hora := 12.0
@@ -76,9 +106,15 @@ func _process(delta: float) -> void:
 	var dia := 1.0 - noite
 	var reducao := REDUCAO_CHUVA_DB * clampf((chuva - 0.3) / 0.7, 0.0, 1.0)
 
+	_na_caverna = move_toward(_na_caverna, _peso_caverna(), delta / 1.5)
+	var abafa := ABAFA_CAVERNA_DB * _na_caverna
+	reducao += abafa
+
 	var alvo_dia := _db_com_peso(MATA_DB + reducao, dia)
 	var alvo_noite := _db_com_peso(NOITE_DB + reducao, noite)
-	var alvo_chuva := SILENCIO_DB if chuva < 0.002 else CHUVA_DB + linear_to_db(clampf(chuva, 0.0, 1.0))
+	var alvo_chuva := SILENCIO_DB if chuva < 0.002 else CHUVA_DB + abafa + linear_to_db(clampf(chuva, 0.0, 1.0))
+	_fundo.volume_db = _suaviza(_fundo.volume_db, lerpf(FUNDO_DB, FUNDO_NOITE_DB, noite) + reducao, delta)
+	_caverna.volume_db = _suaviza(_caverna.volume_db, _db_com_peso(CAVERNA_DB, _na_caverna), delta)
 
 	_mata_dia.volume_db = _suaviza(_mata_dia.volume_db, alvo_dia, delta)
 	_mata_noite.volume_db = _suaviza(_mata_noite.volume_db, alvo_noite, delta)
@@ -91,6 +127,8 @@ func _process(delta: float) -> void:
 	debug["mata_dia_db"] = _mata_dia.volume_db
 	debug["mata_noite_db"] = _mata_noite.volume_db
 	debug["chuva_db"] = _chuva.volume_db
+	debug["caverna_db"] = _caverna.volume_db
+	debug["na_caverna"] = _na_caverna
 
 
 ## Peso da noite (0 a 1) pela hora: noite plena antes das 5,5 e depois das 20; o amanhecer
@@ -116,7 +154,7 @@ func _atualizar_trovao(delta: float, chuva: float) -> void:
 
 
 func _trovao() -> void:
-	var s := _som("trovao")
+	var s := _som("trovao" if randf() < 0.5 else "trovao_2")
 	if ouvinte != null and ouvinte.is_inside_tree():
 		var ang := randf() * TAU
 		var p := AudioStreamPlayer3D.new()

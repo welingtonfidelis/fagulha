@@ -1,7 +1,8 @@
 class_name Sons
 extends Node
 ## Os sons da armadura: laços de vento, motor e arrancada, toques de estado, alarme de calor e cachoeiras.
-## Os WAV vêm de tools/gerar_sons.py (assets/sons/). Usa o barramento Master.
+## Os WAV saem de tools/montar_sons.py (gravações; assets/sons/); os três avisos (alarme, marcar, religar)
+## ainda são sintetizados por tools/gerar_sons.py. Usa o barramento Master.
 ## Uso: crie o nó, atribua `armadura` e chame `iniciar()`.
 
 const PASTA := "res://assets/sons/%s.wav"
@@ -11,6 +12,13 @@ const ARRANCADA_DB := -10.0
 const TOQUE_DB := -6.0
 const CACHOEIRA_DB := -6.0
 const SILENCIO_DB := -60.0
+const PASSO_DB := -9.0
+const PASSO_ANDANDO := 0.75  # metros entre pisadas, andando
+const PASSO_CORRENDO := 1.25
+const PASSO_CORRE_VEL := 5.0
+const TIRO_DB := -8.0
+const GOLPE_DB := -2.0
+const FOLHAGEM_DB := -8.0
 
 ## Para os testes: anota o nome de cada toque (os laços não entram aqui).
 static var registro: Array[String] = []
@@ -25,6 +33,7 @@ var _cache := {}
 var _estado_antes: int = Armadura.Estado.CHAO
 var _impulso_antes := 0.0
 var _marcador_antes := false
+var _andado := 0.0
 
 
 ## Liga os laços e conecta os sinais da armadura. Chame depois de atribuir `armadura`.
@@ -38,6 +47,7 @@ func iniciar() -> void:
 	armadura.estado_mudou.connect(_ao_mudar_estado)
 	armadura.superaqueceu.connect(_ao_superaquecer)
 	armadura.religou.connect(_ao_religar)
+	armadura.golpe_chao.connect(func(_onde: Vector3) -> void: _toque("golpe_chao", GOLPE_DB))
 	_estado_antes = armadura.estado
 	_impulso_antes = armadura.impulso
 	_marcador_antes = armadura.tem_marcador
@@ -60,6 +70,7 @@ func _process(delta: float) -> void:
 		return
 	_atualizar_laços(delta)
 	_toques_por_variavel()
+	_passos(delta)
 
 
 func _atualizar_laços(delta: float) -> void:
@@ -90,6 +101,30 @@ func _toques_por_variavel() -> void:
 	if armadura.tem_marcador and not _marcador_antes:
 		_toque("marcar")
 	_marcador_antes = armadura.tem_marcador
+
+
+## O tiro da mão (ligue em Tiro.disparou).
+func ao_atirar(_origem: Vector3, _alvo: Vector3) -> void:
+	_toque(Som.variacao("tiro", 3), TIRO_DB)
+
+
+## Folhas ao atravessar uma copa (ligue em EfeitosMato.atravessou_copa).
+func ao_atravessar_copa(_posicao: Vector3, _velocidade: float) -> void:
+	_toque(Som.variacao("folhagem", 4), FOLHAGEM_DB)
+
+
+## Pisadas: uma a cada tanto de chão andado, mais espaçadas na corrida. Sentado ou parado, nenhuma.
+func _passos(delta: float) -> void:
+	var v := Vector2(armadura.velocity.x, armadura.velocity.z).length()
+	if armadura.estado != Armadura.Estado.CHAO or not armadura.is_on_floor() or v < 0.6:
+		_andado = 0.0
+		return
+	_andado += v * delta
+	var passada := PASSO_CORRENDO if v > PASSO_CORRE_VEL else PASSO_ANDANDO
+	if _andado >= passada:
+		_andado = 0.0
+		var db := PASSO_DB + (2.0 if v > PASSO_CORRE_VEL else 0.0) - (5.0 if armadura.postura == 1 else 0.0)
+		_toque(Som.variacao("passo", 6), db, 0.08)
 
 
 func _ao_mudar_estado(novo: int) -> void:
@@ -142,13 +177,13 @@ func _laco_stream(nome: String) -> AudioStreamWAV:
 
 
 ## Toque curto e único, que se solta no fim.
-func _toque(nome: String) -> void:
+func _toque(nome: String, db := TOQUE_DB, tom := 0.03) -> void:
 	if registrar:
 		registro.append(nome)
 	var p := AudioStreamPlayer.new()
 	p.stream = _som(nome)
-	p.volume_db = TOQUE_DB
-	p.pitch_scale = randf_range(0.97, 1.03)
+	p.volume_db = db
+	p.pitch_scale = randf_range(1.0 - tom, 1.0 + tom)
 	add_child(p)
 	p.play()
 	p.finished.connect(p.queue_free)

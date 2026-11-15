@@ -38,6 +38,10 @@ func rodar(main: Node) -> void:
 	await _ponto_15()
 	await _ponto_16()
 	await _ponto_17()
+	await _ponto_18()
+	await _ponto_19()
+	await _ponto_20()
+	await _ponto_21()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -643,3 +647,211 @@ func _ponto_17() -> void:
 	_ok(sinuoso > 1.05 and rochas > 50 and obras == 4 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
 		"rio, paredões e ruínas: o rio anda %.2f vezes a reta; %d rochas com colisão nos paredões; %d ruínas com %d pedras; o robô pousa no aqueduto a %.1f m do chão"
 			% [sinuoso, rochas, obras, pedras, sobre])
+
+
+## 18. Vida fora da clareira: os lugares são sorteados em chão bom, espalhados pelo vale; os bichos nascem
+## quando o robô chega perto e somem quando ele se afasta.
+func _ponto_18() -> void:
+	print("vida espalhada pelo vale")
+	_soltar_tudo()
+	_zerar()
+	var vida: VidaVale = m.vida
+	var v: Vale = m.ilha
+	var ruins := 0
+	var quadrantes := {}
+	for l: Dictionary in vida.lugares:
+		var p: Vector3 = l["pos"]
+		if l["tipo"] != "peixe" and (v.agua(p.x, p.z) > -INF or v.normal_em(p.x, p.z).y < 0.85 or p.y < Vale.MAR + 2.0 or Vector2(p.x, p.z).length() < VidaVale.CLAREIRA_FORA):
+			ruins += 1
+		quadrantes[Vector2i(int(signf(p.x)), int(signf(p.z)))] = true
+	var manada: Dictionary = {}
+	for l: Dictionary in vida.lugares:
+		if l["tipo"] == "cervo":
+			manada = l
+			break
+	var mp: Vector3 = manada["pos"]
+	var antes: int = (manada["nos"] as Array).size()
+	a.teleportar(Vector3(mp.x + 70.0, v.altura(mp.x + 70.0, mp.z) + 50.0, mp.z), Armadura.Estado.PAIRAR)
+	Input.action_press("mirar")
+	await _esperar(4.0)
+	var perto: int = (manada["nos"] as Array).size()
+	var no_chao := true
+	for n: Node3D in manada["nos"]:
+		if absf(n.global_position.y - v.altura(n.global_position.x, n.global_position.z)) > 0.6:
+			no_chao = false
+	a.teleportar(Vector3(mp.x + 500.0 * (-1.0 if mp.x > 0.0 else 1.0), 300.0, mp.z), Armadura.Estado.PAIRAR)
+	await _esperar(4.0)
+	var longe: int = (manada["nos"] as Array).size()
+	Input.action_release("mirar")
+	_ok(vida.lugares.size() >= 60 and ruins == 0 and quadrantes.size() == 4 and antes == 0 and perto >= 2 and no_chao and longe == 0,
+		"vida do vale: %d lugares, %d em chão ruim, %d quadrantes; manada com %d cervos longe, %d ao chegar (no chão: %s), %d ao sair"
+		% [vida.lugares.size(), ruins, quadrantes.size(), antes, perto, no_chao, longe])
+
+
+## 19. Zangão e Carrapato: enxergam o robô, atacam, desligam com tiros ou com o mergulho e religam com o tempo.
+func _ponto_19() -> void:
+	print("zangão e carrapato")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var z: Zangao = null
+	var cr: Carrapato = null
+	for n: Node3D in m.inimigos.todas:
+		if n is Zangao and z == null:
+			z = n
+		if n is Carrapato and cr == null:
+			cr = n
+	# carrapato: o robô parado a 14 m leva a investida
+	var p := cr.casa + Vector3(14, 0, 0)
+	a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+	a.graca_pane = 0.0
+	a.avaria = 0
+	var g0: int = a.golpes
+	var investiu := false
+	for i in 8 * 60:
+		await get_tree().physics_frame
+		a.avaria = 0
+		if cr.investidas > 0:
+			investiu = true
+		if a.golpes > g0:
+			break
+	var acertou: bool = a.golpes > g0
+	# o mergulho com impacto perto desliga; o tempo religa
+	a.golpe_chao.emit(cr.global_position + Vector3(2, 0, 0))
+	await _esperar(0.2)
+	var caiu: bool = cr.desligada
+	cr.avancar_tempo(MaquinaPequena.TEMPO_DESLIGADA + 1.0)
+	var voltou: bool = not cr.desligada and cr.religamentos == 1
+	# zangão: vê o robô, caça e atira; dois tiros desligam
+	p = z.casa + Vector3(0, 0, 22)
+	a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+	a.graca_pane = 0.0
+	var cacou := false
+	for i in 12 * 60:
+		await get_tree().physics_frame
+		a.avaria = 0
+		if z.estado == Zangao.Estado.CACA:
+			cacou = true
+		if z.disparos > 0:
+			break
+	var atirou: bool = z.disparos > 0
+	var alto: bool = z.global_position.y - v.altura(z.global_position.x, z.global_position.z) > 1.4
+	z.levar_tiro(z.centro())
+	var um: bool = not z.desligada
+	z.levar_tiro(z.centro())
+	var dois: bool = z.desligada
+	await _esperar(2.5)
+	var no_chao: bool = z.global_position.y - v.altura(z.global_position.x, z.global_position.z) < 0.6
+	a.avaria = 0
+	a.graca_pane = 0.0
+	_ok(m.inimigos.todas.size() == 33 and investiu and acertou and caiu and voltou and cacou and atirou and alto and um and dois and no_chao,
+		"inimigos: %d máquinas; carrapato investe (%s) e acerta o robô parado (%s), o mergulho desliga (%s), o tempo religa (%s); zangão caça (%s), atira (%s), voa (%s), um tiro não desliga (%s), dois desligam (%s) e ele cai no chão (%s)"
+		% [m.inimigos.todas.size(), investiu, acertou, caiu, voltou, cacou, atirou, alto, um, dois, no_chao])
+
+
+## 20. Cavernas: há túnel e grutas, o chão foi cavado, o teto existe e segura, e dá para atravessar o túnel voando.
+func _ponto_20() -> void:
+	print("cavernas")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var com_teto := 0
+	var tunel: Dictionary = {}
+	for cav: Dictionary in Cavernas.lista:
+		if float(cav["ate"]) - float(cav["de"]) > 12.0:
+			com_teto += 1
+		if not cav["gruta"] and tunel.is_empty():
+			tunel = cav
+	var pa: Vector2 = tunel["a"]
+	var pb: Vector2 = tunel["b"]
+	var d2 := (pb - pa).normalized()
+	var comp: float = tunel["comp"]
+	var meio := pa + d2 * comp * 0.5
+	var chao_meio := v.altura(meio.x, meio.y)
+	var esperado := lerpf(tunel["ha"], tunel["hb"], 0.5)
+	var morro := Cavernas.chao_antes(meio.x, meio.y) - chao_meio
+	var espaco := a.get_world_3d().direct_space_state
+	var de := Vector3(meio.x, chao_meio + 1.0, meio.y)
+	var q := PhysicsRayQueryParameters3D.create(de, de + Vector3(0, 30, 0), 1)
+	var hit := espaco.intersect_ray(q)
+	var teto := (hit["position"] as Vector3).y - chao_meio if not hit.is_empty() else -1.0
+	# voando de uma boca à outra
+	var ini := pa + d2 * 6.0
+	cam.yaw = atan2(-d2.x, -d2.y)
+	var sobe := atan2(float(tunel["hb"]) - float(tunel["ha"]), comp)
+	cam.pitch = sobe + 0.22  # no cruzeiro o voo só fica nivelado com o nariz uns 12° acima do horizonte
+	a.calor = 0.0
+	a.teleportar(Vector3(ini.x, v.altura(ini.x, ini.y) + 4.0, ini.y), Armadura.Estado.VOO, Vector3(d2.x, tan(sobe), d2.y) * 18.0)
+	var andou := 0.0
+	var caiu := false
+	for i in 12 * 60:
+		await get_tree().physics_frame
+		andou = (Vector2(a.global_position.x, a.global_position.z) - ini).dot(d2)
+		if a.estado != Armadura.Estado.VOO:
+			caiu = true
+			break
+		if andou > comp - 12.0:
+			break
+	if caiu:
+		print("    caiu em ", a.global_position, " estado ", a.nome_estado(), " chão ", v.altura(a.global_position.x, a.global_position.z))
+	cam.pitch = -0.12
+	_ok(Cavernas.lista.size() >= 4 and com_teto >= 4 and not tunel.is_empty() and absf(chao_meio - esperado) < 1.5 and morro > 10.0 and teto > 4.0 and teto < 12.0 and not caiu and andou > comp - 12.0,
+		"cavernas: %d (%d com teto); no meio do túnel o chão desceu %.1f m e o teto fica a %.1f m; voando de uma boca à outra andou %.0f de %.0f m (caiu: %s)"
+		% [Cavernas.lista.size(), com_teto, morro, teto, andou, comp, caiu])
+
+
+
+## 21. Sons: os arquivos montados existem, andar faz pisadas, atirar faz o tiro, e dentro do túnel o eco
+## da caverna entra e a mata se cala.
+func _ponto_21() -> void:
+	print("sons")
+	_soltar_tudo()
+	_zerar()
+	var faltam: Array[String] = []
+	for nome: String in ["mata_dia_loop", "mata_fundo_loop", "mata_noite_loop", "chuva_loop", "trovao", "trovao_2",
+			"riacho_loop", "rio_loop", "cachoeira_loop", "vento_loop", "caverna_loop", "folhagem_1", "folhagem_4",
+			"motor_loop", "arrancada_loop", "decolagem", "pulo_duplo", "esquiva", "pouso_leve", "pouso_pesado",
+			"golpe_chao", "motor_apaga", "passo_1", "passo_6", "tiro_1", "tiro_3", "impacto_1", "impacto_3",
+			"maquina_desliga", "sentinela_desliga", "zangao_loop", "tiro_zangao_1", "tiro_zangao_2", "carrapato_loop",
+			"sentinela_loop", "sentinela_passo", "tiro_sentinela", "alarme_calor", "marcar", "religar"]:
+		if not ResourceLoader.exists(Som.PASTA % nome):
+			faltam.append(nome)
+	# pisadas e tiro, na clareira
+	a.teleportar(il.spawn + Vector3(0, 0.3, 14.0), Armadura.Estado.CHAO, Vector3.ZERO)
+	await _esperar(0.5)
+	Sons.registro.clear()
+	Sons.registrar = true
+	Input.action_press("frente")
+	await _esperar(2.0)
+	Input.action_release("frente")
+	var passos := 0
+	for nome in Sons.registro:
+		if nome.begins_with("passo_"):
+			passos += 1
+	await _esperar(0.4)
+	Sons.registro.clear()
+	Input.action_press("atirar")
+	await _esperar(0.5)
+	Input.action_release("atirar")
+	var tiros := 0
+	for nome in Sons.registro:
+		if nome.begins_with("tiro_"):
+			tiros += 1
+	Sons.registrar = false
+	# fora e dentro do túnel
+	var fora: float = m.som_lugar.debug.get("na_caverna", -1.0)
+	var tunel: Dictionary = {}
+	for cav: Dictionary in Cavernas.lista:
+		if not cav["gruta"] and tunel.is_empty():
+			tunel = cav
+	var meio: Vector2 = ((tunel["a"] as Vector2) + (tunel["b"] as Vector2)) * 0.5
+	var v: Vale = m.ilha
+	a.teleportar(Vector3(meio.x, v.altura(meio.x, meio.y) + 0.3, meio.y), Armadura.Estado.CHAO, Vector3.ZERO)
+	await _esperar(3.0)
+	var dentro: float = m.som_lugar.debug.get("na_caverna", -1.0)
+	var eco: float = m.som_lugar.debug.get("caverna_db", -99.0)
+	a.teleportar(il.spawn + Vector3(0, 0.3, 0), Armadura.Estado.CHAO, Vector3.ZERO)
+	await _esperar(0.2)
+	_ok(faltam.is_empty() and passos >= 3 and passos <= 9 and tiros >= 1 and fora < 0.05 and dentro > 0.95 and eco > -20.0,
+		"sons: faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do túnel %.2f (eco a %.0f dB)"
+		% [faltam.size(), str(faltam) if not faltam.is_empty() else "", passos, tiros, fora, dentro, eco])

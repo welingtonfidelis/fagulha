@@ -11,3 +11,6 @@ docs/**/_paineis/
 vendor/polyhaven/
 # macOS
 .DS_Store
+# downloads de som (OpenGameArt); o jogo usa os WAV montados em assets/sons/
+tools/sons_brutos/
+__pycache__/
