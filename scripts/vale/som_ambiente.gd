@@ -6,7 +6,6 @@ extends Node3D
 ## Uso: crie o nó, atribua `ouvinte` (o robô ou a câmera), depois add_child e chame `riacho_em(pontos)`.
 ## Sem CicloDia.atual (null), toca só a mata de dia.
 
-const PASTA := "res://assets/sons/%s.wav"
 const MATA_DB := -14.0
 const NOITE_DB := -16.0
 const CHUVA_DB := -8.0
@@ -38,7 +37,6 @@ var _fundo: AudioStreamPlayer
 var _caverna: AudioStreamPlayer
 var _na_caverna := 0.0
 var _riacho_players: Array[AudioStreamPlayer3D] = []
-var _cache := {}
 var _contagem_trovao := 0.0
 
 
@@ -67,7 +65,7 @@ func riacho_em(pontos: Array[Vector3]) -> void:
 	posicoes.append(Vector3(Clareira.LAGOA.x, Clareira.NIVEL, Clareira.LAGOA.y))
 	for pos in posicoes:
 		var p := AudioStreamPlayer3D.new()
-		p.stream = _laco_stream("riacho_loop")
+		p.stream = Som.laco_stream("riacho_loop")
 		p.volume_db = RIACHO_DB
 		p.unit_size = RIACHO_UNIT_SIZE
 		p.max_distance = RIACHO_MAX_DIST
@@ -86,9 +84,11 @@ func rio_em(pontos: Array[Vector3]) -> void:
 
 ## 0 fora, 1 debaixo do teto de alguma caverna (perto do eixo e abaixo do chão que havia antes de cavar).
 func _peso_caverna() -> float:
-	if ouvinte == null or Cavernas.lista.is_empty():
+	if ouvinte == null or (Cavernas.lista.is_empty() and not Sumidouro.existe):
 		return 0.0
 	var o := ouvinte.global_position
+	if Sumidouro.no_vazio(o + Vector3.UP * 1.5):
+		return 1.0
 	for c in Cavernas.lista:
 		if Cavernas._eixo(c, o.x, o.z).x < Cavernas.MEIA + 2.0 and o.y < Cavernas.chao_antes(o.x, o.z) - 1.5:
 			return 1.0
@@ -154,7 +154,7 @@ func _atualizar_trovao(delta: float, chuva: float) -> void:
 
 
 func _trovao() -> void:
-	var s := _som("trovao" if randf() < 0.5 else "trovao_2")
+	var s := Som.stream("trovao" if randf() < 0.5 else "trovao_2")
 	if ouvinte != null and ouvinte.is_inside_tree():
 		var ang := randf() * TAU
 		var p := AudioStreamPlayer3D.new()
@@ -192,24 +192,8 @@ func _suaviza(atual: float, alvo: float, delta: float) -> float:
 ## Laço sem posição, no barramento Master.
 func _laco(nome: String, volume_db_inicial: float) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	p.stream = _laco_stream(nome)
+	p.stream = Som.laco_stream(nome)
 	p.volume_db = volume_db_inicial
 	add_child(p)
 	p.play()
 	return p
-
-
-## Cópia do WAV com o laço ligado, do início até o último quadro.
-func _laco_stream(nome: String) -> AudioStreamWAV:
-	var base: AudioStreamWAV = load(PASTA % nome)
-	var s := base.duplicate() as AudioStreamWAV
-	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	s.loop_begin = 0
-	s.loop_end = int(base.get_length() * base.mix_rate)
-	return s
-
-
-func _som(nome: String) -> AudioStream:
-	if not _cache.has(nome):
-		_cache[nome] = load(PASTA % nome)
-	return _cache[nome]

@@ -71,11 +71,6 @@ func _ready() -> void:
 	add_child(_rastro)
 
 
-## Se o borrifo do rasante está ligado agora (para teste).
-func rastro_ligado() -> bool:
-	return _rastro.emitting
-
-
 func _physics_process(delta: float) -> void:
 	if armadura == null or mapa == null:
 		return

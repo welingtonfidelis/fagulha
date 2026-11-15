@@ -14,15 +14,6 @@ func adicionar(nome: String, pos: Vector3, raio: float) -> void:
 	lista.append({"nome": nome, "pos": pos, "raio": raio, "visto": false})
 
 
-## Cadastra os lugares do cânion de teste (scripts/teste_visual/canion.gd).
-func do_canion(c: Canion) -> void:
-	adicionar("Platô da Chegada", c.spawn, 45.0)
-	adicionar("Queda do Véu", (c.lip + c.poco) * 0.5, 55.0)
-	var p: Vector4 = c.pilares[1]
-	adicionar("Vale dos Pilares", Vector3(p.x, 40.0, p.y), 80.0)
-	adicionar("Ponte de Pedra", Vector3(c.centro_x(Canion.Z_PONTE), Canion.ALTO - 9.0, Canion.Z_PONTE), 60.0)
-
-
 func descobertos() -> int:
 	var n := 0
 	for it in lista:

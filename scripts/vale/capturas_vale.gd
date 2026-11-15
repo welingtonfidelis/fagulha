@@ -34,6 +34,9 @@ func rodar(main: Node) -> void:
 	if "--posturas" in args:
 		await _posturas()
 		return
+	if "--sumidouro" in args:
+		await _sumidouro()
+		return
 	if "--cavernas" in args:
 		await _cavernas()
 		return
@@ -441,12 +444,23 @@ func _cavernas() -> void:
 		livre.look_at(ini + dir * (float(cav["de"]) + 8.0) + Vector3(0, 3.5, 0))
 		await _esperar(0.4)
 		await _foto("g%d_boca" % k)
-		var meio := ini + dir * lerpf(float(cav["de"]), float(cav["ate"]), 0.25)
-		meio.y = c.altura(meio.x, meio.z) + 2.2
+		var s_meio := lerpf(float(cav["de"]), float(cav["ate"]), 0.3)
+		var perp := dir.cross(Vector3.UP)
+		var meio := ini + dir * s_meio + perp * Cavernas._curva(cav, s_meio)
+		meio.y = lerpf(cav["ha"], cav["hb"], s_meio / float(cav["comp"])) + 2.6
+		var adiante := ini + dir * (s_meio + 22.0) + perp * Cavernas._curva(cav, s_meio + 22.0)
+		adiante.y = meio.y + 0.6
 		livre.global_position = meio
-		livre.look_at(meio + dir * 20.0 + Vector3(0, 1.0, 0))
+		livre.look_at(adiante)
 		await _esperar(0.4)
 		await _foto("g%d_dentro" % k)
+		if cav["gruta"]:
+			var fundo := ini + dir * (float(cav["comp"]) - 24.0) + perp * Cavernas._curva(cav, float(cav["comp"]) - 24.0)
+			fundo.y = float(cav["ha"]) + 3.0
+			livre.global_position = fundo
+			livre.look_at(ini + dir * (float(cav["comp"]) - 8.0) + perp * Cavernas._curva(cav, float(cav["comp"])) + Vector3(0, float(cav["ha"]) - ini.y + 7.0, 0))
+			await _esperar(0.4)
+			await _foto("g%d_salao" % k)
 		var centro := ini + dir * float(cav["comp"]) * 0.5
 		livre.global_position = centro + Vector3(0, 75, 0) - dir * 45.0
 		livre.look_at(centro)
@@ -830,4 +844,47 @@ func _largo() -> void:
 		livre.look_at(v[2])
 		await _esperar(2.2)
 		await _foto(v[0])
+	get_tree().quit()
+
+
+## O Sumidouro por fora e por dentro (`--sumidouro`).
+func _sumidouro() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 68.0
+	livre.make_current()
+	var S := Sumidouro
+	var d := Vector3(S.dir.x, 0, S.dir.y)
+	var lado := d.cross(Vector3.UP)
+	var eixo := Vector3(S.centro.x, S.piso, S.centro.y)
+	var boca := Vector3(S.saida.x, S.saida_h, S.saida.y)
+	var ya := S.ANEL_ALTURA
+	a.teleportar(eixo + Vector3(0, 8.0, 0) + d * 6.0, Armadura.Estado.PAIRAR)
+	Input.action_press("mirar")
+	await _esperar(1.0)
+	var vistas: Array = [
+		["a_cima", eixo + Vector3(0, 115, 0) - d * 70.0, eixo + Vector3(0, 45, 0)],
+		["b_poco_de_cima", eixo + Vector3(0, 84, 0) - d * 22.0 + lado * 10.0, eixo + Vector3(0, 30, 0)],
+		["c_boca", boca + d * 34.0 + Vector3(0, 7, 0) + lado * 8.0, boca + Vector3(0, 4, 0) - d * 6.0],
+		["d_tunel", boca - d * 8.0 + Vector3(0, 3.0, 0), eixo + d * 20.0 + Vector3(0, 5, 0)],
+		["e_salao", eixo + d * 33.0 + Vector3(0, 5.0, 0) + lado * 6.0, eixo + Vector3(0, 9, 0)],
+		["f_salao_fundo", eixo - d * 15.0 + Vector3(0, 4.0, 0) - lado * 9.0, eixo + d * 22.0 + Vector3(0, 8, 0)],
+		["g_poco_de_baixo", eixo + Vector3(0, 2.5, 0) + d * 3.0, eixo + Vector3(0, 50, 0) + d * 0.5],
+		["h_ponte", eixo + Vector3(0, ya + 9.0, 0) + d * 6.5, eixo + Vector3(0, ya - 3.0, 0) - d * 3.0],
+		["i_galeria", eixo + Vector3(0, ya + 2.6, 0) + d * S.ANEL_RAIO, eixo + Vector3(0, ya + 2.4, 0) + lado * S.ANEL_RAIO],
+		["j_janela", eixo + Vector3(0, ya + 3.0, 0) + lado * (S.ANEL_RAIO - 1.0), eixo + Vector3(0, ya + 1.0, 0) - lado * 10.0],
+		["k_camara", Vector3(S._camara_xz().x, S.piso + 5.0, S._camara_xz().y) + d * 7.0, Vector3(S._camara_xz().x, S.piso + 5.0, S._camara_xz().y) - d * 6.0],
+	]
+	if S.varanda != Vector2.ZERO:
+		var vn := Vector3(S.varanda.x, 0, S.varanda.y)
+		vistas.append(["l_varanda", eixo + vn * 1.9 + Vector3(0, ya + 14.0, 0), eixo + vn * 0.6 + Vector3(0, ya + 2.0, 0)])
+		vistas.append(["m_varanda_dentro", eixo + vn.normalized() * (S.ANEL_RAIO + 3.0) + Vector3(0, ya + 2.8, 0), eixo + vn * 1.2 + Vector3(0, ya + 2.5, 0)])
+	for vista: Array in vistas:
+		livre.global_position = vista[1]
+		livre.look_at(vista[2])
+		await _esperar(0.5)
+		await _foto(vista[0])
+	Input.action_release("mirar")
 	get_tree().quit()

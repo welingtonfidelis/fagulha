@@ -9,6 +9,8 @@ extends Node3D
 ## O modelo e o estilo são escolhidos pelo mapa antes de criar a armadura.
 static var MODELO := "res://assets/armadura/robo_teste_v1.glb"  # modelo do usuário (Tripo + Mixamo); v1 e v2 são registro
 static var noite := 0.0  # 0 a 1: de noite as luzes do robô acendem mais
+static var modelo_do_mapa := ""  # o robô normal do mapa (a pausa troca pelo Faísca e volta)
+const FAISCA := "res://assets/faisca/faisca.scn"  # teste: o Faísca da Ilha Cafuné, montado lá e gravado como cena
 static var toon := false  # estilo do vale: peças com luz em faixas
 const JUNTAS := ["raiz", "tronco", "cabeca", "costas"]
 const LADOS := ["ombro", "cotovelo", "punho", "quadril", "joelho", "tornozelo", "pod", "aleta"]
@@ -37,6 +39,8 @@ var _abaixa := 0.0  # 0 de pé, 1 abaixado (suavizado)
 var _senta := 0.0  # 0 de pé, 1 sentado (suavizado)
 var _levanta := 0.0  # sentado: quanto a bacia sobe para nenhuma peça entrar no chão
 var _malhas: Array[MeshInstance3D] = []
+var _mat_rosto: ShaderMaterial
+var _pisca := 3.0
 const ABAIXA_DESCE := 0.42  # quanto a bacia desce abaixado, em alturas de armadura de 1 m de porte
 const SENTA_DESCE := 1.1
 
@@ -76,12 +80,13 @@ func _ready() -> void:
 ## Modelo com esqueleto (padrão Mixamo, pose em T): as mesmas poses do jogo vão para os ossos.
 ## Cada junta do jogo vira um osso; a rotação da pose é dada no referencial do modelo e acumulada
 ## de pai para filho, depois convertida para a pose local do osso.
+## O terceiro nome é o do esqueleto Rig_Medium do KayKit (o do Faísca).
 const OSSOS := {
-	"raiz": ["Hips", ""], "tronco": ["Spine", "raiz"], "cabeca": ["Head", "tronco"],
-	"ombroE": ["LeftArm", "tronco"], "cotoveloE": ["LeftForeArm", "ombroE"], "punhoE": ["LeftHand", "cotoveloE"],
-	"ombroD": ["RightArm", "tronco"], "cotoveloD": ["RightForeArm", "ombroD"], "punhoD": ["RightHand", "cotoveloD"],
-	"quadrilE": ["LeftUpLeg", "raiz"], "joelhoE": ["LeftLeg", "quadrilE"], "tornozeloE": ["LeftFoot", "joelhoE"],
-	"quadrilD": ["RightUpLeg", "raiz"], "joelhoD": ["RightLeg", "quadrilD"], "tornozeloD": ["RightFoot", "joelhoD"],
+	"raiz": ["Hips", "", "hips"], "tronco": ["Spine", "raiz", "spine"], "cabeca": ["Head", "tronco", "head"],
+	"ombroE": ["LeftArm", "tronco", "upperarm.l"], "cotoveloE": ["LeftForeArm", "ombroE", "lowerarm.l"], "punhoE": ["LeftHand", "cotoveloE", "wrist.l"],
+	"ombroD": ["RightArm", "tronco", "upperarm.r"], "cotoveloD": ["RightForeArm", "ombroD", "lowerarm.r"], "punhoD": ["RightHand", "cotoveloD", "wrist.r"],
+	"quadrilE": ["LeftUpLeg", "raiz", "upperleg.l"], "joelhoE": ["LeftLeg", "quadrilE", "lowerleg.l"], "tornozeloE": ["LeftFoot", "joelhoE", "foot.l"],
+	"quadrilD": ["RightUpLeg", "raiz", "upperleg.r"], "joelhoD": ["RightLeg", "quadrilD", "lowerleg.r"], "tornozeloD": ["RightFoot", "joelhoD", "foot.r"],
 }
 const ORDEM_OSSOS := ["raiz", "tronco", "cabeca", "ombroE", "cotoveloE", "punhoE", "ombroD", "cotoveloD", "punhoD",
 	"quadrilE", "joelhoE", "tornozeloE", "quadrilD", "joelhoD", "tornozeloD"]
@@ -108,6 +113,10 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 			if idx >= 0:
 				break
 		if idx < 0:
+			idx = sk.find_bone(OSSOS[k][2])
+		if idx < 0:
+			idx = sk.find_bone(String(OSSOS[k][2]).replace(".", "_"))
+		if idx < 0:
 			push_warning("osso não achado: " + nome)
 		_osso[k] = idx
 		_rot[k] = Vector3.ZERO
@@ -119,11 +128,26 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 		var y := (sk.global_transform * sk.get_bone_global_rest(b).origin).y - global_position.y
 		topo = maxf(topo, y)
 		chao = minf(chao, y)
-	var esc := ALTURA_ALVO / maxf(0.01, (topo - chao) * 1.04)
+	# o Faísca tem um capacete grande acima do osso da cabeça: a altura vem das peças, não dos ossos
+	var rosto := modelo.find_child("rosto", true, false) as MeshInstance3D
+	if rosto:
+		for n in modelo.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			if mi.mesh == null or String(mi.name).begins_with("jato"):
+				continue
+			var cx := mi.mesh.get_aabb()
+			for i in 8:
+				var y := (mi.global_transform * cx.get_endpoint(i)).y - global_position.y
+				topo = maxf(topo, y)
+				chao = minf(chao, y)
+		_preparar_faisca(rosto)
+	var esc := ALTURA_ALVO * Armadura.porte / maxf(0.01, (topo - chao) * (1.0 if rosto else 1.04))
 	modelo.scale = Vector3.ONE * esc
 	modelo.position.y = -chao * esc
 	_base_esq = (modelo.global_basis.orthonormalized().inverse() * sk.global_basis.orthonormalized())
 	_hips_rest = sk.get_bone_rest(_osso["raiz"]).origin
+	if not chamas.is_empty():
+		return
 	# chamas simples nas costas (o modelo não tem bocais próprios)
 	var preso := BoneAttachment3D.new()
 	sk.add_child(preso)
@@ -144,6 +168,16 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 		mi.position = Vector3(lado * 0.06, -0.12, -0.11)
 		preso.add_child(mi)
 		chamas.append(mi)
+
+
+## O Faísca: a tela do rosto ganha de volta o shader dos olhos de LED (o .glb não leva shader) e os jatos
+## dele viram as chamas do voo. As cores e as peças ficam como vieram da Ilha Cafuné.
+func _preparar_faisca(rosto: MeshInstance3D) -> void:
+	_mat_rosto = ShaderMaterial.new()
+	_mat_rosto.shader = load("res://scripts/shaders/faisca_rosto.gdshader")
+	rosto.material_override = _mat_rosto
+	for n in modelo.find_children("jato*", "MeshInstance3D", true, false):
+		chamas.append(n)
 
 
 func _aplicar_ossos(bob: float, t: float) -> void:
@@ -550,6 +584,13 @@ func atualizar(delta: float, a: Armadura) -> void:
 				baixo = minf(baixo, (gt * cx.get_endpoint(i)).y)
 		var folga := (baixo - a.global_position.y) / Armadura.porte
 		_levanta = clampf(_levanta - folga * 0.4, 0.0, 0.6)
+	# o Faísca pisca de vez em quando e fecha os olhos na pane
+	if _mat_rosto:
+		_pisca -= delta
+		if _pisca < -0.16:
+			_pisca = randf_range(2.0, 5.0)
+		_mat_rosto.set_shader_parameter("abertura", 0.05 if a.em_pane else (absf(_pisca + 0.08) / 0.08 if _pisca < 0.0 else 1.0))
+		_mat_rosto.set_shader_parameter("forma", 4 if a.superaquecido else 0)
 	# chamas e brilho do calor
 	_chama_tamanho = lerpf(_chama_tamanho, chama, 1.0 - exp(-10.0 * delta))
 	# a origem das peças do modelo fica no chão (não no bocal), então a chama não escala: muda o brilho

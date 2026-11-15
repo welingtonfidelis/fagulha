@@ -42,6 +42,9 @@ func rodar(main: Node) -> void:
 	await _ponto_19()
 	await _ponto_20()
 	await _ponto_21()
+	await _ponto_22()
+	await _ponto_23()
+	await _ponto_24()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -767,13 +770,16 @@ func _ponto_20() -> void:
 	var d2 := (pb - pa).normalized()
 	var comp: float = tunel["comp"]
 	var meio := pa + d2 * comp * 0.5
-	var chao_meio := v.altura(meio.x, meio.y)
 	var esperado := lerpf(tunel["ha"], tunel["hb"], 0.5)
-	var morro := Cavernas.chao_antes(meio.x, meio.y) - chao_meio
 	var espaco := a.get_world_3d().direct_space_state
-	var de := Vector3(meio.x, chao_meio + 1.0, meio.y)
-	var q := PhysicsRayQueryParameters3D.create(de, de + Vector3(0, 30, 0), 1)
-	var hit := espaco.intersect_ray(q)
+	# o piso e o teto no meio do túnel, medidos na colisão (o corredor serpenteia: mede no meio dele)
+	var perp2 := Vector2(-d2.y, d2.x)
+	var no_meio := meio + perp2 * Cavernas._curva(tunel, comp * 0.5)
+	var de := Vector3(no_meio.x, esperado + 3.0, no_meio.y)
+	var hit_b := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(de, de - Vector3(0, 8, 0), 1))
+	var chao_meio := (hit_b["position"] as Vector3).y if not hit_b.is_empty() else -999.0
+	var morro := Cavernas.chao_antes(meio.x, meio.y) - chao_meio
+	var hit := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(de, de + Vector3(0, 30, 0), 1))
 	var teto := (hit["position"] as Vector3).y - chao_meio if not hit.is_empty() else -1.0
 	# voando de uma boca à outra
 	var ini := pa + d2 * 6.0
@@ -781,7 +787,7 @@ func _ponto_20() -> void:
 	var sobe := atan2(float(tunel["hb"]) - float(tunel["ha"]), comp)
 	cam.pitch = sobe + 0.22  # no cruzeiro o voo só fica nivelado com o nariz uns 12° acima do horizonte
 	a.calor = 0.0
-	a.teleportar(Vector3(ini.x, v.altura(ini.x, ini.y) + 4.0, ini.y), Armadura.Estado.VOO, Vector3(d2.x, tan(sobe), d2.y) * 18.0)
+	a.teleportar(Vector3(ini.x, float(tunel["ha"]) + 4.0, ini.y), Armadura.Estado.VOO, Vector3(d2.x, tan(sobe), d2.y) * 18.0)
 	var andou := 0.0
 	var caiu := false
 	for i in 12 * 60:
@@ -855,3 +861,136 @@ func _ponto_21() -> void:
 	_ok(faltam.is_empty() and passos >= 3 and passos <= 9 and tiros >= 1 and fora < 0.05 and dentro > 0.95 and eco > -20.0,
 		"sons: faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do túnel %.2f (eco a %.0f dB)"
 		% [faltam.size(), str(faltam) if not faltam.is_empty() else "", passos, tiros, fora, dentro, eco])
+
+
+## 22. Troca de robô (teste do Faísca): troca o corpo na hora, anda com ele e volta ao robô do vale.
+func _ponto_22() -> void:
+	print("troca de robô")
+	_soltar_tudo()
+	var antes := ArmaduraVisual.MODELO
+	a.trocar_visual(ArmaduraVisual.FAISCA)
+	await _esperar(0.3)
+	var com_ossos := a.visual.esqueleto != null and a.visual._mat_rosto != null
+	var achados := 0
+	for k: String in a.visual._osso:
+		if int(a.visual._osso[k]) >= 0:
+			achados += 1
+	var p0 := a.global_position
+	Input.action_press("frente")
+	await _esperar(1.0)
+	Input.action_release("frente")
+	var andou := Vector2(a.global_position.x - p0.x, a.global_position.z - p0.z).length()
+	a.trocar_visual(antes)
+	await _esperar(0.3)
+	var voltou := a.visual.esqueleto == null and ArmaduraVisual.MODELO == antes
+	_ok(com_ossos and achados == 15 and andou > 1.0 and voltou,
+		"troca de robô: Faísca com esqueleto e rosto (%s), %d de 15 ossos achados, andou %.1f m; voltou ao robô do vale (%s)"
+		% [com_ossos, achados, andou, voltou])
+
+
+## 23. O Sumidouro: o poço está aberto do alto do morro até o piso, a ponte cruza o poço, o túnel sai livre
+## para a encosta, e o robô que cai pelo poço pousa no salão (com o eco de caverna).
+func _ponto_23() -> void:
+	print("sumidouro")
+	_soltar_tudo()
+	_zerar()
+	var S := Sumidouro
+	var eixo := Vector3(S.centro.x, S.piso, S.centro.y)
+	var d := Vector3(S.dir.x, 0, S.dir.y)
+	var espaco := a.get_world_3d().direct_space_state
+	var raio := func(de: Vector3, ate: Vector3) -> Vector3:
+		var hit := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(de, ate, 1))
+		return (hit["position"] as Vector3) if not hit.is_empty() else Vector3.INF
+	# do alto do morro para baixo, ao lado da ponte: chega ao piso
+	var lado_ponte := eixo + d * 5.0
+	var fundo: Vector3 = raio.call(lado_ponte + Vector3(0, S.topo - S.piso + 8.0, 0), lado_ponte - Vector3(0, 6, 0))
+	# no eixo, de cima da galeria: bate na ponte
+	var ponte: Vector3 = raio.call(eixo + Vector3(0, S.ANEL_ALTURA + 6.0, 0), eixo)
+	# do salão até fora da boca, pelo meio do túnel: nada no caminho
+	var boca := Vector3(S.saida.x, S.saida_h + 3.5, S.saida.y)
+	var tunel: Vector3 = raio.call(eixo + d * 26.0 + Vector3(0, 3.5, 0), boca + d * 4.0)
+	# o robô cai pelo poço
+	a.teleportar(lado_ponte + Vector3(0, S.topo - S.piso + 4.0, 0), Armadura.Estado.AR, Vector3.ZERO)
+	var pousou := false
+	for i in 10 * 60:
+		await get_tree().physics_frame
+		if a.is_on_floor():
+			pousou = true
+			break
+	var onde := a.global_position.y - S.piso
+	await _esperar(2.0)
+	var eco: float = m.som_lugar.debug.get("na_caverna", -1.0)
+	a.teleportar(il.spawn + Vector3(0, 0.3, 0), Armadura.Estado.CHAO, Vector3.ZERO)
+	await _esperar(0.2)
+	_ok(S.existe and fundo != Vector3.INF and absf(fundo.y - S.piso) < 2.0 and ponte != Vector3.INF and absf(ponte.y - S.piso - S.ANEL_ALTURA) < 1.5
+			and tunel == Vector3.INF and pousou and absf(onde) < 2.0 and eco > 0.9 and S.topo - S.piso > 40.0,
+		"sumidouro: %.0f m de fundura; o poço chega a %.1f m do piso; ponte a %.1f m; túnel livre até a boca (%s); o robô caiu pelo poço e pousou a %.1f m do piso (%s), eco %.2f"
+		% [S.topo - S.piso, fundo.y - S.piso if fundo != Vector3.INF else 99.0, ponte.y - S.piso if ponte != Vector3.INF else -1.0, tunel == Vector3.INF, onde, pousou, eco])
+
+
+## 24. Vibração, Zangão acima das copas, água da lagoa e morcegos do Sumidouro.
+func _ponto_24() -> void:
+	print("vibração, copas e vida do sumidouro")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	# vibração: cada ação deixa o tranco dela no registro
+	a.teleportar(il.spawn + Vector3(0, 6.0, 12.0), Armadura.Estado.AR, Vector3.ZERO)
+	Vibra.registro.clear()
+	await _esperar(2.0)
+	Input.action_press("atirar")
+	await _esperar(0.4)
+	Input.action_release("atirar")
+	a.graca_pane = 0.0
+	a.levar_golpe(Vector3(1, 0, 0), 2.0)
+	a.golpe_chao.emit(a.global_position)
+	await _esperar(0.3)
+	var pousou := Vibra.registro.has("pouso_leve") or Vibra.registro.has("pouso_pesado")
+	var vib := pousou and Vibra.registro.has("tiro") and Vibra.registro.has("levar_golpe") and Vibra.registro.has("golpe_chao")
+	a.avaria = 0
+	# Zangão posto dentro de uma copa: sobe e fica acima dela
+	var z: Zangao = null
+	for maq in m.inimigos.todas:
+		if maq is Zangao and not (maq as Zangao).desligada:
+			z = maq
+			break
+	var arvore := -1
+	for i in v.arv_pos.size():
+		var p := v.arv_pos[i]
+		if maxf(absf(p.x), absf(p.z)) > 300.0 and v.arv_escala[i] > 0.9 and z != null and p.distance_to(z.global_position) < 400.0:
+			arvore = i
+			break
+	var acima := false
+	var folga := -99.0
+	if z != null and arvore >= 0:
+		var base := v.arv_pos[arvore]
+		z.casa = base
+		z.estado = Zangao.Estado.VOLTA
+		z.global_position = base + Vector3(0.5, 6.0 * v.arv_escala[arvore], 0.5)
+		# o robô por perto, no chão: as máquinas longe dele dormem, e assim o Zangão caça por entre as árvores
+		a.teleportar(Vector3(base.x + 14.0, v.altura(base.x + 14.0, base.z) + 0.3, base.z), Armadura.Estado.CHAO, Vector3.ZERO)
+		a.graca_pane = 0.0
+		acima = true
+		await _esperar(1.5)
+		for i in 240:
+			await get_tree().physics_frame
+			var copa := z.topo_copas(z.global_position, 0.0)
+			if copa > -INF:
+				folga = z.global_position.y - copa
+				if folga < 0.3:
+					acima = false
+	# a lagoa do Sumidouro é água de verdade, e os morcegos se agitam com o robô no poço
+	var S := Sumidouro
+	var nivel := v.agua(S.centro.x, S.centro.y)
+	var fora_dagua := v.agua(S.centro.x + 9.0, S.centro.y)
+	var calmos := S.morcegos.agitados
+	a.teleportar(Vector3(S.centro.x + 3.0, S.piso + 14.0, S.centro.y), Armadura.Estado.PAIRAR, Vector3.ZERO)
+	Input.action_press("mirar")
+	await _esperar(1.5)
+	Input.action_release("mirar")
+	var agitados := S.morcegos.agitados
+	a.teleportar(il.spawn + Vector3(0, 0.3, 0), Armadura.Estado.CHAO, Vector3.ZERO)
+	await _esperar(0.2)
+	_ok(vib and z != null and arvore >= 0 and acima and absf(nivel - (S.piso - S.LAGOA_FUNDO)) < 0.01 and fora_dagua == -INF and calmos < 0.2 and agitados > 0.8,
+		"vibração: %s; Zangão posto numa copa ficou acima das árvores (%s, última folga %.1f m); lagoa a %.2f m do piso; morcegos de %.2f a %.2f com o robô no poço"
+		% [str(Vibra.registro.slice(0, 8)), acima, folga, nivel - S.piso, calmos, agitados])

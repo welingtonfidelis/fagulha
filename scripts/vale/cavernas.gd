@@ -6,6 +6,8 @@ extends RefCounted
 ## relevo. Há dois tipos: o túnel (linha de 70 a 150 m com as duas pontas baixas e um morro no meio) e a
 ## gruta sem saída (linha de 45 a 80 m que entra numa encosta, com o chão plano).
 ## `cavar` roda antes de o chão ser montado; `montar`, depois dos paredões.
+## Desde 2026-11-15 cada gruta é uma peça de RochaMalha (como o Sumidouro): corredor com curvas, paredes
+## de pedra e, nas sem saída, um salão no fundo com claraboia.
 
 const MEIA := 7.0  # metade da largura do chão do túnel
 const PAREDE := 5.0  # em quantos metros a parede sobe até o chão de fora
@@ -39,6 +41,8 @@ static func _eixo(c: Dictionary, x: float, z: float) -> Vector2:
 
 ## Dentro do rasgo de alguma caverna (com folga): ali não nasce árvore nem rocha de paredão.
 static func dentro(x: float, z: float, folga := 4.0) -> bool:
+	if RochaMalha.dentro(x, z, folga):
+		return true
 	for c in lista:
 		if _eixo(c, x, z).x < MEIA + PAREDE + folga:
 			return true
@@ -47,7 +51,9 @@ static func dentro(x: float, z: float, folga := 4.0) -> bool:
 
 static func cavar(v: Vale) -> void:
 	lista.clear()
+	Sumidouro.existe = false
 	_orig = v._fora_h.duplicate()
+	RochaMalha.preparar(v)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9173
 	var lado := MEIA + PAREDE
@@ -98,205 +104,153 @@ static func cavar(v: Vale) -> void:
 		if not gruta:
 			tuneis += 1
 		lista.append({"a": a, "b": b, "ha": ha, "hb": hb, "comp": comp, "de": 0.0, "ate": 0.0, "gruta": gruta, "nome": NOMES[lista.size() % NOMES.size()]})
-	# cava o rasgo na grade: chão plano no meio, parede em pé dos lados
+	# cada gruta ganha a caixa dela, o trecho coberto, e a grade é rebaixada debaixo do vazio
+	var k := 0
 	for c in lista:
-		var a: Vector2 = c["a"]
-		var b: Vector2 = c["b"]
-		var mn := a.min(b) - Vector2.ONE * (lado + 6.0)
-		var mx := a.max(b) + Vector2.ONE * (lado + 6.0)
-		for gz in range(int((mn.y + Vale.F_META) / Vale.F_PASSO), int((mx.y + Vale.F_META) / Vale.F_PASSO) + 2):
-			for gx in range(int((mn.x + Vale.F_META) / Vale.F_PASSO), int((mx.x + Vale.F_META) / Vale.F_PASSO) + 2):
-				var x := -Vale.F_META + gx * Vale.F_PASSO
-				var z := -Vale.F_META + gz * Vale.F_PASSO
-				var e := _eixo(c, x, z)
-				if e.x > lado:
-					continue
-				var i := gz * Vale.F_N + gx
-				var chao := lerpf(c["ha"], c["hb"], e.y)
-				var novo := lerpf(chao, _orig[i], smoothstep(MEIA, lado, e.x))
-				if novo < v._fora_h[i]:
-					v._fora_h[i] = novo
-	print("cavernas: %d rasgos cavados (%d tentativas, %d ms)" % [lista.size(), tentativas, Time.get_ticks_msec() - t_ini])
+		c["i"] = k
+		k += 1
+		_limites(c)
+		RochaMalha.rebaixar(c["mn"], c["mx"], vazio_de.bind(c))
+	print("cavernas: %d lugares (%d tentativas, %d ms)" % [lista.size(), tentativas, Time.get_ticks_msec() - t_ini])
 	for c in lista:
-		print("  %s (%s): de %s a %s, %.0f m, chão de %.0f a %.0f m" % [c["nome"], "gruta" if c["gruta"] else "túnel", c["a"], c["b"], c["comp"], c["ha"], c["hb"]])
+		print("  %s (%s): de %s a %s, %.0f m, chão de %.0f a %.0f m, coberta de %.0f a %.0f m" % [c["nome"], "gruta" if c["gruta"] else "túnel", c["a"], c["b"], c["comp"], c["ha"], c["hb"], c["de"], c["ate"]])
+
+
+static func arquivo(c: Dictionary) -> String:
+	return "res://assets/vale/gruta_%d.res" % int(c["i"])
+
+
+## A caixa da peça e o trecho coberto ("de" e "ate", ao longo do eixo): onde o morro passa 3 m do arco.
+static func _limites(c: Dictionary) -> void:
+	var a: Vector2 = c["a"]
+	var b: Vector2 = c["b"]
+	var comp: float = c["comp"]
+	var dir := (b - a) / comp
+	var folga := MEIA + PAREDE + 12.0
+	var mn := a.min(b) - Vector2.ONE * folga
+	var mx := a.max(b) + Vector2.ONE * folga
+	var alto := 0.0
+	var x := mn.x
+	while x <= mx.x:
+		var z := mn.y
+		while z <= mx.y:
+			alto = maxf(alto, chao_antes(x, z))
+			z += 8.0
+		x += 8.0
+	c["mn"] = Vector3(mn.x, minf(c["ha"], c["hb"]) - 5.0, mn.y)
+	c["mx"] = Vector3(mx.x, alto + 4.0, mx.y)
+	var de := -1.0
+	var ate := 0.0
+	var sv := 0.0
+	while sv <= comp:
+		var p := a + dir * sv
+		if chao_antes(p.x, p.y) - lerpf(c["ha"], c["hb"], sv / comp) > ALTO + 3.0:
+			if de < 0.0:
+				de = sv
+			ate = sv
+		sv += 2.0
+	c["de"] = maxf(de, 0.0)
+	c["ate"] = ate
+
+
+## Quanto o corredor sai da linha reta em cada ponto do eixo: curvas largas, que somem nas bocas.
+static func _curva(c: Dictionary, sv: float) -> float:
+	var comp: float = c["comp"]
+	var janela := smoothstep(0.0, 20.0, sv)
+	if not c["gruta"]:
+		janela *= smoothstep(0.0, 20.0, comp - sv)
+	return sin(sv / comp * PI * (2.0 if comp > 90.0 else 1.5) + float(c["i"]) * 1.7) * (2.6 if not c["gruta"] else 3.6) * janela
+
+
+## O vazio de uma gruta: um corredor de piso chato que serpenteia, mais largo e mais alto em alguns
+## trechos; onde o morro por cima é fino, vira um rasgo aberto (a boca). A gruta sem saída termina num
+## salão redondo com uma claraboia.
+static func vazio_de(p: Vector3, c: Dictionary) -> float:
+	var a: Vector2 = c["a"]
+	var comp: float = c["comp"]
+	var dir := ((c["b"] as Vector2) - a) / comp
+	var q := Vector2(p.x, p.z) - a
+	var sv := q.dot(dir)
+	var u0 := q.dot(Vector2(-dir.y, dir.x))
+	if absf(u0) > 34.0 or sv < -30.0 or sv > comp + 30.0:
+		return 20.0
+	var u := u0 - _curva(c, clampf(sv, 0.0, comp))
+	var chao := lerpf(c["ha"], c["hb"], clampf(sv / comp, 0.0, 1.0))
+	var h := p.y - chao
+	var semente := float(c["i"]) * 31.0
+	var larg := MEIA + RochaMalha.ruido.get_noise_2d(sv * 0.9, semente) * 2.2
+	var alt := ALTO + RochaMalha.ruido.get_noise_2d(semente + 50.0, sv * 0.9) * 2.0
+	var fora := maxf(maxf(-sv, sv - comp), 0.0)  # além das pontas, o corredor fecha arredondado
+	var n := RochaMalha.parede(p)
+	var n2 := RochaMalha.piso(p)
+	var tubo := (Vector3(u / larg, h / alt, fora / larg).length() - 1.0) * minf(larg, alt)
+	# morro fino por cima: rasgo aberto, de paredes em pé
+	var cobre := chao_antes(p.x, p.z) - chao - alt
+	if cobre < 3.0:
+		tubo = minf(tubo, Vector2(maxf(absf(u) - larg * 0.95, 0.0), fora).length() - 0.5)
+	var d := maxf(tubo + n, chao + n2 - p.y)
+	if c["gruta"]:
+		# salão no fundo, com a claraboia
+		var e := Vector3((sv - comp + 9.0) / 13.0, (h - 6.5) / 9.5, u / 12.5)
+		d = minf(d, maxf((e.length() - 1.0) * 9.5 + n, chao + n2 - p.y))
+		var furo := Vector2(sv - comp + 9.0, u).length() - 2.6 + n * 0.5
+		d = minf(d, maxf(furo, chao + 6.0 - p.y))
+	return d
+
+
+## Gera de novo as malhas das grutas (a pedido: `-- --assar-rochas`).
+static func assar() -> void:
+	for c in lista:
+		RochaMalha.assar(c["mn"], c["mx"], vazio_de.bind(c), Callable(), arquivo(c), _chave(c))
+
+
+static func _chave(c: Dictionary) -> Vector3:
+	var a: Vector2 = c["a"]
+	return Vector3(a.x, c["ha"], a.y)
 
 
 static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://scripts/shaders/vale_rocha.gdshader")
-	mat.set_shader_parameter("ruido", v._tex)
-	var corpo := StaticBody3D.new()
-	corpo.name = "Cavernas"
-	corpo.collision_layer = 1
-	corpo.collision_mask = 0
-	v.add_child(corpo)
 	var k := 0
 	for c in lista:
-		_teto(v, c, mat, corpo)
-		_cristais(v, c, CORES[k % CORES.size()], 700 + k)
+		if RochaMalha.montar(arquivo(c), "Gruta%d" % k, _chave(c)):
+			_enfeites(v, c, CORES[k % CORES.size()], 700 + k)
 		k += 1
-	print("cavernas: %d tetos, %d ms" % [lista.size(), Time.get_ticks_msec() - t0])
+	print("cavernas: %d grutas montadas, %d ms" % [lista.size(), Time.get_ticks_msec() - t0])
 
 
-static func _arco(c: Dictionary, s: float, u: float) -> float:
-	var chao := lerpf(c["ha"], c["hb"], minf(1.0, s / float(c["comp"])))
-	var r := clampf(absf(u) / (MEIA + PAREDE - 0.5), 0.0, 1.0)
-	var calombo := sin(s * 0.31 + u * 0.4) * 0.5 + sin(s * 0.83 - u * 0.9 + 1.7) * 0.3
-	return chao + ALTO * pow(maxf(0.04, 1.0 - r * r), 0.42) + calombo
 
 
-static func _teto(v: Vale, c: Dictionary, mat: Material, corpo: StaticBody3D) -> void:
-	var a: Vector2 = c["a"]
-	var comp: float = c["comp"]
-	var dir := ((c["b"] as Vector2) - a) / comp
-	var perp := Vector2(-dir.y, dir.x)
-	var lado := MEIA + PAREDE
-	var passo := 2.0
-	var n := int((comp + (lado + 2.0 if c["gruta"] else 0.0)) / passo)
-	# o teto só existe onde o morro passa bem acima do arco
-	var vale_linha := PackedByteArray()
-	vale_linha.resize(n + 1)
-	for i in n + 1:
-		var s := i * passo
-		var p := a + dir * s
-		var ok := true
-		for u: float in [0.0, -lado, lado]:
-			var q := p + perp * u
-			if chao_antes(q.x, q.y) - _arco(c, s, u * 0.2) < 3.0:
-				ok = false
-		vale_linha[i] = 1 if ok else 0
-	var meio := int(comp * (0.8 if c["gruta"] else 0.5) / passo)
-	if vale_linha[meio] == 0:
-		return
-	var i0 := meio
-	while i0 > 0 and vale_linha[i0 - 1] == 1:
-		i0 -= 1
-	var i1 := meio
-	while i1 < n and vale_linha[i1 + 1] == 1:
-		i1 += 1
-	c["de"] = i0 * passo
-	c["ate"] = i1 * passo
-	var cols := int((lado + 1.0) * 2.0 / passo) + 1
-	var baixo: Array[PackedVector3Array] = []
-	var cima: Array[PackedVector3Array] = []
-	for i in range(i0, i1 + 1):
-		var lb := PackedVector3Array()
-		var lc := PackedVector3Array()
-		for j in cols:
-			var u := -(lado + 1.0) + j * passo
-			var q := a + dir * (i * passo) + perp * u
-			var topo := chao_antes(q.x, q.y) + 0.12
-			lb.append(Vector3(q.x, minf(_arco(c, i * passo, u), topo - 1.5), q.y))
-			lc.append(Vector3(q.x, topo, q.y))
-		baixo.append(lb)
-		cima.append(lc)
-	var vs := PackedVector3Array()
-	var ns := PackedVector3Array()
-	var vt := PackedVector3Array()  # o chão de cima, com material de capim
-	var nt := PackedVector3Array()
-	var d3 := Vector3(dir.x, 0, dir.y)
-	for i in baixo.size() - 1:
-		for j in cols - 1:
-			_quad(vs, ns, baixo[i][j], baixo[i + 1][j], baixo[i + 1][j + 1], baixo[i][j + 1], Vector3.DOWN)
-			_quad(vt, nt, cima[i][j], cima[i + 1][j], cima[i + 1][j + 1], cima[i][j + 1], Vector3.UP)
-	# as duas bocas: a face de rocha entre o arco e o chão de cima
-	for ponta: Array in [[0, -d3], [baixo.size() - 1, d3]]:
-		var i: int = ponta[0]
-		for j in cols - 1:
-			_quad(vs, ns, baixo[i][j], baixo[i][j + 1], cima[i][j + 1], cima[i][j], ponta[1])
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = vs
-	arr[Mesh.ARRAY_NORMAL] = ns
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	m.surface_set_material(0, mat)
-	var arr2 := []
-	arr2.resize(Mesh.ARRAY_MAX)
-	arr2[Mesh.ARRAY_VERTEX] = vt
-	arr2[Mesh.ARRAY_NORMAL] = nt
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr2)
-	var mat_cima := ShaderMaterial.new()
-	mat_cima.shader = load("res://scripts/shaders/vale_teto.gdshader")
-	mat_cima.set_shader_parameter("ruido", v._tex)
-	m.surface_set_material(1, mat_cima)
-	vs.append_array(vt)
-	var mi := MeshInstance3D.new()
-	mi.name = "Teto_" + String(c["nome"])
-	mi.mesh = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
-	v.add_child(mi)
-	var forma := ConcavePolygonShape3D.new()
-	forma.backface_collision = true
-	forma.set_faces(vs)
-	var cs := CollisionShape3D.new()
-	cs.shape = forma
-	corpo.add_child(cs)
-
-
-static func _quad(vs: PackedVector3Array, ns: PackedVector3Array, a: Vector3, b: Vector3, c: Vector3, d: Vector3, para: Vector3) -> void:
-	for t: Array in [[a, b, c], [a, c, d]]:
-		var p0: Vector3 = t[0]
-		var p1: Vector3 = t[1]
-		var p2: Vector3 = t[2]
-		var n := (p2 - p0).cross(p1 - p0)
-		if n.length_squared() < 1e-10:
-			continue
-		n = n.normalized()
-		if n.dot(para) < 0.0:
-			n = -n
-			var troca := p1
-			p1 = p2
-			p2 = troca
-		vs.append_array(PackedVector3Array([p0, p1, p2]))
-		ns.append_array(PackedVector3Array([n, n, n]))
-
-
-## Cristais acesos ao pé das paredes, alternando os lados: iluminam o túnel e mostram o caminho.
-static func _cristais(v: Vale, c: Dictionary, cor: Color, semente: int) -> void:
+## Cristais acesos ao pé das paredes, alternando os lados (iluminam e mostram o caminho), um grupo maior
+## no salão do fundo, e estalactites.
+static func _enfeites(v: Vale, c: Dictionary, cor: Color, semente: int) -> void:
 	if float(c["ate"]) <= float(c["de"]):
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = semente
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = cor * 0.5
-	mat.emission_enabled = true
-	mat.emission = cor * 0.8
-	mat.emission_energy_multiplier = 0.9
-	mat.roughness = 0.3
 	var a: Vector2 = c["a"]
 	var comp: float = c["comp"]
 	var dir := ((c["b"] as Vector2) - a) / comp
 	var perp := Vector2(-dir.y, dir.x)
-	var s := float(c["de"]) + 5.0
+	var vaz := vazio_de.bind(c)
+	var altura_em := func(xz: Vector2) -> float:
+		return lerpf(c["ha"], c["hb"], clampf((xz - a).dot(dir) / comp, 0.0, 1.0)) + 2.5
+	var sv := float(c["de"]) + 5.0
 	var lado := 1.0
-	while s < float(c["ate"]) - 3.0:
-		var p := a + dir * s + perp * lado * (MEIA - 0.3 + rng.randf_range(0.0, 1.2))
-		var base := Vector3(p.x, v._fora(p.x, p.y) - 0.2, p.y)
-		var maior := 0.0
-		for q in rng.randi_range(2, 4):
-			var alt := rng.randf_range(0.8, 2.6)
-			maior = maxf(maior, alt)
-			var prisma := CylinderMesh.new()
-			prisma.top_radius = 0.03
-			prisma.bottom_radius = alt * rng.randf_range(0.13, 0.2)
-			prisma.height = alt
-			prisma.radial_segments = 5
-			prisma.rings = 1
-			var mi := MeshInstance3D.new()
-			mi.mesh = prisma
-			mi.material_override = mat
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var inclina := Basis.from_euler(Vector3(rng.randf_range(-0.45, 0.45), rng.randf() * TAU, rng.randf_range(-0.45, 0.45)))
-			mi.transform = Transform3D(inclina, base + Vector3(rng.randf_range(-0.6, 0.6), 0, rng.randf_range(-0.6, 0.6)) + inclina * Vector3(0, alt * 0.5, 0))
-			v.add_child(mi)
-		var luz := OmniLight3D.new()
-		luz.light_color = cor
-		luz.light_energy = 1.6
-		luz.omni_range = 13.0
-		luz.shadow_enabled = false
-		luz.position = base + Vector3(0, maior + 0.6, 0) - Vector3(perp.x, 0, perp.y) * lado * 1.5
-		v.add_child(luz)
-		s += rng.randf_range(11.0, 16.0)
+	while sv < float(c["ate"]) - 3.0:
+		var xz := a + dir * sv + perp * (_curva(c, sv) + lado * (MEIA - 2.6))
+		var pt := RochaMalha.piso_teto(xz.x, xz.y, altura_em.call(xz), vaz, Callable())
+		if pt.x != INF:
+			RochaMalha.cristal(Vector3(xz.x, pt.x, xz.y), cor, rng, 0.8)
 		lado = -lado
+		sv += 15.0
+	if c["gruta"]:
+		var xz := a + dir * (comp - 4.0) + perp * (_curva(c, comp) + 5.0)
+		var pt := RochaMalha.piso_teto(xz.x, xz.y, altura_em.call(xz), vaz, Callable())
+		if pt.x != INF:
+			RochaMalha.cristal(Vector3(xz.x, pt.x, xz.y), cor.lerp(Color.WHITE, 0.3), rng, 1.3)
+	var pontos: Array[Vector2] = []
+	for i in int(comp * 1.2):
+		var s2 := rng.randf_range(float(c["de"]) + 2.0, comp + (4.0 if c["gruta"] else -2.0))
+		pontos.append(a + dir * s2 + perp * (_curva(c, minf(s2, comp)) + rng.randf_range(-10.0, 10.0)))
+	RochaMalha.pingentes(pontos, altura_em, vaz, Callable(), semente + 40)

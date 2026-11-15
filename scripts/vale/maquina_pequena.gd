@@ -129,6 +129,25 @@ func caixa(tam: Vector3) -> BoxMesh:
 	return m
 
 
+## O topo da copa mais alta em volta do ponto (-INF sem árvore por perto): quem voa passa por cima.
+func topo_copas(p: Vector3, folga := 2.5) -> float:
+	var topo := -INF
+	var cel := Vector2i(floori(p.x / Ilha.CELULA_ARVORE), floori(p.z / Ilha.CELULA_ARVORE))
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var c := cel + Vector2i(dx, dz)
+			if not mapa._grade_arv.has(c):
+				continue
+			for i: int in mapa._grade_arv[c]:
+				var base: Vector3 = mapa.arv_pos[i]
+				var s: float = mapa.arv_escala[i]
+				var folhosa: bool = mapa.arv_tipo[i] == 1
+				var rh := (5.2 if folhosa else 2.8) * s + folga
+				if Vector2(p.x - base.x, p.z - base.z).length_squared() < rh * rh:
+					topo = maxf(topo, base.y + (7.5 + (4.3 if folhosa else 6.5)) * s)
+	return topo
+
+
 func alvo_visivel(alcance: float, de: Vector3) -> bool:
 	if alvo == null or not is_instance_valid(alvo) or alvo.em_pane or alvo.graca_pane > 0.0:
 		return false

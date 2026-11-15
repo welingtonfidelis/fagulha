@@ -5,7 +5,6 @@ extends Node
 ## ainda são sintetizados por tools/gerar_sons.py. Usa o barramento Master.
 ## Uso: crie o nó, atribua `armadura` e chame `iniciar()`.
 
-const PASTA := "res://assets/sons/%s.wav"
 const VENTO_DB := -8.0
 const MOTOR_DB := -12.0
 const ARRANCADA_DB := -10.0
@@ -29,7 +28,6 @@ var armadura: Armadura
 var _vento: AudioStreamPlayer
 var _motor: AudioStreamPlayer
 var _arrancada: AudioStreamPlayer
-var _cache := {}
 var _estado_antes: int = Armadura.Estado.CHAO
 var _impulso_antes := 0.0
 var _marcador_antes := false
@@ -56,7 +54,7 @@ func iniciar() -> void:
 ## Um som de cachoeira no mundo, em `pos`. Fica tocando em laço e some com a distância.
 func cachoeira_em(pos: Vector3) -> void:
 	var p := AudioStreamPlayer3D.new()
-	p.stream = _laco_stream("cachoeira_loop")
+	p.stream = Som.laco_stream("cachoeira_loop")
 	p.volume_db = CACHOEIRA_DB
 	p.unit_size = 30.0
 	p.max_distance = 260.0
@@ -159,21 +157,11 @@ func _suaviza(atual: float, alvo: float, delta: float) -> float:
 ## Laço sem posição, no barramento Master.
 func _laco(nome: String, volume_db: float) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	p.stream = _laco_stream(nome)
+	p.stream = Som.laco_stream(nome)
 	p.volume_db = volume_db
 	add_child(p)
 	p.play()
 	return p
-
-
-## Cópia do WAV com o laço ligado, do início até o último quadro.
-func _laco_stream(nome: String) -> AudioStreamWAV:
-	var base: AudioStreamWAV = load(PASTA % nome)
-	var s := base.duplicate() as AudioStreamWAV
-	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	s.loop_begin = 0
-	s.loop_end = int(base.get_length() * base.mix_rate)
-	return s
 
 
 ## Toque curto e único, que se solta no fim.
@@ -181,15 +169,9 @@ func _toque(nome: String, db := TOQUE_DB, tom := 0.03) -> void:
 	if registrar:
 		registro.append(nome)
 	var p := AudioStreamPlayer.new()
-	p.stream = _som(nome)
+	p.stream = Som.stream(nome)
 	p.volume_db = db
 	p.pitch_scale = randf_range(1.0 - tom, 1.0 + tom)
 	add_child(p)
 	p.play()
 	p.finished.connect(p.queue_free)
-
-
-func _som(nome: String) -> AudioStream:
-	if not _cache.has(nome):
-		_cache[nome] = load(PASTA % nome)
-	return _cache[nome]

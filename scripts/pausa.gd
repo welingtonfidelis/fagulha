@@ -5,6 +5,8 @@ extends CanvasLayer
 var armadura: Armadura
 var _painel: PanelContainer
 var _primeiro: Button
+var _botao_robo: Button
+var _botao_vibra: Button
 
 
 func _ready() -> void:
@@ -28,7 +30,12 @@ func _ready() -> void:
 	caixa.add_child(titulo)
 	_primeiro = _botao(caixa, "Continuar", _continuar)
 	_botao(caixa, "Voltar ao começo", _voltar)
-	_botao(caixa, "Próximo mapa: " + NOMES_MAPA[_proximo_mapa()], _trocar_mapa)
+	_botao_robo = _botao(caixa, "", _trocar_robo)
+	_nome_botao_robo()
+	_botao_vibra = _botao(caixa, "", func() -> void:
+		Vibra.ligada = not Vibra.ligada
+		_botao_vibra.text = "Vibração do controle: " + ("ligada" if Vibra.ligada else "desligada"))
+	_botao_vibra.text = "Vibração do controle: " + ("ligada" if Vibra.ligada else "desligada")
 	_botao(caixa, "Sair do jogo", func() -> void: get_tree().quit())
 	var ajuda := Label.new()
 	ajuda.add_theme_font_size_override("font_size", 15)
@@ -108,18 +115,16 @@ func _process(_delta: float) -> void:
 	get_tree().paused = false
 
 
-const NOMES_MAPA := {"clareira": "a clareira (novo rumo)", "mundo": "a ilha de 4 km", "ilha": "ilha de teste antiga", "canion": "cânion realista", "canion_b": "cânion pintado"}
+## Teste: troca o corpo do robô pelo Faísca da Ilha Cafuné e de volta, sem sair do lugar.
+func _trocar_robo() -> void:
+	Main.faisca = not Main.faisca
+	if armadura:
+		armadura.trocar_visual(ArmaduraVisual.FAISCA if Main.faisca else ArmaduraVisual.modelo_do_mapa)
+	_nome_botao_robo()
 
 
-func _proximo_mapa() -> String:
-	var ordem := ["clareira", "mundo", "canion_b", "canion", "ilha"]
-	return ordem[(ordem.find(Main.mapa) + 1) % ordem.size()]
-
-
-func _trocar_mapa() -> void:
-	Main.mapa = _proximo_mapa()
-	get_tree().paused = false
-	get_tree().reload_current_scene()
+func _nome_botao_robo() -> void:
+	_botao_robo.text = "Trocar de robô: voltar ao robô do vale" if Main.faisca else "Trocar de robô: Faísca (teste)"
 
 
 func _voltar() -> void:

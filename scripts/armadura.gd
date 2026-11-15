@@ -46,6 +46,7 @@ var base := Vector3.INF  # onde reaparece depois do curto (o mapa define; sem ba
 var caido := false  # caiu por superaquecer: não religa nem paira até tocar o chão
 var _ignicao := 0.0  # pausa curta ao ligar os jatos no ar, antes do empurrão
 signal golpe_chao(onde: Vector3)
+signal levou_golpe
 var acelerador := 0.0  # no voo: -1 segurando, 0 cruzeiro, 1 acelerando (analógico esquerdo)
 var inclinar := 0.0  # no voo: analógico esquerdo de lado, suavizado (o visual e a câmera inclinam)
 var postura := 0  # no chão: 0 de pé, 1 abaixado, 2 sentado (o visual e a câmera leem)
@@ -117,6 +118,17 @@ func mirando_agora() -> bool:
 	return mirando and (estado == Estado.CHAO or estado == Estado.PAIRAR)
 
 
+## Troca o corpo do robô na hora (a pausa usa para o teste do Faísca). Os movimentos são os mesmos.
+func trocar_visual(modelo: String) -> void:
+	ArmaduraVisual.MODELO = modelo
+	if visual:
+		remove_child(visual)
+		visual.queue_free()
+	visual = ArmaduraVisual.new()
+	visual.name = "Visual"
+	add_child(visual)
+
+
 ## Chegando ao chão (voando baixo e descendo, ou caindo): o visual arma as pernas para o pouso.
 func chegando_ao_chao() -> bool:
 	if not (em_voo() or estado == Estado.AR or estado == Estado.PAIRAR):
@@ -142,6 +154,7 @@ func levar_golpe(direcao: Vector3, forca: float) -> void:
 	calor = minf(100.0, calor + Ajustes.GOLPE_CALOR)
 	tremor = maxf(tremor, 0.8)
 	golpes += 1
+	levou_golpe.emit()
 	avaria += 1
 	_avaria_tempo = Ajustes.AVARIA_SARA
 	if avaria >= Ajustes.PANE_GOLPES:

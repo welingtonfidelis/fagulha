@@ -53,6 +53,7 @@ func gerar(_semente := 7) -> void:
 	_carregar()
 	_preparar_rio()
 	Cavernas.cavar(self)
+	Sumidouro.cavar(self)
 	super.gerar(_semente)
 	_malha_fora()
 	_colisao_fora()
@@ -62,7 +63,11 @@ func gerar(_semente := 7) -> void:
 	_cume()
 	_mata_fora()
 	Paredoes.montar(self)
+	if "--assar-rochas" in OS.get_cmdline_user_args():
+		Cavernas.assar()
+		Sumidouro.assar()
 	Cavernas.montar(self)
+	Sumidouro.montar(self)
 	Ruinas.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
@@ -529,6 +534,8 @@ func agua(x: float, z: float) -> float:
 			var n := c.nivel(r.y)
 			if h < n:
 				return n
+	if Sumidouro.agua(x, z) > -INF:
+		return Sumidouro.agua(x, z)
 	if Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.15 and h < POCO_NIVEL:
 		return POCO_NIVEL
 	if Vector2(x, z).distance_to(NASCENTE) < 5.0 and h < queda_topo.y:

@@ -9,9 +9,8 @@ extends Node
 static var atual: CicloDia
 
 var env: Environment
-var ceu: ProceduralSkyMaterial
+var ceu: ShaderMaterial
 var sol: DirectionalLight3D
-var rampa_nuvens: Gradient
 var camera: Node3D
 
 var hora := 9.5  # 0 a 24
@@ -133,13 +132,11 @@ func _aplicar() -> void:
 	var luz_dia := clampf(lerpf(a[6], b[6], t), 0.0, 1.2)
 	var nev: Color = (a[7] as Color).lerp(b[7], t)
 	var claro := clampf(luz_dia, 0.25, 1.0)  # de noite a chuva não clareia o céu
-	ceu.sky_top_color = topo.lerp(cinza * 0.75 * claro, nublado * 0.85)
-	ceu.sky_horizon_color = horiz.lerp(cinza * 1.2 * claro, nublado * 0.85)
-	ceu.ground_horizon_color = ceu.sky_horizon_color
-	ceu.sky_cover_modulate = ((a[11] as Color).lerp(b[11], t)).lerp(cinza * 1.1 * claro, nublado)
-	if rampa_nuvens:
-		rampa_nuvens.set_offset(0, lerpf(0.55, 0.28, nublado))
-		rampa_nuvens.set_offset(1, lerpf(0.66, 0.6, nublado))
+	ceu.set_shader_parameter("topo", topo.lerp(cinza * 0.75 * claro, nublado * 0.85))
+	ceu.set_shader_parameter("horizonte", horiz.lerp(cinza * 1.2 * claro, nublado * 0.85))
+	ceu.set_shader_parameter("cor_nuvens", ((a[11] as Color).lerp(b[11], t)).lerp(cinza * 1.1 * claro, nublado))
+	ceu.set_shader_parameter("nuvem_de", lerpf(0.55, 0.28, nublado))
+	ceu.set_shader_parameter("nuvem_ate", lerpf(0.66, 0.6, nublado))
 	env.ambient_light_color = amb.lerp(cinza * claro, nublado * 0.6)
 	env.ambient_light_energy = lerpf(a[4], b[4], t) * lerpf(1.0, 1.1, nublado)
 	env.fog_light_color = nev.lerp(cinza * 1.15 * claro, nublado * 0.8)

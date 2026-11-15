@@ -56,11 +56,6 @@ func _process(delta: float) -> void:
 	_criar_pendentes()
 
 
-## O bloco que contém o ponto.
-func bloco_de(p: Vector3) -> Vector2i:
-	return Vector2i(floori(p.x / BLOCO), floori(p.z / BLOCO))
-
-
 func _centro(chave: Vector2i) -> Vector2:
 	return Vector2((chave.x + 0.5) * BLOCO, (chave.y + 0.5) * BLOCO)
 
@@ -164,7 +159,7 @@ func _criar(chave: Vector2i) -> void:
 			var px := x0 + i * AMOSTRA
 			var pz := z0 + j * AMOSTRA
 			ncob[j * n + i] = mapa.cobertura(px, pz)
-			nny[j * n + i] = mapa.normal_em(px, pz).y
+			nny[j * n + i] = 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
 	var ts: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semente(chave, 1)

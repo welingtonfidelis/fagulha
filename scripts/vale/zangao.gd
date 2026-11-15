@@ -143,13 +143,26 @@ func _process(delta: float) -> void:
 				estado = Estado.RONDA
 			elif ve and dist < VER * 0.6:
 				estado = Estado.CACA
+	# nunca atravessa árvore: perto de uma copa, passa por cima dela (o tiro continua vindo do alto)
+	var copas := maxf(topo_copas(global_position), topo_copas(quer))
+	if copas > -INF:
+		quer.y = maxf(quer.y, copas + 2.0)
 	var para := quer - global_position
 	_vel = _vel.lerp(para.limit_length(1.0) * vmax if para.length() > 1.0 else para * vmax, 1.0 - exp(-2.5 * delta))
+	# uma copa mais alta logo à frente: segura o avanço e sobe antes de chegar nela
+	var adiante := topo_copas(global_position + Vector3(_vel.x, 0, _vel.z) * 0.6, 1.0)
+	if adiante > -INF and global_position.y < adiante + 1.0:
+		_vel.x *= exp(-12.0 * delta)
+		_vel.z *= exp(-12.0 * delta)
+		_vel.y = maxf(_vel.y, 9.0)
 	global_position += _vel * delta
 	# nunca entra no chão
 	var piso := mapa.altura(global_position.x, global_position.z) + 1.5
 	if global_position.y < piso:
 		global_position.y = piso
+	var copa_aqui := topo_copas(global_position, 0.5)
+	if copa_aqui > -INF and global_position.y < copa_aqui + 0.8:
+		global_position.y = move_toward(global_position.y, copa_aqui + 0.8, 14.0 * delta)
 	global_position.y += sin(_relogio * 2.3 + _fase) * 0.01
 	# olha para o robô caçando, senão para onde vai
 	var olhar := alvo_p - global_position if estado == Estado.CACA else _vel

@@ -7,7 +7,7 @@ build/
 tools/capturas/
 # painéis intermediários das folhas de maquete
 docs/**/_paineis/
-# downloads de origem (Poly Haven, CC0); o jogo usa as cópias em assets/
+# downloads de origem (Poly Haven, CC0) do cânion antigo, que saiu do jogo
 vendor/polyhaven/
 # macOS
 .DS_Store
