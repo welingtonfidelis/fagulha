@@ -1,0 +1,32 @@
+; Engine configuration file.
+; Feito à mão (tudo do jogo é montado por código em scripts/).
+
+config_version=5
+
+[application]
+
+config/name="Faísca 2: Em Busca do Sossego"
+config/description="Um robô pequeno que anda, corre e voa num vale sossegado. Sem objetivos: passear, olhar, e às vezes desligar uma máquina antiga."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[layer_names]
+
+3d_physics/layer_1="terreno"
+3d_physics/layer_2="arvores"
+3d_physics/layer_3="armadura"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+common/physics_ticks_per_second=60
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/size=4096

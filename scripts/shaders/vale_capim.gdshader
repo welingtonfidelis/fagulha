@@ -1,0 +1,36 @@
+shader_type spatial;
+render_mode cull_disabled;
+#include "res://scripts/shaders/vale_comum.gdshaderinc"
+
+// Capim: a cor vem do chão onde a touceira nasce, mais clara na ponta. O vento passa em ondas
+// largas que atravessam o campo. A luz usa a normal para cima, como se fosse o próprio chão.
+uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
+
+varying vec3 raiz;
+varying float alt;
+varying float rajada;
+
+void vertex() {
+	raiz = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	alt = clamp(VERTEX.y / 0.42, 0.0, 1.0);
+	float fase = dot(raiz.xz, vec2(0.085, 0.05)) - TIME * 1.25;
+	rajada = smoothstep(0.2, 1.0, sin(fase) * 0.5 + 0.5 + 0.25 * sin(fase * 2.7 + raiz.x * 0.2));
+	float bal = (0.06 + 0.22 * rajada) * alt * alt + 0.03 * sin(TIME * 3.1 + raiz.x * 1.7 + raiz.z * 1.3) * alt;
+	VERTEX.x += bal;
+	VERTEX.z += bal * 0.55;
+	VERTEX.y -= bal * bal * 0.5;
+	NORMAL = normalize((inverse(MODEL_MATRIX) * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+}
+
+void fragment() {
+	vec3 base = cor_capim(ruido, raiz.xz);
+	vec3 c = mix(base * 0.80, base * 1.16 + vec3(0.012, 0.016, 0.0), alt);
+	c += vec3(0.022, 0.028, 0.004) * rajada * alt;  // a rajada clareia a ponta
+	ALBEDO = c;
+	ROUGHNESS = 0.9;
+	SPECULAR = 0.0;
+}
+
+void light() {
+	DIFFUSE_LIGHT += luz_faixas(NORMAL, LIGHT, LIGHT_COLOR, ATTENUATION);
+}

@@ -1,0 +1,13 @@
+# Godot
+.godot/
+*.translation
+# builds exportadas
+build/
+# fotos de conferência (geradas por -- --vale-captura e afins)
+tools/capturas/
+# painéis intermediários das folhas de maquete
+docs/**/_paineis/
+# downloads de origem (Poly Haven, CC0); o jogo usa as cópias em assets/
+vendor/polyhaven/
+# macOS
+.DS_Store
