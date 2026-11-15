@@ -39,9 +39,9 @@ static func configurar() -> void:
 	_botao("pairar", JOY_BUTTON_RIGHT_STICK)
 	_tecla("golpe", [KEY_V])
 	_botao("golpe", JOY_BUTTON_Y)
-	# Abaixar: L3 com o robô parado / Ctrl. Um toque abaixa, segurar senta.
+	# Abaixar: R3 no chão / Ctrl. Um toque abaixa, segurar senta. (No ar o R3 é parar no ar.)
 	_tecla("abaixar", [KEY_CTRL])
-	_botao("abaixar", JOY_BUTTON_LEFT_STICK)
+	_botao("abaixar", JOY_BUTTON_RIGHT_STICK)
 	# No voo, freia e desliga o motor; no chão, no ar e pairando, esquiva.
 	_tecla("soltar", [KEY_C])
 	_botao("soltar", JOY_BUTTON_B)

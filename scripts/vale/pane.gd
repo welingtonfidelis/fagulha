@@ -19,7 +19,7 @@ func _ready() -> void:
 	add_child(_preto)
 	_preto.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_texto = Label.new()
-	_texto.text = "pane no motor · religando"
+	_texto.text = "curto no motor · voltando à base"
 	_texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_texto.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_texto.add_theme_font_size_override("font_size", 22)

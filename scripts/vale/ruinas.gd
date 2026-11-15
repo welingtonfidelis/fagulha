@@ -19,6 +19,10 @@ const PATIO_MEIO := Vector2(15, 11)
 
 
 ## Árvore pode nascer aqui? (não dentro das obras nem coladas nelas: cada ruína fica num claro pequeno da mata)
+## A base do robô, no ponto de nascimento da clareira (x, z, giro): a frente (-Z do lugar) olha o campo.
+const BASE := Vector3(2.0, 44.0, -0.233)
+
+
 static func livre(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
 	var eixo := Vector2(cos(ARCOS.z), -sin(ARCOS.z))
@@ -44,13 +48,14 @@ static func montar(v: Vale) -> void:
 	for k in 3:
 		tambores.append(_tambor(7 + k * 3))
 	var total := 0
-	for sitio: Array in [["Arcos", ARCOS], ["Torre", TORRE], ["Patio", PATIO]]:
+	for sitio: Array in [["Arcos", ARCOS], ["Torre", TORRE], ["Patio", PATIO], ["Base", BASE]]:
 		var d: Vector3 = sitio[1]
 		var o := Obra.new()
 		o.v = v
 		o.blocos = blocos
 		o.tambores = tambores
-		o.t = Transform3D(Basis(Vector3.UP, d.z), Vector3(d.x, v._fora(d.x, d.y), d.y))
+		o.na_clareira = sitio[0] == "Base"
+		o.t = Transform3D(Basis(Vector3.UP, d.z), Vector3(d.x, v.altura(d.x, d.y) if o.na_clareira else v._fora(d.x, d.y), d.y))
 		o.rng.seed = hash(sitio[0])
 		o.corpo = StaticBody3D.new()
 		o.corpo.name = "Ruina" + sitio[0]
@@ -64,9 +69,48 @@ static func montar(v: Vale) -> void:
 				_torre(o)
 			"Patio":
 				_patio(o)
+			"Base":
+				_base(o)
 		o.fechar()
 		total += o.pecas
 	print("ruínas: %d peças, %d ms" % [total, Time.get_ticks_msec() - t0])
+
+
+# ---------------------------------------------------------------- A Base
+
+## Onde o robô nasce e reaparece depois do curto: um estrado baixo de pedra com um aro de metal, o berço
+## de recarga atrás (dois pilares, a viga e a lâmpada acesa), um resto de muro em meia-lua e a antena.
+static func _base(o: Obra) -> void:
+	var cy := o.chao(0.0, 0.0) + 0.1
+	# o estrado: quase rente ao chão, para subir andando
+	o.tambor(Vector3(0, cy - 1.0, 0), Vector3(5.2, 1.0, 5.2))
+	o.aro(Vector3(0, cy - 0.03, 0), 1.55, 1.75, "casco")
+	o.aro(Vector3(0, cy - 0.02, 0), 0.5, 0.62, "casco_claro")
+	# o berço de recarga, atrás do estrado
+	for lado: float in [-1.0, 1.0]:
+		o.bloco(Vector3(lado * 1.7, cy + 1.5, 2.9), Vector3(0.55, 3.2, 0.6), Basis(Vector3.UP, lado * 0.05), "casco")
+		o.bloco(Vector3(lado * 1.7, cy + 0.2, 2.9), Vector3(0.95, 0.5, 1.0), Basis.IDENTITY, "ruina")
+		o.bloco(Vector3(lado * 1.05, cy + 2.55, 2.9), Vector3(1.1, 0.18, 0.18), Basis(Vector3(0, 0, 1), lado * 0.6), "ferrugem", false)
+	o.bloco(Vector3(0, cy + 3.3, 2.9), Vector3(4.3, 0.5, 0.75), Basis.IDENTITY, "casco_claro")
+	o.farol(Vector3(0, cy + 2.92, 2.75), 0.2, Color(0.35, 0.95, 0.85))
+	o.bloco(Vector3(0, cy + 1.3, 3.2), Vector3(1.5, 2.0, 0.3), Basis.IDENTITY, "casco")
+	# resto de muro em meia-lua, por trás e pelos lados
+	var fica := func(i: int, fiada: int, phi: float) -> bool:
+		if sin(phi) < -0.15:
+			return false  # a frente fica aberta para o campo
+		var h := 1.6 + 1.2 * sin(phi * 2.3 + 0.7) + 0.9 * sin(phi * 5.1)
+		return fiada < roundi(h) and not (i == 3 and fiada > 0)
+	o.anel(Vector3(0, cy - 0.3, 0.4), Basis.IDENTITY, 5.6, 0.75, 0.62, 16, 3, fica)
+	o.entulho(Vector2(-5.2, -1.6), Vector2(1.6, 1.4), 5, 0.4, 0.9)
+	o.entulho(Vector2(5.0, 3.6), Vector2(1.4, 1.4), 4, 0.4, 0.8)
+	# a antena e duas caixas
+	o.bloco(Vector3(3.3, cy + 3.0, 3.6), Vector3(0.13, 6.4, 0.13), Basis.from_euler(Vector3(0.03, 0.0, -0.04)), "ferrugem", false)
+	o.bloco(Vector3(3.3, cy + 5.0, 3.6), Vector3(1.3, 0.08, 0.08), Basis(Vector3.UP, 0.5), "ferrugem", false)
+	o.bola(Vector3(3.2, cy + 6.25, 3.6), 0.16, "casco_claro")
+	o.bloco(Vector3(-3.1, cy + 0.36, 2.2), Vector3(0.8, 0.72, 0.8), Basis(Vector3.UP, 0.3), "casco_claro")
+	o.bloco(Vector3(-3.7, cy + 0.26, 1.3), Vector3(0.55, 0.52, 0.55), Basis(Vector3.UP, -0.5), "casco")
+	o.arbusto(Vector3(-5.4, o.chao(-5.4, 2.6), 2.6), 0.9)
+	o.arbusto(Vector3(4.9, o.chao(4.9, 1.2), 1.2), 0.8)
 
 
 # ---------------------------------------------------------------- Os Arcos
@@ -357,6 +401,7 @@ class Obra:
 	var blocos: Array[PackedVector3Array]
 	var tambores: Array[PackedVector3Array]
 	var pecas := 0
+	var na_clareira := false  # a base fica dentro da clareira, onde o chão é o da clareira
 	var _verts := {}
 	var _nrms := {}
 
@@ -366,7 +411,7 @@ class Obra:
 	## Altura do terreno num ponto do lugar, na medida do lugar (0 = o chão no meio da obra).
 	func chao(lx: float, lz: float) -> float:
 		var p := t * Vector3(lx, 0, lz)
-		return v._fora(p.x, p.z) - t.origin.y
+		return (v.altura(p.x, p.z) if na_clareira else v._fora(p.x, p.z)) - t.origin.y
 
 	func chao_min(c: Vector2, raio: float) -> float:
 		var m := chao(c.x, c.y)
@@ -489,6 +534,26 @@ class Obra:
 		luz.omni_range = 5.0
 		luz.shadow_enabled = false
 		luz.position = Vector3(0, 0.5, 0)
+		mi.add_child(luz)
+
+	## A lâmpada da base: acesa, de cor amiga, ilumina o estrado à noite.
+	func farol(c: Vector3, raio: float, cor: Color) -> void:
+		var m := SphereMesh.new()
+		m.radius = raio
+		m.height = raio * 2.0
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = cor * 0.2
+		mat.emission_enabled = true
+		mat.emission = cor
+		mat.emission_energy_multiplier = 2.2
+		var mi := _solto(m, c, "junta")
+		mi.material_override = mat
+		var luz := OmniLight3D.new()
+		luz.light_color = cor
+		luz.light_energy = 0.7
+		luz.omni_range = 9.0
+		luz.shadow_enabled = false
+		luz.position = Vector3(0, -0.4, -0.6)
 		mi.add_child(luz)
 
 	func fechar() -> void:

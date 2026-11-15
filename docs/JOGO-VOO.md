@@ -96,8 +96,8 @@ Na Godot, a geração vira compute shader (erosão e mapas) com o FastNoiseLite 
 
 | Ação | DualSense | Teclado e mouse |
 |---|---|---|
-| Andar / correr | analógico esquerdo; L3 andando corre | WASD; Shift |
-| Abaixar / sentar | L3 parado: toque abaixa, segurar 0,6 s senta | Ctrl |
+| Andar / correr | analógico esquerdo; L3 corre | WASD; Shift |
+| Abaixar / sentar | R3 no chão: toque abaixa, segurar 0,6 s senta | Ctrl |
 | Pular | X; segurar sobe mais | Espaço |
 | Pulo duplo | X no ar (uma vez) | Espaço no ar |
 | Ligar e desligar o voo | L3 no ar | Shift no ar |
@@ -904,3 +904,19 @@ O usuário mandou a descrição da movimentação de um jogo de armadura voadora
 A câmera (campo de visão, distância, tremor), o giro, a sustentação e os limites de batida e de pouso forte passaram a seguir esses números.
 
 **Testes:** `--teste` 92 pontos, `--teste-vale` 19. **Não verificado:** nada jogado no controle; a pose do mergulho não ficou enquadrada nas fotos (só o impacto com a poeira); os outros mapas (ilha de 8 km, cânion) usam os mesmos números e ficaram mais lentos também.
+
+## 34. A base (2026-11-15)
+
+![A base](vale/base_v1.png)
+
+Primeiro item da lista do que falta (base, mais vida, mais inimigos, cavernas, sons; a diversão no ar fica para o fim, a pedido do usuário).
+
+- **Onde:** no ponto de nascimento da clareira (`Ruinas.BASE`, montada por `Ruinas._base` com as mesmas peças das ruínas). Um claro de chão batido novo em `Clareira.CLAROS` tira o capim dali.
+- **O que tem:** estrado baixo de pedra com dois aros de metal, o berço de recarga atrás (dois pilares, a viga e uma lâmpada verde-água que ilumina o estrado à noite), um resto de muro em meia-lua, a antena e duas caixas.
+- **Curto:** depois da pane (por golpes ou por ir longe no mar) o robô reaparece na base, com a tela já escura, olhando o campo (`Armadura.base`). Antes ele religava onde tinha caído. O aviso na tela virou "curto no motor · voltando à base".
+- **Depois:** aqui entram a troca de robô e as melhorias.
+- **Fotos:** `--vale-captura --base`. **Testes:** `--teste-vale` 19 (o 13º confere o reaparecimento na base; o 17º conta quatro obras), `--teste` 95.
+
+Também nesta data: o toque no L3 para abaixar ganhou folga, porque clicar o analógico costuma empurrá-lo e o toque virava "correr" (o usuário relatou que abaixar não funcionava no PC). **Não verificado:** a base não foi jogada; o topo do estrado saiu todo coberto de musgo; a borda do estrado pode ficar até uns 20 cm acima do chão do lado mais baixo.
+
+**Correção (2026-11-15):** o usuário tinha dito L3 por engano; abaixar e sentar são no **R3** (no chão; no ar o R3 continua sendo parar no ar). O L3 no chão voltou a ser só correr, e a folga do clique saiu. O que as seções 32 e 33 dizem sobre "L3 parado" vale para o R3.

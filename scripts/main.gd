@@ -67,6 +67,8 @@ func _ready() -> void:
 	armadura.ponto_inicio = ilha.spawn
 	armadura.yaw_inicio = ilha.spawn_yaw
 	armadura.global_position = ilha.spawn
+	if ilha is Vale:
+		armadura.base = ilha.spawn
 	camera = CameraVoo.new()
 	camera.name = "Camera"
 	camera.alvo = armadura

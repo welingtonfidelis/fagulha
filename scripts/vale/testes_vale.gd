@@ -601,8 +601,9 @@ func _ponto_16() -> void:
 	var entrou: bool = a.em_pane
 	await _esperar(Ajustes.PANE_TEMPO + 3.0)
 	var em_terra := v.altura(a.global_position.x, a.global_position.z) > 1.0 and v.distancia_da_costa(a.global_position.x, a.global_position.z) < 1.0
+	em_terra = em_terra and Vector2(a.global_position.x - v.spawn.x, a.global_position.z - v.spawn.z).length() < 4.0  # reaparece na base
 	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1,
-		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e volta para a terra (%s, altura %.1f m)"
+		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e reaparece na base (%s, altura %.1f m)"
 			% [com_agua, total, desce, v.agua(foz.x, foz.y), dist_longe, entrou, em_terra, v.altura(a.global_position.x, a.global_position.z)])
 	a.graca_pane = 0.0
 	ciclo.hora = 10.0
@@ -639,6 +640,6 @@ func _ponto_17() -> void:
 	a.teleportar(em_cima, Armadura.Estado.AR)
 	await _esperar(1.6)
 	var sobre: float = a.global_position.y - chao
-	_ok(sinuoso > 1.05 and rochas > 50 and obras == 3 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
+	_ok(sinuoso > 1.05 and rochas > 50 and obras == 4 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
 		"rio, paredões e ruínas: o rio anda %.2f vezes a reta; %d rochas com colisão nos paredões; %d ruínas com %d pedras; o robô pousa no aqueduto a %.1f m do chão"
 			% [sinuoso, rochas, obras, pedras, sobre])

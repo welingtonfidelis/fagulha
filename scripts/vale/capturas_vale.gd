@@ -34,6 +34,9 @@ func rodar(main: Node) -> void:
 	if "--posturas" in args:
 		await _posturas()
 		return
+	if "--base" in args:
+		await _base()
+		return
 	if "--pouso" in args:
 		await _pouso()
 		return
@@ -403,6 +406,40 @@ func _pouso() -> void:
 		await _esperar(0.1)
 		await _foto("p_%s_pouso" % par[1])
 		await _esperar(1.2)
+	get_tree().quit()
+
+
+## A base: o nascimento pela câmera do jogo, e a obra de frente, de lado, de cima e à noite (`--base`).
+func _base() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	await _esperar(2.0)
+	await _foto("b1_nascimento")
+	cam.yaw = c.spawn_yaw + PI
+	cam.pitch = -0.1
+	await _esperar(1.5)
+	await _foto("b2_olhando_a_base")
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 50.0
+	livre.make_current()
+	var p := c.spawn
+	var frente := Vector3(-sin(c.spawn_yaw), 0, -cos(c.spawn_yaw))
+	var lado := frente.cross(Vector3.UP)
+	for v: Array in [["b3_frente", frente * 11.0 + Vector3(0, 3.0, 0)], ["b4_lado", lado * 11.0 + frente * 4.0 + Vector3(0, 3.5, 0)], ["b5_cima", frente * 6.0 + Vector3(0, 14.0, 0)], ["b6_tras", -frente * 12.0 + lado * 3.0 + Vector3(0, 4.0, 0)]]:
+		livre.global_position = p + v[1]
+		livre.look_at(p + Vector3(0, 1.2, 0))
+		await _esperar(0.3)
+		await _foto(v[0])
+	if m.ciclo:
+		m.ciclo.hora = 22.0
+		m.ciclo.parado = true
+		await _esperar(1.5)
+		livre.global_position = p + frente * 9.0 + lado * 3.0 + Vector3(0, 2.4, 0)
+		livre.look_at(p + Vector3(0, 1.4, 0))
+		await _esperar(0.5)
+		await _foto("b7_noite")
 	get_tree().quit()
 
 

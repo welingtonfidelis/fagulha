@@ -42,6 +42,7 @@ var pouso_forca := 0.0  # 0 pouso comum, 0,5 queda com estilo leve, 1 pouso de h
 var clarao_tiro := 0.0  # brilho rápido do jato da mão direita a cada disparo
 var atirando := 0.0  # tempo desde o último tiro (o visual aponta o braço mesmo sem mirar)
 var mergulhando := false  # mergulho com impacto em andamento (o visual lê)
+var base := Vector3.INF  # onde reaparece depois do curto (o mapa define; sem base, religa onde caiu)
 var caido := false  # caiu por superaquecer: não religa nem paira até tocar o chão
 var _ignicao := 0.0  # pausa curta ao ligar os jatos no ar, antes do empurrão
 signal golpe_chao(onde: Vector3)
@@ -146,6 +147,7 @@ func levar_golpe(direcao: Vector3, forca: float) -> void:
 	if avaria >= Ajustes.PANE_GOLPES:
 		em_pane = true
 		_pane_t = 0.0
+		_pane_volta = base
 		if estado != Estado.CHAO:
 			_mudar(Estado.AR)
 		entrou_pane.emit()
@@ -157,7 +159,7 @@ func pane_forcada(volta: Vector3) -> void:
 		return
 	em_pane = true
 	_pane_t = 0.0
-	_pane_volta = volta
+	_pane_volta = base if base.is_finite() else volta
 	if estado != Estado.CHAO:
 		_mudar(Estado.AR)
 	entrou_pane.emit()
@@ -181,6 +183,9 @@ func _pane(delta: float) -> bool:
 		velocity = Vector3.ZERO
 		_pane_volta = Vector3.INF
 		_pico_y = global_position.y
+		if base.is_finite() and camera:
+			camera.yaw = yaw_inicio
+			camera.pitch = -0.12
 		_mudar(Estado.AR)
 	velocity.x = move_toward(velocity.x, 0.0, 12.0 * delta)
 	velocity.z = move_toward(velocity.z, 0.0, 12.0 * delta)
@@ -299,12 +304,9 @@ func _plano_camera() -> Basis:
 # ---------------------------------------------------------------- chão e pulo
 
 func _chao(delta: float, mov: Vector2) -> void:
-	# o L3 corre com o robô andando; parado, abaixa
-	# clicar o analógico costuma empurrá-lo um pouco: "parado" aqui é quase sem andar, com folga
-	var quieto := mov.length() < 0.6 and Vector2(velocity.x, velocity.z).length() < 1.2
-	if Input.is_action_pressed("abaixar") and (postura != 0 or quieto):
-		mov = Vector2.ZERO  # com o L3 apertado, o empurrão do clique não vira passo
-	if Input.is_action_just_pressed("correr_alternar") and not quieto and postura == 0:
+	# L3 alterna a corrida; o R3 abaixa (ver _abaixar)
+	var quieto := Vector2(velocity.x, velocity.z).length() < 1.2
+	if Input.is_action_just_pressed("correr_alternar"):
 		_correr_alt = not _correr_alt
 	if mov.length() < 0.15:
 		_correr_alt = false
@@ -349,15 +351,14 @@ func _chao(delta: float, mov: Vector2) -> void:
 		_tentar_esquiva(mov)
 
 
-## Abaixar e sentar (L3 parado / Ctrl): um toque abaixa, segurar senta; outro toque levanta. Abaixado ele
+## Abaixar e sentar (R3 no chão / Ctrl): um toque abaixa, segurar senta; outro toque levanta. Abaixado ele
 ## anda devagar; sentado, mexer o analógico ou apertar o X levanta. Correr sempre levanta.
 func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	if estado != Estado.CHAO or esquivando > 0.0:
 		postura = 0
 		_abaixar_seg = false
 		return
-	var parado := quieto
-	if Input.is_action_just_pressed("abaixar") and (parado or postura != 0 or not Input.is_action_just_pressed("correr_alternar")):
+	if Input.is_action_just_pressed("abaixar"):
 		if postura == 0:
 			postura = 1
 			_abaixar_seg = true
@@ -368,12 +369,12 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	elif _abaixar_seg:
 		if Input.is_action_pressed("abaixar"):
 			_abaixar_t += delta
-			if _abaixar_t >= Ajustes.SENTAR_SEGURAR:
+			if _abaixar_t >= Ajustes.SENTAR_SEGURAR and quieto:
 				postura = 2
 				_abaixar_seg = false
 		else:
 			_abaixar_seg = false
-	if postura == 2 and mov.length() > 0.5 and not Input.is_action_pressed("abaixar"):
+	if postura == 2 and mov.length() > 0.35:
 		postura = 0
 	if postura != 0 and correr:
 		postura = 0

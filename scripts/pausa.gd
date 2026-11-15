@@ -35,7 +35,7 @@ func _ready() -> void:
 	ajuda.add_theme_color_override("font_color", Color(0.85, 0.85, 0.82))
 	ajuda.text = "\n".join([
 		"Controle",
-		"  analógico esquerdo: andar · L3 andando: correr · L3 parado: abaixar (segure para sentar)",
+		"  analógico esquerdo: andar · L3: correr · R3: abaixar (segure para sentar)",
 		"  X: pular (segure para subir mais) · X no ar: pulo duplo · L3 no ar: liga e desliga o voo",
 		"  no voo, analógico esquerdo: frente acelera, trás segura, lado inclina e fecha a curva",
 		"  O: esquiva (no voo: freia e desliga os jatos) · triângulo no ar: mergulho com impacto",

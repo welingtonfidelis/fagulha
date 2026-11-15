@@ -471,9 +471,9 @@ func _pouso_e_batida() -> void:
 	# abaixar e sentar
 	a.recomecar()
 	await _esperar(1.0)
-	# o L3 de verdade (evento do controle) dispara correr, voar e abaixar ao mesmo tempo
+	# o R3 de verdade (evento do controle): no chão abaixa, no ar para no ar
 	var l3 := InputEventJoypadButton.new()
-	l3.button_index = JOY_BUTTON_LEFT_STICK
+	l3.button_index = JOY_BUTTON_RIGHT_STICK
 	l3.pressed = true
 	Input.parse_input_event(l3)
 	await _esperar(0.15)
@@ -481,25 +481,17 @@ func _pouso_e_batida() -> void:
 	l3s.pressed = false
 	Input.parse_input_event(l3s)
 	await _esperar(0.3)
-	_ok(a.postura == 1 and a.estado == Armadura.Estado.CHAO, "L3 do controle, parado, abaixa (postura %d, %s)" % [a.postura, a.nome_estado()])
+	_ok(a.postura == 1 and a.estado == Armadura.Estado.CHAO, "R3 do controle abaixa (postura %d, %s)" % [a.postura, a.nome_estado()])
 	Input.parse_input_event(l3)
 	await _esperar(0.1)
 	Input.parse_input_event(l3s)
 	await _esperar(0.3)
-	_ok(a.postura == 0, "L3 do controle de novo levanta (%d)" % a.postura)
-	# o clique empurrando o analógico para o lado (0,5) ainda conta como parado
-	var torto := InputEventJoypadMotion.new()
-	torto.axis = JOY_AXIS_LEFT_X
-	torto.axis_value = 0.5
-	Input.parse_input_event(torto)
+	_ok(a.postura == 0, "R3 do controle de novo levanta (%d)" % a.postura)
 	Input.parse_input_event(l3)
 	await _esperar(0.9)
 	Input.parse_input_event(l3s)
-	var reto := torto.duplicate() as InputEventJoypadMotion
-	reto.axis_value = 0.0
-	Input.parse_input_event(reto)
 	await _esperar(0.3)
-	_ok(a.postura == 2 and _hv() < 0.1, "L3 segurado senta, mesmo com o analógico empurrado no clique (%d)" % a.postura)
+	_ok(a.postura == 2 and _hv() < 0.1, "R3 do controle segurado senta (%d)" % a.postura)
 	Input.parse_input_event(l3)
 	await _esperar(0.1)
 	Input.parse_input_event(l3s)
@@ -523,13 +515,16 @@ func _pouso_e_batida() -> void:
 	Input.action_press("frente")
 	await _esperar(0.3)
 	_ok(a.postura == 0, "mexer o analógico levanta (%d)" % a.postura)
-	Input.action_press("correr_alternar")
-	Input.action_press("abaixar")
+	var l3c := InputEventJoypadButton.new()
+	l3c.button_index = JOY_BUTTON_LEFT_STICK
+	l3c.pressed = true
+	Input.parse_input_event(l3c)
 	await _esperar(0.1)
-	Input.action_release("correr_alternar")
-	Input.action_release("abaixar")
+	var l3cs := l3c.duplicate() as InputEventJoypadButton
+	l3cs.pressed = false
+	Input.parse_input_event(l3cs)
 	await _esperar(1.0)
-	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 andando corre em vez de abaixar (%.1f m/s)" % _hv())
+	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 do controle corre e não abaixa (%.1f m/s, postura %d)" % [_hv(), a.postura])
 	Input.action_release("frente")
 	await _esperar(0.5)
 	# batida numa árvore: voa reto contra a copa
