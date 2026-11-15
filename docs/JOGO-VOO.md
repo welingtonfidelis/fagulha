@@ -710,3 +710,17 @@ O usuário aprovou seguir para a expansão ("a ambientação tá linda, jogar co
 - **Para depois:** som do tiro e do Sentinela; Zangão e Carrapato no mapa grande.
 
 **Maquete v2 (2026-11-15):** o usuário achou 1 km pouco (a clareira de 320 m já não parece grande e seria um terço do total). Nova maquete com **2 km × 2 km** em `docs/vale/mapa_v2.png` (`E = 2.0` m por pixel em `tools/vale/mapa_vale.py`): mesmos lugares em escala dobrada, mais os Campos do sul (capim aberto até o mar). A clareira fica no meio, do tamanho que tem. Esperando aprovação e o nome do jogo.
+
+## 26. Nome, repositório e plano da expansão (2026-11-15)
+
+- **Nome do jogo:** "Faísca 2: Em Busca do Sossego" (escolha do usuário; já em `project.godot`). **Repositório:** `faisca-2`, git local criado em 2026-11-15 com o estado aprovado da clareira (a pasta continua `jogo-voo`; nada foi enviado para a internet). Fora do git: `.godot/`, `build/`, `tools/capturas/`, `vendor/polyhaven/`.
+- **Maquete v2 aprovada** (2 km × 2 km, `docs/vale/mapa_v2.png`).
+- **Pedido para o fim das tarefas importantes:** se o jogador tentar cruzar o mar, depois de certa distância o robô entra em pane e volta para a praia.
+- **Ordem de construção proposta** (um canto por vez, cada um no capricho da clareira):
+  1. **Base do vale inteiro:** terreno de 2 km em blocos, mar, e a clareira atual encaixada no meio sem mudar. Tudo fora da clareira ainda simples (relevo, cor do chão, mata de longe), mas já dá para voar por cima de tudo.
+  2. **Campos do sul e praia:** capim até o mar, areia, ondas; e a pane ao cruzar o mar.
+  3. **Platô das flores.**
+  4. **Mata fechada e cachoeira.**
+  5. **Serra do Mirante.**
+  6. **Ruínas**, com o Zangão e o Carrapato.
+- **Pendências menores:** som do tiro e do Sentinela.
