@@ -6,8 +6,8 @@ extends CharacterBody3D
 ## (sustentação), o motor empurra até a velocidade alvo e o arrasto segura o mergulho perto de 70 m/s.
 ## Os números ficam em Ajustes.
 
-enum Estado { CHAO, AR, DECOLAGEM, VOO, PLANAR, POUSO, PAIRAR, FREAR }
-const NOMES := ["chão", "no ar", "decolagem", "voo", "planando", "pouso", "pairando", "freando"]
+enum Estado { CHAO, AR, DECOLAGEM, VOO, PLANAR, POUSO, PAIRAR, FREAR, NADO }
+const NOMES := ["chão", "no ar", "decolagem", "voo", "planando", "pouso", "pairando", "freando", "nadando"]
 
 signal estado_mudou(novo: int)
 signal superaqueceu
@@ -52,6 +52,16 @@ var inclinar := 0.0  # no voo: analógico esquerdo de lado, suavizado (o visual 
 var postura := 0  # no chão: 0 de pé, 1 abaixado, 2 sentado (o visual e a câmera leem)
 var _abaixar_seg := false  # o botão de abaixar segue apertado desde que abaixou
 var _abaixar_t := 0.0
+var erguendo := 0.0  # tempo que falta para acabar de levantar de sentado (o visual lê; não anda nesse tempo)
+var _pulo_seg := -1.0  # há quanto tempo o pulo está segurado desde o aperto (-1: soltou)
+var _decola_y := 0.0  # de onde a decolagem começou
+var nado_rapido := false  # nadando com os jatos abertos (o visual e os efeitos leem)
+var nados := 0  # quantas vezes entrou a nadar (testes)
+# a física anda a 60 por segundo e a tela não: o corpo e a câmera aparecem entre os dois últimos passos,
+# senão o robô dava trancos para a frente e para trás no voo
+var _pos_ant := Vector3.ZERO
+var _pos_fis := Vector3.ZERO
+var _corte := true  # teleporte: não há de onde suavizar
 var _frear_tempo := 0.0  # quanto dura a freada antes de os jatos desligarem
 var _pairar_travado := false  # desligou o voo parado com o L2 ainda apertado: só volta a pairar apertando de novo
 var _solto := false  # motor desligado ou travado no voo: cai pesado até pousar ou religar
@@ -118,17 +128,6 @@ func mirando_agora() -> bool:
 	return mirando and (estado == Estado.CHAO or estado == Estado.PAIRAR)
 
 
-## Troca o corpo do robô na hora (a pausa usa para o teste do Faísca). Os movimentos são os mesmos.
-func trocar_visual(modelo: String) -> void:
-	ArmaduraVisual.MODELO = modelo
-	if visual:
-		remove_child(visual)
-		visual.queue_free()
-	visual = ArmaduraVisual.new()
-	visual.name = "Visual"
-	add_child(visual)
-
-
 ## Chegando ao chão (voando baixo e descendo, ou caindo): o visual arma as pernas para o pouso.
 func chegando_ao_chao() -> bool:
 	if not (em_voo() or estado == Estado.AR or estado == Estado.PAIRAR):
@@ -193,6 +192,7 @@ func _pane(delta: float) -> bool:
 	if _pane_volta.is_finite() and _pane_t >= 2.3:
 		# a tela já escureceu: o robô reaparece na praia
 		global_position = _pane_volta
+		_corte = true
 		velocity = Vector3.ZERO
 		_pane_volta = Vector3.INF
 		_pico_y = global_position.y
@@ -217,8 +217,17 @@ func _pane(delta: float) -> bool:
 	return true
 
 
+## Onde o robô aparece neste quadro: entre os dois últimos passos da física.
+func pos_suave() -> Vector3:
+	if _corte:
+		return global_position
+	return _pos_ant.lerp(_pos_fis, Engine.get_physics_interpolation_fraction())
+
+
 func teleportar(pos: Vector3, novo: int, vel := Vector3.ZERO) -> void:
 	global_position = pos
+	_corte = true
+	_pulo_seg = -1.0
 	velocity = vel
 	if vel.length() > 0.5:
 		dir_voo = vel.normalized()
@@ -254,6 +263,7 @@ func _mudar(novo: int) -> void:
 	if novo != Estado.CHAO:
 		postura = 0
 		_abaixar_seg = false
+		erguendo = 0.0
 	if novo != Estado.VOO:
 		_arrancada_alt = false
 		acelerador = 0.0
@@ -270,6 +280,13 @@ func _mudar(novo: int) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_passo(delta)
+	_pos_ant = global_position if _corte else _pos_fis
+	_pos_fis = global_position
+	_corte = false
+
+
+func _passo(delta: float) -> void:
 	_tempo_estado += delta
 	if _pane(delta):
 		return
@@ -282,6 +299,7 @@ func _physics_process(delta: float) -> void:
 	clarao_tiro = maxf(0.0, clarao_tiro - delta * 5.0)
 	if ilha:
 		ilha.atualizar_colisao_arvores(global_position)
+	_entrar_no_nado()
 	match estado:
 		Estado.CHAO, Estado.POUSO:
 			_chao(delta, mov)
@@ -295,6 +313,8 @@ func _physics_process(delta: float) -> void:
 			_pairar(delta, mov, mira)
 		Estado.FREAR:
 			_frear(delta, mira)
+		Estado.NADO:
+			_nado(delta, mov)
 	_esquiva_aplicar(delta)
 	var antes := velocity
 	move_and_slide()
@@ -324,6 +344,8 @@ func _chao(delta: float, mov: Vector2) -> void:
 	if mov.length() < 0.15:
 		_correr_alt = false
 	var correr := Input.is_action_pressed("correr") or _correr_alt
+	var postura_antes := postura
+	erguendo = maxf(0.0, erguendo - delta)
 	_abaixar(delta, mov, correr, quieto)
 	var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
 	if dir.length() > 1.0:
@@ -333,7 +355,7 @@ func _chao(delta: float, mov: Vector2) -> void:
 		vmax = Ajustes.ANDAR_MIRANDO * vel_chao
 	if postura == 1:
 		vmax = minf(vmax, Ajustes.ANDAR_ABAIXADO * vel_chao)
-	elif postura == 2:
+	elif postura == 2 or erguendo > 0.0:
 		vmax = 0.0
 	if na_agua:
 		vmax *= 0.5
@@ -353,15 +375,21 @@ func _chao(delta: float, mov: Vector2) -> void:
 		_mudar(Estado.CHAO)
 	if estado == Estado.CHAO and postura == 2 and Input.is_action_just_pressed("pular"):
 		postura = 0  # sentado, o X só levanta
-	elif estado == Estado.CHAO and Input.is_action_just_pressed("pular"):
+	elif estado == Estado.CHAO and Input.is_action_just_pressed("pular") and erguendo <= 0.0:
 		velocity.y = Ajustes.PULO
 		_origem_chao = true
 		_segurando = 0.0
+		_pulo_seg = 0.0
 		_mudar(Estado.AR)
 		_pulo_vivo = true
 	elif estado == Estado.CHAO and Input.is_action_just_pressed("soltar"):
 		postura = 0
 		_tentar_esquiva(mov)
+	# levantar de sentado leva um instante (o visual encolhe as pernas, apoia e sobe)
+	if postura_antes == 2 and postura == 0 and estado == Estado.CHAO and esquivando <= 0.0:
+		erguendo = Ajustes.ERGUER_TEMPO
+	elif postura != 0 or esquivando > 0.0:
+		erguendo = 0.0
 
 
 ## Abaixar e sentar (R3 no chão / Ctrl): um toque abaixa, segurar senta; outro toque levanta. Abaixado ele
@@ -419,6 +447,16 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_solto = false
 		_mudar(Estado.PAIRAR)
 		return
+	# segurar o pulo (o do chão ou o duplo) decola: sobe reto uns 10 m e sai voando para a frente
+	if Input.is_action_just_pressed("pular"):
+		_pulo_seg = 0.0
+	elif Input.is_action_pressed("pular") and _pulo_seg >= 0.0:
+		_pulo_seg += delta
+		if _pulo_seg >= Ajustes.DECOLAR_SEGURAR and not superaquecido and not caido:
+			_decolar()
+			return
+	else:
+		_pulo_seg = -1.0
 	if _pulo_vivo:
 		# segurando o pulo, os jatos estendem a subida por um instante
 		if Input.is_action_pressed("pular") and _segurando < Ajustes.PULO_SEGURA_TEMPO and velocity.y > 0.0:
@@ -461,21 +499,29 @@ func _mergulhar() -> void:
 
 func _decolar() -> void:
 	_pulo_vivo = false
-	velocity.y = Ajustes.DECOLAGEM_IMPULSO
+	_pulo_seg = -1.0
+	_solto = false
+	_decola_y = global_position.y
 	calor = minf(100.0, calor + Ajustes.CALOR_DECOLAGEM)
 	tremor = maxf(tremor, 0.35)
+	impulso = 1.0
 	_mudar(Estado.DECOLAGEM)
 
 
+## Decolagem: de pé, sobe reto DECOLAGEM_SUBIDA metros (ou até bater num teto) e então deita e sai voando
+## para onde a câmera aponta.
 func _decolagem(delta: float, mira: Vector3) -> void:
-	velocity.y -= Ajustes.G_VOO * 0.55 * delta
+	velocity.y = move_toward(velocity.y, Ajustes.DECOLAGEM_VEL, 60.0 * delta)
 	var plano := Vector3(mira.x, 0.0, mira.z).normalized()
-	var hv := Vector3(velocity.x, 0.0, velocity.z).move_toward(plano * 6.0, 8.0 * delta)
+	var hv := Vector3(velocity.x, 0.0, velocity.z).move_toward(Vector3.ZERO, 14.0 * delta)
 	velocity.x = hv.x
 	velocity.z = hv.z
-	dir_voo = (plano + Vector3.UP * 1.2).normalized()
-	if _tempo_estado >= Ajustes.DECOLAGEM_TEMPO:
+	dir_voo = (plano * 0.2 + Vector3.UP).normalized()
+	if global_position.y - _decola_y >= Ajustes.DECOLAGEM_SUBIDA or _tempo_estado >= Ajustes.DECOLAGEM_TEMPO \
+			or (is_on_ceiling() and _tempo_estado > 0.15):
 		_graca = Ajustes.DECOLAGEM_GRACA
+		dir_voo = (plano + Vector3.UP * 1.2).normalized()
+		velocity += plano * 5.0
 		_ligar_voo(mira)
 
 
@@ -601,6 +647,73 @@ func _frear(delta: float, mira: Vector3) -> void:
 		velocity.y = minf(velocity.y, 0.0) - 2.0
 		_solto = true
 		_mudar(Estado.AR)
+
+
+# ---------------------------------------------------------------- nado
+
+func altura_corpo() -> float:
+	return 2.6 * porte
+
+
+## Em água funda, com o corpo já debaixo da lâmina e sem estar subindo, o robô passa a nadar.
+func _entrar_no_nado() -> void:
+	if ilha == null or estado == Estado.NADO or estado == Estado.DECOLAGEM or velocity.y > 1.5:
+		return
+	var nivel := ilha.agua(global_position.x, global_position.z)
+	if nivel == -INF or nivel - global_position.y < Ajustes.NADO_ENTRA * altura_corpo():
+		return
+	if nivel - ilha.altura(global_position.x, global_position.z) < Ajustes.NADO_FUNDURA * altura_corpo():
+		return
+	velocity *= 0.45 if velocity.length() > Ajustes.NADO_RAPIDO else 1.0
+	nado_rapido = false
+	nados += 1
+	_solto = false
+	caido = false
+	_mudar(Estado.NADO)
+
+
+## Nado com os jatos: o analógico esquerdo leva para onde a câmera aponta (olhando para baixo, desce), o X
+## sobe, o O desce e o L3 abre os jatos (nado rápido). Parado ele fica boiando no lugar. Na lâmina, o X pula
+## para fora; chegando rápido de baixo para cima, sai voando. No raso volta a andar.
+func _nado(delta: float, mov: Vector2) -> void:
+	var nivel := ilha.agua(global_position.x, global_position.z)
+	var alt := altura_corpo()
+	if nivel == -INF or nivel - ilha.altura(global_position.x, global_position.z) < Ajustes.NADO_FUNDURA * alt * 0.8:
+		_duplo_usado = false
+		_mudar(Estado.AR)  # raso: afunda até o chão e anda
+		return
+	if Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr"):
+		nado_rapido = not nado_rapido
+	if mov.length() < 0.15 and not Input.is_action_pressed("pular"):
+		nado_rapido = false
+	var b := Basis.from_euler(Vector3(camera.pitch, camera.yaw, 0.0)) if camera else Basis.IDENTITY
+	var dir := (b * Vector3(mov.x, 0.0, mov.y)).limit_length(1.0)
+	var alvo := dir * (Ajustes.NADO_RAPIDO if nado_rapido else Ajustes.NADO_VEL)
+	var vert := (1.0 if Input.is_action_pressed("pular") else 0.0) - (1.0 if Input.is_action_pressed("soltar") else 0.0)
+	alvo.y += vert * Ajustes.NADO_SOBE
+	velocity = velocity.move_toward(alvo, Ajustes.NADO_ACEL * delta)
+	if velocity.length() > 1.0:
+		dir_voo = velocity.normalized()
+	impulso = maxf(impulso, 0.6 if nado_rapido else 0.0)
+	# a lâmina: a cabeça fica logo abaixo dela, a não ser que ele saia
+	var limite := nivel - alt * 0.8
+	if global_position.y >= limite and velocity.y >= 0.0:
+		if velocity.y > Ajustes.NADO_SALTO and not superaquecido:
+			# chegou rápido de baixo: rompe a lâmina e sai voando
+			_graca = Ajustes.DECOLAGEM_GRACA
+			velocity.y = maxf(velocity.y, 9.0)
+			_mudar(Estado.VOO)
+			return
+		if Input.is_action_just_pressed("pular"):
+			# pulo para fora d'água (segurando, decola como de costume)
+			velocity.y = Ajustes.PULO * 1.25
+			_pulo_seg = 0.0
+			_pulo_vivo = false
+			_duplo_usado = false
+			impulso = 1.0
+			_mudar(Estado.AR)
+			return
+		velocity.y = minf(velocity.y, (limite - global_position.y) * 4.0)
 
 
 # ---------------------------------------------------------------- pairar, esquiva e mira
@@ -773,6 +886,8 @@ func _agua_e_calor(delta: float) -> void:
 			taxa = -Ajustes.ESFRIA_MERGULHO if dir_voo.y < Ajustes.MERGULHO_Y else -Ajustes.ESFRIA_PLANAR
 		Estado.PAIRAR:
 			taxa = Ajustes.CALOR_PAIRAR
+		Estado.NADO:
+			taxa = -Ajustes.NADO_ESFRIA
 	if na_agua:
 		taxa = minf(taxa, 0.0) - Ajustes.ESFRIA_AGUA
 	if chuva > 0.3:
@@ -809,4 +924,5 @@ func _agua_e_calor(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	if visual:
+		visual.position = pos_suave() - global_position
 		visual.atualizar(delta, self)

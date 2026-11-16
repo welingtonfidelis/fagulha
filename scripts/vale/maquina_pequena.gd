@@ -33,6 +33,12 @@ var _sem_tiro := 99.0
 var _restante := 0.0
 var _relogio := 0.0
 var _ronco: AudioStreamPlayer3D
+var mech: MechVisual  # o corpo animado (um dos robôs do pacote)
+var _tiros: Array[Dictionary] = []
+var _mat_tiro: StandardMaterial3D
+const VEL_TIRO := 15.0
+const RAIO_TIRO := 1.1
+const FORCA_TIRO := 5.0
 
 
 func calor_por_tiro() -> float:
@@ -99,6 +105,55 @@ func _montar_base() -> void:
 		_ronco = Som.laco3d(_corpo, som_motor(), -6.0, 4.0, 40.0)
 
 
+## Põe o corpo animado: um dos robôs do pacote, com `altura` metros, os pés em `pe_y`.
+func montar_mech(nome: String, altura: float, pe_y := 0.0) -> void:
+	mech = MechVisual.criar(nome, altura, (mapa as Clareira)._tex if mapa is Clareira else null)
+	mech.position.y = pe_y
+	_corpo.add_child(mech)
+
+
+## Um tiro lento, de luz laranja, que dá para desviar. Sai de `de` na direção de `para`.
+func atirar_em(de: Vector3, para: Vector3) -> void:
+	if _mat_tiro == null:
+		_mat_tiro = StandardMaterial3D.new()
+		_mat_tiro.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_mat_tiro.albedo_color = Color(1.0, 0.5, 0.2)
+	Som.toque3d(self, Som.variacao("tiro_zangao", 2), de, -4.0, 8.0, 70.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = bola(0.16)
+	mi.material_override = _mat_tiro
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.top_level = true
+	add_child(mi)
+	mi.global_position = de
+	var luz := OmniLight3D.new()
+	luz.light_color = Color(1.0, 0.4, 0.15)
+	luz.light_energy = 1.5
+	luz.omni_range = 3.5
+	mi.add_child(luz)
+	_tiros.append({"no": mi, "pos": de, "dir": (para - de).normalized(), "andou": 0.0})
+
+
+func atualizar_tiros(delta: float) -> void:
+	var i := _tiros.size() - 1
+	while i >= 0:
+		var t := _tiros[i]
+		var p: Vector3 = t["pos"] + (t["dir"] as Vector3) * VEL_TIRO * delta
+		t["pos"] = p
+		t["andou"] = float(t["andou"]) + VEL_TIRO * delta
+		var no: MeshInstance3D = t["no"]
+		no.global_position = p
+		var fim := float(t["andou"]) > 70.0 or p.y < mapa.altura(p.x, p.z)
+		if not fim and alvo != null and is_instance_valid(alvo) and not alvo.em_pane and p.distance_to(centro_alvo()) < RAIO_TIRO:
+			alvo.levar_golpe(t["dir"], FORCA_TIRO)
+			golpes_dados += 1
+			fim = true
+		if fim:
+			no.queue_free()
+			_tiros.remove_at(i)
+		i -= 1
+
+
 func material(nome: String) -> Material:
 	return (mapa as Clareira).material(nome) if mapa is Clareira else null
 
@@ -161,6 +216,11 @@ func alvo_visivel(alcance: float, de: Vector3) -> bool:
 	return true
 
 
+## Onde a mira do robô trava (Vector3.INF: não é alvo agora).
+func ponto_de_trava() -> Vector3:
+	return Vector3.INF if (desligada or _corpo == null) else centro()
+
+
 func centro_alvo() -> Vector3:
 	return alvo.global_position + Vector3.UP * 0.6
 
@@ -199,6 +259,10 @@ func desligar() -> void:
 	if _ronco:
 		_ronco.stop()
 	Som.toque3d(self, "maquina_desliga", centro(), -3.0)
+	if mech:
+		mech.tocar("Death", 1.0, 0.1)
+		mech.apagar(1.0)
+		mech.olho(0.0)
 	desligou.emit()
 
 
@@ -212,6 +276,9 @@ func religar() -> void:
 	_acerto.set_deferred("collision_layer", 2)
 	if _ronco:
 		_ronco.play()
+	if mech:
+		mech.apagar(0.0)
+		mech.tocar("Idle", 1.0, 0.6)
 
 
 func avancar_tempo(segundos: float) -> void:
@@ -241,3 +308,6 @@ func _passo_base(delta: float) -> bool:
 
 func _lente_brilho(base: float) -> void:
 	mat_lente.emission_energy_multiplier = 6.0 if _pisca > 0.0 else base + calor * 0.02
+	if mech:
+		mech.clarao(0.8 if _pisca > 0.0 else 0.0)
+		mech.olho(clampf((base - 1.0) * 0.22, 0.0, 1.2))

@@ -11,6 +11,7 @@ const NIVEL := 19.4  # água do riacho e da lagoa
 const V := "res://assets/vale/"
 const RIACHO: Array[Vector2] = [Vector2(-96, -70), Vector2(-60, -48), Vector2(-34, -40), Vector2(-12, -22), Vector2(8, -18), Vector2(26, -6)]
 const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
+const LAGOA_FUNDO := 3.4  # metros a mais de fundura no meio
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
 const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 5.2)]  # o último é o chão batido da base
@@ -56,7 +57,8 @@ func _alt(x: float, z: float) -> float:
 	var dr := _dist_linha(p, RIACHO)
 	h = minf(h, lerpf(NIVEL - 0.7, h, smoothstep(1.6, 5.5, dr)))
 	var dl := p.distance_to(Vector2(LAGOA.x, LAGOA.y))
-	h = minf(h, lerpf(NIVEL - 1.8, h, smoothstep(LAGOA.z * 0.55, LAGOA.z * 1.25, dl)))
+	# a lagoa afunda no meio (5 m), para o robô poder nadar
+	h = minf(h, lerpf(NIVEL - 1.8 - LAGOA_FUNDO * (1.0 - smoothstep(0.0, LAGOA.z * 0.75, dl)), h, smoothstep(LAGOA.z * 0.55, LAGOA.z * 1.25, dl)))
 	return h
 
 
@@ -166,6 +168,35 @@ func _materiais() -> void:
 		"bico": _solido(Color(0.78, 0.58, 0.20)),
 		"peixe": _solido(Color(0.09, 0.13, 0.12)),
 	}
+	# árvores e plantas dos pacotes do Quaternius (assets/vale/q): textura do modelo com a luz do vale
+	var folha_q := Color(0.52, 0.64, 0.44)
+	_mats["q_casca"] = _tex_q("casca.jpg", Color(0.62, 0.55, 0.5), 0.0, 0.0)
+	_mats["q_casca_betula"] = _tex_q("casca_betula.png", Color(0.82, 0.82, 0.78), 0.0, 0.0)
+	_mats["q_folha"] = _tex_q("folha.png", folha_q, 0.4, 1.0)
+	_mats["q_folha_betula"] = _tex_q("folha_betula.png", folha_q, 0.4, 1.0)
+	_mats["q_folha_amarela"] = _tex_q("folha_amarela.png", Color(0.80, 0.70, 0.42), 0.4, 1.0)
+	_mats["q_folha_pinheiro"] = _tex_q("folha_pinheiro.png", Color(0.50, 0.62, 0.50), 0.4, 1.0)
+	_mats["q_folha_vinho"] = _tex_q("folha_vinho.png", Color(0.72, 0.52, 0.52), 0.4, 1.0)
+	_mats["q_folha_laranja"] = _tex_q("folha_laranja.png", Color(0.78, 0.62, 0.45), 0.4, 1.0)
+	_mats["q_planta"] = _tex_q("planta.png", Color(0.60, 0.72, 0.50), 0.4, 0.5, 1.2)
+	_mats["q_flor"] = _tex_q("flor.png", Color(0.95, 0.9, 0.85), 0.4, 0.5, 1.2)
+	_mats["q_cogumelo"] = _tex_q("cogumelo.png", Color(0.85, 0.8, 0.75), 0.0, 0.0)
+	_mats["q_moita"] = _tex_q("moita.png", folha_q, 0.4, 0.4, 0.5)
+	_mats["q_leaves_normaltree"] = _mats["q_moita"]
+	_mats["q_pedra"] = _tex_q("pedra.png", Color(0.62, 0.63, 0.66), 0.0, 0.0)
+	_mats["q_seixo"] = _tex_q("seixo.png", Color(0.62, 0.63, 0.66), 0.0, 0.0)
+
+
+func _tex_q(arquivo: String, tinta: Color, corte: float, vento: float, alto_vento := 0.12) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://scripts/shaders/vale_tex.gdshader")
+	m.set_shader_parameter("tex", load(V + "q/" + arquivo))
+	m.set_shader_parameter("tinta", tinta)
+	m.set_shader_parameter("corte", corte)
+	m.set_shader_parameter("vento", vento)
+	m.set_shader_parameter("alto_vento", alto_vento)
+	m.set_shader_parameter("ruido", _tex)
+	return m
 
 
 func material(nome: String) -> ShaderMaterial:
@@ -274,6 +305,97 @@ func _modelos() -> void:
 		_juntar(raiz, Transform3D.IDENTITY, lista)
 		raiz.free()
 		_malhas[nome] = lista
+	# modelos dos pacotes (tools/vale/pacotes.py): as árvores têm versão de longe
+	for nome: String in Q_ARVORES:
+		_modelo_q(nome, nome, {})
+		_modelo_q(nome + "_longe", nome + "_longe", {})
+	for nome: String in Q_PLANTAS:
+		_modelo_q(nome, nome, {})
+	# a mesma árvore com outra folhagem
+	for nome: String in Q_CORES:
+		var v: Array = Q_CORES[nome]
+		_modelo_q(nome, v[0], {v[1]: v[2]})
+		_modelo_q(nome + "_longe", String(v[0]) + "_longe", {v[1]: v[2]})
+
+
+const Q_ARVORES := ["q_arvore_a", "q_arvore_b", "q_arvore_c", "q_arvore_d", "q_betula_a", "q_betula_b", "q_betula_c",
+	"q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c", "q_morta_a", "q_morta_b", "q_morta_c"]
+const Q_PLANTAS := ["q_samambaia", "q_planta_a", "q_planta_b", "q_planta_c", "q_planta_d", "q_flor_a", "q_flor_b", "q_flor_c",
+	"q_flor_d", "q_cogumelo", "q_moita", "q_moita_flor", "q_trevo", "q_pedra_a", "q_pedra_b", "q_pedra_c", "q_seixo_a", "q_seixo_b"]
+const Q_CORES := {
+	"q_betula_a_amarela": ["q_betula_a", "q_folha_betula", "q_folha_amarela"],
+	"q_betula_c_amarela": ["q_betula_c", "q_folha_betula", "q_folha_amarela"],
+	"q_arvore_b_vinho": ["q_arvore_b", "q_folha", "q_folha_vinho"],
+	"q_arvore_d_laranja": ["q_arvore_d", "q_folha", "q_folha_laranja"],
+}
+
+
+## Carrega um modelo dos pacotes: cada malha vira uma cópia com os materiais do vale (pelo nome do material
+## do arquivo), com `troca` para as variações de cor.
+func _modelo_q(nome: String, arquivo: String, troca: Dictionary) -> void:
+	var cena: PackedScene = load(V + "q/" + arquivo + ".glb")
+	var raiz := cena.instantiate() as Node3D
+	var lista := []
+	for n in raiz.find_children("*", "MeshInstance3D", true, false) + ([raiz] if raiz is MeshInstance3D else []):
+		var mi := n as MeshInstance3D
+		var copia := mi.mesh.duplicate() as Mesh
+		for s in copia.get_surface_count():
+			var m := mi.mesh.surface_get_material(s)
+			var nm := String(m.resource_name) if m else "rocha"
+			copia.surface_set_material(s, material(String(troca.get(nm, nm))))
+		var t := mi.transform
+		var pai := mi.get_parent()
+		while pai != null and pai is Node3D:
+			t = (pai as Node3D).transform * t
+			pai = pai.get_parent()
+		lista.append([copia, t])
+	raiz.free()
+	_malhas[nome] = lista
+
+
+## Troca parte das árvores do vale pelas dos pacotes, para variar a mata. `u` (0 a 1) vem da posição, não do
+## sorteio da mata, para as árvores ficarem onde sempre estiveram.
+static func tipo_variado(tipo: String, u: float) -> String:
+	if "--sem-pacotes" in OS.get_cmdline_user_args():
+		return tipo  # para comparar o desempenho com e sem os modelos dos pacotes
+	var v := fposmod(u * 7.31, 1.0)
+	match tipo:
+		"pinheiro":
+			if u < 0.4:
+				return tipo
+			return ["q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c"][int(v * 3.0) % 3]
+		"betula":
+			if u < 0.25:
+				return tipo
+			if u < 0.5:
+				return "q_betula_a_amarela" if v < 0.5 else "q_betula_c_amarela"
+			return ["q_betula_a", "q_betula_b", "q_betula_c"][int(v * 3.0) % 3]
+		_:
+			if u < 0.4:
+				return tipo
+			if u < 0.44:
+				return ["q_morta_a", "q_morta_b", "q_morta_c"][int(v * 3.0) % 3]
+			if u < 0.47:
+				return "q_arvore_b_vinho"
+			if u < 0.5:
+				return "q_arvore_d_laranja"
+			return ["q_arvore_a", "q_arvore_b", "q_arvore_c", "q_arvore_d"][int(v * 4.0) % 4]
+
+
+## O modelo de longe de cada árvore. As dos pacotes de folha verde usam os vultos de longe do vale (juntam-se
+## aos mesmos desenhos e não custam nada a mais); só as de outra cor e as mortas têm o delas.
+static func longe_de(tipo: String) -> String:
+	if not tipo.begins_with("q_") or Q_CORES.has(tipo) or tipo.contains("morta"):
+		return tipo + "_longe"
+	if tipo.contains("pinheiro"):
+		return "pinheiro_longe"
+	if tipo.contains("betula"):
+		return "betula_longe"
+	return "carvalho_b_longe" if (tipo.ends_with("_b") or tipo.ends_with("_c")) else "carvalho_a_longe"
+
+
+static func sorte_do_lugar(x: float, z: float) -> float:
+	return fposmod(sin(x * 12.9898 + z * 78.233) * 43758.5453, 1.0)
 
 
 func _juntar(no: Node, base: Transform3D, lista: Array) -> void:
@@ -312,7 +434,7 @@ func _arvore(tipo: String, x: float, z: float, s: float, giro: float) -> void:
 	var h := altura(x, z)
 	arv_pos.append(Vector3(x, h - 0.15, z))
 	arv_escala.append(s * 0.8)
-	arv_tipo.append(0 if tipo == "pinheiro" else 1)
+	arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
 	_fila_arv.append([tipo, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(x, h - 0.15, z))])
 
 
@@ -351,7 +473,7 @@ func _arvores_e_pedras() -> void:
 			var esc := rng.randf_range(0.85, 1.5)
 			var giro := rng.randf() * TAU
 			if _arvore_cabe(px, pz):
-				_arvore(tipo, px, pz, esc, giro)
+				_arvore(tipo_variado(tipo, sorte_do_lugar(px, pz)), px, pz, esc, giro)
 		z += 6.5
 	for i in arv_pos.size():
 		var cel := Vector2i(floori(arv_pos[i].x / CELULA_ARVORE), floori(arv_pos[i].z / CELULA_ARVORE))
@@ -376,7 +498,9 @@ func _arvores_e_pedras() -> void:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
 		_multi(tipo, xfs, centro, 0.0, 150.0, true)
-		_multi(tipo + "_longe", xfs, centro, 150.0, 0.0, true)
+	for chave in _por_bloco(_fila_arv, 80.0, true):
+		var xfs2: Array = chave[1]
+		_multi(chave[0], xfs2, _centro(xfs2), 150.0, 0.0, true)
 	# arbustos na beira da mata
 	var arb: Array = []
 	for k in 260:
@@ -398,6 +522,27 @@ func _arvores_e_pedras() -> void:
 		var p: Vector2 = d[0]
 		var s: float = d[1]
 		_por(d[2], Transform3D(Basis(Vector3.UP, p.x).scaled(Vector3.ONE * s), Vector3(p.x, altura(p.x, p.y) + s * 0.15, p.y)), true)
+
+
+## Junta a fila de árvores por modelo e por bloco do mapa: [[modelo, transformações], ...]. Com `longe`, pelo
+## modelo de longe (vários tipos caem no mesmo).
+func _por_bloco(fila: Array, bloco: float, longe: bool) -> Array:
+	var grupos := {}
+	for item in fila:
+		var xf: Transform3D = item[1]
+		var nome: String = longe_de(item[0]) if longe else String(item[0])
+		var chave := "%s|%d|%d" % [nome, floori(xf.origin.x / bloco), floori(xf.origin.z / bloco)]
+		if not grupos.has(chave):
+			grupos[chave] = [nome, []]
+		((grupos[chave] as Array)[1] as Array).append(xf)
+	return grupos.values()
+
+
+func _centro(xfs: Array) -> Vector3:
+	var centro := Vector3.ZERO
+	for xf in xfs:
+		centro += (xf as Transform3D).origin
+	return centro / maxf(1.0, xfs.size())
 
 
 func _multi(nome: String, xfs: Array, centro: Vector3, de: float, ate: float, sombra: bool) -> void:

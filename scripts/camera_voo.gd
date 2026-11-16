@@ -56,14 +56,14 @@ func _process(delta: float) -> void:
 	pitch -= olhar.y * sens * 0.75 * delta
 	pitch = clampf(pitch, deg_to_rad(-85.0), deg_to_rad(75.0))
 
-	var voando := alvo.em_voo()
+	var voando := alvo.em_voo() or alvo.estado == Armadura.Estado.NADO
 	_mistura = move_toward(_mistura, 1.0 if voando else 0.0, delta * 1.6)
 	var m := smoothstep(0.0, 1.0, _mistura)
 	_mira = move_toward(_mira, 1.0 if alvo.mirando_agora() else 0.0, delta * 5.0)
 	var mi := smoothstep(0.0, 1.0, _mira)
 	var v := alvo.velocity.length()
 	var kp := pow(Armadura.porte, 0.75)  # robô pequeno: câmera mais perto e mais baixa
-	var alvo_pivo := alvo.global_position + Vector3(0.0, lerpf(lerpf(2.15, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
+	var alvo_pivo := alvo.pos_suave() + Vector3(0.0, lerpf(lerpf(2.15, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
 	alvo_pivo.y -= [0.0, 0.45, 0.85][alvo.postura] * Armadura.porte  # abaixado e sentado, a câmera desce junto
 	if not _iniciado:
 		_pivo = alvo_pivo

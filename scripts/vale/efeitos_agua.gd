@@ -34,6 +34,8 @@ var _vy_antes := 0.0
 var _t_rasante := 0.0
 var _t_raso := 0.0
 var _t_pairar := 0.0
+var _veu: ColorRect  # véu azulado na tela quando a câmera está debaixo d'água
+var _bolhas: GPUParticles3D  # bolhas dos jatos no nado
 
 
 func _ready() -> void:
@@ -69,6 +71,62 @@ func _ready() -> void:
 	_rastro.process_material = pm_rastro
 	_rastro.draw_pass_1 = _malha_gota
 	add_child(_rastro)
+	# debaixo d'água: véu na tela e bolhas que sobem de onde o robô passa
+	var camada := CanvasLayer.new()
+	camada.layer = 0
+	add_child(camada)
+	_veu = ColorRect.new()
+	_veu.color = Color(0.04, 0.34, 0.42, 0.0)
+	_veu.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_veu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	camada.add_child(_veu)
+	_bolhas = GPUParticles3D.new()
+	_bolhas.name = "Bolhas"
+	_bolhas.amount = 48
+	_bolhas.lifetime = 1.6
+	_bolhas.emitting = false
+	_bolhas.local_coords = false
+	_bolhas.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_bolhas.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80))
+	var pm_b := ParticleProcessMaterial.new()
+	pm_b.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm_b.emission_sphere_radius = 0.25
+	pm_b.direction = Vector3.UP
+	pm_b.spread = 40.0
+	pm_b.initial_velocity_min = 0.3
+	pm_b.initial_velocity_max = 1.0
+	pm_b.gravity = Vector3(0, 2.2, 0)
+	pm_b.scale_min = 0.35
+	pm_b.scale_max = 1.0
+	_bolhas.process_material = pm_b
+	var mat_bolha := StandardMaterial3D.new()
+	mat_bolha.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat_bolha.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat_bolha.albedo_color = Color(0.85, 0.97, 1.0, 0.4)
+	var bolha := SphereMesh.new()
+	bolha.radius = 0.035
+	bolha.height = 0.07
+	bolha.radial_segments = 8
+	bolha.rings = 4
+	bolha.material = mat_bolha
+	_bolhas.draw_pass_1 = bolha
+	add_child(_bolhas)
+
+
+func _process(delta: float) -> void:
+	if armadura == null or mapa == null:
+		return
+	var cam := get_viewport().get_camera_3d()
+	var alfa := 0.0
+	if cam:
+		var s: float = mapa.agua(cam.global_position.x, cam.global_position.z)
+		var fundo := s - cam.global_position.y
+		if s > -INF and fundo > 0.0:
+			alfa = 0.4 + minf(fundo * 0.02, 0.22)
+	_veu.color.a = lerpf(_veu.color.a, alfa, 1.0 - exp(-12.0 * delta))
+	var nadando := armadura.estado == Armadura.Estado.NADO
+	_bolhas.emitting = nadando and (armadura.velocity.length() > 1.5 or armadura.nado_rapido)
+	_bolhas.global_position = armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.4, 0) - armadura.dir_voo * armadura.altura_corpo() * 0.5
 
 
 func _physics_process(delta: float) -> void:

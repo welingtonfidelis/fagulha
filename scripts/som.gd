@@ -34,7 +34,7 @@ static func laco_stream(nome: String) -> AudioStreamWAV:
 ## Toque único num ponto do mundo, que se solta no fim. `cheio` é a distância em que ainda soa inteiro.
 static func toque3d(pai: Node, nome: String, onde: Vector3, db := 0.0, cheio := 8.0, alcance := 90.0) -> void:
 	contagem[nome] = int(contagem.get(nome, 0)) + 1
-	if pai == null or not pai.is_inside_tree():
+	if pai == null or not pai.is_inside_tree() or not onde.is_finite():
 		return
 	var p := AudioStreamPlayer3D.new()
 	p.stream = stream(nome)

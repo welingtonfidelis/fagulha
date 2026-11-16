@@ -203,7 +203,8 @@ func _ao_mudar_estado(novo: int) -> void:
 			else:
 				_anel_poeira(chao, 1.5, 20, false)
 		Armadura.Estado.DECOLAGEM:
-			_sopro_decolagem(chao + Vector3(0, 0.2, 0))
+			if armadura.altura_do_chao() < 4.0:  # a decolagem começa no ar: o sopro só levanta poeira perto do chão
+				_sopro_decolagem(chao + Vector3(0, 0.2, 0))
 
 
 ## Pouso: anel rente ao chão que se abre e sobe um pouco.

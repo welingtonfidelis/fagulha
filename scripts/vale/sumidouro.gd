@@ -157,7 +157,9 @@ static func _limites() -> void:
 		mx = mx.max(p)
 	var folga := SALAO.x + 18.0
 	_mn = Vector3(mn.x - folga, piso - 6.0, mn.y - folga)
-	_mx = Vector3(mx.x + folga, topo + 14.0, mx.y + folga)
+	_mx = Vector3(mx.x + folga, 0.0, mx.y + folga)
+	# o morro pode ser mais alto longe do eixo: a caixa cobre o ponto mais alto dele
+	_mx.y = maxf(topo + 14.0, RochaMalha.alto_da_caixa(Vector2(_mn.x, _mn.z), Vector2(_mx.x, _mx.z)) + 5.0)
 
 
 static func _camara_xz() -> Vector2:

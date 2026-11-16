@@ -12,6 +12,8 @@ const MEIO := 930.0  # os lugares são sorteados dentro deste quadrado
 const MANADAS := 14
 const TOCAS := 34
 const BANDOS := 18
+const RAPOSAS := 12
+const ALCATEIAS := 5
 
 var mapa: Vale
 var alvo: Node3D
@@ -29,11 +31,13 @@ func _ready() -> void:
 	_sortear(rng, "cervo", MANADAS, 110.0, 0.93, 5.0)
 	_sortear(rng, "coelho", TOCAS, 60.0, 0.9, 3.0)
 	_sortear(rng, "passaro", BANDOS, 85.0, 0.88, 3.0)
+	_sortear(rng, "raposa", RAPOSAS, 120.0, 0.9, 4.0)
+	_sortear(rng, "lobo", ALCATEIAS, 260.0, 0.9, 30.0)
 	lugares.append({"tipo": "peixe", "pos": Vector3(Vale.POCO.x, Vale.POCO_NIVEL, Vale.POCO.y), "semente": 91, "quantos": 9, "nos": []})
-	var n := {"cervo": 0, "coelho": 0, "passaro": 0, "peixe": 0}
+	var n := {"cervo": 0, "coelho": 0, "passaro": 0, "peixe": 0, "raposa": 0, "lobo": 0}
 	for l in lugares:
 		n[l["tipo"]] += 1
-	print("vida do vale: %d manadas, %d tocas de coelho, %d bandos, %d cardume" % [n["cervo"], n["coelho"], n["passaro"], n["peixe"]])
+	print("vida do vale: %d manadas, %d tocas de coelho, %d bandos, %d cardume, %d raposas, %d alcateias" % [n["cervo"], n["coelho"], n["passaro"], n["peixe"], n["raposa"], n["lobo"]])
 
 
 ## Chão bom para bicho: firme, pouco inclinado, fora d'água, acima do mar, longe das ruínas e da clareira.
@@ -76,6 +80,8 @@ func _sortear(rng: RandomNumberGenerator, tipo: String, quantos: int, afastado: 
 				n = rng.randi_range(1, 3)
 			"passaro":
 				n = rng.randi_range(4, 8)
+			"lobo":
+				n = rng.randi_range(2, 3)
 		lugares.append({"tipo": tipo, "pos": Vector3(p.x, mapa.altura(p.x, p.y), p.y), "semente": 200 + lugares.size() * 7, "quantos": n, "nos": []})
 
 
@@ -126,6 +132,18 @@ func _criar(l: Dictionary) -> void:
 				if pintar.is_valid():
 					pintar.call(cervo)
 				nos.append(cervo)
+		"raposa", "lobo":
+			for i in int(l["quantos"]):
+				var q := _perto(rng, p, 7.0)
+				var bicho: Cervo = Raposa.new() if l["tipo"] == "raposa" else Lobo.new()
+				bicho.mapa = mapa
+				bicho.ameaca = alvo
+				bicho.casa = q
+				bicho.raio_casa = 45.0
+				bicho.semente = int(l["semente"]) + i
+				bicho.position = q
+				add_child(bicho)
+				nos.append(bicho)
 		"coelho":
 			for i in int(l["quantos"]):
 				var q := _perto(rng, p, 4.0)

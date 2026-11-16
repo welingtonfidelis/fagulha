@@ -171,7 +171,7 @@ func agua(x: float, z: float) -> float:
 func agua_perto(p: Vector3) -> bool:
 	var nivel := agua(p.x, p.z)
 	var acima := p.y - nivel
-	return nivel > -INF and acima < Ajustes.RASANTE_ALTURA and acima > -6.0
+	return nivel > -INF and acima < Ajustes.RASANTE_ALTURA and acima > -60.0
 
 
 func normal_em(x: float, z: float) -> Vector3:

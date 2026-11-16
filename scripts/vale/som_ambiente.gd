@@ -78,6 +78,8 @@ func riacho_em(pontos: Array[Vector3]) -> void:
 ## O rio do vale: um som a cada RIO_PASSO metros ao longo de cada curso (pontos já com a altura da água).
 func rio_em(pontos: Array[Vector3]) -> void:
 	for pos in pontos:
+		if not pos.is_finite():
+			continue
 		var p := Som.laco3d(self, "rio_loop", RIO_DB, 9.0, 80.0)
 		p.global_position = pos
 

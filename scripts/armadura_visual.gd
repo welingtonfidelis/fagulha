@@ -9,8 +9,6 @@ extends Node3D
 ## O modelo e o estilo são escolhidos pelo mapa antes de criar a armadura.
 static var MODELO := "res://assets/armadura/robo_teste_v1.glb"  # modelo do usuário (Tripo + Mixamo); v1 e v2 são registro
 static var noite := 0.0  # 0 a 1: de noite as luzes do robô acendem mais
-static var modelo_do_mapa := ""  # o robô normal do mapa (a pausa troca pelo Faísca e volta)
-const FAISCA := "res://assets/faisca/faisca.scn"  # teste: o Faísca da Ilha Cafuné, montado lá e gravado como cena
 static var toon := false  # estilo do vale: peças com luz em faixas
 const JUNTAS := ["raiz", "tronco", "cabeca", "costas"]
 const LADOS := ["ombro", "cotovelo", "punho", "quadril", "joelho", "tornozelo", "pod", "aleta"]
@@ -37,10 +35,9 @@ var _chama_tamanho := 0.0
 var _yaw := 0.0
 var _abaixa := 0.0  # 0 de pé, 1 abaixado (suavizado)
 var _senta := 0.0  # 0 de pé, 1 sentado (suavizado)
-var _levanta := 0.0  # sentado: quanto a bacia sobe para nenhuma peça entrar no chão
+var _levanta := 0.0  # abaixado ou sentado: quanto a bacia sobe para nenhuma peça entrar no chão
 var _malhas: Array[MeshInstance3D] = []
-var _mat_rosto: ShaderMaterial
-var _pisca := 3.0
+var _pontos: Array[PackedVector3Array] = []
 const ABAIXA_DESCE := 0.42  # quanto a bacia desce abaixado, em alturas de armadura de 1 m de porte
 const SENTA_DESCE := 1.1
 
@@ -80,13 +77,12 @@ func _ready() -> void:
 ## Modelo com esqueleto (padrão Mixamo, pose em T): as mesmas poses do jogo vão para os ossos.
 ## Cada junta do jogo vira um osso; a rotação da pose é dada no referencial do modelo e acumulada
 ## de pai para filho, depois convertida para a pose local do osso.
-## O terceiro nome é o do esqueleto Rig_Medium do KayKit (o do Faísca).
 const OSSOS := {
-	"raiz": ["Hips", "", "hips"], "tronco": ["Spine", "raiz", "spine"], "cabeca": ["Head", "tronco", "head"],
-	"ombroE": ["LeftArm", "tronco", "upperarm.l"], "cotoveloE": ["LeftForeArm", "ombroE", "lowerarm.l"], "punhoE": ["LeftHand", "cotoveloE", "wrist.l"],
-	"ombroD": ["RightArm", "tronco", "upperarm.r"], "cotoveloD": ["RightForeArm", "ombroD", "lowerarm.r"], "punhoD": ["RightHand", "cotoveloD", "wrist.r"],
-	"quadrilE": ["LeftUpLeg", "raiz", "upperleg.l"], "joelhoE": ["LeftLeg", "quadrilE", "lowerleg.l"], "tornozeloE": ["LeftFoot", "joelhoE", "foot.l"],
-	"quadrilD": ["RightUpLeg", "raiz", "upperleg.r"], "joelhoD": ["RightLeg", "quadrilD", "lowerleg.r"], "tornozeloD": ["RightFoot", "joelhoD", "foot.r"],
+	"raiz": ["Hips", ""], "tronco": ["Spine", "raiz"], "cabeca": ["Head", "tronco"],
+	"ombroE": ["LeftArm", "tronco"], "cotoveloE": ["LeftForeArm", "ombroE"], "punhoE": ["LeftHand", "cotoveloE"],
+	"ombroD": ["RightArm", "tronco"], "cotoveloD": ["RightForeArm", "ombroD"], "punhoD": ["RightHand", "cotoveloD"],
+	"quadrilE": ["LeftUpLeg", "raiz"], "joelhoE": ["LeftLeg", "quadrilE"], "tornozeloE": ["LeftFoot", "joelhoE"],
+	"quadrilD": ["RightUpLeg", "raiz"], "joelhoD": ["RightLeg", "quadrilD"], "tornozeloD": ["RightFoot", "joelhoD"],
 }
 const ORDEM_OSSOS := ["raiz", "tronco", "cabeca", "ombroE", "cotoveloE", "punhoE", "ombroD", "cotoveloD", "punhoD",
 	"quadrilE", "joelhoE", "tornozeloE", "quadrilD", "joelhoD", "tornozeloD"]
@@ -113,10 +109,6 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 			if idx >= 0:
 				break
 		if idx < 0:
-			idx = sk.find_bone(OSSOS[k][2])
-		if idx < 0:
-			idx = sk.find_bone(String(OSSOS[k][2]).replace(".", "_"))
-		if idx < 0:
 			push_warning("osso não achado: " + nome)
 		_osso[k] = idx
 		_rot[k] = Vector3.ZERO
@@ -128,26 +120,11 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 		var y := (sk.global_transform * sk.get_bone_global_rest(b).origin).y - global_position.y
 		topo = maxf(topo, y)
 		chao = minf(chao, y)
-	# o Faísca tem um capacete grande acima do osso da cabeça: a altura vem das peças, não dos ossos
-	var rosto := modelo.find_child("rosto", true, false) as MeshInstance3D
-	if rosto:
-		for n in modelo.find_children("*", "MeshInstance3D", true, false):
-			var mi := n as MeshInstance3D
-			if mi.mesh == null or String(mi.name).begins_with("jato"):
-				continue
-			var cx := mi.mesh.get_aabb()
-			for i in 8:
-				var y := (mi.global_transform * cx.get_endpoint(i)).y - global_position.y
-				topo = maxf(topo, y)
-				chao = minf(chao, y)
-		_preparar_faisca(rosto)
-	var esc := ALTURA_ALVO * Armadura.porte / maxf(0.01, (topo - chao) * (1.0 if rosto else 1.04))
+	var esc := ALTURA_ALVO * Armadura.porte / maxf(0.01, (topo - chao) * 1.04)
 	modelo.scale = Vector3.ONE * esc
 	modelo.position.y = -chao * esc
 	_base_esq = (modelo.global_basis.orthonormalized().inverse() * sk.global_basis.orthonormalized())
 	_hips_rest = sk.get_bone_rest(_osso["raiz"]).origin
-	if not chamas.is_empty():
-		return
 	# chamas simples nas costas (o modelo não tem bocais próprios)
 	var preso := BoneAttachment3D.new()
 	sk.add_child(preso)
@@ -168,16 +145,6 @@ func _preparar_esqueleto(sk: Skeleton3D) -> void:
 		mi.position = Vector3(lado * 0.06, -0.12, -0.11)
 		preso.add_child(mi)
 		chamas.append(mi)
-
-
-## O Faísca: a tela do rosto ganha de volta o shader dos olhos de LED (o .glb não leva shader) e os jatos
-## dele viram as chamas do voo. As cores e as peças ficam como vieram da Ilha Cafuné.
-func _preparar_faisca(rosto: MeshInstance3D) -> void:
-	_mat_rosto = ShaderMaterial.new()
-	_mat_rosto.shader = load("res://scripts/shaders/faisca_rosto.gdshader")
-	rosto.material_override = _mat_rosto
-	for n in modelo.find_children("jato*", "MeshInstance3D", true, false):
-		chamas.append(n)
 
 
 func _aplicar_ossos(bob: float, t: float) -> void:
@@ -262,6 +229,38 @@ func _trocar_materiais(no: Node) -> void:
 		_trocar_materiais(f)
 
 
+## Levantar de sentado, em três tempos: encolhe as pernas e apoia as mãos no chão, sobe para a posição
+## abaixada com o tronco à frente e então estica o corpo. `p` vai de 0 a 1; devolve a altura da bacia.
+## (Antes ele só esticava tudo de uma vez e parecia saltar do chão sem impulso.)
+const ERGUER := [
+	# quadril x, quadril z, joelho, tornozelo, raiz, tronco, cabeça, ombro x, ombro z, cotovelo, bacia
+	[-98.0, 13.0, 16.0, 6.0, -8.0, 10.0, -4.0, -34.0, 9.0, -42.0, -1.1],  # sentado
+	[-128.0, 9.0, 138.0, -6.0, 4.0, 34.0, -18.0, 26.0, 14.0, -8.0, -1.04],  # pernas encolhidas, mãos no chão
+	[-78.0, 5.0, 112.0, -34.0, 0.0, 40.0, -26.0, 4.0, 10.0, -22.0, -0.52],  # agachado, peso à frente
+	[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # de pé
+]
+const ERGUER_TEMPOS := [0.0, 0.34, 0.68, 1.0]
+
+
+func _erguer(p: float) -> float:
+	var i := 0
+	while i < 2 and p > ERGUER_TEMPOS[i + 1]:
+		i += 1
+	var k := smoothstep(0.0, 1.0, (p - ERGUER_TEMPOS[i]) / (ERGUER_TEMPOS[i + 1] - ERGUER_TEMPOS[i]))
+	var q: Array = []
+	for n in 11:
+		q.append(lerpf(ERGUER[i][n], ERGUER[i + 1][n], k))
+	_lados("quadril", q[0], q[1])
+	_lados("joelho", q[2], 0.0)
+	_lados("tornozelo", q[3], 0.0)
+	_alvo("raiz", q[4])
+	_alvo("tronco", q[5])
+	_alvo("cabeca", q[6])
+	_lados("ombro", q[7], q[8])
+	_lados("cotovelo", q[9], 0.0)
+	return float(q[10]) + _levanta
+
+
 ## Pulso macio de 0 a 1, com o pico em x = 0 e período de uma volta; `fino` maior = pulso mais estreito.
 func _pulso(x: float, fino: float) -> float:
 	return pow(0.5 + 0.5 * cos(x), fino)
@@ -317,6 +316,13 @@ func atualizar(delta: float, a: Armadura) -> void:
 		if a.estado != Armadura.Estado.DECOLAGEM:
 			pitch_alvo = asin(clampf(a.dir_voo.y, -1.0, 1.0))
 			roll_alvo = clampf(a.giro_lateral * 0.35 - a.inclinar * 0.45, -1.0, 1.0)
+	elif a.estado == Armadura.Estado.NADO:
+		if a.velocity.length() > 1.5:
+			yaw_alvo = atan2(-a.dir_voo.x, -a.dir_voo.z)
+			pitch_alvo = asin(clampf(a.dir_voo.y, -1.0, 1.0))
+			roll_alvo = clampf(a.giro_lateral * 0.25, -0.6, 0.6)
+		elif a.camera:
+			yaw_alvo = a.camera.yaw
 	elif a.estado == Armadura.Estado.FREAR:
 		yaw_alvo = atan2(-a.dir_voo.x, -a.dir_voo.z)  # freando: de pé no ar, de frente para onde ia
 	elif hv > 0.5:
@@ -475,6 +481,21 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_lados("cotovelo", -8.0, 0.0)
 			_lados("punho", -8.0, 0.0)
 			chama = 1.8
+		Armadura.Estado.NADO:
+			# nadando: deitado como no voo, braços ao longo do corpo e pernas batendo; parado, boia de pé
+			var nv := smoothstep(1.0, 4.0, a.velocity.length())
+			var bate := sin(Time.get_ticks_msec() * (0.012 if a.nado_rapido else 0.007)) * (5.0 if a.nado_rapido else 16.0)
+			var boia := sin(Time.get_ticks_msec() * 0.002) * 6.0
+			_alvo("raiz", 74.0 * nv)
+			_alvo("cabeca", -52.0 * nv)
+			_lados("ombro", lerpf(-8.0 + boia, 28.0, nv), lerpf(34.0, 9.0, nv))
+			_lados("cotovelo", lerpf(-40.0, -6.0, nv), 0.0)
+			_alvo("quadrilE", lerpf(-14.0 - boia, 4.0 + bate, nv), 0.0, 5.0)
+			_alvo("quadrilD", lerpf(-14.0 + boia, 4.0 - bate, nv), 0.0, -5.0)
+			_alvo("joelhoE", lerpf(34.0 + boia, 10.0 + maxf(0.0, -bate), nv))
+			_alvo("joelhoD", lerpf(34.0 - boia, 10.0 + maxf(0.0, bate), nv))
+			_lados("tornozelo", lerpf(20.0, 42.0, nv), 0.0)
+			chama = (1.0 if a.nado_rapido else 0.35) * nv
 		Armadura.Estado.PLANAR:
 			_alvo("raiz", 64.0)
 			_alvo("cabeca", -48.0)
@@ -487,6 +508,8 @@ func atualizar(delta: float, a: Armadura) -> void:
 	# abaixado ou sentado (só no chão): soma à pose de pé ou de passada
 	_abaixa = lerpf(_abaixa, 1.0 if a.postura == 1 else 0.0, 1.0 - exp(-9.0 * delta))
 	_senta = lerpf(_senta, 1.0 if a.postura == 2 else 0.0, 1.0 - exp(-6.0 * delta))
+	if a.erguendo > 0.0:
+		_senta = 0.0  # levantando: a pose vem de _erguer
 	if a.estado == Armadura.Estado.CHAO and not a.em_pane:
 		if _abaixa > 0.01:
 			_soma_lados("quadril", -58.0 * _abaixa, 3.0 * _abaixa)
@@ -496,7 +519,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_soma("cabeca", -20.0 * _abaixa)
 			_soma_lados("ombro", -14.0 * _abaixa, 6.0 * _abaixa)
 			_soma_lados("cotovelo", -30.0 * _abaixa * (1.0 - _passada), 0.0)
-			bob -= ABAIXA_DESCE * _abaixa * Armadura.porte
+			bob += (-ABAIXA_DESCE * _abaixa + _levanta) * Armadura.porte
 		if _senta > 0.01:
 			# sentado no chão, pernas esticadas à frente, mãos nas coxas, olhando a paisagem
 			var s := smoothstep(0.0, 1.0, _senta)
@@ -510,7 +533,10 @@ func atualizar(delta: float, a: Armadura) -> void:
 			_lados("ombro", -34.0 * s, 9.0 * s)
 			_lados("cotovelo", -42.0 * s, 0.0)
 			bob = (-SENTA_DESCE * s + _levanta) * Armadura.porte
-	if _senta <= 0.01:
+		if a.erguendo > 0.0:
+			bob = _erguer(1.0 - a.erguendo / Ajustes.ERGUER_TEMPO) * Armadura.porte
+	var no_chao_baixo := a.estado == Armadura.Estado.CHAO and not a.em_pane and (_abaixa > 0.01 or _senta > 0.01 or a.erguendo > 0.0)
+	if not no_chao_baixo:
 		_levanta = 0.0
 	# mirando: o braço direito aponta para onde a câmera olha (sem arma ainda)
 	if (a.mirando_agora() or (a.atirando > 0.0 and not a.em_voo() and not a.em_pane)) and a.camera:
@@ -569,28 +595,44 @@ func atualizar(delta: float, a: Armadura) -> void:
 			(j["aleta" + lado] as Node3D).rotation = Vector3(0, 0, deg_to_rad(78.0 * s * ab))
 			for i in 3:
 				(j["aleta%s%d" % [lado, i]] as Node3D).rotation = Vector3(deg_to_rad(i * 10.0 * ab), 0, deg_to_rad(i * 9.0 * s * ab))
-	# sentado: mede a peça mais baixa do corpo e sobe a bacia até ela encostar no chão, sem entrar
-	if _senta > 0.01 and not esqueleto:
+	# abaixado, sentado ou levantando: mede a peça mais baixa do corpo e sobe a bacia até ela encostar no
+	# chão, sem entrar (abaixado, os pés afundavam)
+	if no_chao_baixo and not esqueleto:
 		if _malhas.is_empty():
+			# de cada peça ficam os pontos mais salientes em 60 direções: a caixa em volta dela exagerava com a
+			# perna dobrada e o robô flutuava
+			var dirs: Array[Vector3] = []
+			for i in 60:
+				var yy := 1.0 - 2.0 * (i + 0.5) / 60.0
+				var rr := sqrt(1.0 - yy * yy)
+				dirs.append(Vector3(cos(i * 2.39996) * rr, yy, sin(i * 2.39996) * rr))
 			for n in modelo.find_children("*", "MeshInstance3D", true, false):
 				var mi := n as MeshInstance3D
-				if mi.mesh and not (mi in chamas) and not (mi in chamas_pequenas):
-					_malhas.append(mi)
+				if mi.mesh == null or (mi in chamas) or (mi in chamas_pequenas):
+					continue
+				var faces := mi.mesh.get_faces()
+				if faces.is_empty():
+					continue
+				var pts := PackedVector3Array()
+				for d in dirs:
+					var melhor := faces[0]
+					var md := -INF
+					for v in faces:
+						var x := v.dot(d)
+						if x > md:
+							md = x
+							melhor = v
+					if not pts.has(melhor):
+						pts.append(melhor)
+				_malhas.append(mi)
+				_pontos.append(pts)
 		var baixo := INF
-		for mi in _malhas:
-			var cx := mi.mesh.get_aabb()
-			var gt := mi.global_transform
-			for i in 8:
-				baixo = minf(baixo, (gt * cx.get_endpoint(i)).y)
-		var folga := (baixo - a.global_position.y) / Armadura.porte
+		for i in _malhas.size():
+			var gt := _malhas[i].global_transform
+			for v in _pontos[i]:
+				baixo = minf(baixo, gt.basis.y.y * v.y + gt.basis.x.y * v.x + gt.basis.z.y * v.z + gt.origin.y)
+		var folga := (baixo - global_position.y) / Armadura.porte
 		_levanta = clampf(_levanta - folga * 0.4, 0.0, 0.6)
-	# o Faísca pisca de vez em quando e fecha os olhos na pane
-	if _mat_rosto:
-		_pisca -= delta
-		if _pisca < -0.16:
-			_pisca = randf_range(2.0, 5.0)
-		_mat_rosto.set_shader_parameter("abertura", 0.05 if a.em_pane else (absf(_pisca + 0.08) / 0.08 if _pisca < 0.0 else 1.0))
-		_mat_rosto.set_shader_parameter("forma", 4 if a.superaquecido else 0)
 	# chamas e brilho do calor
 	_chama_tamanho = lerpf(_chama_tamanho, chama, 1.0 - exp(-10.0 * delta))
 	# a origem das peças do modelo fica no chão (não no bocal), então a chama não escala: muda o brilho

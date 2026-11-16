@@ -30,6 +30,7 @@ const RIO_BAIXO: Array[Vector2] = [Vector2(-290, -485), Vector2(-276, -430), Vec
 	Vector2(-140, -136), Vector2(-108, -88), Vector2(-96, -70)]
 const POCO := Vector3(-290, -485, 17)  # x, z, raio
 const POCO_NIVEL := 108.0
+const POCO_FUNDO := 10.0  # metros a mais de fundura no meio do poço
 
 var _cursos: Array = []  # de Curso: [0] sul, [1] norte (do poço até a clareira)
 var _rio_s_borda := 0.0  # onde o rio do sul sai da lâmina da clareira
@@ -62,6 +63,7 @@ func gerar(_semente := 7) -> void:
 	_preparar_costa()
 	_cume()
 	_mata_fora()
+	_plantas_do_chao()
 	Paredoes.montar(self)
 	if "--assar-rochas" in OS.get_cmdline_user_args():
 		Cavernas.assar()
@@ -298,7 +300,10 @@ func pontos_do_rio(passo: float) -> Array[Vector3]:
 		var sv := c.fita_de + passo * 0.5
 		while sv < minf(c.fita_ate, c.total()):
 			var p := c.ponto(sv)
-			lista.append(Vector3(p.x, agua(p.x, p.y), p.y))
+			# sem água bem no eixo (agua devolve -INF), o som fica no chão: uma posição infinita num tocador
+			# 3D estraga a mistura inteira e o jogo fica mudo
+			var y := agua(p.x, p.y)
+			lista.append(Vector3(p.x, y if is_finite(y) else altura(p.x, p.y), p.y))
 			sv += passo
 	return lista
 
@@ -345,7 +350,9 @@ func _cavar_rio(x: float, z: float, h: float) -> float:
 			h = minf(h, lerpf(POCO_NIVEL + 0.5, h, smoothstep(31.0, 38.5 + w2 * 3.0, dparede)))
 		var dpoco := d - w2 * 2.6
 		if dpoco < POCO.z * 1.6:
-			h = minf(h, lerpf(POCO_NIVEL - 2.4, maxf(h, POCO_NIVEL + 0.4), smoothstep(POCO.z * 0.55, POCO.z * 1.1, dpoco)))
+			# fundo de 12 m no meio (dá para mergulhar e nadar), subindo em bacia até a beira rasa
+			var fundo_poco := POCO_NIVEL - 2.4 - POCO_FUNDO * (1.0 - smoothstep(0.0, POCO.z * 0.8, dpoco))
+			h = minf(h, lerpf(fundo_poco, maxf(h, POCO_NIVEL + 0.4), smoothstep(POCO.z * 0.55, POCO.z * 1.1, dpoco)))
 	return h
 
 
@@ -368,6 +375,9 @@ func _mat_rio(semente: int, veloc: float) -> ShaderMaterial:
 ## As fitas d'água dos cursos, o espelho do poço e a cachoeira.
 func _fita_rio() -> void:
 	var mat := _mat_rio(63, 0.5)
+	# a correnteza segue cada curso, rio abaixo (o UV da fita cresce com o comprimento, e o nível só desce)
+	mat.set_shader_parameter("pela_fita", true)
+	mat.set_shader_parameter("largura", RIO_FAIXA * 2.0)
 	for c: Curso in _cursos:
 		var verts := PackedVector3Array()
 		var nrms := PackedVector3Array()
@@ -466,11 +476,23 @@ func _cachoeira() -> void:
 		var p1 := Vector3(topo.x + (pe.x - topo.x) * pow(t1, 0.55), lerpf(topo.y, pe.y, t1 * t1 * 0.35 + t1 * 0.65), topo.z + (pe.z - topo.z) * pow(t1, 0.55))
 		var l0 := largura * lerpf(0.8, 1.25, t0)
 		var l1 := largura * lerpf(0.8, 1.25, t1)
-		for v: Array in [[p0 - lado * l0, Vector2(0, t0)], [p0 + lado * l0, Vector2(1, t0)], [p1 + lado * l1, Vector2(1, t1)],
-				[p0 - lado * l0, Vector2(0, t0)], [p1 + lado * l1, Vector2(1, t1)], [p1 - lado * l1, Vector2(0, t1)]]:
-			st.set_normal((dir + Vector3.UP * 0.2).normalized())
-			st.set_uv(v[1])
-			st.add_vertex(v[0])
+		# a queda tem corpo: a seção é um meio-cano que sai da pedra (de lado, uma fita chata parecia papel)
+		var colunas := 10
+		for cnum in colunas:
+			var quad: Array = []
+			for canto: Array in [[cnum, 0], [cnum + 1, 0], [cnum + 1, 1], [cnum, 0], [cnum + 1, 1], [cnum, 1]]:
+				var u := float(canto[0]) / colunas
+				var ang := PI * u
+				var t := t0 if canto[1] == 0 else t1
+				var centro := p0 if canto[1] == 0 else p1
+				var larg := l0 if canto[1] == 0 else l1
+				var fundura := lerpf(0.9, 2.1, t)  # mais gorda embaixo
+				var fora := (dir * sin(ang) - lado * cos(ang)).normalized()
+				quad.append([centro - lado * cos(ang) * larg + dir * (sin(ang) * fundura - 0.5), Vector2(u, t), (fora + Vector3.UP * 0.2).normalized()])
+			for v: Array in quad:
+				st.set_normal(v[2])
+				st.set_uv(v[1])
+				st.add_vertex(v[0])
 	var mi := MeshInstance3D.new()
 	mi.name = "Cachoeira"
 	mi.mesh = st.commit()
@@ -786,6 +808,138 @@ func _perto_dagua(x: float, z: float) -> bool:
 	return Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.4 or Vector2(x, z).distance_to(NASCENTE) < 12.0
 
 
+var _fila_q: Array = []  # as árvores de fora, com o tipo (fotos e testes)
+var plantas_amostra := {}  # tipo -> um lugar onde há uma (fotos)
+var plantas_chao := 0  # quantas plantas, flores e pedras dos pacotes foram postas (testes)
+
+
+## Plantas de chão, flores, cogumelos, moitas e pedras dos pacotes, pelo mapa todo: flores em manchas nos
+## campos, samambaias e cogumelos debaixo da mata, pedras soltas. Só aparecem de perto (até 120 m).
+func _plantas_do_chao() -> void:
+	if "--sem-pacotes" in OS.get_cmdline_user_args():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2311
+	var fila: Array = []
+	var pedras: Array = []
+	var passo := 6.0
+	var z := -F_META + 10.0
+	while z < F_META - 10.0:
+		var x := -F_META + 10.0
+		while x < F_META - 10.0:
+			var px := x + rng.randf_range(-2.8, 2.8)
+			var pz := z + rng.randf_range(-2.8, 2.8)
+			var sorte := rng.randf()
+			var qual := rng.randf()
+			var giro := rng.randf() * TAU
+			var tam := rng.randf_range(0.8, 1.25)
+			x += passo
+			var h := altura(px, pz)
+			if h < 2.5 or agua(px, pz) > -INF or normal_em(px, pz).y < 0.82 or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
+				continue
+			if Vector2(px - spawn.x, pz - spawn.z).length() < 10.0:
+				continue
+			var c := cobertura(px, pz) if maxf(absf(px), absf(pz)) > C_META else (1 if _arvore_cabe(px, pz) and Vector2(px, pz).length() > 70.0 else 0)
+			var mancha := _n_mata.get_noise_2d(px * 2.3 + 500.0, pz * 2.3 - 300.0)
+			var especie := _n_mata.get_noise_2d(px * 0.9 - 900.0, pz * 0.9 + 700.0)
+			var tipo := ""
+			var s := 1.0
+			if c == 0:
+				if mancha > 0.18 and sorte < 0.55:
+					if especie > 0.0:
+						tipo = "q_flor_a" if qual < 0.35 else "q_flor_b"
+					else:
+						tipo = "q_flor_c" if qual < 0.3 else "q_flor_d"
+					s = 0.25
+				elif sorte < 0.05:
+					tipo = ["q_planta_c", "q_planta_d", "q_trevo"][int(qual * 3.0) % 3]
+					s = 0.6
+				elif sorte < 0.062:
+					tipo = "q_seixo_a" if qual < 0.5 else "q_seixo_b"
+					s = 1.6
+				elif sorte < 0.068:
+					tipo = "q_pedra"
+			elif c == 1 or c == 2:
+				if sorte < 0.2:
+					tipo = ["q_samambaia", "q_samambaia", "q_planta_a", "q_planta_b"][int(qual * 4.0) % 4]
+					s = 0.6
+				elif sorte < 0.24:
+					tipo = "q_cogumelo"
+					s = 0.7
+				elif sorte < 0.28:
+					tipo = "q_moita" if qual < 0.7 else "q_moita_flor"
+					s = 0.8
+				elif sorte < 0.287:
+					tipo = "q_pedra"
+			if tipo == "":
+				continue
+			if tipo == "q_pedra":
+				tipo = ["q_pedra_a", "q_pedra_b", "q_pedra_c"][int(qual * 3.0) % 3]
+				s = rng.randf_range(0.3, 0.62)
+				var xfp := Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.12 * s, pz))
+				fila.append([tipo, xfp])
+				pedras.append([tipo, xfp])
+				continue
+			# deitada no chão inclinado
+			var n := normal_em(px, pz)
+			var b := Basis(Vector3.UP, giro)
+			b = Basis(Quaternion(Vector3.UP, n)) * b
+			fila.append([tipo, Transform3D(b.scaled(Vector3.ONE * s * tam), Vector3(px, h - 0.03, pz))])
+			if tipo.begins_with("q_flor"):
+				# flor vem em canteiro: mais três ou quatro em volta, da mesma espécie
+				for k in 3 + int(qual * 2.0):
+					var of := Vector2.from_angle(giro + k * 1.7) * rng.randf_range(0.6, 2.4)
+					var hf := altura(px + of.x, pz + of.y)
+					if agua(px + of.x, pz + of.y) > -INF:
+						continue
+					fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * rng.randf_range(0.7, 1.2)),
+						Vector3(px + of.x, hf - 0.03, pz + of.y))])
+			if tipo == "q_cogumelo":
+				# cogumelo vem em grupo
+				for k in 2:
+					var o := Vector2.from_angle(giro + k * 2.2) * rng.randf_range(0.35, 0.8)
+					fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * rng.randf_range(0.5, 0.9)),
+						Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
+		z += passo
+	plantas_chao = fila.size()
+	for item in fila:
+		var onde: Vector3 = (item[1] as Transform3D).origin
+		if not plantas_amostra.has(item[0]) and Vector2(onde.x, onde.z).length() > 150.0 and Vector2(onde.x, onde.z).length() < 500.0:
+			plantas_amostra[item[0]] = onde
+	var grupos := {}
+	for item in fila:
+		var xf: Transform3D = item[1]
+		var chave := "%s|%d|%d" % [item[0], floori(xf.origin.x / 160.0), floori(xf.origin.z / 160.0)]
+		if not grupos.has(chave):
+			grupos[chave] = []
+		(grupos[chave] as Array).append(xf)
+	for chave in grupos:
+		var tipo: String = (chave as String).split("|")[0]
+		var xfs: Array = grupos[chave]
+		var centro := Vector3.ZERO
+		for xf in xfs:
+			centro += (xf as Transform3D).origin
+		centro /= xfs.size()
+		var grande := tipo.begins_with("q_pedra") or tipo.begins_with("q_moita")
+		_multi(tipo, xfs, centro, 0.0, 260.0 if grande else 120.0, grande)
+	# as pedras seguram o robô
+	var corpo := StaticBody3D.new()
+	corpo.name = "PedrasSoltas"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	add_child(corpo)
+	var formas := {}
+	for item in pedras:
+		var nome: String = item[0]
+		if not formas.has(nome):
+			formas[nome] = ((_malhas[nome] as Array)[0][0] as Mesh).create_convex_shape()
+		var cs := CollisionShape3D.new()
+		cs.shape = formas[nome]
+		cs.transform = (item[1] as Transform3D) * ((_malhas[nome] as Array)[0][1] as Transform3D)
+		corpo.add_child(cs)
+	print("plantas de chão: %d peças, %d pedras com colisão" % [fila.size(), pedras.size()])
+
+
 func _mata_fora() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 17
@@ -829,10 +983,12 @@ func _mata_fora() -> void:
 				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
 			arv_pos.append(Vector3(px, h - 0.15, pz))
 			arv_escala.append(s * 0.8)
-			arv_tipo.append(0 if tipo == "pinheiro" else 1)
+			tipo = tipo_variado(tipo, sorte_do_lugar(px, pz))
+			arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
 			fila.append([tipo, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(px, h - 0.15, pz))])
 		z += passo
 	arvores_fora = fila.size()
+	_fila_q = fila
 	# grade para a colisão e para as folhas ao atravessar as copas
 	for i in range(primeiro, arv_pos.size()):
 		var cel := Vector2i(floori(arv_pos[i].x / CELULA_ARVORE), floori(arv_pos[i].z / CELULA_ARVORE))
@@ -855,4 +1011,6 @@ func _mata_fora() -> void:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
 		_multi(tipo, xfs, centro, 0.0, 170.0, true)
-		_multi(tipo + "_longe", xfs, centro, 170.0, 1300.0, false)
+	for g in _por_bloco(fila, 160.0, true):
+		var xfs2: Array = g[1]
+		_multi(g[0], xfs2, _centro(xfs2), 170.0, 1300.0, false)

@@ -5,7 +5,6 @@ extends CanvasLayer
 var armadura: Armadura
 var _painel: PanelContainer
 var _primeiro: Button
-var _botao_robo: Button
 var _botao_vibra: Button
 
 
@@ -30,8 +29,6 @@ func _ready() -> void:
 	caixa.add_child(titulo)
 	_primeiro = _botao(caixa, "Continuar", _continuar)
 	_botao(caixa, "Voltar ao começo", _voltar)
-	_botao_robo = _botao(caixa, "", _trocar_robo)
-	_nome_botao_robo()
 	_botao_vibra = _botao(caixa, "", func() -> void:
 		Vibra.ligada = not Vibra.ligada
 		_botao_vibra.text = "Vibração do controle: " + ("ligada" if Vibra.ligada else "desligada"))
@@ -43,7 +40,9 @@ func _ready() -> void:
 	ajuda.text = "\n".join([
 		"Controle",
 		"  analógico esquerdo: andar · L3: correr · R3: abaixar (segure para sentar)",
-		"  X: pular (segure para subir mais) · X no ar: pulo duplo · L3 no ar: liga e desliga o voo",
+		"  X: pular · X no ar: pulo duplo · segure o X num dos dois: decola reto e sai voando",
+		"  L3 no ar: liga e desliga o voo · L2 mirando: o tiro trava na máquina perto da mira",
+		"  na água funda ele nada: analógico vai para onde a câmera olha, X sobe (na tona: pula), O desce, L3 acelera",
 		"  no voo, analógico esquerdo: frente acelera, trás segura, lado inclina e fecha a curva",
 		"  O: esquiva (no voo: freia e desliga os jatos) · triângulo no ar: mergulho com impacto",
 		"  L2 ou R3: parar no ar e mirar · R2: atirar · R1: marcar um ponto",
@@ -51,7 +50,7 @@ func _ready() -> void:
 		"",
 		"Teclado e mouse",
 		"  WASD: andar e acelerador do voo · Shift: correr (no ar: liga e desliga o voo) · Ctrl: abaixar",
-		"  Espaço: pular, pulo duplo · C: esquiva (no voo: freia e desliga) · V: mergulho · F: parar no ar",
+		"  Espaço: pular, pulo duplo (segure: decola) · C: esquiva (no voo: freia e desliga) · V: mergulho · F: parar no ar",
 		"  botão direito: mirar / parar no ar · botão esquerdo: atirar · Q: marcar · Esc: pausa · F3: medidor",
 		"",
 		"Calor: subir e acelerar esquentam; mergulhar, a chuva e passar rente à água esfriam.",
@@ -113,18 +112,6 @@ func _process(_delta: float) -> void:
 			return
 	_saindo = false
 	get_tree().paused = false
-
-
-## Teste: troca o corpo do robô pelo Faísca da Ilha Cafuné e de volta, sem sair do lugar.
-func _trocar_robo() -> void:
-	Main.faisca = not Main.faisca
-	if armadura:
-		armadura.trocar_visual(ArmaduraVisual.FAISCA if Main.faisca else ArmaduraVisual.modelo_do_mapa)
-	_nome_botao_robo()
-
-
-func _nome_botao_robo() -> void:
-	_botao_robo.text = "Trocar de robô: voltar ao robô do vale" if Main.faisca else "Trocar de robô: Faísca (teste)"
 
 
 func _voltar() -> void:

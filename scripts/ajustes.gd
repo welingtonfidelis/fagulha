@@ -19,8 +19,20 @@ const ESQUIVA_FREIO := 3.0  # 1/s: quanto o arranque perde enquanto dura
 const ACEL_AR := 6.0
 const GRAVIDADE := 22.0  # pesada: armadura de 2,6 m
 const PULO := 8.5
-const DECOLAGEM_IMPULSO := 21.0  # sobe ~24 m (pedido do usuário em 2026-11-14: o salto de decolagem maior)
-const DECOLAGEM_TEMPO := 0.85
+const DECOLAR_SEGURAR := 0.4  # s segurando o pulo (o do chão ou o duplo) para decolar
+const DECOLAGEM_SUBIDA := 10.0  # m que o robô sobe reto antes de sair voando para a frente
+const DECOLAGEM_VEL := 13.0  # m/s da subida
+const DECOLAGEM_TEMPO := 1.6  # s no máximo subindo (teto baixo, caverna)
+# nado: em água funda o robô nada com os jatos, para onde a câmera aponta
+const NADO_FUNDURA := 1.5  # alturas do robô: água mais funda que isso dá para nadar
+const NADO_ENTRA := 0.8  # alturas do robô debaixo d'água (dos pés à lâmina) para começar a nadar
+const NADO_VEL := 6.5  # m/s
+const NADO_RAPIDO := 13.0  # m/s com os jatos abertos (L3 / Shift)
+const NADO_SOBE := 5.0  # m/s para cima (X) e para baixo (O)
+const NADO_ACEL := 16.0
+const NADO_SALTO := 7.0  # m/s para cima ao chegar na lâmina: acima disso sai voando
+const NADO_ESFRIA := 30.0  # calor por segundo que a água tira
+const ERGUER_TEMPO := 0.95  # s para levantar de sentado (encolhe as pernas, apoia e sobe)
 const DECOLAGEM_GRACA := 1.6  # depois de decolar, o voo não aponta abaixo do horizonte por este tempo
 
 # --- pulo duplo, esquiva e pairar ---
@@ -32,7 +44,7 @@ const ESQUIVA_ESPERA := 0.55
 const CALOR_ESQUIVA := 5.0
 const PAIRAR_VEL := 5.0  # deslize com o analógico pairando
 const PAIRAR_FREIO := 32.0  # m/s² para parar no ar
-const CALOR_PAIRAR := 1.5  # %/s: mais de um minuto parado no ar
+const CALOR_PAIRAR := 0.8  # %/s: uns dois minutos parado no ar (pedido do usuário, 2026-11-16: mais tempo de voo)
 const ANDAR_MIRANDO := 3.0
 const ALCANCE_MIRA := 3000.0
 
@@ -67,7 +79,7 @@ const TETO_FAIXA := 200.0
 
 # --- calor (% por segundo) ---
 const CALOR_DECOLAGEM := 6.0  # de uma vez
-const CALOR_VOO := 1.1  # enche em ~90 s de voo reto (pedido do usuário, 2026-11-15: voar bem mais; eram 25 s)
+const CALOR_VOO := 0.55  # enche em ~3 min de voo reto (pedido do usuário, 2026-11-16: dobrar de novo; eram 90 s)
 const CALOR_SUBIDA := 2.0  # subida inteira na vertical = 3× mais
 const CALOR_ARRANCADA := 3.0  # multiplicador
 const ESFRIA_VOO_MERGULHO := 6.0  # motor em marcha lenta apontando para baixo

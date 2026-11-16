@@ -43,6 +43,10 @@ var raio_casa := 40.0
 var semente := 0
 var estado := 0  # Estado
 var pose_foto := -1  # >= 0: fica parado nesse estado, só animando (fotos)
+## O corpo é um bicho animado do pacote (BichoVisual). Vazio: cerva ou, um em cada três, veado de galhada.
+var especie := ""
+var altura_bicho := 0.0
+var bicho: BichoVisual
 
 var _rng := RandomNumberGenerator.new()
 var _pronto := false
@@ -89,6 +93,12 @@ func _ready() -> void:
 	_modelo = cena.instantiate() as Node3D
 	_modelo.rotation.y = PI  # o modelo olha para +Z; aqui a frente é -Z
 	add_child(_modelo)
+	_modelo.visible = false  # as peças antigas seguem só para a conta das poses; quem aparece é o bicho animado
+	if especie == "":
+		especie = "stag" if semente % 3 == 0 else "deer"
+		altura_bicho = 1.55 if especie == "stag" else 1.3
+	bicho = BichoVisual.criar(especie, altura_bicho, (mapa as Clareira)._tex if mapa is Clareira else null)
+	add_child(bicho)
 	_corpo = _peca("corpo")
 	_pescoco = _peca("pescoco")
 	_cabeca = _peca("cabeca")
@@ -403,3 +413,13 @@ func _animar(delta: float) -> void:
 	_pitch = lerpf(_pitch, inclina, k)
 	rotation.x = _pitch
 	rotation.z = 0.0
+	if bicho:
+		match estado:
+			Estado.PASTANDO:
+				bicho.tocar("Eating" if pasto else "Idle_2")
+			Estado.ANDANDO:
+				bicho.tocar("Walk", 1.1)
+			Estado.FUGINDO:
+				bicho.tocar("Gallop", 1.25, 0.15)
+			_:
+				bicho.tocar("Idle")

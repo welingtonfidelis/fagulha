@@ -64,6 +64,8 @@ var religamentos := 0
 var disparos := 0
 var mat_lente: StandardMaterial3D
 
+var mech: MechVisual  # o corpo: a Leela do Animated Mech Pack (escolha do usuário), de 3,1 m
+const ALTURA_MECH := 3.1
 var _rng := RandomNumberGenerator.new()
 var _pronto := false
 var _tempo := 0.0  # tempo no estado atual
@@ -151,6 +153,7 @@ func _ready() -> void:
 	var copia_cab := _copia_arvore(cab)
 	modelo_cab.add_child(copia_cab)
 	_lente = copia_cab.find_child("lente", true, false) as MeshInstance3D
+	copia_cab.visible = false  # o corpo agora é a Leela do pacote (mech); as peças antigas seguem só na conta
 
 	for i in 3:
 		var c := _copia(coxa)
@@ -170,6 +173,12 @@ func _ready() -> void:
 		_visual.add_child(p)
 		_pes.append(p)
 	raiz.free()  # as peças soltas originais saem da cena; as cópias ficaram
+	for mi: MeshInstance3D in _coxas + _canelas + _joelhos + _pes:
+		mi.visible = false
+	mech = MechVisual.criar("leela", ALTURA_MECH, (mapa as Clareira)._tex if mapa is Clareira else null)
+	mech.margem_caido = 0.13  # o casulo é gordo: caído, o meio dele fica bem acima do chão
+	mech.position.y = 0.07  # os pés do modelo passam um pouco da origem
+	add_child(mech)
 
 	if _lente == null:
 		push_error("sentinela: lente não achada")
@@ -306,6 +315,11 @@ func nome_estado() -> String:
 
 
 ## Um tiro que acerta a cabeça (a menos de 1 m do centro): esquenta, dá um tranco e pisca. Com calor 100, desliga.
+## Onde a mira do robô trava: a cabeça (Vector3.INF: desligado).
+func ponto_de_trava() -> Vector3:
+	return Vector3.INF if (not _pronto or estado == Estado.DESLIGADO) else _cabeca.global_position
+
+
 func levar_tiro(ponto: Vector3) -> void:
 	if not _pronto or estado == Estado.DESLIGADO:
 		return
@@ -402,9 +416,31 @@ func _process(delta: float) -> void:
 	_pernas_visual()
 	_lente_visual(delta)
 	_feixe_visual()
+	_mech_visual()
 	_fumaca.position = _cabeca.position + Vector3(0.0, 0.3, 0.0)
 	_corpo_tiro.position = _cabeca.position
 	global_position.y = mapa.altura(global_position.x, global_position.z)
+
+
+## O corpo animado segue o estado: vira para onde a cabeça olha, anda, atira e cai desligado.
+func _mech_visual() -> void:
+	if mech == null:
+		return
+	mech.rotation.y = _yaw_cab
+	if estado == Estado.DESLIGADO and not _levantando:
+		mech.tocar("Death", 1.0, 0.1)
+		mech.apagar(1.0)
+		mech.olho(0.0)
+		return
+	mech.apagar(0.0)
+	if estado == Estado.DISPARO:
+		mech.tocar("Shoot", 1.0, 0.05)
+	elif _andando:
+		mech.tocar("Walk", 0.75 if estado == Estado.PATRULHA else 1.3)
+	else:
+		mech.tocar("Idle", 1.0, 0.8 if _levantando else 0.25)
+	mech.clarao(0.8 if _pisca > 0.0 else 0.0)
+	mech.olho(clampf(mat_lente.emission_energy_multiplier * 0.2, 0.0, 1.6))
 
 
 # ---------------------------------------------------------------- percepção e decisão
@@ -459,11 +495,13 @@ func _logica(delta: float) -> void:
 			else:
 				_patrulhar(delta)
 		Estado.ALERTA:
+			_avancar(delta)
 			if _perdido():
 				_mudar(Estado.PATRULHA)
 			elif _ve and _tempo >= TEMPO_ALERTA and _dist_alvo < ALCANCE_TIRO:
 				_mudar(Estado.AVISO)
 		Estado.AVISO:
+			_andando = false
 			if not _ve:
 				_mudar(Estado.ALERTA)
 			elif _tempo >= TEMPO_AVISO:
@@ -471,10 +509,35 @@ func _logica(delta: float) -> void:
 				_disparar()
 				_mudar(Estado.RECARGA)
 		Estado.RECARGA:
+			_avancar(delta)
 			if _tempo >= TEMPO_RECARGA:
 				_mudar(Estado.ALERTA if _ve else Estado.PATRULHA)
 		Estado.DESLIGADO:
 			_desligado(delta)
+
+
+## Em combate ela não fica mais plantada: entre um tiro e outro anda na direção do robô, até uns 22 m dele
+## (parada só para avisar e atirar). Antes ela só andava na patrulha e parecia presa no lugar.
+const DIST_COMBATE := 22.0
+const VEL_COMBATE := 2.2
+
+
+func _avancar(delta: float) -> void:
+	_andando = false
+	if not _alvo_ok() or _dist_alvo < DIST_COMBATE:
+		return
+	var para := _horiz(_centro_alvo() - global_position)
+	if para.length() < 0.5:
+		return
+	var dir := para.normalized()
+	var giro := 1.6 * delta
+	rotation.y += clampf(angle_difference(rotation.y, _yaw_de(dir)), -giro, giro)
+	if absf(angle_difference(rotation.y, _yaw_de(dir))) < 0.7:
+		var novo := global_position + dir * VEL_COMBATE * delta
+		if _chao_bom(novo):
+			global_position = Vector3(novo.x, mapa.altura(novo.x, novo.z), novo.z)
+			_rumo_mov = dir
+			_andando = true
 
 
 func _desligado(delta: float) -> void:
@@ -530,7 +593,8 @@ func _patrulhar(delta: float) -> void:
 	_andando = false
 	var erro := absf(angle_difference(rotation.y, _yaw_de(dir)))
 	# o passo só anda quando as pernas estão perto do repouso (a marcha de um pé por vez limita a velocidade)
-	if erro < 0.6 and _atraso_max() < PASSO * 0.5 + 0.3:
+	# (com o corpo de duas pernas ele anda sem parar; a espera pelo passo do tripé o deixava preso no lugar)
+	if erro < 0.6:
 		var novo := global_position + dir * VEL_ANDAR * delta
 		if _chao_bom(novo):
 			global_position = Vector3(novo.x, mapa.altura(novo.x, novo.z), novo.z)

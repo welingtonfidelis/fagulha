@@ -45,6 +45,7 @@ func rodar(main: Node) -> void:
 	await _ponto_22()
 	await _ponto_23()
 	await _ponto_24()
+	await _ponto_25()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -691,16 +692,16 @@ func _ponto_18() -> void:
 		% [vida.lugares.size(), ruins, quadrantes.size(), antes, perto, no_chao, longe])
 
 
-## 19. Zangão e Carrapato: enxergam o robô, atacam, desligam com tiros ou com o mergulho e religam com o tempo.
+## 19. Batedor e Carrapato: enxergam o robô, atacam, desligam com tiros ou com o mergulho e religam com o tempo.
 func _ponto_19() -> void:
 	print("zangão e carrapato")
 	_soltar_tudo()
 	_zerar()
 	var v: Vale = m.ilha
-	var z: Zangao = null
+	var z: Batedor = null
 	var cr: Carrapato = null
 	for n: Node3D in m.inimigos.todas:
-		if n is Zangao and z == null:
+		if n is Batedor and z == null:
 			z = n
 		if n is Carrapato and cr == null:
 			cr = n
@@ -733,22 +734,22 @@ func _ponto_19() -> void:
 	for i in 12 * 60:
 		await get_tree().physics_frame
 		a.avaria = 0
-		if z.estado == Zangao.Estado.CACA:
+		if z.estado == Vigia.Estado.CACA:
 			cacou = true
 		if z.disparos > 0:
 			break
 	var atirou: bool = z.disparos > 0
-	var alto: bool = z.global_position.y - v.altura(z.global_position.x, z.global_position.z) > 1.4
+	var alto: bool = absf(z.global_position.y - v.altura(z.global_position.x, z.global_position.z)) < 0.2  # todas as máquinas andam no chão
 	z.levar_tiro(z.centro())
 	var um: bool = not z.desligada
 	z.levar_tiro(z.centro())
 	var dois: bool = z.desligada
 	await _esperar(2.5)
-	var no_chao: bool = z.global_position.y - v.altura(z.global_position.x, z.global_position.z) < 0.6
+	var no_chao: bool = z.mech.atual == "Death"
 	a.avaria = 0
 	a.graca_pane = 0.0
-	_ok(m.inimigos.todas.size() == 33 and investiu and acertou and caiu and voltou and cacou and atirou and alto and um and dois and no_chao,
-		"inimigos: %d máquinas; carrapato investe (%s) e acerta o robô parado (%s), o mergulho desliga (%s), o tempo religa (%s); zangão caça (%s), atira (%s), voa (%s), um tiro não desliga (%s), dois desligam (%s) e ele cai no chão (%s)"
+	_ok(m.inimigos.todas.size() == 39 and investiu and acertou and caiu and voltou and cacou and atirou and alto and um and dois and no_chao,
+		"inimigos: %d máquinas; carrapato investe (%s) e acerta o robô parado (%s), o mergulho desliga (%s), o tempo religa (%s); batedor caça (%s), atira (%s), fica no chão (%s), um tiro não desliga (%s), dois desligam (%s) e ele cai (%s)"
 		% [m.inimigos.todas.size(), investiu, acertou, caiu, voltou, cacou, atirou, alto, um, dois, no_chao])
 
 
@@ -858,34 +859,85 @@ func _ponto_21() -> void:
 	var eco: float = m.som_lugar.debug.get("caverna_db", -99.0)
 	a.teleportar(il.spawn + Vector3(0, 0.3, 0), Armadura.Estado.CHAO, Vector3.ZERO)
 	await _esperar(0.2)
-	_ok(faltam.is_empty() and passos >= 3 and passos <= 9 and tiros >= 1 and fora < 0.05 and dentro > 0.95 and eco > -20.0,
-		"sons: faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do túnel %.2f (eco a %.0f dB)"
-		% [faltam.size(), str(faltam) if not faltam.is_empty() else "", passos, tiros, fora, dentro, eco])
+	# nenhum tocador 3D em posição inválida (um só no infinito deixava o jogo inteiro mudo)
+	var invalidos := 0
+	for n in m.find_children("*", "AudioStreamPlayer3D", true, false):
+		if not (n as AudioStreamPlayer3D).global_position.is_finite():
+			invalidos += 1
+	_ok(invalidos == 0 and faltam.is_empty() and passos >= 3 and passos <= 9 and tiros >= 1 and fora < 0.05 and dentro > 0.95 and eco > -20.0,
+		"sons: %d tocadores em posição inválida; faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do túnel %.2f (eco a %.0f dB)"
+		% [invalidos, faltam.size(), str(faltam) if not faltam.is_empty() else "", passos, tiros, fora, dentro, eco])
 
 
-## 22. Troca de robô (teste do Faísca): troca o corpo na hora, anda com ele e volta ao robô do vale.
+## 22. Decolagem segurando o pulo (o do chão e o duplo): sobe reto uns 10 m e sai voando; um toque curto não
+## decola. Levantar de sentado leva um instante e só depois ele anda. Nenhuma peça de rocha tem furo por cima.
 func _ponto_22() -> void:
-	print("troca de robô")
+	print("decolagem segurando o pulo, levantar e furos")
 	_soltar_tudo()
-	var antes := ArmaduraVisual.MODELO
-	a.trocar_visual(ArmaduraVisual.FAISCA)
-	await _esperar(0.3)
-	var com_ossos := a.visual.esqueleto != null and a.visual._mat_rosto != null
-	var achados := 0
-	for k: String in a.visual._osso:
-		if int(a.visual._osso[k]) >= 0:
-			achados += 1
+	_zerar()
+	a.recomecar()
+	await _esperar(0.6)
+	cam.pitch = 0.0
 	var p0 := a.global_position
-	Input.action_press("frente")
-	await _esperar(1.0)
-	Input.action_release("frente")
-	var andou := Vector2(a.global_position.x - p0.x, a.global_position.z - p0.z).length()
-	a.trocar_visual(antes)
+	var topo := 0.0
+	var desvio := 0.0
+	var decolou := false
+	Input.action_press("pular")
+	for i in 120:
+		await get_tree().physics_frame
+		if a.estado == Armadura.Estado.DECOLAGEM:
+			decolou = true
+			topo = maxf(topo, a.global_position.y - p0.y)
+			desvio = maxf(desvio, Vector2(a.global_position.x - p0.x, a.global_position.z - p0.z).length())
+	Input.action_release("pular")
+	var voo_1 := a.estado == Armadura.Estado.VOO
+	# no pulo duplo
+	_zerar()
+	a.recomecar()
+	await _esperar(0.6)
+	await _apertar("pular")
 	await _esperar(0.3)
-	var voltou := a.visual.esqueleto == null and ArmaduraVisual.MODELO == antes
-	_ok(com_ossos and achados == 15 and andou > 1.0 and voltou,
-		"troca de robô: Faísca com esqueleto e rosto (%s), %d de 15 ossos achados, andou %.1f m; voltou ao robô do vale (%s)"
-		% [com_ossos, achados, andou, voltou])
+	var decolou_2 := false
+	Input.action_press("pular")
+	for i in 110:
+		await get_tree().physics_frame
+		if a.estado == Armadura.Estado.DECOLAGEM:
+			decolou_2 = true
+	Input.action_release("pular")
+	var voo_2 := a.estado == Armadura.Estado.VOO and a._duplo_usado == false
+	# toques curtos: pulo e pulo duplo sem decolar
+	_zerar()
+	a.recomecar()
+	await _esperar(0.6)
+	await _apertar("pular")
+	await _esperar(0.3)
+	await _apertar("pular")
+	await _esperar(0.5)
+	var so_pulo := a.estado == Armadura.Estado.AR
+	# levantar de sentado
+	a.recomecar()
+	await _esperar(0.6)
+	a.postura = 2
+	await _esperar(0.3)
+	var q0 := a.global_position
+	Input.action_press("frente")
+	await _esperar(0.1)
+	var levantando := a.erguendo > 0.0 and a.postura == 0
+	await _esperar(Ajustes.ERGUER_TEMPO * 0.6)
+	var parado := Vector2(a.global_position.x - q0.x, a.global_position.z - q0.z).length()
+	await _esperar(1.2)
+	Input.action_release("frente")
+	var andou := Vector2(a.global_position.x - q0.x, a.global_position.z - q0.z).length()
+	# furos por cima das peças de rocha
+	var furos := RochaMalha.furos(Sumidouro._mn, Sumidouro._mx, Sumidouro.vazio, Sumidouro.extra, 2.0).size()
+	for cv in Cavernas.lista:
+		furos += RochaMalha.furos(cv["mn"], cv["mx"], Cavernas.vazio_de.bind(cv), Callable(), 2.0).size()
+	_ok(decolou and topo > 8.5 and desvio < 2.5 and voo_1 and decolou_2 and voo_2 and so_pulo and levantando and parado < 0.3 and andou > 0.8 and furos == 0,
+		"segurar o pulo no chão decola (%s), sobe %.1f m com %.1f m de desvio e sai voando (%s); no pulo duplo também (%s, %s); toques curtos só pulam (%s); levantando de sentado (%s) andou %.2f m no começo e %.1f m depois; %d furos sobre as rochas"
+		% [decolou, topo, desvio, voo_1, decolou_2, voo_2, so_pulo, levantando, parado, andou, furos])
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
 
 
 ## 23. O Sumidouro: o poço está aberto do alto do morro até o piso, a ponte cruza o poço, o túnel sai livre
@@ -948,37 +1000,7 @@ func _ponto_24() -> void:
 	var pousou := Vibra.registro.has("pouso_leve") or Vibra.registro.has("pouso_pesado")
 	var vib := pousou and Vibra.registro.has("tiro") and Vibra.registro.has("levar_golpe") and Vibra.registro.has("golpe_chao")
 	a.avaria = 0
-	# Zangão posto dentro de uma copa: sobe e fica acima dela
-	var z: Zangao = null
-	for maq in m.inimigos.todas:
-		if maq is Zangao and not (maq as Zangao).desligada:
-			z = maq
-			break
-	var arvore := -1
-	for i in v.arv_pos.size():
-		var p := v.arv_pos[i]
-		if maxf(absf(p.x), absf(p.z)) > 300.0 and v.arv_escala[i] > 0.9 and z != null and p.distance_to(z.global_position) < 400.0:
-			arvore = i
-			break
-	var acima := false
-	var folga := -99.0
-	if z != null and arvore >= 0:
-		var base := v.arv_pos[arvore]
-		z.casa = base
-		z.estado = Zangao.Estado.VOLTA
-		z.global_position = base + Vector3(0.5, 6.0 * v.arv_escala[arvore], 0.5)
-		# o robô por perto, no chão: as máquinas longe dele dormem, e assim o Zangão caça por entre as árvores
-		a.teleportar(Vector3(base.x + 14.0, v.altura(base.x + 14.0, base.z) + 0.3, base.z), Armadura.Estado.CHAO, Vector3.ZERO)
-		a.graca_pane = 0.0
-		acima = true
-		await _esperar(1.5)
-		for i in 240:
-			await get_tree().physics_frame
-			var copa := z.topo_copas(z.global_position, 0.0)
-			if copa > -INF:
-				folga = z.global_position.y - copa
-				if folga < 0.3:
-					acima = false
+	# (o Zangão, que voava por cima das copas, saiu do jogo: todas as máquinas andam no chão)
 	# a lagoa do Sumidouro é água de verdade, e os morcegos se agitam com o robô no poço
 	var S := Sumidouro
 	var nivel := v.agua(S.centro.x, S.centro.y)
@@ -991,6 +1013,100 @@ func _ponto_24() -> void:
 	var agitados := S.morcegos.agitados
 	a.teleportar(il.spawn + Vector3(0, 0.3, 0), Armadura.Estado.CHAO, Vector3.ZERO)
 	await _esperar(0.2)
-	_ok(vib and z != null and arvore >= 0 and acima and absf(nivel - (S.piso - S.LAGOA_FUNDO)) < 0.01 and fora_dagua == -INF and calmos < 0.2 and agitados > 0.8,
-		"vibração: %s; Zangão posto numa copa ficou acima das árvores (%s, última folga %.1f m); lagoa a %.2f m do piso; morcegos de %.2f a %.2f com o robô no poço"
-		% [str(Vibra.registro.slice(0, 8)), acima, folga, nivel - S.piso, calmos, agitados])
+	_ok(vib and absf(nivel - (S.piso - S.LAGOA_FUNDO)) < 0.01 and fora_dagua == -INF and calmos < 0.2 and agitados > 0.8,
+		"vibração: %s; lagoa a %.2f m do piso; morcegos de %.2f a %.2f com o robô no poço"
+		% [str(Vibra.registro.slice(0, 8)), nivel - S.piso, calmos, agitados])
+
+
+## 25. A mira trava na máquina perto do centro (e o tiro travado acerta); longe do centro não trava. No poço
+## fundo da cachoeira o robô nada: desce para onde a câmera olha, esfria, pula para fora na tona e, vindo
+## rápido de baixo, rompe a lâmina voando.
+func _ponto_25() -> void:
+	print("mira com trava e nado")
+	_soltar_tudo()
+	_zerar()
+	var alvo_m: Node3D = null
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		if n is MaquinaPequena and (n.call("ponto_de_trava") as Vector3).is_finite():
+			alvo_m = n
+			break
+	var travou := false
+	var acertou := false
+	var sem_trava := false
+	if alvo_m:
+		var pm: Vector3 = alvo_m.call("ponto_de_trava")
+		var chao := Vector2(pm.x + 22.0, pm.z)
+		a.teleportar(Vector3(chao.x, il.altura(chao.x, chao.y) + 0.3, chao.y), Armadura.Estado.CHAO, Vector3.ZERO)
+		a.graca_pane = 30.0  # as máquinas não reagem durante a medida
+		Input.action_press("mirar")
+		var calor0: float = alvo_m.get("calor")
+		for desvio: float in [3.0, 16.0]:
+			for i in 50:
+				pm = alvo_m.call("ponto_de_trava")
+				var d := pm - cam.global_position
+				cam.yaw = atan2(-d.x, -d.z) + deg_to_rad(desvio)
+				cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+				if desvio < 5.0 and i == 20:
+					Input.action_press("atirar")
+				await get_tree().physics_frame
+			if desvio < 5.0:
+				travou = m.tiro.travado == alvo_m
+				Input.action_release("atirar")
+				await _esperar(0.5)
+				acertou = float(alvo_m.get("calor")) > calor0 or bool(alvo_m.get("desligada"))
+			else:
+				sem_trava = m.tiro.travado == null
+		Input.action_release("mirar")
+		a.graca_pane = 0.0
+	# nado no poço da cachoeira
+	_zerar()
+	var poco := Vector3(Vale.POCO.x, Vale.POCO_NIVEL, Vale.POCO.y)
+	var fundura := Vale.POCO_NIVEL - il.altura(poco.x, poco.z)
+	a.teleportar(poco + Vector3(0, -3.0, 0), Armadura.Estado.AR, Vector3.ZERO)
+	await _esperar(0.3)
+	var nadando := a.estado == Armadura.Estado.NADO
+	a.calor = 60.0
+	cam.pitch = -0.7
+	var y0 := a.global_position.y
+	Input.action_press("frente")
+	await _esperar(0.8)
+	Input.action_release("frente")
+	var desceu := y0 - a.global_position.y
+	var esfriou := 60.0 - a.calor
+	# sobe devagar até a tona e pula para fora
+	Input.action_press("pular")
+	await _esperar(2.5)
+	Input.action_release("pular")
+	var na_tona := a.estado == Armadura.Estado.NADO and Vale.POCO_NIVEL - a.global_position.y < a.altura_corpo()
+	await _esperar(0.2)
+	await _apertar("pular")
+	await _esperar(0.25)
+	var pulou := a.estado == Armadura.Estado.AR and a.global_position.y > Vale.POCO_NIVEL - 0.3
+	# de baixo para cima com os jatos abertos: sai voando
+	a.teleportar(poco + Vector3(0, -fundura + 1.5, 0), Armadura.Estado.AR, Vector3.ZERO)
+	await _esperar(0.3)
+	cam.pitch = 1.2
+	Input.action_press("frente")
+	await _apertar("correr_alternar")
+	var saiu_voando := false
+	for i in 150:
+		await get_tree().physics_frame
+		if a.estado == Armadura.Estado.VOO and a.global_position.y > Vale.POCO_NIVEL:
+			saiu_voando = true
+			break
+	Input.action_release("frente")
+	cam.pitch = -0.12
+	# a correnteza das fitas vai no sentido em que o comprimento cresce: o nível tem de descer nesse sentido
+	var rio_desce := true
+	for cu in (il as Vale)._cursos:
+		var sv: float = cu.fita_de
+		while sv + 10.0 <= cu.fita_ate:
+			if cu.nivel(sv + 10.0) > cu.nivel(sv) + 0.001:
+				rio_desce = false
+			sv += 10.0
+	_ok(rio_desce and alvo_m != null and travou and acertou and sem_trava and fundura > 9.0 and nadando and desceu > 1.5 and esfriou > 15.0 and na_tona and pulou and saiu_voando,
+		"os rios só descem no sentido da correnteza (%s); mira: travou a 3° do centro (%s), o tiro travado acertou (%s), a 16° não trava (%s); poço com %.1f m de fundura: nada (%s), desceu %.1f m em 0,8 s, esfriou %.0f, parou na tona (%s), pulou para fora (%s), saiu voando de baixo (%s)"
+		% [rio_desce, travou, acertou, sem_trava, fundura, nadando, desceu, esfriou, na_tona, pulou, saiu_voando])
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)

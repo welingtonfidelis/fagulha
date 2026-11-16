@@ -12,9 +12,13 @@ const CADENCIA := 0.28  # s entre disparos
 const CALOR_POR_TIRO := 3.5
 const ALCANCE := 220.0
 const VELOCIDADE := 85.0  # m/s do projétil
+const TRAVA_ANGULO := deg_to_rad(6.5)  # mirando, a máquina a menos disso do centro da mira fica travada
+const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângulo (não fica trocando)
+const TRAVA_ALCANCE := 130.0
 
 var armadura: Armadura
 var disparos := 0
+var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela desenha o colchete nela
 
 var _espera := 0.0
 var _mat_projetil: StandardMaterial3D
@@ -51,6 +55,7 @@ func _physics_process(delta: float) -> void:
 	_espera = maxf(0.0, _espera - delta)
 	if armadura == null or not is_instance_valid(armadura):
 		return
+	_atualizar_trava()
 	if not Input.is_action_pressed("atirar"):
 		return
 	# no chão atira mirando ou não; no ar, só no voo parado (voando ou caindo, não)
@@ -71,12 +76,52 @@ func _disparar() -> void:
 	armadura.tremor = maxf(armadura.tremor, 0.12)
 
 	var origem := _mao()
-	var impacto := _ponto_de_impacto()
+	var guiado := travado != null and is_instance_valid(travado)
+	var impacto: Vector3 = travado.call("ponto_de_trava") if guiado else _ponto_de_impacto()
+	if not impacto.is_finite():
+		guiado = false
+		impacto = _ponto_de_impacto()
 	disparou.emit(origem, impacto)
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 
 	_clarao(origem, 0.08)
-	_projetil(origem, impacto)
+	_projetil(origem, impacto, travado if guiado else null)
+
+
+## Ajuda de mira: mirando (L2), a máquina ligada mais perto do centro da mira, dentro de um cone pequeno e
+## com a vista livre, fica travada; os tiros seguem ela. Sem mirar não há trava.
+func _atualizar_trava() -> void:
+	var cam := armadura.camera
+	if cam == null or not armadura.mirando_agora() or armadura.em_pane:
+		travado = null
+		return
+	var de := cam.global_position
+	var dir := cam.mira()
+	var melhor: Node3D = null
+	var menor := INF
+	var espaco := get_world_3d().direct_space_state
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		if not n.has_method("ponto_de_trava"):
+			continue
+		var p: Vector3 = n.call("ponto_de_trava")
+		if not p.is_finite():
+			continue
+		var d := p - de
+		var dist := d.length()
+		if dist > TRAVA_ALCANCE or dist < 1.0:
+			continue
+		var ang := dir.angle_to(d)
+		# de perto o cone abre um pouco (a máquina ocupa mais da tela)
+		var limite := maxf(TRAVA_ANGULO, atan(1.2 / dist)) * (TRAVA_SEGURA if n == travado else 1.0)
+		if ang > limite or ang >= menor:
+			continue
+		var q := PhysicsRayQueryParameters3D.create(de, p, 1, [armadura.get_rid()])
+		var hit := espaco.intersect_ray(q)
+		if not hit.is_empty() and (hit["position"] as Vector3).distance_to(p) > 1.6:
+			continue  # tem morro ou pedra na frente
+		melhor = n
+		menor = ang
+	travado = melhor
 
 
 ## Onde a mira bate: um raio da câmera, sem acertar o próprio robô; sem acerto, fica a ALCANCE.
@@ -108,7 +153,7 @@ func _mao() -> Vector3:
 	return armadura.global_position + Vector3(0.0, 0.6, 0.0)
 
 
-func _projetil(origem: Vector3, impacto: Vector3) -> void:
+func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null) -> void:
 	var proj := Node3D.new()
 	add_child(proj)
 	proj.global_position = origem
@@ -123,8 +168,24 @@ func _projetil(origem: Vector3, impacto: Vector3) -> void:
 	proj.add_child(mi)
 	var tempo := maxf(0.02, origem.distance_to(impacto) / VELOCIDADE)
 	var tw := proj.create_tween()
-	tw.tween_property(proj, "global_position", impacto, tempo)
-	tw.tween_callback(_impacto.bind(impacto))
+	if guia == null:
+		tw.tween_property(proj, "global_position", impacto, tempo)
+		tw.tween_callback(_impacto.bind(impacto))
+	else:
+		# tiro travado: o destino acompanha a máquina até chegar
+		var destino := [impacto]
+		var passo := func(k: float) -> void:
+			if is_instance_valid(guia):
+				var p: Vector3 = guia.call("ponto_de_trava")
+				if p.is_finite():
+					destino[0] = p
+			var onde := origem.lerp(destino[0], k)
+			if onde.distance_to(destino[0]) > 0.05:
+				proj.look_at_from_position(onde, destino[0], cabeca)
+			else:
+				proj.global_position = onde
+		tw.tween_method(passo, 0.0, 1.0, tempo)
+		tw.tween_callback(func() -> void: _impacto(destino[0]))
 	tw.tween_callback(proj.queue_free)
 
 

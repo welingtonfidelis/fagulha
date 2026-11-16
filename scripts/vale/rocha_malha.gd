@@ -41,6 +41,20 @@ static func capsula(p: Vector3, a: Vector3, b: Vector3, r: float) -> float:
 	return p.distance_to(a + ab * t) - r
 
 
+## O ponto mais alto do chão de antes dentro de um retângulo do mapa (nó a nó da grade). A caixa de uma
+## peça tem de passar dele: onde o morro era mais alto que a caixa, a peça ficava sem tampa.
+static func alto_da_caixa(mn: Vector2, mx: Vector2) -> float:
+	var alto := -INF
+	var x := floorf(mn.x / Vale.F_PASSO) * Vale.F_PASSO
+	while x <= mx.x + Vale.F_PASSO:
+		var z := floorf(mn.y / Vale.F_PASSO) * Vale.F_PASSO
+		while z <= mx.y + Vale.F_PASSO:
+			alto = maxf(alto, Cavernas.chao_antes(x, z))
+			z += Vale.F_PASSO
+		x += Vale.F_PASSO
+	return alto
+
+
 ## A grade foi rebaixada aqui (ou a menos de `folga` + 4 m): não nasce árvore, rocha, capim nem bicho.
 static func dentro(x: float, z: float, folga := 0.0) -> bool:
 	if vale == null:
@@ -116,6 +130,27 @@ static func rocha(p: Vector3, vazio: Callable, extra: Callable) -> float:
 	if extra.is_valid():
 		d = minf(d, maxf(float(extra.call(p)), morro))
 	return d
+
+
+## Furos no chão por cima de uma peça: pontos em que a grade foi rebaixada para dentro da pedra e não há
+## malha por cima (dali se veria a caverna por fora). Um raio desce do céu até a grade; se não bate em
+## nada e o desenho diz que ali é pedra, é furo. Para os testes.
+static func furos(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, passo := 1.0) -> Array[Vector3]:
+	var lista: Array[Vector3] = []
+	var espaco := vale.get_world_3d().direct_space_state
+	var x := mn.x - 12.0
+	while x <= mx.x + 12.0:
+		var z := mn.z - 12.0
+		while z <= mx.z + 12.0:
+			var g := vale._fora(x, z)
+			var antes := Cavernas.chao_antes(x, z)
+			if antes - g > 1.5 and rocha(Vector3(x, g + 0.5, z), vazio, extra) < -0.35:
+				var q := PhysicsRayQueryParameters3D.create(Vector3(x, antes + 40.0, z), Vector3(x, g + 0.5, z), 1)
+				if espaco.intersect_ray(q).is_empty():
+					lista.append(Vector3(x, g, z))
+			z += passo
+		x += passo
+	return lista
 
 
 ## Gera a malha da caixa e grava em `arquivo`. `chave` identifica o lugar (se o relevo mudar, avisa).

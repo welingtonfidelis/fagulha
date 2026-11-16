@@ -6,7 +6,6 @@ extends Node3D
 ## 4 km e os dois cânions) saíram em 2026-11-15 e estão no histórico do git.
 
 static var mapa := ""
-static var faisca := false  # teste: o corpo do Faísca da Ilha Cafuné no lugar do robô (a pausa troca)
 
 var ilha: Ilha
 var armadura: Armadura
@@ -27,8 +26,6 @@ var sol: DirectionalLight3D
 func _ready() -> void:
 	Controles.configurar()
 	var args := OS.get_cmdline_user_args()
-	if "--faisca" in args:
-		faisca = true
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
@@ -42,9 +39,6 @@ func _ready() -> void:
 	Armadura.porte = 0.48 if vale else 1.0
 	Armadura.vel_chao = 0.7 if vale else 1.0
 	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
-	ArmaduraVisual.modelo_do_mapa = ArmaduraVisual.MODELO
-	if Main.faisca:
-		ArmaduraVisual.MODELO = ArmaduraVisual.FAISCA
 	ArmaduraVisual.toon = vale
 	ilha.name = "Mapa"
 	add_child(ilha)
@@ -98,6 +92,7 @@ func _ready() -> void:
 		tiro = Tiro.new()
 		tiro.armadura = armadura
 		add_child(tiro)
+		hud.tiro = tiro
 		tiro.disparou.connect(sons.ao_atirar)
 		tiro.disparou.connect(vibra.ao_atirar)
 		var mato := EfeitosMato.new()

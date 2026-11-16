@@ -9,6 +9,7 @@ const TEMPO_SAIR := 0.8
 
 var alvo: Armadura
 var locais: Locais  # null no modo de teste: o HUD funciona sem ele
+var tiro: Tiro  # para desenhar o colchete na máquina travada
 var medidor := false
 var _rotulo_medidor: Label
 var _fonte: Font
@@ -175,6 +176,18 @@ func _draw() -> void:
 		var cm := Color(1, 1, 1, 0.9)
 		for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 			draw_line(c + d * 7.0, c + d * 16.0, cm, 2.0, true)
+		# máquina travada: quatro cantos em volta dela
+		if tiro and tiro.travado and is_instance_valid(tiro.travado) and cam:
+			var pt: Vector3 = tiro.travado.call("ponto_de_trava")
+			if pt.is_finite() and not cam.is_position_behind(pt):
+				var t2 := cam.unproject_position(pt)
+				var lado := clampf(900.0 / maxf(4.0, cam.global_position.distance_to(pt)), 16.0, 60.0)
+				var cor_t := Color(1.0, 0.62, 0.2, 0.95)
+				for sx: float in [-1.0, 1.0]:
+					for sy: float in [-1.0, 1.0]:
+						var canto := t2 + Vector2(sx, sy) * lado
+						draw_line(canto, canto - Vector2(sx * lado * 0.45, 0), cor_t, 2.5, true)
+						draw_line(canto, canto - Vector2(0, sy * lado * 0.45), cor_t, 2.5, true)
 		var txt_d := "%d m" % roundi(alvo.global_position.distance_to(alvo.alvo_mira)) if alvo.alvo_mira_ok else "—"
 		draw_string(_fonte, c + Vector2(14, 30), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.75))
 		if alvo.estado == Armadura.Estado.PAIRAR:

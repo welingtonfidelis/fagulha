@@ -9,6 +9,11 @@ uniform vec3 fundo : source_color = vec3(0.02, 0.07, 0.08);
 uniform vec3 cor_espuma : source_color = vec3(0.92, 0.95, 0.94);
 uniform vec2 fluxo = vec2(0.0, 1.0);
 uniform float velocidade = 0.6;
+// nas fitas dos rios a correnteza segue o curso (o UV da fita: x de margem a margem, y ao longo, rio abaixo);
+// sem isso ela ia sempre para o mesmo lado do mapa e, em alguns trechos, a água parecia subir o rio
+uniform bool pela_fita = false;
+uniform float largura = 28.0;
+uniform float uv_metros = 22.0;
 uniform float forca_refracao = 0.06;
 uniform float escala = 0.035;
 uniform float prof_max = 9.0;
@@ -41,14 +46,15 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 fn = normalize(fluxo);
+	vec2 fn = pela_fita ? vec2(0.0, 1.0) : normalize(fluxo);
 	vec2 pe = vec2(-fn.y, fn.x);
-	vec2 p = wpos.xz;
+	vec2 p = pela_fita ? vec2((UV.x - 0.5) * largura, UV.y * uv_metros) : wpos.xz;
 	float t = TIME * velocidade;
 
 	// normal das ondas: duas camadas de ruído, escalas e velocidades diferentes
-	vec2 g = declive(p * escala + fn * t * 0.08)
-		+ declive(p * escala * 1.9 + vec2(0.31, 0.17) + fn * t * 0.14) * 0.6;
+	// (o desenho anda para +fn: por isso o tempo entra com sinal de menos)
+	vec2 g = declive(p * escala - fn * t * 0.08)
+		+ declive(p * escala * 1.9 + vec2(0.31, 0.17) - fn * t * 0.14) * 0.6;
 	vec3 n_mundo = normalize(vec3(-g.x * 0.6, 1.0, -g.y * 0.6));
 	vec3 n_vista = normalize((VIEW_MATRIX * vec4(n_mundo, 0.0)).xyz);
 	NORMAL = n_vista;
@@ -76,7 +82,7 @@ void fragment() {
 
 	// espuma na beira: borda recortada e limpa, quebrada por ruído
 	float beira = 1.0 - smoothstep(0.0, prof_espuma, prof0);
-	float quebra = texture(ruido, p * escala * 0.9 + fn * t * 0.05).r;
+	float quebra = texture(ruido, p * escala * 0.9 - fn * t * 0.05).r;
 	float espuma_borda = smoothstep(0.5, 0.56, beira + (quebra - 0.5) * 0.35);
 
 	// riscas de espuma: esticadas no sentido da correnteza (longas e finas),
@@ -85,7 +91,7 @@ void fragment() {
 	float ao_traves = dot(p, pe);
 	float n_risca = texture(ruido, vec2(ao_traves * 0.25, (ao_longo - TIME * velocidade * 2.0) * 0.02)).r;
 	float riscas = smoothstep(0.8, 0.86, n_risca);
-	float presenca = smoothstep(0.45, 0.7, texture(ruido, p * 0.012 + fn * t * 0.02 + vec2(0.5, 0.2)).r);
+	float presenca = smoothstep(0.45, 0.7, texture(ruido, p * 0.012 - fn * t * 0.02 + vec2(0.5, 0.2)).r);
 	riscas *= presenca * (1.0 - espuma_borda) * 0.85;
 
 	// brilho pequeno e definido nas faces de onda voltadas para a luz

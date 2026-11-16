@@ -33,3 +33,15 @@ Os sons do jogo são montados por `tools/montar_sons.py` a partir das gravaçõe
 | [100 CC0 SFX #2](https://opengameart.org/content/100-cc0-sfx-2) | rubberduck | trovão curto, sopros de ar, pedra, motor do Carrapato |
 
 Os três avisos (alarme de calor, marcador e religar) são sintetizados por `tools/gerar_sons.py`.
+
+## Modelos
+
+Parte das árvores, as plantas de chão, as flores, os cogumelos, as moitas e as pedras soltas vêm de dois pacotes de
+[Quaternius](https://quaternius.com), em domínio público (CC0), com agradecimento: *Textured Stylized Trees* e
+*Stylized Nature MegaKit*. Foram convertidos por `tools/vale/pacotes.py` e ganharam a luz em faixas do vale.
+
+As máquinas do vale (Sentinela, Carrapato, Batedor e Vigia) usam os quatro robôs do *Animated Mech Pack*, também de
+[Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.
+
+Os cervos, os veados de galhada, as raposas e os lobos são do *Ultimate Animated Animals*, também de
+[Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.

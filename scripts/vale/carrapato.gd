@@ -40,44 +40,8 @@ func som_motor() -> String:
 
 func _ready() -> void:
 	_montar_base()
-	var casco := material("casco")
-	var claro := material("casco_claro")
-	var ferro := material("ferrugem")
-	# corpo: um casco baixo com a tampa clara, o aríete (um rolo de ferro entre dois braços) na frente (-Z),
-	# a lente debaixo de uma viseira e seis pernas finas de duas partes
-	peca(bola(0.3), casco, Vector3(0, 0.27, 0.04), null, Vector3.ZERO, Vector3(1.0, 0.55, 1.3))
-	peca(bola(0.24), claro, Vector3(0, 0.33, 0.1), null, Vector3.ZERO, Vector3(0.95, 0.5, 1.05))
-	var aro := TorusMesh.new()
-	aro.inner_radius = 0.27
-	aro.outer_radius = 0.31
-	aro.rings = 18
-	aro.ring_segments = 6
-	peca(aro, ferro, Vector3(0, 0.25, 0.04), null, Vector3.ZERO, Vector3(1.0, 1.0, 1.3))
-	var rolo := CylinderMesh.new()
-	rolo.top_radius = 0.085
-	rolo.bottom_radius = 0.085
-	rolo.height = 0.46
-	rolo.radial_segments = 10
-	peca(rolo, casco, Vector3(0, 0.19, -0.47), null, Vector3(0, 0, PI * 0.5))
-	for lado: float in [-1.0, 1.0]:
-		peca(caixa(Vector3(0.05, 0.06, 0.26)), ferro, Vector3(lado * 0.17, 0.2, -0.36))
-		var tampa := CylinderMesh.new()
-		tampa.top_radius = 0.1
-		tampa.bottom_radius = 0.1
-		tampa.height = 0.03
-		tampa.radial_segments = 10
-		peca(tampa, ferro, Vector3(lado * 0.235, 0.19, -0.47), null, Vector3(0, 0, PI * 0.5))
-	peca(bola(0.065), mat_lente, Vector3(0, 0.36, -0.25))
-	peca(caixa(Vector3(0.22, 0.03, 0.12)), casco, Vector3(0, 0.43, -0.25), null, Vector3(0.25, 0, 0))
-	for lado: float in [-1.0, 1.0]:
-		for k in 3:
-			var pivo := Node3D.new()
-			pivo.position = Vector3(lado * 0.24, 0.24, -0.16 + k * 0.2)
-			_corpo.add_child(pivo)
-			# a coxa sobe para fora; a canela desce até o chão
-			peca(caixa(Vector3(0.2, 0.035, 0.04)), ferro, Vector3(lado * 0.09, 0.04, 0), pivo, Vector3(0, 0, lado * 0.45))
-			peca(caixa(Vector3(0.035, 0.34, 0.035)), casco, Vector3(lado * 0.2, -0.07, 0), pivo, Vector3(0, 0, lado * 0.2))
-			_pernas_pivo.append(pivo)
+	# o corpo é o Mike do pacote: atarracado, de braços grandes, com 0,9 m
+	montar_mech("mike", 0.9)
 	_destino = casa
 	var q := _ponto_ronda()
 	global_position = Vector3(q.x, mapa.altura(q.x, q.z), q.z)
@@ -122,7 +86,6 @@ func _process(delta: float) -> void:
 		_lente_brilho(1.0 + pose_foto * 2.0)
 		return
 	if _passo_base(delta):
-		_corpo.rotation.z = lerpf(_corpo.rotation.z, 0.35, 0.1)
 		return
 	_corpo.rotation.z = lerpf(_corpo.rotation.z, 0.0, 0.2)
 	_tempo += delta
@@ -189,10 +152,19 @@ func _process(delta: float) -> void:
 	var n := mapa.normal_em(global_position.x, global_position.z)
 	var frente := Vector3(-sin(rotation.y), 0, -cos(rotation.y))
 	_corpo.rotation.x = lerpf(_corpo.rotation.x, asin(clampf(-n.dot(frente), -0.6, 0.6)) + (-0.12 if estado == Estado.INVESTE else 0.0), 0.2)
-	for i in _pernas_pivo.size():
-		# as pernas vão e voltam em dois grupos alternados
-		_pernas_pivo[i].rotation.y = sin(_passo + (i % 2) * PI) * 0.45
-		_pernas_pivo[i].position.y = 0.24 + maxf(0.0, cos(_passo + (i % 2) * PI)) * 0.03
+	if mech:
+		match estado:
+			Estado.INVESTE:
+				mech.tocar("Run", 1.8)
+			Estado.ARMA:
+				mech.tocar("Idle", 3.0)
+			Estado.CANSADO:
+				mech.tocar("Idle", 0.5)
+			_:
+				if vel > 0.0:
+					mech.tocar("Walk", 1.3)
+				else:
+					mech.tocar("Idle")
 	var brilho := 0.7
 	match estado:
 		Estado.ARMA:
