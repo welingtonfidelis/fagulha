@@ -347,10 +347,14 @@ func centro_alvo() -> Vector3:
 
 
 ## Um tiro do robô perto do corpo: esquenta e pisca. Com calor 100, desliga.
-func levar_tiro(ponto: Vector3) -> void:
-	if _corpo == null or desligada or ponto.distance_to(centro()) > raio_acerto():
+## `dano` é em tiros de pistola; `area` alarga o alcance do acerto (estouros), com o dano caindo para a borda.
+func levar_tiro(ponto: Vector3, dano := 1.0, area := 0.0) -> void:
+	var d := ponto.distance_to(centro())
+	if _corpo == null or desligada or d > raio_acerto() + area:
 		return
-	calor = minf(100.0, calor + calor_por_tiro() / resistencia)
+	if area > 0.0 and d > raio_acerto():
+		dano *= lerpf(1.0, 0.35, (d - raio_acerto()) / area)
+	calor = minf(100.0, calor + calor_por_tiro() * dano / resistencia)
 	_sem_tiro = 0.0
 	_pisca = 0.12
 	Som.toque3d(self, Som.variacao("impacto", 3), ponto, -4.0)

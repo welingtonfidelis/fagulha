@@ -205,6 +205,51 @@ func _desenhar_placar() -> void:
 	draw_string(_fonte, p + Vector2(0, 24.0), placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.35, 0.95, 0.85))
 
 
+var tiro_no: Node  # o Tiro (para a carga do canhão)
+
+
+## A arma em uso e as granadas, no canto de baixo à direita (só quando há mais que a pistola de fábrica).
+func _desenhar_arma() -> void:
+	if alvo == null:
+		return
+	if Arsenal.modo == "pistola" and Arsenal.granadas_max() == 0 and Arsenal.fabricados.is_empty():
+		return
+	var titulo: String = Arsenal.MODOS[Arsenal.modo]["titulo"]
+	var linha2 := "L1 troca"
+	if Arsenal.granadas_max() > 0 or Arsenal.misseis_max() > 0:
+		linha2 = ""
+		if Arsenal.granadas_max() > 0:
+			linha2 += "granadas %d de %d (R1)" % [Arsenal.granadas, Arsenal.granadas_max()]
+		if Arsenal.misseis_max() > 0:
+			linha2 += ("   ·   " if linha2 != "" else "") + "mísseis %d de %d" % [Arsenal.misseis, Arsenal.misseis_max()]
+	var w := maxf(_fonte.get_string_size(titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, _fonte.get_string_size(linha2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
+	var p := Vector2(size.x - w - 42.0, size.y - 190.0)
+	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, w + 28.0, 66.0), Color(0, 0, 0, 0.5))
+	draw_rect(Rect2(p.x + w + 10.0, p.y - 30.0, 4.0, 66.0), Color(1.0, 0.62, 0.3))
+	draw_string(_fonte, p, titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.95))
+	draw_string(_fonte, p + Vector2(0, 24.0), linha2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.35, 0.95, 0.85))
+	# os mísseis travando: um losango numerado em cada máquina travada
+	var cam3 := get_viewport().get_camera_3d()
+	if tiro_no and cam3:
+		var k := 0
+		for t in tiro_no.get("travas"):
+			k += 1
+			if not is_instance_valid(t):
+				continue
+			var pt: Vector3 = t.call("ponto_de_trava")
+			if not pt.is_finite() or cam3.is_position_behind(pt):
+				continue
+			var q := cam3.unproject_position(pt)
+			var l := clampf(700.0 / maxf(4.0, cam3.global_position.distance_to(pt)), 14.0, 44.0)
+			var cor_m := Color(1.0, 0.3, 0.25, 0.95)
+			draw_polyline(PackedVector2Array([q + Vector2(0, -l), q + Vector2(l, 0), q + Vector2(0, l), q + Vector2(-l, 0), q + Vector2(0, -l)]), cor_m, 2.5, true)
+			draw_string(_fonte, q + Vector2(l + 4.0, 5.0), str(k), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, cor_m)
+	# o canhão carregando: um anel em volta da mira
+	if tiro_no and float(tiro_no.get("carga")) > 0.0:
+		var cg := float(tiro_no.get("carga"))
+		draw_arc(size * 0.5, 22.0, -PI * 0.5, -PI * 0.5 + TAU * cg, 40, Color(1.0, 0.62, 0.3, 0.95) if cg < 1.0 else Color(1, 1, 1), 4.0, true)
+
+
 func _desenhar_dica() -> void:
 	if dica == "":
 		return
@@ -219,6 +264,7 @@ func _draw() -> void:
 	_desenhar_lugar()
 	_desenhar_dica()
 	_desenhar_placar()
+	_desenhar_arma()
 	if alvo == null:
 		return
 	var c := size * 0.5

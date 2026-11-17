@@ -5,6 +5,7 @@ extends SceneTree
 const PASTA := "res://tools/capturas/melhorias/"
 var cam: Camera3D
 var palco: Node3D
+var _h := 1.0
 
 
 func _initialize() -> void:
@@ -141,7 +142,30 @@ const VISTAS := [
 
 
 func _todas(h: float) -> void:
+	_h = h
 	MelhoriasVisual.minimo = not ("--cheio" in OS.get_cmdline_user_args())
+	if "--armas" in OS.get_cmdline_user_args():
+		var camada_a := CanvasLayer.new()
+		root.add_child(camada_a)
+		var rot_a := Label.new()
+		rot_a.position = Vector2(28, 20)
+		rot_a.add_theme_font_size_override("font_size", 46)
+		rot_a.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+		rot_a.add_theme_constant_override("outline_size", 8)
+		camada_a.add_child(rot_a)
+		for dados in [["arma_rajada", "Rajada", PI - 0.9, 0.42], ["arma_canhao", "Canhão", PI - 0.9, 0.42], ["arma_precisao", "Precisão", PI - 0.9, 0.4],
+				["arma_duplo", "Tiro duplo", PI, 0.42], ["lanca_misseis", "Lança-mísseis (ombro esquerdo)", 0.75, 0.68], ["lanca_granadas", "Lança-granadas (ombro direito)", -0.75, 0.68]]:
+			_robo([dados[0]])
+			rot_a.text = dados[1]
+			_olhar(_h, dados[2], 0.25, 1.45, dados[3])
+			await _foto("arma_" + String(dados[0]))
+		_robo(["arma_canhao", "lanca_misseis", "lanca_granadas"])
+		rot_a.text = "Canhão e os dois lançadores"
+		_olhar(_h, 0.35, 0.3, 2.4, 0.55)
+		await _foto("arma_tudo_costas")
+		_olhar(_h, PI - 0.5, 0.25, 2.4, 0.55)
+		await _foto("arma_tudo_frente")
+		return
 	var camada := CanvasLayer.new()
 	root.add_child(camada)
 	var rot := Label.new()

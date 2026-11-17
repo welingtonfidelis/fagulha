@@ -28,6 +28,7 @@ var drone: DroneColega
 var fase := Fase.FORA
 var perto := false
 var entradas := 0  # testes
+var recargas := 0
 var _t := 0.0
 var _de := Vector3.ZERO
 var _para := Vector3.ZERO
@@ -309,7 +310,8 @@ func _escolher(nome: String) -> void:
 			_estado.text = "Fabricar gasta " + Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "") + "."
 		else:
 			_estado.text = "Custa " + Arsenal.custo(nome) + " (" + Arsenal.falta(nome) + "). Os materiais vêm da Fundição."
-		armadura.visual.vestir_melhorias(["mira"] if nome == "mira" else [])
+		var previa_de := {"mira": "mira", "misseis": "lanca_misseis", "granadas": "lanca_granadas", "rajada": "arma_rajada", "canhao": "arma_canhao", "precisao": "arma_precisao", "duplo": "arma_duplo"}
+		armadura.visual.vestir_melhorias([previa_de[nome]] if previa_de.has(nome) else [])
 		armadura.visual.previa = true
 		_virar("antena")
 		return
@@ -349,6 +351,7 @@ func entrar() -> void:
 		return
 	fase = Fase.ENTRANDO
 	entradas += 1
+	Arsenal.repor_granadas()
 	_t = 0.0
 	_de = armadura.global_position
 	_para = _parada()
@@ -422,6 +425,18 @@ func _physics_process(delta: float) -> void:
 		Fase.FORA:
 			var b := BaseVale.boca_cilindro
 			var p := armadura.global_position
+			# chegando à base, no chão: munição e vida de volta
+			var na_base := Vector2(p.x - b.x, p.z - b.z).length() < 16.0 and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane
+			if na_base and (Arsenal.granadas < Arsenal.granadas_max() or Arsenal.misseis < Arsenal.misseis_max() or armadura.avaria > 0 or float(armadura.get("_dano_frac")) > 0.01):
+				Arsenal.repor_granadas()
+				armadura.avaria = 0
+				armadura.set("_dano_frac", 0.0)
+				armadura.escudo_t = 0.0
+				recargas += 1
+				if hud:
+					hud.avisar("Base", "munição e vida recarregadas")
+				if sons:
+					sons._toque("marcar", -6.0, 0.0)
 			perto = Vector2(p.x - b.x, p.z - b.z).length() < PERTO and p.y < b.y and p.y > b.y - 4.0 \
 				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando
 			if hud:

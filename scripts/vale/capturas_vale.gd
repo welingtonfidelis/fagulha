@@ -258,6 +258,97 @@ func rodar(main: Node) -> void:
 		await _foto("g9_bussola")
 		get_tree().quit()
 		return
+	if "--armas" in args:
+		# as armas no corpo do robô, a roda, o arco da granada e a trava dos mísseis (`--armas --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		a.teleportar(Vector3(-30.0, c.altura(-30.0, 60.0) + 0.4, 60.0), Armadura.Estado.CHAO)
+		Arsenal.tudo = false
+		Arsenal.fabricados = ["rajada", "canhao", "precisao", "duplo", "misseis", "granadas"]
+		Arsenal.repor_granadas()
+		var roda: RodaArmas = m.get_node("RodaArmas")
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 34.0
+		await _esperar(1.0)
+		m.hud.visible = false
+		livre.make_current()
+		for nome: String in ["pistola", "rajada", "canhao", "precisao", "duplo"]:
+			Arsenal.modo = "x"
+			roda.trocar(nome)
+			a.visual.vestir_melhorias()
+			await _esperar(0.4)
+			var fr := -a.visual.global_basis.z.normalized()
+			var lado := a.visual.global_basis.x.normalized()
+			livre.global_position = a.global_position + fr * 2.3 + lado * 1.5 + Vector3(0, 0.8, 0)
+			livre.look_at(a.global_position + Vector3(0, 0.62, 0))
+			await _foto("b_" + nome)
+		var fr2 := -a.visual.global_basis.z.normalized()
+		livre.global_position = a.global_position - fr2 * 2.6 + Vector3(0.9, 1.3, 0)
+		livre.look_at(a.global_position + Vector3(0, 0.75, 0))
+		await _esperar(0.2)
+		await _foto("b_lancadores_costas")
+		# três mechas à frente
+		a.teleportar(Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0), Armadura.Estado.CHAO)
+		cam.cam.make_current()
+		m.hud.visible = true
+		cam.yaw = 0.6
+		cam.pitch = -0.12
+		await _esperar(0.8)
+		var fr3 := Vector3(-sin(cam.yaw), 0, -cos(cam.yaw))
+		var lado3 := Vector3(fr3.z, 0, -fr3.x)
+		for i in 3:
+			var mc := Mecha.new()
+			mc.mapa = c
+			mc.casa = a.global_position + fr3 * (22.0 + i * 5.0) + lado3 * (i - 1) * 7.0
+			mc.casa.y = c.altura(mc.casa.x, mc.casa.z)
+			mc.semente = 40 + i
+			m.add_child(mc)
+			mc.global_position = mc.casa
+			mc.pose_foto = 0
+		await _esperar(0.5)
+		Input.action_press("granada")
+		await _esperar(0.6)
+		await _foto("b_arco_granada")
+		Input.action_release("granada")
+		await _esperar(0.45)
+		livre.fov = 55.0
+		livre.global_position = a.global_position + lado3 * 9.0 + Vector3(0, 2.5, 0) + fr3 * 4.0
+		livre.look_at(a.global_position + fr3 * 6.0 + Vector3(0, 4.0, 0))
+		livre.make_current()
+		m.hud.visible = false
+		await _foto("b_granada_voando")
+		var antes_g: int = m.tiro._granadas.size()
+		for espera in 60:
+			await _esperar(0.05)
+			if m.tiro._granadas.size() < antes_g:
+				break
+		livre.global_position = a.global_position + lado3 * 12.0 + Vector3(0, 4.0, 0) + fr3 * 14.0
+		livre.look_at(a.global_position + fr3 * 24.0 + Vector3(0, 2.0, 0))
+		await _foto("b_estouro_1")
+		await _esperar(0.22)
+		await _foto("b_estouro_2")
+		await _esperar(0.8)
+		await _foto("b_estouro_3")
+		await _esperar(1.5)
+		cam.cam.make_current()
+		m.hud.visible = true
+		roda.trocar("misseis")
+		await _esperar(0.6)
+		Input.action_press("atirar")
+		await _esperar(1.3)
+		await _foto("b_misseis_travando")
+		Input.action_release("atirar")
+		await _esperar(0.42)
+		livre.make_current()
+		m.hud.visible = false
+		await _foto("b_misseis_subindo")
+		await _esperar(0.45)
+		livre.global_position = a.global_position + lado3 * 16.0 + Vector3(0, 5.0, 0) + fr3 * 10.0
+		livre.look_at(a.global_position + fr3 * 14.0 + Vector3(0, 6.0, 0))
+		await _foto("b_misseis_virando")
+		get_tree().quit()
+		return
 	if "--oficina" in args:
 		await _oficina()
 		return

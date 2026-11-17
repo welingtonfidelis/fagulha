@@ -90,6 +90,13 @@ func vestir_melhorias(extra: Array = []) -> void:
 	var lista := Melhorias.vestidas()
 	if Arsenal.tem("mira") and not Arsenal.tudo:
 		lista.append("mira")
+	# a arma em uso muda a ponta do braço; os lançadores fabricados ficam nos ombros
+	if Arsenal.modo in ["rajada", "canhao", "precisao", "duplo"] and Arsenal.tem_arma(Arsenal.modo):
+		lista.append("arma_" + Arsenal.modo)
+	if Arsenal.fabricados.has("misseis"):
+		lista.append("lanca_misseis")
+	if Arsenal.fabricados.has("granadas"):
+		lista.append("lanca_granadas")
 	for nome in extra:
 		if not lista.has(nome):
 			lista.append(nome)
@@ -325,7 +332,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 	var roll_alvo := 0.0
 	var torcao_alvo := 0.0
 	_re = false
-	if (a.estado == Armadura.Estado.PAIRAR or a.mirando_agora() or (a.atirando > 0.0 and not a.em_voo())) and a.camera:
+	if (a.estado == Armadura.Estado.PAIRAR or a.mirando_agora() or (maxf(a.atirando, a.atirando_e) > 0.0 and not a.em_voo())) and a.camera:
 		yaw_alvo = a.camera.yaw
 		if a.estado == Armadura.Estado.CHAO and hv > 0.5:
 			# andando e mirando: as pernas viram para onde ele anda e o tronco torce para a mira;
@@ -567,11 +574,17 @@ func atualizar(delta: float, a: Armadura) -> void:
 	if not no_chao_baixo:
 		_levanta = 0.0
 	# mirando: o braço direito aponta para onde a câmera olha (sem arma ainda)
-	if (a.mirando_agora() or (a.atirando > 0.0 and not a.em_voo() and not a.em_pane)) and a.camera:
+	if (a.mirando_agora() or (a.atirando > 0.0 and a.atirando > a.atirando_e - 10.0 and not a.em_voo() and not a.em_pane)) and a.camera and not (a.atirando <= 0.0 and a.atirando_e > 0.0):
 		var p := rad_to_deg(a.camera.pitch)
 		_alvo("ombroD", -88.0 - p, 0.0, -4.0)
 		_alvo("cotoveloD", -4.0)
 		_alvo("cabeca", -p * 0.5)
+	# o braço esquerdo aponta do mesmo jeito quando é ele que atira (tiro duplo, no L2)
+	if a.atirando_e > 0.0 and not a.em_voo() and not a.em_pane and a.camera:
+		var pe := rad_to_deg(a.camera.pitch)
+		_alvo("ombroE", -88.0 - pe, 0.0, 4.0)
+		_alvo("cotoveloE", -4.0)
+		_alvo("cabeca", -pe * 0.5)
 	# chegando ao chão: corpo em pé, pernas armadas para baixo e braços abertos para equilibrar
 	if a.chegando_ao_chao() and not a.em_pane:
 		_alvo("raiz", 8.0)

@@ -52,6 +52,7 @@ func rodar(main: Node) -> void:
 	await _ponto_29()
 	await _ponto_30()
 	await _ponto_31()
+	await _ponto_32()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -75,7 +76,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar", "agir", "scanner", "luz"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar", "agir", "scanner", "luz", "roda", "granada"]:
 		Input.action_release(acao)
 
 
@@ -1631,3 +1632,161 @@ func _ponto_31() -> void:
 	Arsenal.tudo = true
 	Arsenal.zerar()
 	a.recomecar()
+
+
+## 35. Armas: a rajada repete segurando; o canhão carrega e estoura em área; o tiro duplo solta dois; a
+## granada desliga a máquina perto de onde cai; a roda (L1) troca a arma em câmera lenta e só deixa
+## escolher o que foi fabricado.
+func _ponto_32() -> void:
+	print("armas: modos de tiro, granada e roda")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var roda: RodaArmas = m.get_node("RodaArmas")
+	var lugar := Vector3(-30.0, v.altura(-30.0, 60.0) + 0.4, 60.0)
+	a.teleportar(lugar, Armadura.Estado.CHAO)
+	cam.pitch = 0.3
+	await _esperar(0.5)
+	Arsenal.tudo = false
+	Arsenal.fabricados = []
+	Arsenal.modo = "pistola"
+	roda.trocar("rajada")
+	var travou: bool = Arsenal.modo == "pistola" and Arsenal.granadas_max() == 0
+	Arsenal.tudo = true
+	Arsenal.repor_granadas()
+	roda.trocar("rajada")
+	var d0: int = m.tiro.disparos
+	Input.action_press("atirar")
+	await _esperar(0.6)
+	Input.action_release("atirar")
+	var rajada: int = m.tiro.disparos - d0
+	_ok(travou and Arsenal.modo == "rajada" and rajada >= 5, "sem fabricar não troca; a rajada repete segurando (%d tiros em 0,6 s)" % rajada)
+	_zerar()
+	roda.trocar("duplo")
+	await _esperar(0.3)
+	var dd0: int = m.tiro.disparos
+	await _apertar("atirar")
+	await _esperar(0.1)
+	var so_direito: bool = m.tiro.disparos == dd0 + 1
+	await _esperar(0.3)
+	Input.action_press("mirar")
+	Input.action_press("atirar")
+	await _esperar(0.25)
+	var sem_mira: bool = not a.mirando and a.atirando_e > 0.0
+	await _esperar(0.25)
+	Input.action_release("mirar")
+	Input.action_release("atirar")
+	var dois: bool = so_direito and sem_mira and m.tiro.disparos == dd0 + 3 and a.visual.pecas.has("arma_duplo")
+	_zerar()
+	roda.trocar("canhao")
+	await _esperar(0.4)
+	d0 = m.tiro.disparos
+	Input.action_press("atirar")
+	await _esperar(0.7)
+	var carregando: bool = m.tiro.carga > 0.4 and m.tiro.disparos == d0
+	await _esperar(0.6)
+	Input.action_release("atirar")
+	await _esperar(0.2)
+	_ok(dois and carregando and m.tiro.disparos == d0 + 1 and m.tiro.carga == 0.0, "tiro duplo: R2 um braço, L2 o outro (sem mirar, levantando o braço esquerdo); o canhão carrega e dispara ao soltar")
+	# o estouro pega a máquina que está perto, e a de longe não
+	var mc := Mecha.new()
+	mc.mapa = v
+	mc.casa = lugar + Vector3(0, 0, -14.0)
+	mc.semente = 31
+	m.add_child(mc)
+	mc.global_position = mc.casa
+	mc.pose_foto = 0
+	await _esperar(0.3)
+	var c0: float = mc.calor
+	m.tiro._estouro(mc.centro() + Vector3(3.0, 0, 0), 2.0, 6.0)
+	var pegou: bool = mc.calor > c0 + 10.0
+	var c1: float = mc.calor
+	m.tiro._estouro(mc.centro() + Vector3(14.0, 0, 0), 2.0, 6.0)
+	var longe_nao: bool = mc.calor == c1
+	# a granada sai em arco, cai e estoura
+	_zerar()
+	mc.calor = 0.0
+	var g0: int = Arsenal.granadas
+	for volta in 3:
+		# a mira no chão, ao pé da mecha: é ali que a granada cai
+		var dg: Vector3 = mc.global_position + Vector3(0, 0.1, 0) - cam.global_position
+		cam.yaw = atan2(-dg.x, -dg.z)
+		cam.pitch = atan2(dg.y, Vector2(dg.x, dg.z).length())
+		await _esperar(0.2)
+	Input.action_press("granada")
+	await _esperar(0.3)
+	var arco_g: PackedVector3Array = m.tiro.arco
+	var sobe_g: Vector3 = (arco_g[1] - arco_g[0]).normalized() if arco_g.size() > 5 else Vector3.ZERO
+	var cai_g: Vector3 = arco_g[arco_g.size() - 1] if arco_g.size() > 5 else Vector3.ZERO
+	# sai a uns 70° e cai perto de onde a mira aponta (a mecha)
+	var arco_ok: bool = arco_g.size() > 5 and Arsenal.granadas == g0 and rad_to_deg(asin(sobe_g.y)) > 60.0 and Vector2(cai_g.x - mc.global_position.x, cai_g.z - mc.global_position.z).length() < 5.0 and CameraVoo.afasta > 0.5
+	Input.action_release("granada")
+	await _esperar(3.4)
+	_ok(arco_ok and pegou and longe_nao and Arsenal.granadas == g0 - 1 and m.tiro.granadas_jogadas >= 1 and m.tiro._granadas.is_empty() and mc.calor > 0.0,
+		"segurando aparece o arco, que sai a 70° e cai onde a mira aponta, e a câmera recua; soltando, a granada esquenta a mecha (%.0f)" % mc.calor)
+	# mísseis: segurando trava a máquina à frente; soltando sai um míssil que a segue
+	_zerar()
+	mc.calor = 0.0
+	roda.trocar("misseis")
+	var mi0: int = Arsenal.misseis
+	for volta in 3:
+		var dm: Vector3 = mc.centro() - cam.global_position
+		cam.yaw = atan2(-dm.x, -dm.z)
+		cam.pitch = atan2(dm.y, Vector2(dm.x, dm.z).length())
+		await _esperar(0.2)
+	Input.action_press("atirar")
+	await _esperar(0.6)
+	var travou_m: bool = m.tiro.travas.has(mc) and m.tiro.travas.size() <= 4 and Arsenal.misseis == mi0
+	Input.action_release("atirar")
+	await _esperar(0.25)
+	var subindo := false
+	for filho in m.tiro.get_children():
+		if String(filho.name).begins_with("Missil") and (filho as Node3D).global_position.y > a.global_position.y + 2.0:
+			subindo = true
+	await _esperar(2.4)
+	travou_m = travou_m and subindo
+	# (outra mecha da ilha pode estar no cone e ser travada também: vale um míssil por alvo)
+	_ok(travou_m and m.tiro.misseis_lancados >= 1 and Arsenal.misseis == mi0 - m.tiro.misseis_lancados and mc.calor > 30.0,
+		"mísseis: segurando trava a mecha; soltando o míssil sobe do ombro, vira e acerta (calor %.0f, restam %d)" % [mc.calor, Arsenal.misseis])
+	mc.queue_free()
+	# as caixas das forjas: a de conserto apaga os acertos, a de munição enche os lançadores
+	var fd: Fundicao = m.fundicao
+	a.avaria = 2
+	Arsenal.granadas = 0
+	fd.soltar_caixa("conserto")
+	fd.soltar_caixa("municao")
+	await _esperar(5.0)
+	for cx in fd._caixas.duplicate():
+		a.teleportar((cx["no"] as Node3D).global_position + Vector3(0.5, 0.4, 0), Armadura.Estado.CHAO)
+		await _esperar(0.4)
+	_ok(fd.caixas_pegas == 2 and a.avaria == 0 and Arsenal.granadas == Arsenal.granadas_max() and Arsenal.misseis == Arsenal.misseis_max(),
+		"caixas das forjas: a de conserto apagou os acertos e a de munição encheu os lançadores (%d pegas)" % fd.caixas_pegas)
+	# chegando à base, no chão, munição e vida voltam
+	Arsenal.granadas = 0
+	Arsenal.misseis = 1
+	a.avaria = 2
+	var bb := BaseVale.boca_cilindro
+	a.teleportar(Vector3(bb.x + 8.0, v.altura(bb.x + 8.0, bb.z + 5.0) + 0.4, bb.z + 5.0), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	_ok(Arsenal.granadas == Arsenal.granadas_max() and Arsenal.misseis == Arsenal.misseis_max() and a.avaria == 0 and m.oficina.recargas >= 1,
+		"chegando à base no chão, munição e vida são recarregadas")
+	a.teleportar(lugar, Armadura.Estado.CHAO)
+	await _esperar(0.3)
+	# a roda: abre em câmera lenta, o analógico direito escolhe e soltar troca
+	roda.trocar("pistola")
+	Input.action_press("roda")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var abriu: bool = RodaArmas.aberta and Engine.time_scale < 0.5 and CameraVoo.travada
+	Input.action_press("olhar_direita")
+	for k in 4:
+		await get_tree().process_frame
+	var apontou: String = roda.escolha
+	Input.action_release("olhar_direita")
+	Input.action_release("roda")
+	for k in 3:
+		await get_tree().process_frame
+	_ok(abriu and not RodaArmas.aberta and Engine.time_scale == 1.0 and not CameraVoo.travada and Arsenal.modo == apontou and apontou != "pistola",
+		"a roda abre em câmera lenta, o analógico escolhe e soltar troca (%s)" % Arsenal.modo)
+	Arsenal.modo = "pistola"
+	_zerar()

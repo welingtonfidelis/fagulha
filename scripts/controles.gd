@@ -53,9 +53,15 @@ static func configurar() -> void:
 	_mouse("atirar", MOUSE_BUTTON_LEFT)
 	_eixo("atirar", JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	InputMap.action_set_deadzone("atirar", 0.3)
+	# Marcar um ponto passou para a seta para baixo (o R1 agora joga granada).
 	_tecla("marcar", [KEY_Q])
 	_mouse("marcar", MOUSE_BUTTON_MIDDLE)
-	_botao("marcar", JOY_BUTTON_RIGHT_SHOULDER)
+	_botao("marcar", JOY_BUTTON_DPAD_DOWN)
+	# Roda de armas: segurar L1 / R (as teclas 1 a 6 trocam direto). Granada: R1 / G.
+	_tecla("roda", [KEY_R])
+	_botao("roda", JOY_BUTTON_LEFT_SHOULDER)
+	_tecla("granada", [KEY_G])
+	_botao("granada", JOY_BUTTON_RIGHT_SHOULDER)
 	# A luz do peito (melhoria): seta para cima / L.
 	_tecla("luz", [KEY_L])
 	_botao("luz", JOY_BUTTON_DPAD_UP)

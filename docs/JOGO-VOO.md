@@ -1603,3 +1603,79 @@ Mystery Monthly 5 (com metralhadora e machado).
   colisão. Colisão completada: ganchos e ímãs pendurados, tubos das paredes, colunas, telas, cones,
   chaminés, duto, moldura e placa da frente, funis e chaminés das forjas, calhas das lâmpadas, robôs velhos
   caídos (caixa baixa) e troncos das árvores secas. Sem colisão de propósito: fios, mato e chamas.
+
+## 67. Etapa 2 da Fundição: modos de tiro, granadas e a roda de armas (2026-11-17)
+
+- **Modos de tiro** (`Arsenal.MODOS`, disparados por `Tiro`): Pistola (de fábrica, um tiro por aperto);
+  Rajada (segurando repete a cada 0,085 s, um terço do dano, espalha um pouco); Canhão (segura até 1,1 s
+  para carregar e solta: até 3,6 de dano, estoura num raio de 5 m; a carga aparece como um anel na mira);
+  Precisão (zoom de 20° ao mirar, 3,2 de dano, 1,15 s entre tiros); Tiro duplo (os dois punhos, dois tiros
+  por aperto, o dobro de calor); Mísseis (sai das costas, lento, segue a máquina travada, 3 de dano e
+  estouro de 4,5 m, 2,4 s de espera). O dano é em "tiros de pistola": `MaquinaPequena.levar_tiro(ponto,
+  dano, area)`, com o dano caindo para a borda do estouro.
+- **Granadas** (R1 / G): saem em arco para onde a câmera aponta, quicam uma vez e estouram (2,6 de dano,
+  7 m). Três no cinto, que é fabricável; repõem ao entrar na oficina e uma a cada onda vencida.
+- **Roda de armas** (`scripts/vale/roda_armas.gd`): segurando L1 (ou R) o jogo vai a 20% da velocidade e a
+  câmera trava; o analógico direito (ou o mouse) aponta o gomo e soltar troca. Teclas 1 a 6 trocam direto.
+  Só entra o que foi fabricado. A arma em uso e as granadas aparecem embaixo à direita.
+- **Marcar um ponto** foi do R1 para a seta para baixo (Q no teclado continua).
+- **Fabricação** (na oficina, `Arsenal.RECEITAS`): Rajada nível 1 e 10 de sucata; Cinto de granadas nível 2
+  e 20; Canhão nível 2, 25 e 1 núcleo; Precisão nível 3, 30 e 1; Tiro duplo nível 4, 45 e 2; Lança-mísseis
+  nível 5, 60, 2 núcleos e 1 chip.
+- Fotos: `--vale-captura --armas`. Teste: ponto 35 (vale 57 pontos; voo 98).
+
+**Falta:** as armas não aparecem no corpo do robô nem têm som próprio; o míssil usa o projétil comum
+(maior e mais lento); equilíbrio por jogar. Próximas etapas: minichefes com modelos novos e acabamento.
+
+## 68. Armas no corpo, lançadores, munição e caixas das forjas (2026-11-17)
+
+Depois do primeiro teste do usuário com todas as armas:
+- **Tiro duplo:** cada gatilho, um braço. R2 atira com o direito e L2 com o esquerdo, um tiro por aperto
+  (como a pistola); os dois juntos atiram ao mesmo tempo. O L2 continua mirando.
+- **Lança-granadas** (ombro direito): segurando R1 aparece o arco no mundo (24 bolinhas e um anel de 7 m onde
+  cai, `Tiro.arco_granada`, a mesma conta do voo); soltando, a granada sai do ombro.
+- **Lança-mísseis** (ombro esquerdo): no modo Mísseis, segurando o gatilho as máquinas à frente (cone de 32°,
+  130 m, vista livre) são travadas uma a cada 0,3 s, até quatro ou até acabarem os mísseis; soltando sai um
+  míssil para cada, em sequência, seguindo o alvo. Sem trava, um míssil reto. Oito mísseis no lançador. Não
+  depende da Mira assistida. A tela marca cada trava com um losango numerado.
+- **Peça no braço por arma** (`MelhoriasVisual`: `arma_rajada` três canos, `arma_canhao` cano grosso com boca
+  acesa, `arma_precisao` cano fino comprido com luneta, `arma_duplo` um cano em cada braço); os lançadores
+  aparecem nos ombros quando fabricados. Trocar na roda revestе o robô. A pistola não põe nada.
+- **Caixas das forjas** (`Fundicao.soltar_caixa`): saem pela esteira de uma forja, caem no chão e são pegas
+  encostando. A de munição (laranja) enche granadas e mísseis; a de conserto (verde, com cruz) apaga os
+  acertos levados. No respiro vem o que estiver faltando; no meio da onda, uma a cada 38 s se houver
+  falta. Somem em 90 s ou quando a rodada para. A oficina também enche os lançadores.
+- Fotos: `--vale-captura --armas` e `tools/vitrine_melhorias.gd -- --armas`. Vale 59 pontos, voo 98.
+
+**Modelos de minichefe, baixados pelo usuário** (em `Projects/others`): `Mech/` (RetroStyle: `SK_ISO_Mech.fbx`
+com esqueleto, 7 animações em FBX separados — parado, andar para a frente, para trás e de lado, pouso,
+queda —, 5 texturas) e `Mech Type 3.glb` (TryoutIndie: 175 mil triângulos, 53 malhas, esqueleto de 61
+ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação de ataque. Ainda não integrados.
+
+**Segunda rodada das armas (mesmo dia, depois do teste do usuário).**
+- **Tiro duplo:** nesse modo o L2 não mira; ele levanta o braço esquerdo e atira, como o R2 faz com o direito
+  (`Armadura.atirando_e`, pose do `ombroE`).
+- **Base:** chegando a menos de 16 m da oficina, no chão, munição e vida são recarregadas (`Oficina.recargas`).
+- **Lançamento a 70°** (`Arsenal.ANGULO_LANCE`): a granada sai do ombro quase a pique e cai onde a mira
+  aponta, até 55 m (`_lance_granada` acha a velocidade); não é mais preciso olhar para cima. Segurando o
+  R1 a câmera sobe e recua (`CameraVoo.afasta`) para o arco e o anel aparecerem. O míssil (`_missil`) sobe do
+  ombro, vira numa curva de três pontos e desce no alvo, acompanhando a máquina travada.
+- **Projéteis próprios:** o míssil tem corpo claro, nariz e aletas vermelhos, chama e luz; a granada é uma
+  bola escura com cinta e uma luz vermelha que pisca cada vez mais depressa.
+- **Minichefes:** os dois modelos do itch.io foram abandonados pelo usuário (pesados). Candidatos locais,
+  leves e com animação: `CombatMech` (KayKit Mystery Monthly 5, com metralhadora e machado), os mechas do
+  Animated Mech Pack do Quaternius (Leela, Mike, Stan; o George já é o Vigia) e os inimigos do Sci-Fi
+  Essentials Kit (EyeDrone, QuadShell, Trilobite).
+
+**Terceira rodada das armas (mesmo dia).**
+- **Lançadores:** os dois ficam para fora dos ombros (a 0,2 da altura do robô do meio), na ponta de uma barra
+  que sai das costas, apontando na mesma direção (20° para a frente da vertical), para o que sai deles
+  passar longe da cabeça. O dos mísseis virou uma caixa em pé com quatro bocas em cima.
+- **Projéteis menores:** míssil a 50% e granada a 55%, do tamanho das bocas. O míssil ganhou rastro de fumaça.
+- **Estouro** (`EfeitosTiro.estouro`, com mais oito partículas do Kenney Particle Pack em `assets/fx/kenney`):
+  clarão em estrela, bola de fogo em duas camadas somando luz, riscos de faísca, torrões de terra, anel de
+  choque no chão, fumaça e marca de queimado que some em segundos.
+- **Candidatos a minichefe** (folha em `docs/arena/minichefes_candidatos.png`, feita por
+  `tools/vitrine_modelos.gd`, que abre modelos de fora do projeto): CombatMech do KayKit (2,3 m, sem
+  animação embutida, lembra um robô de anime conhecido), Leela, Mike e Stan do Quaternius (18 animações,
+  com tiro, soco e espada), EyeDrone, QuadShell e Trilobite do Quaternius (6 a 9 animações, com ataque).

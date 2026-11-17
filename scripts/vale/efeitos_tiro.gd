@@ -154,6 +154,59 @@ static func explosao(pai: Node, onde: Vector3, raio: float) -> void:
 	tw.tween_callback(luz.queue_free)
 
 
+## O estouro de uma granada ou de um míssil (partículas do Kenney Particle Pack): um clarão em estrela, a
+## bola de fogo em duas camadas, riscos de faísca, torrões de terra que saltam e caem, um anel de choque
+## que corre pelo chão, a coluna de fumaça e a marca de queimado. `raio` é o do dano.
+static func estouro(pai: Node, onde: Vector3, raio: float) -> void:
+	if pai == null or not pai.is_inside_tree() or not onde.is_finite():
+		return
+	_contar("estouro")
+	var r := raio * 0.5
+	_leva(pai, onde + Vector3(0, 0.5, 0), "flare_01", Color(1.0, 0.95, 0.8), true, 1, 0.16, r * 5.0, Vector2.ZERO, Vector3.ZERO, 0.0, 1.6)
+	# a bola de fogo soma luz (em mistura comum ela saía marrom e apagada no sol)
+	_leva(pai, onde + Vector3(0, 0.6, 0), "flame_04", Color(1.0, 0.5, 0.14), true, 14, 0.6, r * 1.9, Vector2(1.0, r * 2.4), Vector3(0, 2.5, 0), 180.0, 2.2)
+	_leva(pai, onde + Vector3(0, 0.7, 0), "fire_02", Color(1.0, 0.86, 0.45), true, 10, 0.42, r * 1.4, Vector2(0.6, r * 1.6), Vector3(0, 3.0, 0), 180.0, 1.8)
+	_leva(pai, onde + Vector3(0, 0.3, 0), "spark_04", Color(1.0, 0.82, 0.5), true, 16, 0.55, r * 0.9, Vector2(r * 3.0, r * 6.5), Vector3(0, -6.0, 0), 85.0, 0.4)
+	_leva(pai, onde + Vector3(0, 0.2, 0), "light_01", Color(1.0, 0.75, 0.35), true, 26, 1.0, 0.22, Vector2(6.0, 16.0), Vector3(0, -16.0, 0), 75.0, 0.3)
+	_leva(pai, onde + Vector3(0, 0.2, 0), "dirt_02", Color(0.34, 0.27, 0.19), false, 12, 1.1, r * 0.4, Vector2(5.0, 11.0), Vector3(0, -20.0, 0), 50.0, 0.8)
+	_leva(pai, onde + Vector3(0, 0.8, 0), "smoke_02", Color(0.42, 0.4, 0.4, 0.8), false, 9, 2.8, r * 1.5, Vector2(0.8, 2.6), Vector3(0, 2.4, 0), 60.0, 2.6)
+	_leva(pai, onde + Vector3(0, 0.4, 0), "smoke_10", Color(0.62, 0.6, 0.58, 0.55), false, 6, 1.7, r * 1.8, Vector2(2.0, 4.5), Vector3(0, 0.4, 0), 88.0, 2.2)
+	# o anel de choque e a marca de queimado ficam deitados no chão
+	for dados in [["circle_02", Color(1.0, 0.85, 0.6, 0.9), true, 0.3, raio * 2.3], ["scorch_01", Color(0.08, 0.07, 0.06, 0.75), false, 0.7, raio * 1.3]]:
+		var chao := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2.ONE
+		q.orientation = PlaneMesh.FACE_Y
+		chao.mesh = q
+		var m := mat(dados[0], dados[1], dados[2], false).duplicate() as StandardMaterial3D
+		chao.material_override = m
+		chao.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chao.top_level = true
+		chao.position = onde + Vector3(0, 0.12 if dados[2] else 0.06, 0)
+		chao.scale = Vector3.ONE * float(dados[4]) * (0.25 if dados[2] else 1.0)
+		pai.add_child(chao)
+		var tw := chao.create_tween()
+		tw.set_parallel(true)
+		if dados[2]:
+			tw.tween_property(chao, "scale", Vector3.ONE * float(dados[4]), float(dados[3])).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+			tw.tween_property(m, "albedo_color:a", 0.0, float(dados[3]))
+		else:
+			tw.tween_property(m, "albedo_color:a", 0.0, 6.0).set_delay(1.5)
+		tw.set_parallel(false)
+		tw.tween_callback(chao.queue_free)
+	var luz := OmniLight3D.new()
+	luz.light_color = Color(1.0, 0.6, 0.25)
+	luz.light_energy = 6.0
+	luz.omni_range = raio * 3.0
+	luz.shadow_enabled = false
+	luz.top_level = true
+	pai.add_child(luz)
+	luz.global_position = onde + Vector3(0, 0.8, 0)
+	var tl := luz.create_tween()
+	tl.tween_property(luz, "light_energy", 0.0, 0.4)
+	tl.tween_callback(luz.queue_free)
+
+
 ## Fumaça contínua atrás de um míssil (filha dele; as partículas ficam para trás no mundo).
 static func rastro_fumaca(pai: Node3D) -> void:
 	var p := CPUParticles3D.new()

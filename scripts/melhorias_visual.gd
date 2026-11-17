@@ -488,6 +488,57 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 			var g := _grupo(_ancora(v, "tronco"), Vector3(0, 0.446, 0.08))
 			for i in 3:
 				nos.append(_caixa(g, Vector3(0.022, 0.016, 0.006), Vector3((i - 1) * 0.034, 0, 0), _mat(Color(0.3, 0.9, 1.0), 2.4)))
+		"arma_rajada", "arma_canhao", "arma_precisao", "arma_duplo":
+			# a ponta do braço muda com a arma: os canos vão ao longo do antebraço e passam da mão
+			for s in ([1.0, -1.0] if nome == "arma_duplo" else [1.0]):
+				var g := _grupo(_ancora(v, "cotoveloD" if s > 0.0 else "cotoveloE"), Vector3(s * 0.204, 0.39, -0.062))
+				match nome:
+					"arma_rajada":
+						_caixa(g, Vector3(0.05, 0.06, 0.03), Vector3(0, 0.03, 0.006), _mat(ESCURO))
+						for i in 3:
+							_cil(g, 0.0085, 0.0085, 0.12, Vector3((i - 1) * 0.017, -0.05, -0.004 if i == 1 else 0.004), _mat(ACO))
+						_cil(g, 0.03, 0.03, 0.008, Vector3(0, -0.07, 0.0), _mat(VERDE))
+					"arma_canhao":
+						_cil(g, 0.03, 0.036, 0.11, Vector3(0, -0.01, 0), _mat(ESCURO))
+						_cil(g, 0.04, 0.04, 0.022, Vector3(0, -0.075, 0), _mat(CLARO))
+						_cil(g, 0.028, 0.028, 0.006, Vector3(0, -0.088, 0), _mat(PESSEGO, 2.4))
+						_cil(g, 0.038, 0.038, 0.01, Vector3(0, 0.04, 0), _mat(VERDE))
+					"arma_precisao":
+						_cil(g, 0.011, 0.011, 0.24, Vector3(0, -0.07, 0), _mat(ACO))
+						_cil(g, 0.016, 0.016, 0.03, Vector3(0, -0.185, 0), _mat(ESCURO))
+						_caixa(g, Vector3(0.03, 0.07, 0.026), Vector3(0, 0.03, 0.004), _mat(ESCURO))
+						_cil(g, 0.014, 0.014, 0.07, Vector3(0, 0.0, -0.03), _mat(CLARO))
+						_cil(g, 0.012, 0.012, 0.004, Vector3(0, -0.037, -0.03), _mat(Color(0.35, 0.9, 1.0), 2.4))
+					"arma_duplo":
+						_cil(g, 0.02, 0.022, 0.1, Vector3(0, -0.03, 0), _mat(ESCURO))
+						_cil(g, 0.026, 0.026, 0.012, Vector3(0, -0.082, 0), _mat(VERDE))
+						_cil(g, 0.015, 0.015, 0.005, Vector3(0, -0.09, 0), _mat(PESSEGO, 2.2))
+				nos.append(g)
+		"lanca_misseis", "lanca_granadas":
+			# os dois lançadores ficam para fora dos ombros, na ponta de uma barra que sai das costas, e apontam
+			# na mesma direção (para cima e um pouco para a frente): o que sai deles passa longe da cabeça
+			var s := -1.0 if nome == "lanca_misseis" else 1.0
+			var raiz := _ancora(v, "tronco")
+			_caixa(raiz, Vector3(0.03, 0.04, 0.03), Vector3(s * 0.085, 0.64, 0.088), _mat(ESCURO))
+			_caixa(raiz, Vector3(0.13, 0.022, 0.022), Vector3(s * 0.145, 0.652, 0.088), _mat(ACO))
+			_cil(raiz, 0.016, 0.016, 0.05, Vector3(s * 0.205, 0.665, 0.088), _mat(VERDE))
+			var g := _grupo(raiz, Vector3(s * 0.205, 0.735, 0.08), Vector3(-20, 0, 0))
+			if nome == "lanca_misseis":
+				# uma caixa em pé com quatro bocas em cima
+				_caixa(g, Vector3(0.085, 0.13, 0.085), Vector3.ZERO, _mat(ESCURO))
+				_caixa(g, Vector3(0.091, 0.012, 0.091), Vector3(0, -0.03, 0), _mat(VERDE))
+				for i in 4:
+					var px := (i % 2 - 0.5) * 0.036
+					var pz := (int(i / 2.0) - 0.5) * 0.036
+					_cil(g, 0.014, 0.014, 0.01, Vector3(px, 0.066, pz), _mat(CLARO))
+					_cil(g, 0.009, 0.009, 0.004, Vector3(px, 0.071, pz), _mat(Color(1.0, 0.3, 0.2), 2.2))
+			else:
+				# um tubo curto e largo
+				_cil(g, 0.03, 0.034, 0.15, Vector3.ZERO, _mat(ESCURO))
+				_cil(g, 0.038, 0.038, 0.016, Vector3(0, 0.072, 0), _mat(CLARO))
+				_cil(g, 0.036, 0.036, 0.012, Vector3(0, -0.03, 0), _mat(VERDE))
+				_cil(g, 0.024, 0.024, 0.004, Vector3(0, 0.081, 0), _mat(PESSEGO, 1.8))
+			nos.append(g)
 		"mira":
 			# um aro com um ponto vermelho no punho direito, o braço que atira
 			var g := _grupo(_ancora(v, "cotoveloD"), Vector3(0.204, 0.4, -0.004))

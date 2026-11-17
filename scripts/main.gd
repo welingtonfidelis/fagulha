@@ -114,6 +114,12 @@ func _ready() -> void:
 		add_child(tiro)
 		hud.tiro = tiro
 		tiro.hud = hud
+		hud.tiro_no = tiro
+		var roda := RodaArmas.new()
+		roda.name = "RodaArmas"
+		roda.armadura = armadura
+		roda.hud = hud
+		add_child(roda)
 		tiro.disparou.connect(sons.ao_atirar)
 		tiro.disparou.connect(vibra.ao_atirar)
 		var mato := EfeitosMato.new()

@@ -41,6 +41,7 @@ var alvo_mira := Vector3.ZERO  # onde a mira bate (para a distância na tela)
 var alvo_mira_ok := false
 var pouso_forca := 0.0  # 0 pouso comum, 0,5 queda com estilo leve, 1 pouso de herói (o visual e os efeitos leem)
 var clarao_tiro := 0.0  # brilho rápido do jato da mão direita a cada disparo
+var atirando_e := 0.0  # o mesmo para o braço esquerdo (tiro duplo)
 var atirando := 0.0  # tempo desde o último tiro (o visual aponta o braço mesmo sem mirar)
 var mergulhando := false  # mergulho com impacto em andamento (o visual lê)
 var base := Vector3.INF  # onde reaparece depois do curto (o mapa define; sem base, religa onde caiu)
@@ -355,10 +356,12 @@ func _passo(delta: float) -> void:
 		luz_ligada = not luz_ligada
 	var mira := camera.mira() if camera else -global_basis.z
 	var mov := Input.get_vector("esquerda", "direita", "frente", "tras")
-	mirando = Input.is_action_pressed("mirar")
+	# no tiro duplo o L2 é o gatilho do braço esquerdo: não mira
+	mirando = Input.is_action_pressed("mirar") and not (Arsenal.modo == "duplo" and Arsenal.tem_arma("duplo"))
 	_esquiva_espera = maxf(0.0, _esquiva_espera - delta)
 	impulso = maxf(0.0, impulso - delta * 3.0)
 	atirando = maxf(0.0, atirando - delta)
+	atirando_e = maxf(0.0, atirando_e - delta)
 	clarao_tiro = maxf(0.0, clarao_tiro - delta * 5.0)
 	if ilha:
 		ilha.atualizar_colisao_arvores(global_position)

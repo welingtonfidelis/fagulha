@@ -40,6 +40,11 @@ var _portao := 0
 var _caidos: Array[Dictionary] = []
 var _espolios: Array[Dictionary] = []
 var _painel_luz: OmniLight3D
+var _caixas: Array[Dictionary] = []
+var _caixa_n := 0
+var _caixa_t := 25.0
+var caixas_soltas := 0  # testes
+var caixas_pegas := 0
 var _mat_painel: StandardMaterial3D
 
 
@@ -89,6 +94,7 @@ static var _tex: Texture2D
 static var luzes_forja: Array[OmniLight3D] = []
 static var bracos_forja: Array[Node3D] = []
 static var lampadas: Array[Dictionary] = []
+static var esteiras: Array = []  # [boca, fim] de cada esteira das forjas, no mundo: por onde saem as caixas
 
 
 static func _mat(cor: Color, fer := 0.35, mus := 0.3) -> ShaderMaterial:
@@ -403,6 +409,7 @@ static func _forja(v: Node3D, corpo: StaticBody3D, p: Vector3, giro: float) -> v
 	var braco := _kit(v, "robot-arm-a", Transform3D((b * Basis(Vector3.UP, PI * 0.5)).scaled(Vector3.ONE * 2.2), p + b * Vector3(-3.6, 0, -8.5)), Color(0.85, 0.6, 0.35), 0.45, 0.15, corpo)
 	braco.set_meta("giro0", braco.rotation.y)
 	bracos_forja.append(braco)
+	esteiras.append([p + b * Vector3(0, 1.6, -4.6), p + b * Vector3(0, 1.6, -15.4), p + b * Vector3(0, 0.45, -17.6)])
 	var luz := OmniLight3D.new()
 	luz.light_color = FOGO
 	luz.light_energy = 3.0
@@ -636,6 +643,7 @@ static func montar(v: Vale) -> void:
 	_tex = v._tex
 	luzes_forja.clear()
 	bracos_forja.clear()
+	esteiras.clear()
 	pecas_kit = 0
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 6606
@@ -930,6 +938,80 @@ func _soltar(dados: Dictionary) -> void:
 	vivos.append(mc)
 
 
+## Uma caixa sai da forja pela esteira (as forjas ainda fabricam): "municao" enche as granadas e os mísseis,
+## "conserto" apaga os acertos que o robô levou. Rola até a ponta, cai no chão e espera ser pega.
+func soltar_caixa(tipo: String) -> void:
+	if esteiras.is_empty():
+		return
+	var e: Array = esteiras[_caixa_n % esteiras.size()]
+	_caixa_n += 1
+	var cor := Color(1.0, 0.62, 0.3) if tipo == "municao" else Color(0.4, 1.0, 0.55)
+	var no := _kit(self, "box-small", Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 1.5), e[0]), Color(0.9, 0.88, 0.82), 0.1, 0.0)
+	var faixa := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.64, 0.12, 0.54)
+	faixa.mesh = bm
+	faixa.material_override = _luz(cor, 3.0)
+	faixa.position = Vector3(0, 0.3, 0)
+	no.add_child(faixa)
+	# a marca: uma cruz para o conserto, um losango para a munição
+	for i in 2:
+		var marca := MeshInstance3D.new()
+		var mm := BoxMesh.new()
+		mm.size = Vector3(0.3, 0.02, 0.09)
+		marca.mesh = mm
+		marca.material_override = _luz(cor, 3.0)
+		marca.position = Vector3(0, 0.56, 0)
+		marca.rotation.y = (PI * 0.5 * i) if tipo == "conserto" else (PI * 0.25 + PI * 0.5 * i)
+		no.add_child(marca)
+	var luz := OmniLight3D.new()
+	luz.light_color = cor
+	luz.light_energy = 1.4
+	luz.omni_range = 6.0
+	luz.position = Vector3(0, 0.6, 0)
+	no.add_child(luz)
+	_caixas.append({"no": no, "tipo": tipo, "t": 0.0, "e": e})
+	caixas_soltas += 1
+	if hud:
+		hud.avisar("Caixa de munição" if tipo == "municao" else "Caixa de conserto", "saindo de uma forja")
+
+
+func _andar_caixas(delta: float) -> void:
+	for cx in _caixas.duplicate():
+		cx["t"] += delta
+		var no := cx["no"] as Node3D
+		var e: Array = cx["e"]
+		var t: float = cx["t"]
+		if t < 4.0:
+			no.global_position = (e[0] as Vector3).lerp(e[1], t / 4.0)
+		elif t < 4.6:
+			var f := (t - 4.0) / 0.6
+			no.global_position = (e[1] as Vector3).lerp(e[2], f) + Vector3(0, sin(f * PI) * 0.5, 0)
+		else:
+			no.global_position = e[2]
+			no.rotation.y += delta * 0.8
+		var perto := armadura.pos_suave().distance_to(no.global_position) < 1.5 + armadura.altura_corpo() * 0.4
+		if perto and not armadura.em_pane:
+			if cx["tipo"] == "municao":
+				Arsenal.repor_granadas()
+				if hud:
+					hud.avisar("Munição reposta", "granadas %d · mísseis %d" % [Arsenal.granadas, Arsenal.misseis])
+			else:
+				armadura.avaria = 0
+				armadura.set("_dano_frac", 0.0)
+				armadura.escudo_t = 0.0
+				if hud:
+					hud.avisar("Robô consertado", "os acertos foram apagados")
+			caixas_pegas += 1
+			if sons:
+				sons._toque("marcar", -4.0, 0.0)
+			no.queue_free()
+			_caixas.erase(cx)
+		elif t > 90.0:
+			no.queue_free()
+			_caixas.erase(cx)
+
+
 func _recompensa(mc: Mecha) -> void:
 	vencidos_total += 1
 	var xp := roundi((80.0 if mc.chefe else 10.0) * (1.0 + onda * 0.15))
@@ -963,6 +1045,9 @@ func _recompensa(mc: Mecha) -> void:
 
 
 func _parar(motivo: String, sub := "") -> void:
+	for cx in _caixas:
+		(cx["no"] as Node3D).queue_free()
+	_caixas.clear()
 	if fase != Fase.RESPIRO:
 		onda = maxi(0, onda - 1)  # a onda que não acabou fica para a próxima vez
 	fase = Fase.PARADA
@@ -1022,6 +1107,7 @@ func _physics_process(delta: float) -> void:
 	_mat_painel.emission_energy_multiplier = lerpf(0.8, 2.6, pulso) if fase == Fase.PARADA else 1.2
 	_painel_luz.light_color = _mat_painel.emission
 	_painel_luz.light_energy = 0.6 + pulso * 0.6
+	_andar_caixas(delta)
 	var d := _dist()
 	if fase == Fase.PARADA:
 		if hud:
@@ -1060,6 +1146,15 @@ func _physics_process(delta: float) -> void:
 				elif mc.desligada:
 					vivos.erase(mc)
 					_recompensa(mc)
+			# no meio da onda, de tempos em tempos, uma forja solta uma caixa: de conserto se o robô levou
+			# acerto, senão de munição (se ele tiver o que repor)
+			_caixa_t -= delta
+			if _caixa_t <= 0.0:
+				_caixa_t = 38.0
+				if armadura.avaria > 0:
+					soltar_caixa("conserto")
+				elif Arsenal.granadas < Arsenal.granadas_max() or Arsenal.misseis < Arsenal.misseis_max():
+					soltar_caixa("municao")
 			_solta_t -= delta
 			if not _fila.is_empty() and vivos.size() < ATIVOS and _solta_t <= 0.0:
 				_soltar(_fila.pop_front())
@@ -1085,6 +1180,11 @@ func _physics_process(delta: float) -> void:
 
 func _vencer_onda() -> void:
 	Arsenal.recorde = maxi(Arsenal.recorde, onda)
+	# no respiro as forjas mandam o que faltar: munição, e conserto se o robô levou acerto
+	if Arsenal.granadas < Arsenal.granadas_max() or Arsenal.misseis < Arsenal.misseis_max():
+		soltar_caixa("municao")
+	if armadura.avaria > 0:
+		soltar_caixa("conserto")
 	var chefe := onda % CHEFE_A_CADA == 0
 	if chefe:
 		Arsenal.ponto_volta = onda + 1

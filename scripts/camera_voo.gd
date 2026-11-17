@@ -17,6 +17,7 @@ var _mira := 0.0
 var _roll := 0.0
 var _iniciado := false
 var _t := 0.0
+var _afasta := 0.0
 var primeira := false  # scanner: a câmera vai para os olhos do robô
 var zoom := 0.0  # 0 a 1, só em primeira pessoa
 
@@ -41,10 +42,13 @@ func basis_plano() -> Basis:
 # ajustes da pausa (Guardado): multiplicador da sensibilidade e o eixo de cima-baixo invertido
 static var fator_sens := 1.0
 static var inverter_y := false
+static var afasta := 0.0  # 0 a 1: a câmera sobe e recua (segurando a granada, para ver o arco e onde cai)
+static var travada := false  # a roda de armas está aberta: o analógico direito escolhe a arma, não gira a câmera
+static var fov_mira := Ajustes.FOV_MIRA  # o zoom ao mirar (a arma de precisão fecha)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not travada:
 		var mm := event as InputEventMouseMotion
 		var sens := Ajustes.SENS_MOUSE * fator_sens * (Ajustes.SENS_MIRANDO if alvo and alvo.mirando_agora() else 1.0)
 		yaw -= mm.relative.x * sens
@@ -58,7 +62,11 @@ func _process(delta: float) -> void:
 	_t += delta
 	var olhar := Input.get_vector("olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo")
 	olhar *= olhar.length()  # curva: precisão no meio, rapidez no fim
+	if travada:
+		olhar = Vector2.ZERO
 	var sens := Ajustes.SENS_ANALOGICO * fator_sens * (Ajustes.SENS_MIRANDO if alvo.mirando_agora() else 1.0)
+	if alvo.mirando_agora():
+		sens *= clampf(fov_mira / Ajustes.FOV_MIRA, 0.3, 1.0)  # com zoom, a mira anda mais devagar
 	if primeira:
 		sens *= lerpf(0.8, 0.22, zoom)  # com zoom, a mira anda mais devagar
 	yaw -= olhar.x * sens * delta
@@ -82,6 +90,8 @@ func _process(delta: float) -> void:
 	var kp := pow(Armadura.porte, 0.75)  # robô pequeno: câmera mais perto e mais baixa
 	var alvo_pivo := alvo.pos_suave() + Vector3(0.0, lerpf(lerpf(2.15, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
 	alvo_pivo.y -= [0.0, 0.45, 0.85][alvo.postura] * Armadura.porte  # abaixado e sentado, a câmera desce junto
+	_afasta = lerpf(_afasta, afasta, 1.0 - exp(-7.0 * delta))
+	alvo_pivo.y += _afasta * 1.7 * kp
 	if not _iniciado:
 		_pivo = alvo_pivo
 		_iniciado = true
@@ -89,7 +99,7 @@ func _process(delta: float) -> void:
 	var taxa := lerpf(16.0, 14.0, m)
 	_pivo = _pivo.lerp(alvo_pivo, 1.0 - exp(-taxa * delta))
 	var dist_alvo := lerpf(Ajustes.CAM_DIST_CHAO, Ajustes.CAM_DIST_VOO, m) + clampf(v - Ajustes.VOO_ALVO, 0.0, 30.0) * 0.03 * m
-	dist_alvo = lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) * kp
+	dist_alvo = (lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) + _afasta * 3.4) * kp
 	_dist = lerpf(_dist, dist_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))
 	var b := Basis.from_euler(Vector3(pitch, yaw, 0.0))
 	var ombro := lerpf(lerpf(0.7, 0.35, m), 0.85, mi) * kp
@@ -114,7 +124,7 @@ func _process(delta: float) -> void:
 	var fov_alvo := lerpf(Ajustes.FOV_CHAO, Ajustes.FOV_MAX, clampf((v - 6.0) / (Ajustes.VEL_TOPO - 6.0), 0.0, 1.0) * m)
 	if not voando and v > Ajustes.ANDAR + 1.0:
 		fov_alvo += 3.0
-	fov_alvo = lerpf(fov_alvo, Ajustes.FOV_MIRA, mi)
+	fov_alvo = lerpf(fov_alvo, fov_mira, mi)
 	cam.fov = lerpf(cam.fov, fov_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))
 	# tremor
 	var forca := alvo.tremor + maxf(0.0, v - Ajustes.ARRANCADA_ALVO) * 0.006 * m + (0.05 if alvo.superaquecido else 0.0)
