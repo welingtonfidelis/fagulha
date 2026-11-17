@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<rect width="1200" height="800" fill="#10191b"/>
+<text x="40" y="52" font-size="30" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rascunho 3 · Arsenal (uma aba nova na oficina da base)</text>
+<text x="40" y="80" font-size="16" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">As peças de exploração continuam na aba ao lado. Aqui se fabrica com o que a Fundição dá: experiência e materiais.</text>
+<rect x="40" y="110" width="420" height="650" rx="16" fill="#1b2a2c"/>
+<g transform="translate(250,440)"><rect x="-46" y="-150" width="92" height="80" rx="30" fill="#eceee6"/><rect x="-34" y="-130" width="68" height="34" rx="10" fill="#6b7a7e"/><circle cx="12" cy="-113" r="9" fill="#fff"/><rect x="-44" y="-62" width="88" height="96" rx="16" fill="#eceee6"/><circle cx="0" cy="-22" r="13" fill="#ff9e4d"/><rect x="-78" y="-56" width="26" height="92" rx="10" fill="#6b7a7e"/><rect x="52" y="-56" width="26" height="92" rx="10" fill="#6b7a7e"/><rect x="-36" y="40" width="26" height="100" rx="8" fill="#4a5a5e"/><rect x="10" y="40" width="26" height="100" rx="8" fill="#4a5a5e"/><rect x="-92" y="-78" width="48" height="26" rx="10" fill="#ff9e4d"/><rect x="44" y="-78" width="48" height="26" rx="10" fill="#ff9e4d"/><rect x="-58" y="-170" width="30" height="74" rx="8" fill="#59f2d9" opacity="0.85" transform="rotate(-18 -43 -133)"/><circle cx="0" cy="-14" r="120" fill="none" stroke="#59f2d9" stroke-width="3" stroke-dasharray="10 8" opacity="0.7"/></g>
+<text x="250" y="150" font-size="16" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">prévia: ombreiras, lança-mísseis e escudo</text>
+<text x="250" y="728" font-size="16" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Nível 3 · 240 de 400 de experiência</text>
+<rect x="90" y="738" width="320" height="8" rx="4" fill="#22352f"/><rect x="90" y="738" width="192" height="8" rx="4" fill="#59f2d9"/>
+<rect x="490" y="110" width="670" height="650" rx="16" fill="#0d1517"/>
+<rect x="514" y="130" width="146" height="42" rx="10" fill="#1f3033"/>
+<text x="587" y="158" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Peças</text>
+<rect x="672" y="130" width="146" height="42" rx="10" fill="#ff9e4d"/>
+<text x="745" y="158" font-size="18" fill="#0b1416" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Armas</text>
+<rect x="830" y="130" width="146" height="42" rx="10" fill="#1f3033"/>
+<text x="903" y="158" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Defesa</text>
+<rect x="988" y="130" width="146" height="42" rx="10" fill="#1f3033"/>
+<text x="1061" y="158" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Corpo</text>
+<text x="514" y="208" font-size="15" fill="#59f2d9" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Sucata 34     Núcleos 2     Chips de chefe 0</text>
+<rect x="514" y="232" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="258" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Jato</text>
+<text x="534" y="278" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">de fábrica</text>
+<text x="1116" y="268" font-size="16" fill="#59f2d9" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">instalado</text>
+<rect x="514" y="298" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="324" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rajada</text>
+<text x="534" y="344" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 1 · 20 sucata</text>
+<text x="1116" y="334" font-size="16" fill="#59f2d9" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricado</text>
+<rect x="514" y="364" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="390" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<text x="534" y="410" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 2 · 30 sucata, 1 núcleo</text>
+<text x="1116" y="400" font-size="16" fill="#ff9e4d" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricar</text>
+<rect x="514" y="430" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="456" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Precisão</text>
+<text x="534" y="476" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 3 · 40 sucata, 1 núcleo</text>
+<text x="1116" y="466" font-size="16" fill="#ff9e4d" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricar</text>
+<rect x="514" y="496" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="522" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Tiro duplo</text>
+<text x="534" y="542" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 4 · 60 sucata, 2 núcleos</text>
+<text x="1116" y="532" font-size="16" fill="#5c6c6c" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">falta nível</text>
+<rect x="514" y="562" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="588" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Lança-mísseis</text>
+<text x="534" y="608" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 5 · 80 sucata, 1 chip de chefe</text>
+<text x="1116" y="598" font-size="16" fill="#5c6c6c" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">falta nível</text>
+<rect x="514" y="628" width="622" height="58" rx="10" fill="#1b2a2c"/>
+<text x="534" y="654" font-size="19" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Granadas (+1 no cinto)</text>
+<text x="534" y="674" font-size="13.5" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 2 · 25 sucata</text>
+<text x="1116" y="664" font-size="16" fill="#ff9e4d" text-anchor="end" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricar</text>
+<text x="514" y="726" font-size="14" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Defesa: escudo de energia, placas (aguenta um acerto a mais).  Corpo: vida extra, motor que esquenta menos atirando.</text>
+</svg>

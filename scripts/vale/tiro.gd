@@ -8,7 +8,7 @@ extends Node3D
 
 signal disparou(origem: Vector3, alvo: Vector3)
 
-const CADENCIA := 0.28  # s entre disparos
+const CADENCIA := 0.2  # s no mínimo entre disparos (a pistola atira a cada aperto)
 const CALOR_POR_TIRO := 3.5
 const ALCANCE := 220.0
 const VELOCIDADE := 130.0  # m/s do projétil (as máquinas atiram bala rápida; o robô acompanha)
@@ -25,6 +25,7 @@ var disparos := 0
 var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela desenha o colchete nela
 
 var _espera := 0.0
+var _pedido := 0.0  # tempo que um aperto do gatilho ainda vale
 var _mat_projetil: StandardMaterial3D
 var _mat_faisca: StandardMaterial3D
 var _malha_projetil: CapsuleMesh
@@ -79,7 +80,12 @@ func _physics_process(delta: float) -> void:
 	if armadura == null or not is_instance_valid(armadura):
 		return
 	_atualizar_trava()
-	if not Input.is_action_pressed("atirar"):
+	# a arma de fábrica é uma pistola: um disparo por aperto; segurar não repete (um aperto dado um
+	# instante antes de a arma estar pronta ainda vale, para o dedo rápido não perder tiro)
+	if Input.is_action_just_pressed("atirar"):
+		_pedido = 0.14
+	_pedido = maxf(0.0, _pedido - delta)
+	if _pedido <= 0.0:
 		return
 	# no chão atira mirando ou não; no ar, só no voo parado (voando ou caindo, não)
 	var e := armadura.estado
@@ -98,6 +104,7 @@ func _physics_process(delta: float) -> void:
 			get_tree().call_group("amigos", "levou_mira")
 		return
 	_espera = CADENCIA
+	_pedido = 0.0
 	armadura.atirando = 0.6
 	_disparar()
 
@@ -136,7 +143,8 @@ func _disparar() -> void:
 ## com a vista livre, fica travada; os tiros seguem ela. Sem mirar não há trava.
 func _atualizar_trava() -> void:
 	var cam := armadura.camera
-	if cam == null or not armadura.mirando_agora() or armadura.em_pane:
+	# travar a mira é fabricável (a Mira assistida, no Arsenal): sem ela, o tiro vai para onde a mira aponta
+	if cam == null or not armadura.mirando_agora() or armadura.em_pane or not Arsenal.tem("mira"):
 		travado = null
 		return
 	var de := cam.global_position

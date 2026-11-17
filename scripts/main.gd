@@ -14,6 +14,7 @@ var hud: Hud
 var drone: DroneColega
 var pecas: PecasMundo
 var oficina: Oficina
+var fundicao: Fundicao
 var scanner: Scanner
 var pausa: Pausa
 var vida: VidaVale
@@ -37,8 +38,11 @@ func _ready() -> void:
 	Melhorias.tudo = not Guardado.ativo and not ("--basico" in args)
 	Melhorias.achadas = []
 	Melhorias.instaladas = []
+	Arsenal.zerar()
+	Arsenal.tudo = Melhorias.tudo
 	if Guardado.ativo:
 		Melhorias.carregar()
+		Arsenal.carregar()
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
@@ -52,6 +56,7 @@ func _ready() -> void:
 	Armadura.porte = 0.48 if vale else 1.0
 	if not vale:
 		Melhorias.tudo = true  # a ilha pequena de teste não tem peças
+		Arsenal.tudo = true
 	Armadura.vel_chao = 0.7 if vale else 1.0
 	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
 	ArmaduraVisual.toon = vale
@@ -179,6 +184,16 @@ func _ready() -> void:
 				oficina.sons = sons
 				oficina.drone = drone
 				add_child(oficina)
+			if Fundicao.montada:
+				fundicao = Fundicao.new()
+				fundicao.name = "Fundicao"
+				fundicao.armadura = armadura
+				fundicao.hud = hud
+				fundicao.sons = sons
+				fundicao.mapa = ilha as Vale
+				add_child(fundicao)
+				if locais:
+					locais.adicionar("A Fundição", Vector3(Fundicao.CENTRO.x, Fundicao.PISO + 4.0, Fundicao.CENTRO.y), Fundicao.RAIO + 14.0)
 			scanner = Scanner.new()
 			scanner.name = "Scanner"
 			scanner.armadura = armadura

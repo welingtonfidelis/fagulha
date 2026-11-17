@@ -8,7 +8,7 @@ extends RefCounted
 const ARQUIVO := "user://faisca2.json"
 const PADRAO := {
 	"ajustes": {"qualidade": 1, "sensibilidade": 2, "inverter_y": false, "vibra": true},
-	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": []},
+	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}},
 }
 
 static var ativo := true

@@ -4,7 +4,7 @@ extends RefCounted
 ## y para cima, z para trás (a frente é -z), tudo em alturas do robô (1.0 = 2,6 m de porte; a cabeça acaba em 0,92).
 ## Feitas para o robô do vale (`assets/vale/robo_v1.glb`): cada grupo fica preso a uma junta dele.
 
-const NOMES := ["radiador", "bocais", "asas", "barbatanas", "amortecedores", "antena", "farol", "celulas", "scanner"]
+const NOMES := ["radiador", "bocais", "asas", "barbatanas", "amortecedores", "antena", "farol", "celulas", "scanner", "mira"]
 
 static var minimo := true  # versão discreta: peças pequenas, rentes ao corpo
 static var asas_fator := 0.0  # 0 recolhidas dentro da mochila, 1 abertas (só planando)
@@ -488,6 +488,12 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 			var g := _grupo(_ancora(v, "tronco"), Vector3(0, 0.446, 0.08))
 			for i in 3:
 				nos.append(_caixa(g, Vector3(0.022, 0.016, 0.006), Vector3((i - 1) * 0.034, 0, 0), _mat(Color(0.3, 0.9, 1.0), 2.4)))
+		"mira":
+			# um aro com um ponto vermelho no punho direito, o braço que atira
+			var g := _grupo(_ancora(v, "cotoveloD"), Vector3(0.204, 0.4, -0.004))
+			_cil(g, 0.052, 0.052, 0.014, Vector3.ZERO, _mat(ESCURO))
+			_cil(g, 0.054, 0.054, 0.005, Vector3(0, 0.004, 0), _mat(VERDE))
+			nos.append(_bola(g, 0.011, Vector3(0, 0, -0.055), _mat(Color(1.0, 0.25, 0.2), 3.0)))
 		"scanner":
 			# uma lente pequena na frente da orelha direita
 			var g := _grupo(_ancora(v, "cabeca"), Vector3(0.137, 0.8, -0.054), Vector3(90, 0, 0))

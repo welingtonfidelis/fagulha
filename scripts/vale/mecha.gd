@@ -6,6 +6,7 @@ extends Vigia
 ## mais devagar. Cada placa de armadura faz aguentar um tiro a mais, e os de corpo grande são mais lentos.
 
 var ficha := {}
+var arma_forcada := ""  # "corpo", "bala", "pesado" ou "missil" (Mech00Visual.forcar); "" sorteia
 var chefe := false  # mech grande (3 m), no lugar das antigas Sentinelas: aguenta o dobro e bate mais forte
 
 
@@ -19,7 +20,9 @@ func _montar_corpo() -> void:
 		altura_m = 3.0
 		_acerto.position.y = altura_m * 0.6
 		_fumaca.position.y = altura_m * 0.5
+	Mech00Visual.forcar = arma_forcada
 	var v := Mech00Visual.montar(semente, altura_m, (mapa as Clareira)._tex if mapa is Clareira else null)
+	Mech00Visual.forcar = ""
 	mech = v
 	v.chao = func(x: float, z: float) -> float: return mapa.altura(x, z)
 	_corpo.add_child(v)

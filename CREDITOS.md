@@ -51,3 +51,9 @@ livre em jogos, sem redistribuir os arquivos (por isso o repositório do jogo é
 
 - **Sci-Fi Essentials Kit** e **Modular SciFi MegaKit**, de Quaternius (https://quaternius.com), CC0 1.0. Peças do hangar, caixas, antena e o drone colega (`assets/vale/base/`).
 - **Faísca**, o robô da Ilha Cafuné (jogo do mesmo autor), em `assets/faisca/faisca.scn`.
+
+## Factory Kit (Kenney)
+
+Máquinas, esteiras, braços de robô, tubos, guindastes, engrenagens e telas do galpão da Fundição
+(`assets/vale/fundicao/`). Factory Kit 3.0, de Kenney (www.kenney.nl), licença Creative Commons Zero (CC0).
+Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.

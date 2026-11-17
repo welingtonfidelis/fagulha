@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<rect width="1200" height="800" fill="#1b2a2c"/>
+<rect y="560" width="1200" height="240" fill="#22352f"/>
+<text x="40" y="52" font-size="30" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rascunho 2 · Roda de armas (segurando L1)</text>
+<text x="40" y="80" font-size="16" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">O jogo fica em câmera lenta; o analógico direito escolhe; soltou o L1, trocou. R1 joga granada sem abrir a roda.</text>
+<circle cx="600" cy="430" r="250" fill="#0b1416" opacity="0.72"/>
+<path d="M 555.2 345.1 L 489.9 221.2 A 236 236 0 0 1 710.1 221.2 L 644.8 345.1 A 96 96 0 0 0 555.2 345.1 Z" fill="#1f3033" stroke="#0b1416" stroke-width="2"/>
+<text x="600" y="260" font-size="21" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Jato</text>
+<text x="600" y="282" font-size="13.5" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">tiro de sempre</text>
+<path d="M 651.2 348.8 L 725.8 230.3 A 236 236 0 0 1 835.8 420.9 L 695.9 426.3 A 96 96 0 0 0 651.2 348.8 Z" fill="#ff9e4d" stroke="#0b1416" stroke-width="2"/>
+<text x="745" y="344" font-size="21" fill="#0b1416" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rajada</text>
+<text x="745" y="366" font-size="13.5" fill="#3a2a14" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">metralhadora</text>
+<path d="M 695.9 433.7 L 835.8 439.1 A 236 236 0 0 1 725.8 629.7 L 651.2 511.2 A 96 96 0 0 0 695.9 433.7 Z" fill="#1f3033" stroke="#0b1416" stroke-width="2"/>
+<text x="745" y="512" font-size="21" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<text x="745" y="534" font-size="13.5" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">segura e solta</text>
+<path d="M 644.8 514.9 L 710.1 638.8 A 236 236 0 0 1 489.9 638.8 L 555.2 514.9 A 96 96 0 0 0 644.8 514.9 Z" fill="#162023" stroke="#0b1416" stroke-width="2"/>
+<text x="600" y="596" font-size="21" fill="#5c6c6c" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Precisão</text>
+<text x="600" y="618" font-size="13.5" fill="#4a5858" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">não fabricado</text>
+<path d="M 548.8 511.2 L 474.2 629.7 A 236 236 0 0 1 364.2 439.1 L 504.1 433.7 A 96 96 0 0 0 548.8 511.2 Z" fill="#162023" stroke="#0b1416" stroke-width="2"/>
+<text x="455" y="512" font-size="21" fill="#5c6c6c" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Duplo</text>
+<text x="455" y="534" font-size="13.5" fill="#4a5858" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">não fabricado</text>
+<path d="M 504.1 426.3 L 364.2 420.9 A 236 236 0 0 1 474.2 230.3 L 548.8 348.8 A 96 96 0 0 0 504.1 426.3 Z" fill="#162023" stroke="#0b1416" stroke-width="2"/>
+<text x="455" y="344" font-size="21" fill="#5c6c6c" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Mísseis</text>
+<text x="455" y="366" font-size="13.5" fill="#4a5858" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">não fabricado</text>
+<circle cx="600" cy="430" r="88" fill="#10191b" stroke="#ff9e4d" stroke-width="3"/>
+<text x="600" y="418" font-size="24" fill="#ff9e4d" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rajada</text>
+<text x="600" y="444" font-size="14" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">muitos tiros fracos</text>
+<text x="600" y="464" font-size="14" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">esquenta depressa</text>
+<rect x="40" y="690" width="330" height="76" rx="12" fill="#0b1416" opacity="0.8"/>
+<text x="60" y="722" font-size="17" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Onda 7 de 10 · 4 robôs</text>
+<text x="60" y="748" font-size="14" fill="#ff8a80" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">minichefe na onda 10</text>
+<rect x="830" y="690" width="330" height="76" rx="12" fill="#0b1416" opacity="0.8"/>
+<text x="850" y="722" font-size="17" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Granadas  ● ● ○     R1</text>
+<text x="850" y="748" font-size="14" fill="#59f2d9" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Sucata 34 · Núcleos 2 · Nível 3</text>
+</svg>

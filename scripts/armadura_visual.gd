@@ -88,6 +88,8 @@ func vestir_melhorias(extra: Array = []) -> void:
 	MelhoriasVisual.limpar(self)
 	asas_f = 0.0
 	var lista := Melhorias.vestidas()
+	if Arsenal.tem("mira") and not Arsenal.tudo:
+		lista.append("mira")
 	for nome in extra:
 		if not lista.has(nome):
 			lista.append(nome)

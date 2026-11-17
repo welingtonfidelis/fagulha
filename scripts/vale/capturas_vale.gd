@@ -202,6 +202,62 @@ func rodar(main: Node) -> void:
 			print("sumidouro: centro %s piso %.1f" % [Sumidouro.centro, Sumidouro.piso])
 		get_tree().quit()
 		return
+	if "--terreno" in args:
+		# alturas em volta de pontos candidatos (para escolher o lugar de uma obra grande)
+		await _esperar(2.0)
+		var v := c as Vale
+		print("cume %s" % v.cume)
+		# perfis norte-sul em volta da serra: o chão original (sem a cratera), de 20 em 20 m
+		for x: float in [-700.0, -640.0, -580.0, -520.0, -460.0, -400.0]:
+			var linha := "perfil x=%d:" % int(x)
+			var z := -560.0
+			while z <= -200.0:
+				linha += " %d" % int(Cavernas.chao_antes(x, z))
+				z += 20.0
+			print(linha)
+		print("agua perto: %s %s %s" % [c.agua(-580, -360) > -INF, c.agua(-520, -340) > -INF, c.agua(-640, -340) > -INF])
+		get_tree().quit()
+		return
+	if "--fundicao" in args:
+		# o galpão por dentro e de cima, e uma onda saindo da porta (`--fundicao --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		var f: Fundicao = m.fundicao
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 62.0
+		livre.make_current()
+		a.teleportar(Fundicao.aqui(8.0, 0.4, 20.0), Armadura.Estado.CHAO)
+		m.hud.visible = false
+		await _esperar(1.5)
+		var n := 0
+		for par in [[Fundicao.aqui(46, 16.0, 118), Fundicao.aqui(0, 11.0, 0)], [Fundicao.aqui(105, 30.0, 70), Fundicao.aqui(10, 10.0, -8)],
+				[Fundicao.aqui(14, 4.0, 34), Fundicao.aqui(-4, 6.0, -38)], [Fundicao.aqui(0, 110.0, 80), Fundicao.aqui(0, 0, -10)],
+				[Fundicao.aqui(-22, 6.0, 20), Fundicao.aqui(30, 5.0, -20)]]:
+			n += 1
+			livre.global_position = par[0]
+			livre.look_at(par[1])
+			await _esperar(0.5)
+			await _foto("g%d" % n)
+		livre.global_position = Fundicao.aqui(9, 3.0, -14)
+		livre.look_at(Fundicao.aqui(0, 4.5, -38))
+		await _esperar(0.3)
+		await _foto("g6_porta")
+		f.ligar()
+		await _esperar(Fundicao.T_CONTAGEM + 5.0)
+		await _foto("g7_saindo")
+		await _esperar(3.5)
+		await _foto("g8_fora")
+		# a bússola com a caveira, de longe
+		cam.cam.make_current()
+		m.hud.visible = true
+		a.teleportar(Vector3(-560.0, c.altura(-560.0, 200.0) + 0.4, 200.0), Armadura.Estado.CHAO)
+		cam.yaw = PI * 0.75
+		cam.pitch = 0.0
+		await _esperar(1.2)
+		await _foto("g9_bussola")
+		get_tree().quit()
+		return
 	if "--oficina" in args:
 		await _oficina()
 		return

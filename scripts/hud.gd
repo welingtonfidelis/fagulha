@@ -136,6 +136,21 @@ func _desenhar_bussola() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(xb, yb - 9.0), Vector2(xb + 8.5, yb - 1.0), Vector2(xb - 8.5, yb - 1.0)]), cor_b)
 			draw_rect(Rect2(xb - 5.5, yb - 1.0, 11.0, 8.0), cor_b)
 			draw_rect(Rect2(xb - 1.5, yb + 2.0, 3.0, 5.0), Color(0, 0, 0, 0.55))
+	# a Fundição, onde há luta: uma caveirinha (some quando o robô já está nela)
+	if alvo and Fundicao.montada:
+		var df := Vector3(Fundicao.CENTRO.x, 0, Fundicao.CENTRO.y) - alvo.global_position
+		df.y = 0.0
+		if df.length() > Fundicao.RAIO:
+			var xf := cx + clampf(wrapf(atan2(df.x, -df.z) - rumo, -PI, PI), -meia, meia) * escala
+			var yf := y0 + 11.0
+			var osso := Color(1.0, 0.86, 0.82)
+			draw_circle(Vector2(xf, yf - 2.0), 7.5, osso)
+			draw_rect(Rect2(xf - 4.5, yf + 2.0, 9.0, 6.5), osso)
+			draw_circle(Vector2(xf - 3.0, yf - 2.0), 2.2, Color(0.1, 0.05, 0.05))
+			draw_circle(Vector2(xf + 3.0, yf - 2.0), 2.2, Color(0.1, 0.05, 0.05))
+			draw_rect(Rect2(xf - 0.7, yf + 1.0, 1.4, 2.4), Color(0.1, 0.05, 0.05))
+			for k in 2:
+				draw_rect(Rect2(xf - 2.2 + k * 3.0, yf + 4.5, 1.2, 4.0), Color(0.1, 0.05, 0.05))
 	# a antena de busca: um triângulo verde para cada peça que estiver por perto
 	if alvo:
 		for sinal in Melhorias.sinais:
@@ -175,6 +190,19 @@ var _dano_visto := 0.0
 
 
 var dica := ""  # convite de botão embaixo, no meio (ex.: entrar na oficina)
+var placar := ""  # a Fundição: a onda e quantos robôs faltam (canto de baixo, à esquerda)
+var placar2 := ""  # nível e materiais
+
+
+func _desenhar_placar() -> void:
+	if placar == "":
+		return
+	var w := maxf(_fonte.get_string_size(placar, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, _fonte.get_string_size(placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
+	var p := Vector2(28.0, size.y - 190.0)
+	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, w + 28.0, 66.0), Color(0, 0, 0, 0.5))
+	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, 4.0, 66.0), Color(1.0, 0.62, 0.3))
+	draw_string(_fonte, p, placar, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.95))
+	draw_string(_fonte, p + Vector2(0, 24.0), placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.35, 0.95, 0.85))
 
 
 func _desenhar_dica() -> void:
@@ -190,6 +218,7 @@ func _draw() -> void:
 	_desenhar_bussola()
 	_desenhar_lugar()
 	_desenhar_dica()
+	_desenhar_placar()
 	if alvo == null:
 		return
 	var c := size * 0.5
@@ -232,18 +261,24 @@ func _draw() -> void:
 	else:
 		draw_circle(c, 2.5, Color(1, 1, 1, 0.85))
 		draw_arc(c, 9.0, 0.0, TAU, 32, Color(1, 1, 1, 0.25), 1.5, true)
+	# o escudo de energia (fabricável): um arco verde-água à direita da mira; cheio quando está pronto,
+	# enchendo enquanto recarrega
+	if Arsenal.tem("escudo"):
+		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
+		draw_arc(c, 30.0, deg_to_rad(-38.0), deg_to_rad(38.0), 20, Color(0.35, 0.95, 0.85, 0.16), 3.0, true)
+		draw_arc(c, 30.0, deg_to_rad(38.0 - 76.0 * pronto), deg_to_rad(38.0), 20, Color(0.35, 0.95, 0.85, 0.9 if pronto >= 1.0 else 0.5), 3.0, true)
 	# marcas de dano: três traços à esquerda da mira. Cada acerto de máquina apaga um (vira laranja); o
 	# terceiro desliga o robô. Só aparecem quando há dano, e somem um instante depois de ele sarar.
 	var dano := float(alvo.avaria) + float(alvo.get("_dano_frac"))
 	_dano_visto = move_toward(_dano_visto, 1.0 if dano > 0.01 else 0.0, get_process_delta_time() * (4.0 if dano > 0.01 else 0.7))
 	if _dano_visto > 0.01:
 		var pisca_d := fmod(Time.get_ticks_msec() * 0.001, 0.5) < 0.25
-		for k in Ajustes.PANE_GOLPES:
-			var ang := deg_to_rad(180.0 + (k - (Ajustes.PANE_GOLPES - 1) * 0.5) * 30.0)
+		for k in Arsenal.golpes_pane():
+			var ang := deg_to_rad(180.0 + (k - (Arsenal.golpes_pane() - 1) * 0.5) * 30.0)
 			var perdido := clampf(dano - k, 0.0, 1.0)  # este traço: 0 inteiro, 1 perdido
 			var cor_d := Color(0.45, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.15), perdido)
 			if perdido >= 1.0:
-				cor_d = Color(1.0, 0.2, 0.12, 0.9) if (pisca_d or dano < Ajustes.PANE_GOLPES - 1) else Color(0.5, 0.1, 0.06, 0.9)
+				cor_d = Color(1.0, 0.2, 0.12, 0.9) if (pisca_d or dano < Arsenal.golpes_pane() - 1) else Color(0.5, 0.1, 0.06, 0.9)
 			var de_p := c + Vector2(cos(ang), -sin(ang)) * 40.0
 			var ate_p := c + Vector2(cos(ang), -sin(ang)) * 52.0
 			draw_line(de_p, ate_p, Color(0, 0, 0, 0.4 * _dano_visto), 8.0, true)

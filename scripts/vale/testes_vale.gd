@@ -51,6 +51,7 @@ func rodar(main: Node) -> void:
 	await _ponto_28()
 	await _ponto_29()
 	await _ponto_30()
+	await _ponto_31()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -506,11 +507,11 @@ func _ponto_14() -> void:
 	_zerar()
 	var t: Node = m.get("tiro")
 	var n0: int = t.get("disparos")
-	Input.action_press("atirar")
-	await _esperar(0.7)
-	Input.action_release("atirar")
+	for k in 3:
+		await _apertar("atirar")
+		await _esperar(0.25)
 	var n1: int = t.get("disparos")
-	_ok(n1 - n0 >= 2 and not a.mirando, "atira sem mirar: %d disparos em 0,7 s no chão" % (n1 - n0))
+	_ok(n1 - n0 >= 2 and not a.mirando, "atira sem mirar: %d disparos em três apertos no chão" % (n1 - n0))
 	# voando não atira; no voo parado atira
 	var xz2 := _spawn_xz()
 	var ch2: float = m.ilha.altura(xz2.x, xz2.y)
@@ -518,14 +519,17 @@ func _ponto_14() -> void:
 	a.teleportar(Vector3(xz2.x, ch2 + 40.0, xz2.y), Armadura.Estado.VOO, fr * 22.0)
 	await _esperar(0.3)
 	var v0: int = t.get("disparos")
-	Input.action_press("atirar")
-	await _esperar(0.7)
+	for k in 2:
+		await _apertar("atirar")
+		await _esperar(0.3)
 	var v1: int = t.get("disparos")
 	Input.action_press("mirar")
-	await _esperar(1.0)
+	await _esperar(0.5)
+	for k in 3:
+		await _apertar("atirar")
+		await _esperar(0.25)
 	var v2: int = t.get("disparos")
 	var est2 := a.nome_estado()
-	Input.action_release("atirar")
 	Input.action_release("mirar")
 	_ok(v1 == v0 and v2 - v1 >= 2 and a.estado == Armadura.Estado.PAIRAR,
 		"no ar só atira no voo parado: voando %d disparos, parado %d (%s)" % [v1 - v0, v2 - v1, est2])
@@ -849,7 +853,8 @@ func _ponto_20() -> void:
 	while x < Vale.F_META - 8.0:
 		var z := -Vale.F_META + 8.0
 		while z < Vale.F_META - 8.0:
-			if v._fora(x, z) < Cavernas.chao_antes(x, z) - 0.3 and Vector2(x, z).distance_to(Sumidouro.centro) > 120.0:
+			if v._fora(x, z) < Cavernas.chao_antes(x, z) - 0.3 and Vector2(x, z).distance_to(Sumidouro.centro) > 120.0 \
+					and Vector2(x, z).distance_to(Fundicao.CENTRO) > Fundicao.RAIO + 34.0:
 				cavados += 1
 			z += 8.0
 		x += 8.0
@@ -1482,16 +1487,14 @@ func _ponto_29() -> void:
 	_ok(convite and of.fase == Oficina.Fase.ABERTA and a.travado, "quadrado na boca do cilindro abre a oficina (o robô entra e fica parado)")
 	of.instalar("antena")
 	await _esperar(2.3)
-	_ok(Melhorias.tem("antena") and a.visual.pecas.has("antena") and Melhorias.energia < 3.0,
-		"instalou a antena: no corpo, e a base ficou com %d de energia" % int(Melhorias.energia))
+	_ok(Melhorias.tem("antena") and a.visual.pecas.has("antena"), "instalou a antena: no corpo do robô")
 	of.instalar("farol")
 	await _esperar(2.3)
-	_ok(not Melhorias.tem("farol") and Melhorias.achadas.has("farol") and Melhorias.espera() > 240.0,
-		"sem energia a segunda peça espera (faltam %d s)" % int(Melhorias.espera()))
+	_ok(Melhorias.tem("farol") and Melhorias.achadas.is_empty(), "a segunda peça instala em seguida, sem esperar (não há mais energia da base)")
 	of.sair()
 	await _esperar(1.8)
 	_ok(of.fase == Oficina.Fase.FORA and not a.travado and m.hud.visible, "saiu da oficina e o robô voltou ao jogador")
-	Melhorias.achadas.erase("farol")
+	Melhorias.instaladas.erase("farol")
 	await _esperar(0.7)
 	var longe := Melhorias.sinais.is_empty()
 	var pr: Vector3 = pm.onde["radiador"]
@@ -1537,3 +1540,94 @@ func _ponto_30() -> void:
 	await _apertar("scanner")
 	await _esperar(0.3)
 	_ok(largou and not sc.ligado and not cam.primeira and a.visual.visible, "virando a câmera o Faísca sai do círculo; apertando de novo volta à terceira pessoa")
+
+
+## 34. A Fundição: a cratera é chata e sem árvores; o painel liga a onda, os robôs saem dos portões, vencidos
+## dão experiência e sucata, a onda seguinte vem depois do respiro e sair da cratera para tudo. E a pistola:
+## segurando o gatilho sai um tiro só.
+func _ponto_31() -> void:
+	print("fundição: cratera, ondas, recompensa e pistola")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var f: Fundicao = m.fundicao
+	var chato := true
+	for lx: float in [-46.0, -20.0, 0.0, 20.0, 46.0]:
+		for lz: float in [-36.0, -15.0, 0.0, 15.0, 36.0, 50.0]:
+			var p := Fundicao.aqui(lx, 0, lz)
+			if absf(v.altura(p.x, p.z) - Fundicao.PISO) > 0.3:
+				chato = false
+	var atras := Fundicao.aqui(0, 0, -Fundicao.MZ - 40.0)
+	var morro := v.altura(atras.x, atras.z) - Fundicao.PISO
+	_ok(f != null and chato and morro > 18.0 and not Ruinas.livre(Fundicao.CENTRO.x + 40.0, Fundicao.CENTRO.y),
+		"o chão do galpão é chato, sem mata, e os fundos entram no morro (%.0f m acima do piso, 40 m atrás)" % morro)
+	var meio := Vector3(Fundicao.CENTRO.x + 2.6, Fundicao.PISO + 0.4, Fundicao.CENTRO.y)
+	a.teleportar(meio, Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	# a pistola: gatilho segurado por 1 s dá um disparo; três apertos dão três
+	cam.pitch = 0.5
+	var d0: int = m.tiro.disparos
+	Input.action_press("atirar")
+	await _esperar(1.0)
+	Input.action_release("atirar")
+	var um: bool = m.tiro.disparos == d0 + 1
+	for k in 3:
+		await _apertar("atirar")
+		await _esperar(0.3)
+	_ok(um and m.tiro.disparos == d0 + 4, "pistola: segurar dá um tiro só; cada aperto, um (%d em 4)" % (m.tiro.disparos - d0))
+	_zerar()
+	var convite: bool = m.hud.dica.begins_with("Quadrado / E:  ligar a Fundição")
+	await _apertar("agir")
+	await _esperar(0.3)
+	var contando: bool = f.fase == Fundicao.Fase.CONTAGEM and f.onda == 1
+	await _esperar(Fundicao.T_CONTAGEM + 4.5)
+	var esperado := Fundicao.receita(1).size()
+	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
+		"quadrado no painel liga a onda 1: %d robôs saem dos portões" % f.vivos.size())
+	var xp0 := Arsenal.xp
+	for mc in f.vivos.duplicate():
+		mc.calor = 100.0
+		mc.desligar()
+	await _esperar(0.5)
+	_ok(f.fase == Fundicao.Fase.RESPIRO and Arsenal.xp > xp0 and Arsenal.sucata >= esperado and m.hud.placar != "",
+		"robôs vencidos: experiência %d, sucata %d, e o respiro começa" % [Arsenal.xp, Arsenal.sucata])
+	a.calor = 0.0
+	await _esperar(Fundicao.T_RESPIRO + 1.0)
+	var segunda: bool = f.fase == Fundicao.Fase.ONDA and f.onda == 2
+	a.teleportar(Vector3(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, v.altura(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, Fundicao.CENTRO.y) + 0.5, Fundicao.CENTRO.y), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 1 and m.hud.placar == "",
+		"a onda 2 vem sozinha; saindo da cratera tudo para e a onda 2 fica para a volta")
+	_ok(Fundicao.receita(5)[0]["chefe"] and Fundicao.receita(10).size() < Fundicao.receita(9).size(), "de 5 em 5 ondas a receita traz um minichefe com escolta menor")
+	# a dificuldade sobe aos poucos: só ataque de perto nas três primeiras; fuzis da 4ª, canhões da 7ª, mísseis da 10ª
+	var so_perto := true
+	for n in [1, 2, 3]:
+		for d in Fundicao.receita(n):
+			if d["arma"] != "corpo":
+				so_perto = false
+	var conta := func(n: int, arma: String) -> int:
+		var q := 0
+		for d in Fundicao.receita(n):
+			if d["arma"] == arma:
+				q += 1
+		return q
+	var perto_vivos := true
+	for mc0 in f.vivos:
+		perto_vivos = perto_vivos and mc0.corpo_a_corpo
+	_ok(so_perto and conta.call(4, "bala") >= 1 and conta.call(4, "pesado") == 0 and conta.call(7, "pesado") >= 1 and conta.call(9, "missil") == 0 and conta.call(11, "missil") >= 1
+		and conta.call(8, "corpo") >= 3, "ondas 1 a 3 só de perto; fuzis na 4ª (%d), canhões na 7ª (%d), mísseis depois da 10ª (%d na 11ª)" % [conta.call(4, "bala"), conta.call(7, "pesado"), conta.call(11, "missil")])
+	# fabricáveis: sem a mira assistida a mira não trava; com materiais e nível, a oficina fabrica
+	Arsenal.tudo = false
+	_ok(not Arsenal.tem("mira") and Arsenal.falta("mira") != "" and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES, "a mira assistida é fabricável: sem ela não trava, e sem materiais não fabrica")
+	Arsenal.xp = 1000
+	Arsenal.sucata = 100
+	Arsenal.nucleos = 9
+	var fez: bool = Arsenal.fabricar("mira") and Arsenal.fabricar("escudo") and Arsenal.fabricar("vida")
+	a.escudo_t = 0.0
+	a.avaria = 0
+	a.levar_golpe(Vector3.FORWARD, 1.0)
+	_ok(fez and Arsenal.tem("mira") and Arsenal.sucata == 15 and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES + 1 and a.avaria == 0 and a.escudo_t > 0.0,
+		"fabricou mira, escudo e vida extra: sobra %d de sucata, aguenta %d acertos e o escudo engoliu um" % [Arsenal.sucata, Arsenal.golpes_pane()])
+	Arsenal.tudo = true
+	Arsenal.zerar()
+	a.recomecar()

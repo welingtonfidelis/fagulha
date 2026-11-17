@@ -56,6 +56,7 @@ func gerar(_semente := 7) -> void:
 	_preparar_rio()
 	Cavernas.cavar(self)
 	Sumidouro.cavar(self)
+	Fundicao.cavar(self)
 	super.gerar(_semente)
 	_malha_fora()
 	_colisao_fora()
@@ -72,6 +73,7 @@ func gerar(_semente := 7) -> void:
 	Sumidouro.montar(self)
 	Ruinas.montar(self)
 	Marcos.montar(self)
+	Fundicao.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
 

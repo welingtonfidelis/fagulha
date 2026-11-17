@@ -207,10 +207,11 @@ func _montar_tela() -> void:
 	cartao.offset_bottom = -28.0
 	_tela.add_child(cartao)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
+	col.add_theme_constant_override("separation", 6)
 	cartao.add_child(col)
-	col.add_child(_texto("Oficina", 34, TINTA))
-	_energia_txt = _texto("", 17, APAGADO)
+	col.add_child(_texto("Oficina", 26, TINTA))
+	_energia_txt = _texto("Instale as peças que achar pela ilha e fabrique com o que a Fundição dá.", 14, APAGADO)
+	_energia_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_energia_txt)
 	_barra = ProgressBar.new()
 	_barra.max_value = 100.0
@@ -218,9 +219,10 @@ func _montar_tela() -> void:
 	_barra.custom_minimum_size = Vector2(0, 14)
 	_barra.add_theme_stylebox_override("background", _caixa(Color(0.12, 0.18, 0.19), 7, 0))
 	_barra.add_theme_stylebox_override("fill", _caixa(AGUA, 7, 0))
+	_barra.visible = false  # a energia da base saiu: instala quando quiser
 	col.add_child(_barra)
 	_lista = VBoxContainer.new()
-	_lista.add_theme_constant_override("separation", 6)
+	_lista.add_theme_constant_override("separation", 4)
 	col.add_child(_lista)
 	var vao := Control.new()
 	vao.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -233,44 +235,61 @@ func _montar_tela() -> void:
 	_estado = _texto("", 17, AGUA)
 	_estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_estado)
-	col.add_child(_texto("X / Enter: instalar   ·   O / Esc: sair", 15, APAGADO))
+	col.add_child(_texto("X / Enter: instalar ou fabricar   ·   O / Esc: sair", 15, APAGADO))
 
 
+func _botao_lista(nome: String, texto: String, cor: Color) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 35)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_font_size_override("font_size", 17)
+	b.text = texto
+	b.add_theme_color_override("font_color", cor)
+	b.add_theme_color_override("font_hover_color", cor)
+	b.add_theme_color_override("font_focus_color", Color(0.05, 0.09, 0.09))
+	b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19), 10, 10))
+	b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 10, 10))
+	b.add_theme_stylebox_override("pressed", _caixa(LARANJA.darkened(0.2), 10, 10))
+	b.add_theme_stylebox_override("focus", _caixa(LARANJA, 10, 10))
+	b.pressed.connect(func() -> void: instalar(nome))
+	b.focus_entered.connect(func() -> void: _escolher(nome))
+	b.mouse_entered.connect(b.grab_focus)
+	b.set_meta("nome", nome)
+	_lista.add_child(b)
+	_botoes[nome] = b
+	return b
+
+
+## A lista: primeiro as peças achadas na ilha (instaladas com a energia da base), depois o que se fabrica
+## com os materiais da Fundição (o Arsenal).
 func _refazer_lista() -> void:
 	for f in _lista.get_children():
 		f.queue_free()
 	_botoes.clear()
 	var primeiro: Button = null
 	for nome: String in Melhorias.NOMES:
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(0, 46)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.add_theme_font_size_override("font_size", 19)
-		var cor := TINTA
+		var b: Button
 		if Melhorias.instaladas.has(nome):
-			b.text = "✓  " + Melhorias.TITULOS[nome]
-			cor = AGUA
+			b = _botao_lista(nome, "✓  " + Melhorias.TITULOS[nome], AGUA)
 		elif Melhorias.achadas.has(nome):
-			b.text = "●  " + Melhorias.TITULOS[nome] + "   —   pronta para instalar"
-			cor = LARANJA
+			b = _botao_lista(nome, "●  " + Melhorias.TITULOS[nome] + "   —   pronta para instalar", LARANJA)
+			if primeiro == null or not Melhorias.achadas.has(String(primeiro.get_meta("nome"))):
+				primeiro = b
 		else:
-			b.text = "?  peça ainda não encontrada"
-			cor = APAGADO
-		b.add_theme_color_override("font_color", cor)
-		b.add_theme_color_override("font_hover_color", cor)
-		b.add_theme_color_override("font_focus_color", Color(0.05, 0.09, 0.09))
-		b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19), 10, 12))
-		b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 10, 12))
-		b.add_theme_stylebox_override("pressed", _caixa(LARANJA.darkened(0.2), 10, 12))
-		b.add_theme_stylebox_override("focus", _caixa(LARANJA, 10, 12))
-		b.pressed.connect(func() -> void: instalar(nome))
-		b.focus_entered.connect(func() -> void: _escolher(nome))
-		b.mouse_entered.connect(b.grab_focus)
-		_lista.add_child(b)
-		_botoes[nome] = b
-		if primeiro == null or (Melhorias.achadas.has(nome) and not Melhorias.achadas.has(String(primeiro.get_meta("nome")))):
+			b = _botao_lista(nome, "?  peça ainda não encontrada", APAGADO)
+		if primeiro == null:
 			primeiro = b
-		b.set_meta("nome", nome)
+	var bx := Arsenal.barra()
+	var titulo := _texto("Fabricar   ·   nível %d (%d de %d)   ·   sucata %d   ·   núcleos %d   ·   chips %d" % [Arsenal.nivel(), bx.x, bx.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips], 14, AGUA)
+	_lista.add_child(titulo)
+	for nome: String in Arsenal.RECEITAS:
+		var r: Dictionary = Arsenal.RECEITAS[nome]
+		if Arsenal.fabricados.has(nome):
+			_botao_lista(nome, "✓  " + String(r["titulo"]), AGUA)
+		elif Arsenal.falta(nome) == "":
+			_botao_lista(nome, "●  " + String(r["titulo"]) + "   —   fabricar", LARANJA)
+		else:
+			_botao_lista(nome, "○  " + String(r["titulo"]) + "   —   " + Arsenal.custo(nome), APAGADO)
 	if _escolhida != "" and _botoes.has(_escolhida):
 		primeiro = _botoes[_escolhida]
 	if primeiro:
@@ -280,6 +299,20 @@ func _refazer_lista() -> void:
 ## A peça em foco aparece no corpo do robô (se ele já achou ou já tem), virado para o lado em que ela se vê.
 func _escolher(nome: String) -> void:
 	_escolhida = nome
+	if Arsenal.RECEITAS.has(nome):
+		var rc: Dictionary = Arsenal.RECEITAS[nome]
+		_titulo.text = rc["titulo"]
+		_efeito.text = rc["efeito"]
+		if Arsenal.fabricados.has(nome):
+			_estado.text = "Já fabricado."
+		elif Arsenal.falta(nome) == "":
+			_estado.text = "Fabricar gasta " + Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "") + "."
+		else:
+			_estado.text = "Custa " + Arsenal.custo(nome) + " (" + Arsenal.falta(nome) + "). Os materiais vêm da Fundição."
+		armadura.visual.vestir_melhorias(["mira"] if nome == "mira" else [])
+		armadura.visual.previa = true
+		_virar("antena")
+		return
 	var conhece := Melhorias.achadas.has(nome) or Melhorias.instaladas.has(nome)
 	if conhece:
 		_titulo.text = Melhorias.TITULOS[nome]
@@ -290,8 +323,7 @@ func _escolher(nome: String) -> void:
 	if Melhorias.instaladas.has(nome):
 		_estado.text = "Já instalada."
 	elif Melhorias.achadas.has(nome):
-		_estado.text = "Instalar gasta %d de energia da base." % int(Melhorias.CUSTO) if Melhorias.energia >= Melhorias.CUSTO \
-			else "Energia insuficiente: pronta em %s." % _relogio(Melhorias.espera())
+		_estado.text = "Pronta para instalar."
 	else:
 		_estado.text = ""
 	armadura.visual.vestir_melhorias([nome] if Melhorias.achadas.has(nome) else [])
@@ -337,10 +369,20 @@ func entrar() -> void:
 func instalar(nome: String) -> void:
 	if fase != Fase.ABERTA:
 		return
-	if not Melhorias.achadas.has(nome):
+	if Arsenal.RECEITAS.has(nome):
+		if Arsenal.fabricados.has(nome):
+			return
+		if Arsenal.falta(nome) != "":
+			_estado.text = "Ainda não dá: " + Arsenal.falta(nome) + " (" + Arsenal.custo(nome) + ")."
+			return
+		fase = Fase.INSTALANDO
+		_instalando = nome
+		_t = 0.0
+		_estado.text = "Fabricando…"
+		if sons:
+			sons._toque("religar", -6.0)
 		return
-	if Melhorias.energia < Melhorias.CUSTO:
-		_estado.text = "Energia insuficiente: pronta em %s." % _relogio(Melhorias.espera())
+	if not Melhorias.achadas.has(nome):
 		return
 	fase = Fase.INSTALANDO
 	_instalando = nome
@@ -403,16 +445,22 @@ func _physics_process(delta: float) -> void:
 			armadura.velocity = Vector3.ZERO
 			_desce = minf(1.0, _desce + delta * 2.0)
 			_por_bracos(_desce, 0.0)
-			_barra.value = Melhorias.energia
-			_energia_txt.text = "Energia da base: %d%%" % int(Melhorias.energia) + ("" if Melhorias.energia >= Melhorias.CUSTO \
-				else "   ·   instalação em %s" % _relogio(Melhorias.espera()))
+			pass
 		Fase.INSTALANDO:
 			_por_bracos(1.0, sin(clampf(_t / T_INSTALAR, 0.0, 1.0) * PI))
-			_barra.value = Melhorias.energia
 			if _t >= T_INSTALAR:
 				var nome := _instalando
 				_instalando = ""
 				fase = Fase.ABERTA
+				if Arsenal.RECEITAS.has(nome):
+					if Arsenal.fabricar(nome):
+						if sons:
+							sons._toque("marcar", -4.0, 0.0)
+						instalou.emit(nome)
+					_refazer_lista()
+					_escolher(nome)
+					_estado.text = "Fabricado!"
+					return
 				if Melhorias.instalar(nome):
 					_tinha_energia = Melhorias.energia >= Melhorias.CUSTO
 					if sons:
@@ -459,22 +507,6 @@ func _fechar() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-## A base recarrega com o tempo de jogo. Quando volta a ter energia para uma instalação e o robô carrega
-## peça, um aviso e um toque chamam o jogador (ele vai quando quiser).
-func _recarregar(delta: float) -> void:
-	if Melhorias.tudo:
-		return
-	if fase != Fase.INSTALANDO:
-		Melhorias.energia = minf(100.0, Melhorias.energia + Melhorias.RECARGA * delta)
-	var tem := Melhorias.energia >= Melhorias.CUSTO
-	if tem and not _tinha_energia and fase == Fase.FORA and not Melhorias.achadas.is_empty():
-		if hud:
-			hud.avisar("Base recarregada", "energia para instalar uma peça")
-		if sons:
-			sons._toque("marcar", -4.0, 0.0)
-	_tinha_energia = tem
-	_guardar_t += delta
-	if _guardar_t > 30.0:
-		_guardar_t = 0.0
-		if Guardado.ativo:
-			Guardado.por_progresso("energia_base", Melhorias.energia, false)
+## A energia da base saiu (pedido do usuário): não há mais espera entre instalações.
+func _recarregar(_delta: float) -> void:
+	pass

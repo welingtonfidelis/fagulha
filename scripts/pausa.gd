@@ -30,7 +30,7 @@ const COMANDOS := [
 	["Ligar o voo · desligar e cair", "L3 no ar · toque em L3 ou X", "Shift no ar"],
 	["Acelerar e segurar no voo", "analógico esquerdo", "W · S"],
 	["Parar no ar e mirar", "L2", "botão direito · F"],
-	["Atirar", "R2", "botão esquerdo"],
+	["Atirar (um tiro por aperto)", "R2", "botão esquerdo"],
 	["Esquiva · frear no voo", "O", "C"],
 	["Mergulho com impacto", "triângulo no ar", "V"],
 	["Nadar: subir · descer", "X · O", "Espaço · C"],
@@ -38,7 +38,7 @@ const COMANDOS := [
 	["Planar · voltar ao jato (asas)", "segurar L3 ou X no voo", "segurar Shift ou Espaço"],
 	["Luz do peito (melhoria)", "Seta para cima", "L"],
 	["Scanner (melhoria)", "Seta para a direita", "T"],
-	["Entrar na oficina da base", "quadrado", "E"],
+	["Oficina da base · ligar a Fundição", "quadrado", "E"],
 	["Medidor", "Create", "F3"],
 	["Pausa", "Options", "Esc"],
 ]

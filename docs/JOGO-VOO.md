@@ -1494,3 +1494,112 @@ caverna, e `_assentar` pôs a caixa a 109 m, dentro da rocha. Agora, com teto a 
 usa o chão de verdade achado por um raio vindo de cima; e a peça da luz, a pedido do usuário, fica no piso
 do salão do Sumidouro (`_no_salao`, fora da lagoa do meio e com vão livre por cima). Pegar passou a
 exigir encostar na caixa (1,15 m do meio do robô ao meio dela): o facho de luz é só sinal.
+
+## 66. A Fundição: arena de ondas, experiência e materiais (2026-11-17)
+
+Ideia do usuário para quem quer desafio e batalha constantes, sem tirar a paz do resto da ilha: um lugar
+onde os robôs nascem e atacam em ondas que crescem, com um minichefe de tempos em tempos; vencer dá
+experiência e materiais, que na base viram armas, escudo, armadura e vida. Plano em cinco etapas (rascunhos
+em `docs/arena/`): 1) arena e ondas; 2) modos de tiro e roda de armas no L1 (R1 joga granada; marcar ponto
+vai para a seta para baixo); 3) arsenal na oficina; 4) minichefes com modelos novos; 5) acabamento.
+
+**Etapa 1, feita.** `scripts/vale/fundicao.gd`, ao lado do Pátio das Máquinas, em (-690, 300): `cavar`
+aplaina uma cratera de 66 m de raio a 27 m de altura (antes de o chão ser montado) e `montar` põe o piso de
+metal, quatro portões de montagem, o portão grande do minichefe, oito blocos de cobertura, duas plataformas
+altas e o painel de partida. Não nasce mata ali (`Ruinas.livre`). O nó `Fundicao` cuida das ondas:
+quadrado / E no painel liga; 5 s de contagem; os robôs (as `Mecha` de sempre, sorteadas) saem dos portões,
+no máximo 7 ligados por vez; 15 s de respiro e a onda seguinte vem sozinha; a onda N tem 2 + N robôs (até
+14) com `resistencia` 1 + 0,1 por onda; de 5 em 5, um `chefe` com escolta menor, e vencê-lo salva o ponto
+de volta. Saindo a mais de 88 m do centro a rodada para e a onda não vencida fica para a volta. Vencido, o
+robô desliga, afunda no chão e some; solta cubinhos de luz que voam para o jogador. Se o jogador desliga
+na rodada, perde metade dos materiais dela (a experiência fica); ele pode sair voando com tudo.
+`Arsenal` (`scripts/arsenal.gd`): experiência (nível pede 100 a mais a cada um), sucata, núcleos, chips de
+chefe, ponto de volta e recorde, no progresso como `arsenal`. O placar fica no canto de baixo à esquerda.
+**Pistola:** a arma de fábrica dispara uma vez por aperto (segurar não repete; um aperto dado até 0,14 s
+antes de a arma estar pronta ainda vale), com 0,2 s no mínimo entre tiros.
+Fotos: `--vale-captura --fundicao`. Teste: ponto 34 (50 no total).
+
+**O galpão (mesmo dia).** O usuário mandou um desenho do que imaginava: um lugar fechado, estragado por
+anos de abandono, com uma única porta grande de onde os robôs vêm, escombros e paredes quebradas de
+proteção, ferrugem e mato, robôs velhos caídos, fios pendurados e a forja ainda funcionando. A arena
+circular de blocos saiu; `montar` agora ergue um galpão de 100 por 76 m e 18 m de altura: paredes em painéis
+com o alto quebrado e mato pendurado, um rombo na parede sul por onde o jogador entra, telhado quase inteiro
+com um rombo e feixes de luz, treliças, a porta ao norte (pórtico, duas folhas entreabertas e um túnel
+escuro com luz vermelha, de onde saem todos os robôs, inclusive o minichefe), cinco forjas acesas (boca de
+fogo, chaminé com fumaça, esteira com peças em brasa e um braço articulado que ainda se mexe), sete pedaços
+de parede e nove montes de escombros com colisão, uma viga caída, duas engrenagens, seis mechas velhas
+caídas com mato por cima e dezesseis fios. Materiais com ferrugem e musgo de `vale_base.gdshader`.
+
+**Falta nesta etapa:** o galpão é feito de caixas (sem modelos de pacote), a ferrugem e o piso pedem
+acabamento, e por dentro não foi jogado;
+
+as mechas ainda desligam com 3 ou 4 tiros da pistola e o robô com 3 acertos, sem equilíbrio para ondas
+altas. **Modelos de minichefe:** o usuário autorizou baixar os dois do itch.io (RetroStyle, FBX 16 MB; e
+TryoutIndie, GLB 19 MB), mas o download direto foi recusado ("invalid key"); destino combinado:
+`Projects/others/mechs-itch/`. Nenhuma das páginas traz licença escrita; creditar os dois.
+
+**Peças de pacote no galpão (mesmo dia).** O usuário pediu para trocar as caixas por modelos prontos. Do
+**Factory Kit do Kenney** (CC0, baixado com autorização para `Projects/others/kenney-fabrica/`; 53 dos 143
+modelos copiados para `assets/vale/fundicao/`): máquinas, funis e chaminés de tubo das forjas, esteiras,
+braços de robô (giram devagar), pistões, engrenagens, guindastes de chão e ganchos pendurados, tubos pelo
+alto das paredes, telas, avisos, cones e o painel de partida (mesa de tela, alavanca e botão de chão). Do
+**MegaKit** que já estava na base: colunas de aço, barris, caixas e cabos pendurados. Do vale: samambaias,
+moitas, plantas e árvores secas (`v._por`). `_kit` veste as peças do Kenney com `vale_base.gdshader` sobre
+o `colormap.png` (ferrugem pela metade, senão escurecem demais); 155 peças de pacote ao todo. As paredes,
+o telhado, a porta e os escombros continuam de caixas. O Conveyor Kit do Kenney não existe mais à parte
+(foi incorporado ao Factory Kit). Candidato local a minichefe, sem download: `CombatMech` do KayKit
+Mystery Monthly 5 (com metralhadora e machado).
+
+**Ajustes e mudança para a serra (mesmo dia, pedidos do usuário).**
+- **Mira assistida:** travar a mira virou melhoria (`mira`, décima peça, perto do Pátio das Máquinas; no corpo
+  é um aro com ponto vermelho no punho direito). Sem ela o tiro vai para onde a mira aponta.
+- **Caveira na bússola:** aponta a Fundição (some dentro dela).
+- **Galpão:** o piso fica 3,5 cm acima do chão (os pés afundavam nas lajes); os tetos de cabos do MegaKit
+  saíram (ficavam boiando acima do telhado); peças pequenas ganharam colisão (`_colisao_de`: barris, caixas,
+  engrenagens deitadas, blocos de escombro, postes, braços, guindastes, painel); os feixes de luz falsos
+  deram lugar a dez lâmpadas penduradas (luz fraca, duas piscam, duas queimadas).
+- **Porta:** duas folhas só um pouco abertas (0,66 rad, fresta de 3,4 m), breu por dentro (material sem
+  luz), e uma colisão invisível fecha o vão para o jogador. A parede quebrada que ficava em frente saiu:
+  os robôs paravam ali. Eles nascem em fila no escuro e andam reto até 9 m para dentro do galpão
+  (`Vigia.guiado`), e só então caçam.
+- **Lugar novo e forma nova:** o usuário mandou dois desenhos de um galpão em arco com os fundos dentro de
+  uma montanha, de onde o minério sai. A Fundição foi para a encosta sul da Serra do Mirante, em
+  (-580, -270), piso a 86 m: `cavar` corta um nicho retangular (o morro sobe quase a pique atrás e dos
+  lados) com um corredor para o túnel, coberto por um bloco de concreto. O telhado virou um arco de
+  elipse do chão ao chão (51,5 m de meia largura, 24 m de altura; `teto(x)`), em 16 painéis por vão entre
+  nervuras de aço por dentro e por fora, com um rombo no alto. A frente (sul) é aberta, com restos de
+  parede nos cantos e a placa da engrenagem; a parede dos fundos tem a porta dos robôs; duas chaminés
+  soltam fumaça do lado de fora. As forjas vieram 8 m para dentro por causa do arco.
+
+**Equilíbrio e fabricáveis (mesmo dia, pedidos do usuário).**
+- **Ondas graduadas:** `receita` agora diz a arma de cada robô (`Mecha.arma_forcada`, que passa por
+  `Mech00Visual.forcar`). Ondas 1 a 3 só de ataque de perto (espada e martelo); da 4ª entram os fuzis de um
+  tiro, da 7ª os braços-canhão, da 10ª os mísseis (um por vez), sempre em minoria; os de perto saem
+  primeiro. O minichefe da 5ª é de perto, o da 10ª de fuzil, depois de canhão.
+- **Arsenal fabricável:** a Mira assistida deixou de ser peça da ilha e virou fabricável na oficina, junto
+  com o Escudo de energia (engole um acerto, recarrega em 20 s, arco verde-água à direita da mira) e a Vida
+  extra (um acerto a mais antes de desligar). Receitas em `Arsenal.RECEITAS`: mira nível 2 e 15 de sucata;
+  escudo nível 3, 30 de sucata e 2 núcleos; vida nível 4, 40 de sucata e 3 núcleos. A oficina lista os
+  fabricáveis embaixo das peças, com nível e materiais; fabricar usa os braços da máquina como a instalação
+  e não gasta a energia da base.
+- **Fundos dentro do morro:** `_morro` devolve, como uma peça de rocha com colisão, a encosta que existia
+  antes do corte, por cima dos 24 m dos fundos do galpão (`COBRE`), fechando os lados e os fundos; na frente
+  desce em talude até o telhado. Debaixo dela não falta painel no arco.
+
+**Paredão de rocha e fim da energia da base (mesmo dia, pedidos do usuário).**
+- **O galpão entra na rocha.** A capa curva de terra que acompanhava o telhado foi rejeitada ("parece uma
+  cobertura curva da mesma textura da montanha"); o usuário mandou um desenho do galpão construído na forma
+  dele e enfiado em parte num paredão. `_morro` agora é uma parede de rocha quase a pique, de linha torta e
+  com calombos, que nasce em cima do telhado a 24 m dos fundos (`COBRE`), sobe a 33 m (`PAREDAO`) e emenda
+  atrás e dos lados na encosta; o telhado segue inteiro e à vista até sumir na pedra. Na frente entrou a
+  moldura de vigas enferrujadas (montantes inclinados, travessa e escoras em X), e do flanco leste sai um
+  duto grande com boca de ventilação e cinco cabos até o paredão.
+- **Energia da base:** saiu. As peças achadas pela ilha são instaladas na oficina quando o jogador quiser,
+  uma atrás da outra (`Melhorias.instalar` não confere nem gasta energia; a barra sumiu da tela).
+- **Acabamento da rocha e colisões (mesmo dia).** O alto do paredão deixou de ser uma laje ondulada: é
+  liso e sobe devagar para trás até a encosta; a cara ganhou saliências em pé; para os lados (de 40 a 68 m
+  do meio) o alto baixa até a altura da encosta e a linha recua, então o paredão some no morro em vez de
+  virar dois muros. Treze pedras soltas (`Paredoes.rocha`) ao pé, nas pontas e na beira de cima, com
+  colisão. Colisão completada: ganchos e ímãs pendurados, tubos das paredes, colunas, telas, cones,
+  chaminés, duto, moldura e placa da frente, funis e chaminés das forjas, calhas das lâmpadas, robôs velhos
+  caídos (caixa baixa) e troncos das árvores secas. Sem colisão de propósito: fios, mato e chamas.

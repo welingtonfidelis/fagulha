@@ -19,6 +19,7 @@ var casa := Vector3.ZERO
 var semente := 0
 var calor := 0.0
 var desligada := false
+var resistencia := 1.0  # quantas vezes mais tiros aguenta (as ondas da Fundição sobem isto)
 var desligamentos := 0
 var religamentos := 0
 var golpes_dados := 0
@@ -349,7 +350,7 @@ func centro_alvo() -> Vector3:
 func levar_tiro(ponto: Vector3) -> void:
 	if _corpo == null or desligada or ponto.distance_to(centro()) > raio_acerto():
 		return
-	calor = minf(100.0, calor + calor_por_tiro())
+	calor = minf(100.0, calor + calor_por_tiro() / resistencia)
 	_sem_tiro = 0.0
 	_pisca = 0.12
 	Som.toque3d(self, Som.variacao("impacto", 3), ponto, -4.0)

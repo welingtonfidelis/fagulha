@@ -33,6 +33,7 @@ var motor := "carrapato_loop"
 var estado := Estado.RONDA
 var disparos := 0
 var pose_foto := -1
+var guiado := Vector3.INF  # um ponto para onde andar reto antes de qualquer coisa (a saída da porta da Fundição)
 
 var _rumo := Vector3.FORWARD
 var _destino := Vector3.ZERO
@@ -132,7 +133,18 @@ func _process(delta: float) -> void:
 	var alvo_p := centro_alvo() if alvo else global_position
 	var para_alvo := alvo_p - global_position
 	var dist := Vector2(para_alvo.x, para_alvo.z).length()
-	match estado:
+	var guiando := guiado.is_finite()
+	if guiando:
+		var pg := guiado - global_position
+		pg.y = 0.0
+		if pg.length() < 1.3:
+			guiado = Vector3.INF
+			estado = Estado.CACA
+			_recarga = 1.0
+		else:
+			_rumo = pg.normalized()
+			vel = vel_caca
+	match (-1 if guiando else int(estado)):
 		Estado.RONDA:
 			if ve:
 				estado = Estado.CACA

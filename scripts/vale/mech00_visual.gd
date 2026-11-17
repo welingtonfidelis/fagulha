@@ -14,6 +14,10 @@ const EXTRA := "res://assets/vale/mech00/extras/%s.fbx"
 const PALETA := "res://assets/vale/mech00/paletas/SimplePalette%04d.png"
 const PALETAS := 47
 const ALTURA_MODELO := 4.14
+
+## Arma pedida para o próximo `montar` ("" sorteia como sempre): "corpo" (espada ou martelo), "bala" (fuzil
+## de um tiro), "pesado" (braço-canhão) ou "missil" (um míssil nas costas). A Fundição usa para graduar as ondas.
+static var forcar := ""
 const CONJUNTOS := ["Base_S", "Base_M", "Base_L", "Base(A)_S", "Base(A)_M", "Base(A)_L"]
 const LUGARES := ["Arm", "Forearm_L", "Forearm_R", "Leg", "Pelvis", "Shoulder", "Thigh", "Torso"]
 ## nomes de MechVisual -> animação do pacote
@@ -74,7 +78,12 @@ static func montar(semente: int, alt: float, ruido: Texture2D) -> Mech00Visual:
 		soma_porte += {"S": -1.0, "M": 0.0, "L": 1.0}[c.right(1)]
 	# braço-canhão no lugar de um antebraço e da mão (só existe nos conjuntos da base)
 	var canhao := ""
-	if rng.randf() < 0.3:
+	var quer_canhao := rng.randf() < 0.3
+	if forcar == "pesado":
+		quer_canhao = true
+	elif forcar != "":
+		quer_canhao = false
+	if quer_canhao:
 		canhao = "R" if rng.randf() < 0.7 else "L"
 		escolha["LimbGun_" + canhao] = "Base_" + String(escolha["Forearm_L"]).right(1)
 	for nome: String in _pecas:
@@ -101,6 +110,10 @@ static func montar(semente: int, alt: float, ruido: Texture2D) -> Mech00Visual:
 	var mao := ""
 	var costas := ""
 	var sorte := rng.randf()
+	if forcar == "corpo":
+		sorte = 0.0
+	elif forcar != "":
+		sorte = 1.0
 	var braco := "R"  # o braço que ataca
 	if canhao != "":
 		mao = "canhão"
@@ -114,11 +127,23 @@ static func montar(semente: int, alt: float, ruido: Texture2D) -> Mech00Visual:
 		v._prender(mao, "Hand_Attachment.R", contorno)
 	else:
 		mao = ["Attach_Gun_00", "Attach_Gun_01", "Attach_Gun_02"][rng.randi_range(0, 2)]
+		if forcar == "bala" or forcar == "missil":
+			mao = "Attach_Gun_00"  # o fuzil de um tiro, a arma de mão mais branda
 		v.boca = v._prender(mao, "Forearm_%s_Attachment.R" % t.call("Forearm_R"), contorno)
-	if rng.randf() < 0.55:
+	var quer_costas := rng.randf() < 0.55
+	if forcar == "missil":
+		quer_costas = true
+	elif forcar != "":
+		quer_costas = false  # sem nada nas costas: a arma pedida é a que vale
+	if quer_costas:
 		costas = ["Attach_Back_1Gun", "Attach_Back_2Gun", "Attach_Back_Missiles_00", "Attach_Back_Missiles_01", "Attach_Back_JetPack_00"][rng.randi_range(0, 4)]
+		if forcar == "missil":
+			costas = "Attach_Back_Missiles_01"  # um míssil por vez
 		var nas_costas := v._prender(costas, "Back_%s_Attachment" % t.call("Torso"), contorno)
-		if arma == "tiro" and costas != "Attach_Back_JetPack_00" and rng.randf() < 0.5:
+		if forcar == "missil":
+			arma = "costas"
+			v.boca = nas_costas
+		elif arma == "tiro" and costas != "Attach_Back_JetPack_00" and rng.randf() < 0.5:
 			arma = "costas"
 			v.boca = nas_costas
 	var armaduras := 0

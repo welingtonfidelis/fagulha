@@ -60,6 +60,8 @@ var travado := false  # a oficina da base conduz o robô (não anda, não cai, n
 var escaneando := false  # scanner aberto: primeira pessoa, sem tiro
 var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-1: não está)
 var _planar_botao := "voar"
+var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: pronto)
+var escudos_gastos := 0  # testes
 var luz_ligada := false  # a luz do peito (melhoria), ligada pelo jogador
 var nado_rapido := false  # nadando com os jatos abertos (o visual e os efeitos leem)
 var nados := 0  # quantas vezes entrou a nadar (testes)
@@ -158,6 +160,13 @@ func altura_do_chao() -> float:
 func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 	if em_pane or graca_pane > 0.0:
 		return
+	# o escudo de energia (fabricável) engole um acerto e leva um tempo para recarregar
+	if Arsenal.tem("escudo") and escudo_t <= 0.0:
+		escudo_t = Arsenal.ESCUDO_RECARGA
+		escudos_gastos += 1
+		tremor = maxf(tremor, 0.25)
+		velocity += direcao.normalized() * forca * 0.3
+		return
 	velocity += direcao.normalized() * forca + Vector3(0, forca * 0.35, 0)
 	calor = minf(100.0, calor + Ajustes.GOLPE_CALOR * dano)
 	tremor = maxf(tremor, 0.3 + 0.5 * minf(dano, 1.0))
@@ -168,7 +177,7 @@ func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 		_dano_frac -= 1.0
 		avaria += 1
 	_avaria_tempo = Ajustes.AVARIA_SARA
-	if avaria >= Ajustes.PANE_GOLPES:
+	if avaria >= Arsenal.golpes_pane():
 		_dano_frac = 0.0
 		em_pane = true
 		_pane_t = 0.0
@@ -339,6 +348,7 @@ func _passo(delta: float) -> void:
 	_tempo_estado += delta
 	if _pane(delta):
 		return
+	escudo_t = maxf(0.0, escudo_t - delta)
 	if travado:
 		return
 	if Input.is_action_just_pressed("luz") and Melhorias.tem("farol"):

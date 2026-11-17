@@ -10,7 +10,7 @@ const RECARGA := 100.0 / 300.0  # energia por segundo: a base recarrega em 5 min
 const TITULOS := {
 	"antena": "Antena de busca", "radiador": "Radiador de aletas", "bocais": "Bocais largos",
 	"asas": "Asas de planar", "barbatanas": "Barbatanas", "amortecedores": "Molas",
-	"farol": "Luz do peito", "celulas": "Células de reserva", "scanner": "Scanner",
+	"farol": "Luz do peito", "celulas": "Células de reserva", "scanner": "Scanner", "mira": "Mira assistida",
 }
 const EFEITOS := {
 	"antena": "a bússola mostra peças que estiverem por perto",
@@ -22,6 +22,7 @@ const EFEITOS := {
 	"farol": "luz para a noite (seta para cima / L)",
 	"celulas": "esfria mais depressa no chão",
 	"scanner": "identifica bichos e máquinas (seta para a direita / T)",
+	"mira": "mirando, o tiro trava na máquina mais perto da mira",
 }
 
 static var tudo := false  # testes, fotos e modos antigos: tudo instalado
@@ -58,14 +59,14 @@ static func achar(nome: String) -> void:
 		guardar()
 
 
-## Instala uma peça que o robô carrega, se a base tiver energia. Devolve se instalou.
+## Instala uma peça que o robô carrega. Devolve se instalou. (A energia da base, que fazia esperar entre
+## uma instalação e outra, saiu a pedido do usuário: instala quando quiser.)
 static func instalar(nome: String) -> bool:
-	if not achadas.has(nome) or energia < CUSTO:
+	if not achadas.has(nome):
 		return false
 	achadas.erase(nome)
 	if not instaladas.has(nome):
 		instaladas.append(nome)
-	energia -= CUSTO
 	guardar()
 	return true
 
