@@ -336,6 +336,8 @@ func _pular(dir: Vector3, comp: float, dur: float, alt: float) -> bool:
 
 
 func _caminho_livre(a: Vector3, b: Vector3) -> bool:
+	if not Obstaculos.caminho_livre(mapa, a, b, 0.22):
+		return false
 	for t in [0.25, 0.5, 0.75, 1.0]:
 		var p := a.lerp(b, t)
 		if not _livre(p.x, p.z):

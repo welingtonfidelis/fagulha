@@ -51,6 +51,7 @@ var _costa_terra := PackedInt32Array()  # índice da célula de terra mais perto
 
 func gerar(_semente := 7) -> void:
 	var t0 := Time.get_ticks_msec()
+	Obstaculos.limpar()
 	_carregar()
 	_preparar_rio()
 	Cavernas.cavar(self)
@@ -1018,6 +1019,7 @@ func _plantas_do_chao() -> void:
 		var cs := CollisionShape3D.new()
 		cs.shape = formas[nome]
 		cs.transform = (item[1] as Transform3D) * ((_malhas[nome] as Array)[0][1] as Transform3D)
+		Obstaculos.registrar_forma(formas[nome], cs.transform, _fora(cs.transform.origin.x, cs.transform.origin.z))
 		corpo.add_child(cs)
 	print("plantas de chão: %d peças, %d pedras com colisão" % [fila.size(), pedras.size()])
 
@@ -1067,6 +1069,7 @@ func _mata_fora() -> void:
 			arv_escala.append(s * 0.8)
 			tipo = tipo_variado(tipo, sorte_do_lugar(px, pz))
 			arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
+			arv_nome.append(tipo)
 			fila.append([tipo, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(px, h - 0.15, pz))])
 		z += passo
 	arvores_fora = fila.size()

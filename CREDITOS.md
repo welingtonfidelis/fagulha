@@ -46,3 +46,8 @@ Os cervos, os veados de galhada, as raposas e os lobos são do *Ultimate Animate
 
 Os mechas sorteados usam o *Mech_00* e a expansão *Mech_00(A)*, de [jimmys7777](https://jimmys7777.itch.io/): uso
 livre em jogos, sem redistribuir os arquivos (por isso o repositório do jogo é privado).
+
+## Base do robô
+
+- **Sci-Fi Essentials Kit** e **Modular SciFi MegaKit**, de Quaternius (https://quaternius.com), CC0 1.0. Peças do hangar, caixas, antena e o drone colega (`assets/vale/base/`).
+- **Faísca**, o robô da Ilha Cafuné (jogo do mesmo autor), em `assets/faisca/faisca.scn`.

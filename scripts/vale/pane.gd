@@ -34,7 +34,7 @@ func _ready() -> void:
 
 func _entrou() -> void:
 	var tw := create_tween()
-	tw.tween_interval(0.5)
+	tw.tween_interval(Ajustes.PANE_ESCURECE)
 	tw.tween_property(_preto, "color:a", 1.0, 1.3)
 	tw.parallel().tween_property(_texto, "modulate:a", 1.0, 1.3)
 	tw.tween_callback(_saltar)

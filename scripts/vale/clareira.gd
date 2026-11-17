@@ -16,7 +16,7 @@ const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
 const LAGOA_FUNDO := 3.4  # metros a mais de fundura no meio
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
-const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 5.2)]  # o último é o chão batido da base
+const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5)]  # o último é o chão batido da base
 const MIRANTE := Vector2(-46.0, 22.0)
 
 var cervos_em: Array[Vector3] = []
@@ -100,7 +100,7 @@ func gerar(_semente := 7) -> void:
 	_arvores_e_pedras()
 	_capim()
 	_preparar_colisao_arvores()
-	spawn = Vector3(2.0, altura(2.0, 44.0) + 0.2, 44.0)
+	spawn = Vector3(2.0, altura(2.0, 44.0) + 0.45, 44.0)  # em cima do estrado da base
 	spawn_yaw = atan2(-(LAGOA.x - 2.0) * 0.4, 44.0 + 10.0)  # olhando o campo, o riacho e a lagoa
 	lago_centro = Vector2(LAGOA.x, LAGOA.y)
 	lago_nivel = NIVEL
@@ -425,6 +425,7 @@ func _por(nome: String, xf: Transform3D, colisao := false) -> void:
 			cs.shape = (par[0] as Mesh).create_convex_shape()
 			cs.transform = mi.transform
 			_corpo_pedras.add_child(cs)
+			Obstaculos.registrar_forma(cs.shape, cs.transform, altura(cs.transform.origin.x, cs.transform.origin.z))
 
 
 ## A mata da clareira pode pôr árvore aqui? (o vale maior corta os cantos do quadrado)
@@ -437,10 +438,71 @@ func _arvore(tipo: String, x: float, z: float, s: float, giro: float) -> void:
 	arv_pos.append(Vector3(x, h - 0.15, z))
 	arv_escala.append(s * 0.8)
 	arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
+	arv_nome.append(tipo)
 	_fila_arv.append([tipo, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(x, h - 0.15, z))])
 
 
 var _fila_arv: Array = []
+var arv_nome := PackedStringArray()  # o modelo de cada árvore, na ordem de arv_pos
+var _forma_arv := {}  # modelo -> medidas da colisão na escala 1
+
+
+## Mede um modelo de árvore para a colisão: o raio em 24 faixas de altura. O tronco é a parte fina de baixo;
+## a copa sólida é só o miolo (as pontas dos galhos e das folhas deixam passar), de onde a folhagem engrossa
+## até perto do topo. Nos pinheiros, de galhos ralos desde o chão, o miolo é fino e começa acima do robô.
+func forma_da_arvore(nome: String) -> Array:
+	if _forma_arv.has(nome):
+		return _forma_arv[nome]
+	var topo := 0.01
+	var pts := PackedVector3Array()
+	for par in _malhas[nome]:
+		var mesh: Mesh = par[0]
+		for sf in mesh.get_surface_count():
+			for p: Vector3 in mesh.surface_get_arrays(sf)[Mesh.ARRAY_VERTEX]:
+				var q := (par[1] as Transform3D) * p
+				pts.append(q)
+				topo = maxf(topo, q.y)
+	var n := 24
+	var faixa := PackedFloat32Array()
+	faixa.resize(n)
+	for q in pts:
+		var k := clampi(int(q.y / topo * n), 0, n - 1)
+		faixa[k] = maxf(faixa[k], Vector2(q.x, q.z).length())
+	var maior := 0.0
+	for k in n:
+		maior = maxf(maior, faixa[k])
+	var conif := nome.contains("pinheiro")
+	var de := n
+	for k in n:
+		if faixa[k] > maior * 0.4 and (not conif or topo * k / n >= 2.6):
+			de = k
+			break
+	var soma := 0.0
+	var quantas := 0
+	for k in range(de, n):
+		if faixa[k] > 0.0:
+			soma += faixa[k]
+			quantas += 1
+	var copa_de := topo * de / n
+	var copa_ate := topo - 0.4
+	var r_copa := (soma / maxf(1.0, quantas)) * (0.3 if conif else 0.55)
+	r_copa = minf(r_copa, (copa_ate - copa_de) * 0.5)
+	var r_tronco := 0.6
+	for k in range(0, maxi(1, de)):
+		if faixa[k] > 0.05:
+			r_tronco = minf(r_tronco, faixa[k])
+	r_tronco = clampf(r_tronco, 0.2, 0.6) if not conif else 0.3
+	var f := [r_tronco, copa_de + maxf(r_copa, 0.3), r_copa, (copa_de + copa_ate) * 0.5, copa_ate - copa_de]
+	_forma_arv[nome] = f
+	return f
+
+
+func _medidas_colisao(i: int) -> Array:
+	if i >= arv_nome.size() or not _malhas.has(arv_nome[i]):
+		return super._medidas_colisao(i)
+	var f := forma_da_arvore(arv_nome[i])
+	var s := arv_escala[i] / 0.8  # a escala com que o modelo foi desenhado
+	return [f[0] * s, f[1] * s, f[2] * s, f[3] * s, f[4] * s]
 var capim_malha: ArrayMesh  # a touceira com o material do capim (o capim de fora da clareira reusa)
 
 

@@ -11,6 +11,7 @@ var ilha: Ilha
 var armadura: Armadura
 var camera: CameraVoo
 var hud: Hud
+var drone: DroneColega
 var pausa: Pausa
 var vida: VidaVale
 var inimigos: InimigosVale
@@ -93,6 +94,7 @@ func _ready() -> void:
 		tiro.armadura = armadura
 		add_child(tiro)
 		hud.tiro = tiro
+		tiro.hud = hud
 		tiro.disparou.connect(sons.ao_atirar)
 		tiro.disparou.connect(vibra.ao_atirar)
 		var mato := EfeitosMato.new()
@@ -134,6 +136,13 @@ func _ready() -> void:
 		pane.armadura = armadura
 		pane.ciclo = ciclo
 		add_child(pane)
+		if BaseVale.posto_drone.is_finite():
+			drone = DroneColega.new()
+			drone.name = "DroneColega"
+			drone.armadura = armadura
+			drone.posto = BaseVale.posto_drone
+			drone.ruido = (ilha as Clareira)._tex
+			add_child(drone)
 		var noite := Noite.new()
 		noite.camera = camera
 		noite.armadura = armadura

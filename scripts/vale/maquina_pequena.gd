@@ -43,6 +43,7 @@ const TIROS := {
 	"pesado": {"vel": 62.0, "raio": 1.0, "forca": 5.0, "dano": 0.67, "alcance": 160.0, "som": "tiro_sentinela", "db": -6.0},
 	"missil": {"vel": 27.0, "raio": 1.3, "forca": 8.0, "dano": 1.0, "alcance": 190.0, "som": "tiro_zangao_2", "db": -3.0, "guia": 1.5, "estouro": 3.2},
 }
+var paradas := 0  # projéteis que pararam em tronco, rocha ou parede (testes)
 static var tiros_dados := {}  # tipo -> quantos saíram (testes)
 static var _malhas_tiro := {}
 static var _mats_tiro := {}
@@ -229,12 +230,24 @@ func atualizar_tiros(delta: float) -> void:
 		no.look_at_from_position(p, p + dir, Vector3.UP if absf(dir.y) < 0.98 else Vector3.RIGHT)
 		var fim := float(pr["andou"]) > float(t["alcance"])
 		var bateu_chao := p.y < mapa.altura(p.x, p.z)
+		# tronco, copa, rocha, ruína ou parede no trecho andado: o projétil para ali
+		var qr := PhysicsRayQueryParameters3D.create(de, p, 1 | 2, [_acerto.get_rid()] if _acerto else [])
+		var bateu := get_world_3d().direct_space_state.intersect_ray(qr)
+		var parou := false
+		if not bateu.is_empty():
+			p = bateu["position"]
+			passo = de.distance_to(p)
+			bateu_chao = true
+			parou = true
+			paradas += 1
 		var acertou := false
 		if tem_alvo:
 			# o projétil rápido anda mais de um metro por quadro: conta o ponto mais perto do trecho andado
 			var c := centro_alvo()
 			var perto := de + dir * clampf((c - de).dot(dir), 0.0, passo)
 			acertou = perto.distance_to(c) < float(t["raio"])
+			if acertou and parou and (c - de).dot(dir) > passo + 0.3:
+				acertou = false  # o robô está atrás do que parou o projétil
 		if acertou or bateu_chao or fim:
 			if t.has("estouro") and (acertou or bateu_chao):
 				_estouro(p, float(t["estouro"]))
@@ -314,6 +327,11 @@ func alvo_visivel(alcance: float, de: Vector3) -> bool:
 	for k in range(1, 7):
 		var p := de.lerp(c, float(k) / 7.0)
 		if p.y < mapa.altura(p.x, p.z):
+			return false
+	# rocha, ruína ou parede no caminho também tapam a vista (as árvores não: atrás delas o tiro é que para)
+	if is_inside_tree():
+		var q := PhysicsRayQueryParameters3D.create(de, c, 1)
+		if not get_world_3d().direct_space_state.intersect_ray(q).is_empty():
 			return false
 	return true
 

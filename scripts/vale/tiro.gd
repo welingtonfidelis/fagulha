@@ -17,6 +17,10 @@ const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângu
 const TRAVA_ALCANCE := 130.0
 
 var armadura: Armadura
+var hud: Hud
+var poupados := 0  # tiros que não saíram por haver um colega na mira (testes)
+var _aviso_amigo := 0.0
+var barrados := 0  # tiros que pararam num obstáculo antes do ponto mirado (testes)
 var disparos := 0
 var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela desenha o colchete nela
 
@@ -51,8 +55,27 @@ func _ready() -> void:
 	_malha_faisca.material = _mat_faisca
 
 
+## Um colega (grupo "amigos") perto da linha da mira, antes de qualquer obstáculo.
+func _amigo_na_mira() -> bool:
+	var cam := armadura.camera
+	if cam == null:
+		return false
+	var de: Vector3 = cam.global_position
+	var dir: Vector3 = cam.mira()
+	var ate := _ponto_de_impacto().distance_to(de)
+	for n in get_tree().get_nodes_in_group("amigos"):
+		var v: Vector3 = (n as Node3D).global_position - de
+		var t := v.dot(dir)
+		if t < 0.5 or t > ate + 0.8:
+			continue
+		if (v - dir * t).length() < 0.8 + t * 0.012:
+			return true
+	return false
+
+
 func _physics_process(delta: float) -> void:
 	_espera = maxf(0.0, _espera - delta)
+	_aviso_amigo = maxf(0.0, _aviso_amigo - delta)
 	if armadura == null or not is_instance_valid(armadura):
 		return
 	_atualizar_trava()
@@ -63,6 +86,14 @@ func _physics_process(delta: float) -> void:
 	if armadura.em_pane or (e != Armadura.Estado.CHAO and e != Armadura.Estado.PAIRAR):
 		return
 	if armadura.superaquecido or _espera > 0.0:
+		return
+	# regra: não se atira em colega (o drone da base). Com ele na mira o tiro não sai
+	if _amigo_na_mira():
+		poupados += 1
+		_espera = CADENCIA
+		if hud and _aviso_amigo <= 0.0:
+			hud.avisar("colega na mira", "o tiro não sai")
+			_aviso_amigo = 4.0
 		return
 	_espera = CADENCIA
 	armadura.atirando = 0.6
@@ -81,6 +112,16 @@ func _disparar() -> void:
 	if not impacto.is_finite():
 		guiado = false
 		impacto = _ponto_de_impacto()
+	# algo sólido entre a mão e o ponto (tronco, copa, rocha, parede): o tiro para ali, travado ou não
+	var fora: Array[RID] = [armadura.get_rid()]
+	if guiado and travado.get("_acerto") is CollisionObject3D:
+		fora.append((travado.get("_acerto") as CollisionObject3D).get_rid())  # o corpo do alvo travado não é obstáculo
+	var qo := PhysicsRayQueryParameters3D.create(origem, impacto, 1 | 2, fora)
+	var meio := get_world_3d().direct_space_state.intersect_ray(qo)
+	if not meio.is_empty() and (meio["position"] as Vector3).distance_to(impacto) > 1.6:
+		impacto = meio["position"]
+		guiado = false
+		barrados += 1
 	disparou.emit(origem, impacto)
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 

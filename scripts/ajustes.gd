@@ -96,7 +96,9 @@ const QUEDA_LEVE := 3.0  # metros de queda para o pouso com estilo leve
 const PANE_GOLPES := 3  # acertos de máquina seguidos que desligam o robô
 const AVARIA_SARA := 25.0  # segundos sem levar golpe para um acerto sarar
 const GOLPE_CALOR := 35.0  # calor que cada acerto soma
-const PANE_TEMPO := 5.0  # segundos reais desligado (a tela escurece e o dia avança)
+const PANE_TEMPO := 7.2  # segundos reais desligado (o drone chega, a tela escurece e o dia avança)
+const PANE_ESCURECE := 2.6  # segundos até a tela começar a escurecer: o tempo de o drone colega chegar
+const PANE_VOLTA := 4.4  # segundos até reaparecer na base, com a tela já escura
 const PANE_HORAS := 3.0  # horas do dia que passam na pane
 const PANE_GRACA := 12.0  # segundos depois de religar em que as máquinas não o enxergam
 const QUEDA_HEROI := 12.0  # metros de queda para o pouso de herói
@@ -114,3 +116,6 @@ const SENS_ANALOGICO := 2.8  # rad/s com o analógico no fim
 const CAM_DIST_MIRA := 2.4
 const FOV_MIRA := 56.0
 const SENS_MIRANDO := 0.6  # sensibilidade mirando (multiplica)
+
+# Degraus: andando, o robô sobe sozinho um desnível até esta altura (pedra baixa, beira de laje, degrau de ruína)
+const DEGRAU := 0.48

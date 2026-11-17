@@ -263,3 +263,5 @@ static func _colisao(corpo: StaticBody3D, pts: PackedVector3Array, xf: Transform
 	cs.shape = forma
 	cs.position = xf.origin
 	corpo.add_child(cs)
+	if RochaMalha.vale:
+		Obstaculos.registrar_forma(forma, Transform3D(Basis.IDENTITY, xf.origin), RochaMalha.vale.altura(xf.origin.x, xf.origin.z))

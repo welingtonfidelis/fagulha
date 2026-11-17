@@ -477,6 +477,15 @@ func _preparar_colisao_arvores() -> void:
 		_formas_copa.append(c)
 
 
+## As medidas da colisão da árvore `i`, no mundo: [raio do tronco, altura do tronco, raio da copa, altura do
+## meio da copa, altura da copa]. Aqui, a árvore genérica da ilha de testes; o vale mede cada modelo.
+func _medidas_colisao(i: int) -> Array:
+	var s := arv_escala[i]
+	var conif := arv_tipo[i] == 0
+	var r := (2.6 if conif else 3.8) * s
+	return [0.45 * s, (3.5 if conif else 5.0) * s, r, (9.0 if conif else 8.5) * s, (9.0 if conif else 7.0) * s]
+
+
 ## Liga a colisão só das árvores perto de `centro` (troncos e copas).
 func atualizar_colisao_arvores(centro: Vector3, forcar := false) -> void:
 	if not forcar and Vector2(centro.x, centro.z).distance_to(Vector2(_ultimo_centro.x, _ultimo_centro.z)) < 12.0:
@@ -497,22 +506,20 @@ func atualizar_colisao_arvores(centro: Vector3, forcar := false) -> void:
 				var p := arv_pos[i]
 				if Vector2(p.x - centro.x, p.z - centro.z).length() > RAIO_COLISAO_ARVORE:
 					continue
-				var s := arv_escala[i]
-				var conif := arv_tipo[i] == 0
+				var md := _medidas_colisao(i)  # [raio do tronco, altura do tronco, raio da copa, meio da copa, altura da copa]
 				var tronco := _formas_tronco[usados]
 				var copa := _formas_copa[usados]
 				# formas próprias de cada vaga (sem escala não uniforme, que a física não aceita bem)
-				var h_tronco := (3.5 if conif else 5.0) * s
 				var cil: CylinderShape3D = tronco.shape
-				cil.radius = 0.45 * s
-				cil.height = h_tronco
-				tronco.position = p + Vector3(0, h_tronco * 0.5, 0)
+				cil.radius = md[0]
+				cil.height = md[1]
+				tronco.position = p + Vector3(0, md[1] * 0.5, 0)
 				tronco.disabled = false
 				var cap: CapsuleShape3D = copa.shape
-				cap.radius = (2.6 if conif else 3.8) * s
-				cap.height = maxf(cap.radius * 2.0 + 0.1, (9.0 if conif else 7.0) * s)
-				copa.position = p + Vector3(0, (9.0 if conif else 8.5) * s, 0)
-				copa.disabled = false
+				cap.radius = md[2]
+				cap.height = maxf(md[2] * 2.0 + 0.1, md[4])
+				copa.position = p + Vector3(0, md[3], 0)
+				copa.disabled = md[2] < 0.3
 				usados += 1
 	for k in range(usados, MAX_COLISAO_ARVORE):
 		_formas_tronco[k].disabled = true

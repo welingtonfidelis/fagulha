@@ -14,6 +14,7 @@ signal superaqueceu
 signal religou
 signal entrou_pane
 signal saiu_pane
+signal voltou_base  # no meio da pane, com a tela escura: acabou de reaparecer na base
 
 ## Porte do corpo: 1,0 é a armadura de 2,6 m; o robô pequeno do vale usa 0,48 (1,2 m). O mapa define
 ## antes de criar a armadura. Mexe na cápsula de colisão e a câmera lê para chegar mais perto.
@@ -196,7 +197,7 @@ func _pane(delta: float) -> bool:
 		return false
 	postura = 0
 	_pane_t += delta
-	if _pane_volta.is_finite() and _pane_t >= 2.3:
+	if _pane_volta.is_finite() and _pane_t >= Ajustes.PANE_VOLTA:
 		# a tela já escureceu: o robô reaparece na praia
 		global_position = _pane_volta
 		_corte = true
@@ -207,6 +208,7 @@ func _pane(delta: float) -> bool:
 			camera.yaw = yaw_inicio
 			camera.pitch = -0.12
 		_mudar(Estado.AR)
+		voltou_base.emit()
 	velocity.x = move_toward(velocity.x, 0.0, 12.0 * delta)
 	velocity.z = move_toward(velocity.z, 0.0, 12.0 * delta)
 	velocity.y -= Ajustes.GRAVIDADE * delta
@@ -228,7 +230,42 @@ func _pane(delta: float) -> bool:
 func pos_suave() -> Vector3:
 	if _corte:
 		return global_position
-	return _pos_ant.lerp(_pos_fis, Engine.get_physics_interpolation_fraction())
+	return _pos_ant.lerp(_pos_fis, Engine.get_physics_interpolation_fraction()) + Vector3(0, _degrau_y, 0)
+
+
+var degraus := 0  # quantos degraus subiu (testes)
+var _degrau_y := 0.0  # depois de subir um degrau o corpo desenhado alcança o de verdade aos poucos
+
+
+## Andando no chão contra um desnível baixo (até Ajustes.DEGRAU), sobe nele como numa escada: confere se
+## há obstáculo à frente, se cabe por cima e se lá em cima há piso em que dá para ficar de pé.
+func _subir_degrau(delta: float) -> void:
+	if estado != Estado.CHAO or not is_on_floor() or em_pane:
+		return
+	var h := Vector3(velocity.x, 0, velocity.z)
+	if h.length() < 0.6:
+		return
+	var frente := h.normalized() * maxf(h.length() * delta, 0.16)
+	var t0 := global_transform
+	if not test_move(t0, frente):
+		return
+	if test_move(t0, Vector3(0, Ajustes.DEGRAU, 0)):
+		return
+	var em_cima := t0.translated(Vector3(0, Ajustes.DEGRAU, 0))
+	if test_move(em_cima, frente):
+		return
+	var la := em_cima.translated(frente)
+	var col := KinematicCollision3D.new()
+	if not test_move(la, Vector3(0, -Ajustes.DEGRAU, 0), col):
+		return
+	if col.get_normal().y < cos(floor_max_angle):
+		return
+	var sobe := Ajustes.DEGRAU + col.get_travel().y
+	if sobe < 0.06:
+		return
+	global_position = la.origin + col.get_travel()
+	_degrau_y -= sobe
+	degraus += 1
 
 
 func teleportar(pos: Vector3, novo: int, vel := Vector3.ZERO) -> void:
@@ -323,6 +360,8 @@ func _passo(delta: float) -> void:
 		Estado.NADO:
 			_nado(delta, mov)
 	_esquiva_aplicar(delta)
+	_subir_degrau(delta)
+	_degrau_y = move_toward(_degrau_y, 0.0, delta * 2.6)
 	var antes := velocity
 	move_and_slide()
 	_depois_de_mover(antes)

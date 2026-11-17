@@ -100,9 +100,16 @@ func _ponto_ronda() -> Vector3:
 		var r := _rng.randf_range(3.0, RAIO_RONDA)
 		var x := casa.x + cos(ang) * r
 		var z := casa.z + sin(ang) * r
-		if _pisavel(x, z):
+		if _pisavel(x, z) and Obstaculos.livre(mapa, x, z, altura_m * 0.3):
 			return Vector3(x, 0, z)
 	return casa
+
+
+var desvios := 0  # quadros em que andou por um rumo diferente do que queria, por obstáculo (testes)
+var destravou := 0  # vezes em que ficou preso e mudou de plano (testes)
+var _lado_desvio := 1.0
+var _trava_t := 0.0
+var _trava_p := Vector3.ZERO
 
 
 func _pisavel(x: float, z: float) -> bool:
@@ -200,16 +207,36 @@ func _process(delta: float) -> void:
 			_tiro_t = maxf(_tiro_t, 0.3)
 			atirar_em(mech.ponto_tiro() + _rumo * 0.35, alvo_p, tipo_tiro, espalha)
 	if vel != 0.0:
-		var novo := global_position + _rumo * vel * delta
-		if _pisavel(novo.x, novo.z):
-			global_position = novo
-		elif estado == Estado.RONDA:
-			_destino = _ponto_ronda()
-		elif rodeia:
-			_lado = -_lado  # deu na água ou num barranco: roda para o outro lado
+		# tronco, pedra, ruína ou a base no caminho: dá a volta pelo rumo livre mais perto do que queria
+		var quer := _rumo * signf(vel)
+		var raio := altura_m * 0.3
+		var anda := Obstaculos.rumo_livre(mapa, global_position, quer, maxf(absf(vel) * 0.35, raio * 1.6), raio, _lado_desvio, _pisavel)
+		if anda != Vector3.ZERO and anda.dot(quer) < 0.99:
+			desvios += 1
+			_lado_desvio = 1.0 if quer.cross(anda).y > 0.0 else -1.0  # segue a volta pelo lado em que começou
+		if anda == Vector3.ZERO:
 			vel = 0.0
 		else:
-			vel = 0.0
+			global_position += anda * absf(vel) * delta
+			if vel > 0.0 and estado != Estado.CACA:
+				_rumo = anda  # na caça ele continua de frente para o robô, andando de lado se for preciso
+		# destravar: quer andar e não sai do lugar
+		_trava_t += delta
+		if _trava_t >= 1.2:
+			if global_position.distance_to(_trava_p) < 0.5:
+				destravou += 1
+				_lado_desvio = -_lado_desvio  # tenta a volta pelo outro lado
+				if estado == Estado.RONDA or estado == Estado.VOLTA:
+					_destino = _ponto_ronda()
+					if estado == Estado.VOLTA:
+						estado = Estado.RONDA
+				elif rodeia:
+					_lado = -_lado
+			_trava_t = 0.0
+			_trava_p = global_position
+	else:
+		_trava_t = 0.0
+		_trava_p = global_position
 	global_position.y = mapa.altura(global_position.x, global_position.z)
 	rotation.y = lerp_angle(rotation.y, atan2(-_rumo.x, -_rumo.z), 1.0 - exp(-6.0 * delta))
 	if mech:

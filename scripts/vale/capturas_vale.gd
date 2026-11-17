@@ -55,6 +55,30 @@ func rodar(main: Node) -> void:
 	if "--sonda-som" in args:
 		await _sonda_som()
 		return
+	if "--pausa" in args:
+		await _esperar(2.5)
+		m.pausa._abrir()
+		get_tree().paused = false
+		await _esperar(0.5)
+		await _foto("p1_pausa")
+		m.pausa._botao_sair.grab_focus()
+		m.pausa._sair()
+		await _esperar(0.2)
+		await _foto("p2_sair")
+		m.pausa._abrir_comandos()
+		await _esperar(0.2)
+		await _foto("p3_comandos")
+		m.pausa._mostrar_aba(2)
+		await _esperar(0.2)
+		await _foto("p4_teclado")
+		get_tree().quit()
+		return
+	if "--fisica" in args:
+		await _fisica()
+		return
+	if "--resgate" in args:
+		await _resgate()
+		return
 	if "--troca" in args:
 		await _troca()
 		return
@@ -443,6 +467,86 @@ func _troca() -> void:
 	get_tree().quit()
 
 
+## O drone colega no posto e o resgate (`--resgate`): o robô desliga no campo, o drone chega por cima, a
+## tela escurece e os dois reaparecem na base.
+func _resgate() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 50.0
+	livre.make_current()
+	var dr: DroneColega = m.drone
+	await _esperar(1.0)
+	livre.global_position = dr.posto + Vector3(2.6, 0.3, -3.2)
+	livre.look_at(dr.posto)
+	await _esperar(0.4)
+	await _foto("d1_no_posto")
+	livre.global_position = dr.posto + Vector3(6.5, 1.5, -7.5)
+	livre.look_at(dr.posto + Vector3(-2.0, -0.6, 1.0))
+	await _esperar(0.3)
+	await _foto("d2_posto_e_cilindro")
+	var campo := Vector3(-20, 0, 20)
+	campo.y = m.ilha.altura(campo.x, campo.z) + 0.3
+	a.teleportar(campo, Armadura.Estado.CHAO)
+	await _esperar(0.8)
+	livre.global_position = campo + Vector3(4.5, 2.2, 5.5)
+	livre.look_at(campo + Vector3(0, 1.6, 0))
+	a.pane_forcada(campo)
+	for k in 4:
+		await _esperar([0.7, 0.6, 0.8, 0.5][k])
+		await _foto("d%d_resgate" % (3 + k))
+	await _esperar(Ajustes.PANE_TEMPO - 2.6 + 0.6)
+	livre.global_position = a.global_position + Vector3(3.5, 2.0, -5.0)
+	livre.look_at(a.global_position + Vector3(0, 1.6, 0))
+	await _esperar(0.2)
+	await _foto("d7_de_volta")
+	await _esperar(2.2)
+	await _foto("d8_drone_voltando")
+	get_tree().quit()
+
+
+## Conferência da física (`--fisica`): mede cada modelo de árvore contra a colisão que ela ganha.
+func _fisica() -> void:
+	await _esperar(1.5)
+	var v: Vale = m.ilha
+	print("FIS modelo | tronco raio | copa de..ate | copa raio | topo  (medidas do modelo na escala 1)")
+	for nome: String in v._malhas:
+		if nome.ends_with("_longe") or not (nome.contains("arvore") or nome.contains("carvalho") or nome.contains("betula") or nome.contains("pinheiro")):
+			continue
+		var pts := PackedVector3Array()
+		for par in v._malhas[nome]:
+			var mesh: Mesh = par[0]
+			for sf in mesh.get_surface_count():
+				for p: Vector3 in mesh.surface_get_arrays(sf)[Mesh.ARRAY_VERTEX]:
+					pts.append((par[1] as Transform3D) * p)
+		var topo := 0.0
+		for p in pts:
+			topo = maxf(topo, p.y)
+		# raio por faixa de altura
+		var faixas := PackedFloat32Array()
+		faixas.resize(24)
+		for p in pts:
+			var k := clampi(int(p.y / topo * 24.0), 0, 23)
+			faixas[k] = maxf(faixas[k], Vector2(p.x, p.z).length())
+		var r_tronco := (faixas[1] + faixas[2]) * 0.5
+		var copa_de := topo
+		var r_copa := 0.0
+		for k in 24:
+			r_copa = maxf(r_copa, faixas[k])
+		for k in range(2, 24):
+			if faixas[k] > maxf(r_tronco * 2.2, r_copa * 0.45):
+				copa_de = topo * k / 24.0
+				break
+		print("FIS %-22s | %.2f | %.1f..%.1f | %.1f | %.1f" % [nome, r_tronco, copa_de, topo, r_copa, topo])
+		var linha := ""
+		for k in 24:
+			linha += "%.1f " % faixas[k]
+		print("FISP   ", linha)
+	get_tree().quit()
+
+
 func _cavernas() -> void:
 	await _esperar(2.5)
 	m.hud.visible = false
@@ -524,11 +628,23 @@ func _base() -> void:
 	var p := c.spawn
 	var frente := Vector3(-sin(c.spawn_yaw), 0, -cos(c.spawn_yaw))
 	var lado := frente.cross(Vector3.UP)
-	for v: Array in [["b3_frente", frente * 11.0 + Vector3(0, 3.0, 0)], ["b4_lado", lado * 11.0 + frente * 4.0 + Vector3(0, 3.5, 0)], ["b5_cima", frente * 6.0 + Vector3(0, 14.0, 0)], ["b6_tras", -frente * 12.0 + lado * 3.0 + Vector3(0, 4.0, 0)]]:
-		livre.global_position = p + v[1]
-		livre.look_at(p + Vector3(0, 1.2, 0))
+	var tl := Transform3D(Basis(Vector3.UP, Ruinas.BASE.z), Vector3(p.x, c.altura(p.x, p.z), p.z))
+	for v: Array in [["b3_frente", Vector3(0, 4.5, -17), Vector3(0, 1.8, 2)], ["b4_cima", Vector3(-1, 24, -9), Vector3(-1, 0, 1.5)],
+			["b5_cilindro", Vector3(-1.5, 2.6, -5.5), Vector3(-7.5, 2.0, 1.6)], ["b6_boca", Vector3(-2.2, 2.3, 1.2), Vector3(-9, 2.2, 1.6)],
+			["b7_faisca", Vector3(0.4, 1.3, -0.6), Vector3(3.4, 0.6, -3.2)], ["b8_faisca_lado", Vector3(6.6, 1.0, -0.6), Vector3(3.4, 0.6, -3.2)],
+			["b9_lado", Vector3(17, 5, -7), Vector3(0, 1.5, 2)], ["b10_tras", Vector3(3, 7, 17), Vector3(0, 1.5, 0)]]:
+		livre.global_position = tl * (v[1] as Vector3)
+		livre.look_at(tl * (v[2] as Vector3))
 		await _esperar(0.3)
 		await _foto(v[0])
+	var fp := tl * Vector3(3.3, 0.3, -2.9)
+	var ff := tl.basis * Vector3(sin(-0.81), 0, cos(-0.81))
+	var fl := ff.cross(Vector3.UP)
+	for v2: Array in [["f1_frente", ff * 2.2 + Vector3(0, 0.35, 0)], ["f2_lado", fl * 2.2 + Vector3(0, 0.2, 0)], ["f3_outro_lado", -fl * 2.2 + Vector3(0, 0.2, 0)], ["f4_cima", ff * 1.2 + Vector3(0, 2.6, 0)]]:
+		livre.global_position = fp + v2[1]
+		livre.look_at(fp)
+		await _esperar(0.3)
+		await _foto(v2[0])
 	if m.ciclo:
 		m.ciclo.hora = 22.0
 		m.ciclo.parado = true
@@ -536,7 +652,7 @@ func _base() -> void:
 		livre.global_position = p + frente * 9.0 + lado * 3.0 + Vector3(0, 2.4, 0)
 		livre.look_at(p + Vector3(0, 1.4, 0))
 		await _esperar(0.5)
-		await _foto("b7_noite")
+		await _foto("b11_noite")
 	get_tree().quit()
 
 

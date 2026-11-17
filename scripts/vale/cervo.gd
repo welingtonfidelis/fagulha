@@ -44,6 +44,11 @@ var semente := 0
 var estado := 0  # Estado
 var pose_foto := -1  # >= 0: fica parado nesse estado, só animando (fotos)
 ## O corpo é um bicho animado do pacote (BichoVisual). Vazio: cerva ou, um em cada três, veado de galhada.
+var desvios := 0  # rumos recusados por obstáculo (testes)
+var destravou := 0  # vezes em que ficou preso e trocou o lado da volta (testes)
+var _lado_desvio := 1.0
+var _trava_t := 0.0
+var _trava_p := Vector3.ZERO
 var especie := ""
 var altura_bicho := 0.0
 var bicho: BichoVisual
@@ -287,17 +292,32 @@ func _passo(delta: float, vel: float, dir: Vector3, seco: bool, tolerancia: floa
 	var passo := vel * delta
 	var olhar := maxf(passo, 0.8)
 	var frente := Vector3(-sin(rotation.y), 0.0, -cos(rotation.y))
-	for k in 12:
-		var ang := ((k + 1) / 2) * 0.5236 * (1.0 if k % 2 == 1 else -1.0)
+	# preso: quer andar e não sai do lugar; tenta a volta pelo outro lado
+	_trava_t += delta
+	if _trava_t >= 1.2:
+		if Vector2(global_position.x - _trava_p.x, global_position.z - _trava_p.z).length() < 0.4:
+			_lado_desvio = -_lado_desvio
+			destravou += 1
+		_trava_t = 0.0
+		_trava_p = global_position
+	for k in 11:
+		# o rumo pedido, depois todo um lado (de 30 em 30 graus) e só então o outro: contorna sem ir e voltar
+		var ang := 0.0 if k == 0 else (k * 0.5236 * _lado_desvio if k <= 5 else (k - 5) * 0.5236 * -_lado_desvio)
 		var d := dir.rotated(Vector3.UP, ang)
 		var a := global_position + d * olhar
 		if not _livre(a.x, a.z, seco):
+			continue
+		# tronco, pedra, ruína ou a base no caminho: tenta o rumo ao lado (dá a volta)
+		if not Obstaculos.caminho_livre(mapa, global_position, global_position + d * maxf(olhar, 1.4), altura_bicho * 0.32):
+			desvios += 1
 			continue
 		var de_frente := clampf(1.0 - frente.angle_to(d) / tolerancia, 0.0, 1.0)
 		var x := global_position.x + d.x * passo * de_frente
 		var z := global_position.z + d.z * passo * de_frente
 		global_position = Vector3(x, mapa.altura(x, z), z)
 		_rumo = d
+		if k > 0:
+			_lado_desvio = 1.0 if ang > 0.0 else -1.0  # segue a volta pelo lado em que começou
 		return true
 	return false
 
@@ -321,7 +341,7 @@ func _escolher_alvo(perto_casa: bool) -> bool:
 			p = global_position + dir * _rng.randf_range(6.0, 18.0)
 		if Vector2(p.x - casa.x, p.z - casa.z).length() > raio_casa:
 			continue
-		if not _livre(p.x, p.z, true):
+		if not _livre(p.x, p.z, true) or not Obstaculos.livre(mapa, p.x, p.z, altura_bicho * 0.32):
 			continue
 		if _tem_ameaca and Vector2(p.x - ameaca.global_position.x, p.z - ameaca.global_position.z).length() < DIST_PASSEIO_LONGE:
 			continue

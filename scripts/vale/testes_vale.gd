@@ -46,6 +46,9 @@ func rodar(main: Node) -> void:
 	await _ponto_23()
 	await _ponto_24()
 	await _ponto_25()
+	await _ponto_26()
+	await _ponto_27()
+	await _ponto_28()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -134,7 +137,7 @@ func _ponto_2() -> void:
 	_zerar()
 	a.recomecar()
 	await _esperar(0.6)
-	cam.yaw = il.rumo_livre(a.global_position, 30.0)
+	cam.yaw = il.spawn_yaw  # a frente da base dá para o campo (atrás fica a parede do hangar)
 	Input.action_press("frente")
 	await _esperar(2.0)
 	var v_and := _hv()
@@ -604,12 +607,20 @@ func _ponto_16() -> void:
 	a.teleportar(longe, Armadura.Estado.VOO, Vector3(0, 0, 5))
 	await _esperar(0.6)
 	var entrou: bool = a.em_pane
-	await _esperar(Ajustes.PANE_TEMPO + 3.0)
+	# o drone colega vem buscar: chega por cima do robô antes de a tela escurecer, e depois volta ao posto
+	var dr: DroneColega = m.drone
+	var res0 := dr.resgates if dr else -1
+	await _esperar(Ajustes.PANE_ESCURECE)
+	var chegou := dr != null and dr.resgates == res0 + 1 and dr.chegou_a < 0.6
+	await _esperar(Ajustes.PANE_TEMPO - Ajustes.PANE_ESCURECE + 3.0)
+	await _esperar(2.5)
+	var no_posto := dr != null and dr.modo == DroneColega.Modo.POSTO and dr.global_position.distance_to(dr.posto) < 0.6
 	var em_terra := v.altura(a.global_position.x, a.global_position.z) > 1.0 and v.distancia_da_costa(a.global_position.x, a.global_position.z) < 1.0
 	em_terra = em_terra and Vector2(a.global_position.x - v.spawn.x, a.global_position.z - v.spawn.z).length() < 4.0  # reaparece na base
-	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1,
-		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e reaparece na base (%s, altura %.1f m)"
-			% [com_agua, total, desce, v.agua(foz.x, foz.y), dist_longe, entrou, em_terra, v.altura(a.global_position.x, a.global_position.z)])
+	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1 and chegou and no_posto
+			and BaseVale.pecas_kit > 30 and m.find_child("FaiscaCaido", true, false) != null and m.find_child("CilindroDeMelhorias", true, false) != null,
+		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e reaparece na base (%s, altura %.1f m); o drone chegou sobre o robô (%s) e voltou ao posto (%s); base com %d peças dos kits"
+			% [com_agua, total, desce, v.agua(foz.x, foz.y), dist_longe, entrou, em_terra, v.altura(a.global_position.x, a.global_position.z), chegou, no_posto, BaseVale.pecas_kit])
 	a.graca_pane = 0.0
 	ciclo.hora = 10.0
 	ciclo.parado = false
@@ -775,6 +786,7 @@ func _ponto_19() -> void:
 		de_tiro.religar()
 		# ninguém luta sozinho nesta parte (um vizinho atirando estragava a medida): os tiros do teste saem à mão
 		m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED  # o gerente parado: senão ele reacorda os mechas
+		v._corpo_arvores.collision_layer = 0  # sem árvores no caminho: aqui se mede o projétil (o ponto 29 mede o obstáculo)
 		p = de_tiro.global_position + Vector3(0, 0, 40)
 		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
 		a.graca_pane = 0.0
@@ -811,6 +823,7 @@ func _ponto_19() -> void:
 				tempo_missil = i / 60.0
 				break
 		m.inimigos.process_mode = Node.PROCESS_MODE_INHERIT
+		v._corpo_arvores.collision_layer = 2
 		de_tiro.desligar()
 	a.avaria = 0
 	a.graca_pane = 0.0
@@ -1052,6 +1065,7 @@ func _ponto_24() -> void:
 ## fundo da cachoeira o robô nada: desce para onde a câmera olha, esfria, pula para fora na tona e, vindo
 ## rápido de baixo, rompe a lâmina voando.
 func _ponto_25() -> void:
+	(il as Vale)._corpo_arvores.collision_layer = 0  # sem árvores entre o robô e a máquina (o ponto 29 mede o obstáculo)
 	print("mira com trava e nado")
 	_soltar_tudo()
 	_zerar()
@@ -1134,9 +1148,281 @@ func _ponto_25() -> void:
 			if cu.nivel(sv + 10.0) > cu.nivel(sv) + 0.001:
 				rio_desce = false
 			sv += 10.0
+	(il as Vale)._corpo_arvores.collision_layer = 2
 	_ok(rio_desce and alvo_m != null and travou and acertou and sem_trava and fundura > 9.0 and nadando and desceu > 1.5 and esfriou > 15.0 and na_tona and pulou and saiu_voando,
 		"os rios só descem no sentido da correnteza (%s); mira: travou a 3° do centro (%s), o tiro travado acertou (%s), a 16° não trava (%s); poço com %.1f m de fundura: nada (%s), desceu %.1f m em 0,8 s, esfriou %.0f, parou na tona (%s), pulou para fora (%s), saiu voando de baixo (%s)"
 		% [rio_desce, travou, acertou, sem_trava, fundura, nadando, desceu, esfriou, na_tona, pulou, saiu_voando])
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
+
+
+## 29. Física: um desnível baixo sobe andando e um alto barra; a colisão de cada árvore segue o modelo dela
+## (tronco fino, copa sólida só onde há folhagem, livre por baixo); o projétil de mecha para na parede e a
+## parede tapa a vista dele.
+func _ponto_26() -> void:
+	print("física: degraus, árvores e projéteis")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var corpo := StaticBody3D.new()
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	m.add_child(corpo)
+	var caixa := func(centro: Vector2, tam: Vector2, alto: float) -> void:
+		var cs := CollisionShape3D.new()
+		var bx := BoxShape3D.new()
+		bx.size = Vector3(tam.x, alto + 3.0, tam.y)
+		cs.shape = bx
+		corpo.add_child(cs)
+		cs.global_position = Vector3(centro.x, v.altura(centro.x, centro.y) + alto - (alto + 3.0) * 0.5, centro.y)
+	var lugar := Vector3(-20.0, 0.0, 20.0)
+	lugar.y = v.altura(lugar.x, lugar.z)
+	caixa.call(Vector2(lugar.x, lugar.z - 4.0), Vector2(5.0, 3.0), 0.36)
+	caixa.call(Vector2(lugar.x, lugar.z + 4.0), Vector2(5.0, 3.0), 0.95)
+	a.teleportar(lugar + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	var d0: int = a.degraus
+	cam.yaw = 0.0
+	Input.action_press("frente")
+	await _esperar(2.2)
+	Input.action_release("frente")
+	var subiu: bool = a.degraus > d0 and a.global_position.z < lugar.z - 2.6 and a.global_position.y > v.altura(a.global_position.x, a.global_position.z) + 0.25
+	a.teleportar(lugar + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	cam.yaw = PI
+	Input.action_press("frente")
+	await _esperar(2.5)
+	Input.action_release("frente")
+	var barrou: bool = a.global_position.z < lugar.z + 2.6
+	_soltar_tudo()
+	# uma árvore de folha larga sem vizinha por perto
+	var qual := -1
+	for i in v.arv_pos.size():
+		if i >= v.arv_nome.size() or v.arv_nome[i].contains("pinheiro") or v.arv_nome[i].contains("betula"):
+			continue
+		var p := v.arv_pos[i]
+		if Vector2(p.x, p.z).length() < 170.0 or Vector2(p.x, p.z).length() > 600.0:
+			continue
+		var so := true
+		for k in v.arv_pos.size():
+			if k != i and Vector2(v.arv_pos[k].x - p.x, v.arv_pos[k].z - p.z).length() < 16.0:
+				so = false
+				break
+		if so:
+			qual = i
+			break
+	var arvore_ok := false
+	var txt := "nenhuma árvore isolada"
+	if qual >= 0:
+		var p := v.arv_pos[qual]
+		var s := v.arv_escala[qual] / 0.8
+		var f: Array = v.forma_da_arvore(v.arv_nome[qual])
+		a.teleportar(p + Vector3(9.0, 0.6, 0.0), Armadura.Estado.CHAO)
+		await _esperar(0.4)
+		var espaco := a.get_world_3d().direct_space_state
+		var de_cima := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 80, 0), p + Vector3(0, 0.5, 0), 2))
+		var topo_y := ((de_cima["position"] as Vector3).y - p.y) if not de_cima.is_empty() else -1.0
+		var de_lado := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(6, 1.0, 0), p + Vector3(0, 1.0, 0), 2))
+		var tronco_r := Vector2((de_lado["position"] as Vector3).x - p.x, (de_lado["position"] as Vector3).z - p.z).length() if not de_lado.is_empty() else -1.0
+		var y_baixo := (float(f[3]) - float(f[4]) * 0.5) * s - 0.5
+		var fora := float(f[0]) * s + 0.7
+		var por_baixo := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(9, y_baixo, fora), p + Vector3(-9, y_baixo, fora), 2))
+		var copa_de := (float(f[3]) - float(f[4]) * 0.5) * s
+		arvore_ok = topo_y > copa_de and topo_y < (float(f[3]) + float(f[4]) * 0.5) * s + 0.6 and tronco_r > 0.1 and tronco_r < 0.9 and por_baixo.is_empty()
+		txt = "%s: copa sólida de %.1f a %.1f m (raio achado no topo %.1f m), tronco de %.2f m de raio, livre por baixo (%s)" % [v.arv_nome[qual], copa_de, topo_y, float(f[2]) * s, tronco_r, por_baixo.is_empty()]
+	# o projétil do mecha para numa parede no meio do caminho, e a parede tapa a vista
+	var mc: MaquinaPequena = m.inimigos.todas[0] if m.inimigos and not m.inimigos.todas.is_empty() else null
+	var parou := false
+	var sem_vista := false
+	if mc:
+		m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED
+		mc.religar()
+		var pm := mc.global_position + Vector3(0, 0, 30)
+		a.teleportar(Vector3(pm.x, v.altura(pm.x, pm.z) + 0.3, pm.z), Armadura.Estado.CHAO)
+		a.graca_pane = 0.0
+		caixa.call(Vector2(mc.global_position.x, mc.global_position.z + 14.0), Vector2(14.0, 1.2), 9.0)
+		await _esperar(0.3)
+		var g0: int = a.golpes
+		var p0: int = mc.paradas
+		var boca := mc.centro() + Vector3(0, 0.6, 0)
+		sem_vista = not mc.alvo_visivel(200.0, boca)
+		mc.atirar_em(boca, mc.centro_alvo(), "bala", 0.0)
+		for i in 90:
+			await get_tree().physics_frame
+			mc.atualizar_tiros(1.0 / 60.0)
+		parou = mc.paradas > p0 and a.golpes == g0
+		mc.desligar()
+		m.inimigos.process_mode = Node.PROCESS_MODE_INHERIT
+	corpo.queue_free()
+	_ok(subiu and barrou and arvore_ok and parou and sem_vista,
+		"física: degrau de 36 cm subiu andando (%s), de 95 cm barrou (%s); %s; o projétil parou na parede (%s) e a parede tapa a vista do mecha (%s)"
+		% [subiu, barrou, txt, parou, sem_vista])
+	a.recomecar()
+	await _esperar(0.3)
+
+
+## 30. Mechas e bichos não atravessam tronco, pedra, ruína nem a base: há obstáculos registrados; um mecha em
+## ronda dá a volta numa fila de pedras e chega do outro lado; um cervo fugindo também; um mecha cercado
+## percebe que travou e muda de plano.
+func _ponto_27() -> void:
+	print("mechas e bichos desviam dos obstáculos")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	# o que já está registrado: um tronco e a parede da base barram; o estrado da base não
+	var com_tronco := -1
+	for i in v.arv_pos.size():
+		if Vector2(v.arv_pos[i].x, v.arv_pos[i].z).length() > 200.0:
+			com_tronco = i
+			break
+	var tronco_barra := com_tronco >= 0 and not Obstaculos.livre(v, v.arv_pos[com_tronco].x, v.arv_pos[com_tronco].z, 0.4)
+	var tb := Transform3D(Basis(Vector3.UP, Ruinas.BASE.z), Vector3(Ruinas.BASE.x, 0, Ruinas.BASE.y))
+	var parede := tb * Vector3(0.4, 0, 6.6)
+	var estrado := tb * Vector3(0.0, 0, -1.0)
+	var base_ok := not Obstaculos.livre(v, parede.x, parede.z, 0.4) and Obstaculos.livre(v, estrado.x, estrado.z, 0.4)
+	# uma fila de pedras no campo aberto, atravessada no caminho
+	var a0 := Vector3(-30.0, 0.0, 30.0)
+	var b0 := Vector3(-30.0, 0.0, 8.0)
+	var pedras: Array[Vector3] = []
+	for k in range(-2, 3):
+		pedras.append(Vector3(a0.x + k * 1.7, 0.0, 19.0))
+		Obstaculos.registrar(a0.x + k * 1.7, 19.0, 1.0)
+	var perto := func(p: Vector3, folga: float) -> bool:
+		for q in pedras:
+			if Vector2(p.x - q.x, p.z - q.z).length() < folga:
+				return true
+		return false
+	# o mecha em ronda
+	var mc: Vigia = null
+	for n in m.inimigos.todas:
+		if n is Vigia and not (n as Vigia).chefe:
+			mc = n
+			break
+	var chegou := false
+	var atravessou := false
+	var desviou := false
+	var destravou := false
+	if mc:
+		a.teleportar(Vector3(-30.0, v.altura(-30.0, 62.0) + 0.3, 62.0), Armadura.Estado.CHAO)
+		a.graca_pane = 999.0  # ninguém o enxerga: o mecha fica em ronda
+		await _esperar(0.3)
+		mc.religar()
+		mc.process_mode = Node.PROCESS_MODE_INHERIT
+		mc.global_position = Vector3(a0.x, v.altura(a0.x, a0.z), a0.z)
+		mc.estado = Vigia.Estado.RONDA
+		mc._destino = b0
+		mc._pausa = 0.0
+		var d0: int = mc.desvios
+		var menor := INF
+		var passou_t := 0.0
+		while passou_t < 40.0:  # por tempo de jogo: sem tela os quadros passam mais depressa que 60 por segundo
+			await get_tree().process_frame
+			passou_t += get_process_delta_time()
+			if perto.call(mc.global_position, 1.0 + mc.altura_m * 0.3 * 0.7):
+				atravessou = true
+			menor = minf(menor, Vector2(mc.global_position.x - b0.x, mc.global_position.z - b0.z).length())
+			if menor < 1.5:
+				break
+			if mc.estado == Vigia.Estado.RONDA and mc._pausa <= 0.0 and mc._destino.distance_to(b0) > 0.1 and menor > 1.5:
+				mc._destino = b0  # se trocou de destino ao destravar, o teste devolve o mesmo alvo
+		chegou = menor < 1.5
+		print("    mecha: menor distância ao destino %.1f m, parou em %s, destravou %d vezes, velocidade de ronda %.1f" % [menor, mc.global_position, mc.destravou, Vigia.VEL_RONDA])
+		desviou = mc.desvios > d0
+	# um cervo fugindo na direção da fila
+	var cv: Cervo = null
+	for n in m.vida.get_children():
+		if n is Cervo:
+			cv = n
+			break
+	var cervo_passou := false
+	var cervo_atravessou := false
+	if cv:
+		cv.process_mode = Node.PROCESS_MODE_DISABLED  # só o passo, chamado à mão
+		cv.global_position = Vector3(a0.x + 0.3, v.altura(a0.x, a0.z), a0.z)
+		cv.rotation.y = 0.0
+		for i in 60 * 8:
+			cv._passo(1.0 / 60.0, 5.0, Vector3(0, 0, -1), false, 2.5)
+			cv.rotation.y = lerp_angle(cv.rotation.y, atan2(-cv._rumo.x, -cv._rumo.z), 0.2)
+			if perto.call(cv.global_position, 1.0 + cv.altura_bicho * 0.32 * 0.7):
+				cervo_atravessou = true
+			if cv.global_position.z < 12.0:
+				cervo_passou = true
+				break
+		cv.process_mode = Node.PROCESS_MODE_INHERIT
+	if mc:
+		# cercado: um anel de pedras em volta dele; ele tem de notar que travou
+		var c0 := mc.global_position
+		for k in 10:
+			Obstaculos.registrar(c0.x + cos(k * TAU / 10.0) * 2.6, c0.z + sin(k * TAU / 10.0) * 2.6, 1.0)
+		mc._destino = c0 + Vector3(0, 0, -20)
+		mc._pausa = 0.0
+		var t0: int = mc.destravou
+		var passou_t := 0.0
+		while passou_t < 4.0:
+			await get_tree().process_frame
+			passou_t += get_process_delta_time()
+			if mc.estado == Vigia.Estado.RONDA and mc._pausa > 0.0:
+				mc._pausa = 0.0
+		destravou = mc.destravou > t0 and mc.global_position.distance_to(c0) < 2.2
+		mc.desligar()
+	a.graca_pane = 0.0
+	_ok(Obstaculos.quantos > 800 and tronco_barra and base_ok and mc != null and chegou and not atravessou and desviou and destravou and cv != null and cervo_passou and not cervo_atravessou,
+		"desvio: %d obstáculos registrados, tronco barra (%s), parede da base barra e o estrado não (%s); o mecha deu a volta na fila de pedras e chegou (%s, atravessou: %s, desviou: %s); cercado, notou que travou (%s); o cervo deu a volta (%s, atravessou: %s)"
+		% [Obstaculos.quantos, tronco_barra, base_ok, chegou, atravessou, desviou, destravou, cervo_passou, cervo_atravessou])
+	a.recomecar()
+	await _esperar(0.3)
+
+
+## 31. O drone colega fala quando o robô chega perto, e com ele na mira o tiro não sai. Os passos e os bipes
+## de síntese existem.
+func _ponto_28() -> void:
+	print("drone colega: fala e não leva tiro")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	var dr: DroneColega = m.drone
+	var falou := false
+	var poupou := false
+	var nao_saiu := false
+	var atira_longe := false
+	if dr:
+		a.teleportar(Vector3(-40.0, v.altura(-40.0, 10.0) + 0.3, 10.0), Armadura.Estado.CHAO)
+		await _esperar(0.6)
+		var b0 := dr.bipes
+		var perto := dr.posto + Vector3(0, 0, -4.5)
+		a.teleportar(Vector3(perto.x, v.altura(perto.x, perto.z) + 0.5, perto.z), Armadura.Estado.CHAO)
+		await _esperar(1.0)
+		falou = dr.bipes > b0 and int(Som.contagem.get("drone_1", 0)) + int(Som.contagem.get("drone_2", 0)) + int(Som.contagem.get("drone_3", 0)) + int(Som.contagem.get("drone_4", 0)) + int(Som.contagem.get("drone_5", 0)) + int(Som.contagem.get("drone_6", 0)) > 0
+		# mira no drone (duas voltas: a câmera fica atrás do robô, então a pontaria é acertada a partir dela)
+		for volta in 3:
+			var d: Vector3 = dr.global_position - cam.global_position
+			cam.yaw = atan2(-d.x, -d.z)
+			cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+			await _esperar(0.3)
+		var d0: int = m.tiro.disparos
+		var p0: int = m.tiro.poupados
+		Input.action_press("atirar")
+		await _esperar(0.6)
+		Input.action_release("atirar")
+		poupou = m.tiro.poupados > p0
+		nao_saiu = m.tiro.disparos == d0
+		# virado para o outro lado, atira normalmente
+		cam.yaw += PI
+		cam.pitch = 0.0
+		await _esperar(0.4)
+		d0 = m.tiro.disparos
+		Input.action_press("atirar")
+		await _esperar(0.5)
+		Input.action_release("atirar")
+		atira_longe = m.tiro.disparos > d0
+	var arquivos := true
+	for nome in ["passo_1", "passo_6", "drone_1", "drone_6"]:
+		if not ResourceLoader.exists(Som.PASTA % nome):
+			arquivos = false
+	_ok(dr != null and falou and poupou and nao_saiu and atira_longe and arquivos,
+		"drone: falou quando o robô chegou perto (%s); com ele na mira o tiro não sai (poupou: %s, nenhum disparo: %s) e para o outro lado sai (%s); sons de síntese presentes (%s)"
+		% [falou, poupou, nao_saiu, atira_longe, arquivos])
 	_soltar_tudo()
 	a.recomecar()
 	await _esperar(0.3)

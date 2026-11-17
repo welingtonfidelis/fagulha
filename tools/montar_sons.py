@@ -115,13 +115,7 @@ def armadura():
         (A.tom(baque, 0.6), -2.0, 0.0), (pedra, -8.0, 0.03), (A.tom(metal, 0.7), -10.0, 0.0)), rms=-17.0)
     # Motor apagando: uma máquina de verdade perdendo o giro.
     salva("motor_apaga", A.fade(A.mono(A.aparar(abre("soltos", "MachinePowerOff.wav"))), 0.01, 0.3), rms=-18.0)
-    # Passos: seis pisadas de metal diferentes, cada uma com um pouco de capim.
-    capins = ["FootstepGrass01", "FootstepGrass02", "FootstepGrass03", "FootstepGrass09"]
-    for i, k in enumerate([3, 6, 9, 14, 18, 22], 1):
-        p = A.mono(abre("passos", "metal_steps_%02d.wav" % k))
-        g = A.mono(A.aparar(natureza("Footstep", capins[i % len(capins)])))
-        salva("passo_%d" % i, A.fade(A.mistura((A.nivelar(p, -24.0), 0.0, 0.0), (A.nivelar(g, -30.0), 0.0, 0.0)),
-            0.0, 0.05), rms=-25.0)
+    # Passos: saem de tools/sons_sinteticos.py desde 2026-11-16 (as pisadas gravadas de metal soavam como salto alto).
     # Tiro da mão: três variações.
     for i in range(3):
         salva("tiro_%d" % (i + 1), A.fade(A.mono(A.aparar(kenney("laserLarge_00%d" % i))), 0.0, 0.1), rms=-18.0)

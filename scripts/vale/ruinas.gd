@@ -78,39 +78,9 @@ static func montar(v: Vale) -> void:
 
 # ---------------------------------------------------------------- A Base
 
-## Onde o robô nasce e reaparece depois do curto: um estrado baixo de pedra com um aro de metal, o berço
-## de recarga atrás (dois pilares, a viga e a lâmpada acesa), um resto de muro em meia-lua e a antena.
+## Onde o robô nasce e reaparece depois do curto: o hangar em ruínas (scripts/vale/base_vale.gd).
 static func _base(o: Obra) -> void:
-	var cy := o.chao(0.0, 0.0) + 0.1
-	# o estrado: quase rente ao chão, para subir andando
-	o.tambor(Vector3(0, cy - 1.0, 0), Vector3(5.2, 1.0, 5.2))
-	o.aro(Vector3(0, cy - 0.03, 0), 1.55, 1.75, "casco")
-	o.aro(Vector3(0, cy - 0.02, 0), 0.5, 0.62, "casco_claro")
-	# o berço de recarga, atrás do estrado
-	for lado: float in [-1.0, 1.0]:
-		o.bloco(Vector3(lado * 1.7, cy + 1.5, 2.9), Vector3(0.55, 3.2, 0.6), Basis(Vector3.UP, lado * 0.05), "casco")
-		o.bloco(Vector3(lado * 1.7, cy + 0.2, 2.9), Vector3(0.95, 0.5, 1.0), Basis.IDENTITY, "ruina")
-		o.bloco(Vector3(lado * 1.05, cy + 2.55, 2.9), Vector3(1.1, 0.18, 0.18), Basis(Vector3(0, 0, 1), lado * 0.6), "ferrugem", false)
-	o.bloco(Vector3(0, cy + 3.3, 2.9), Vector3(4.3, 0.5, 0.75), Basis.IDENTITY, "casco_claro")
-	o.farol(Vector3(0, cy + 2.92, 2.75), 0.2, Color(0.35, 0.95, 0.85))
-	o.bloco(Vector3(0, cy + 1.3, 3.2), Vector3(1.5, 2.0, 0.3), Basis.IDENTITY, "casco")
-	# resto de muro em meia-lua, por trás e pelos lados
-	var fica := func(i: int, fiada: int, phi: float) -> bool:
-		if sin(phi) < -0.15:
-			return false  # a frente fica aberta para o campo
-		var h := 1.6 + 1.2 * sin(phi * 2.3 + 0.7) + 0.9 * sin(phi * 5.1)
-		return fiada < roundi(h) and not (i == 3 and fiada > 0)
-	o.anel(Vector3(0, cy - 0.3, 0.4), Basis.IDENTITY, 5.6, 0.75, 0.62, 16, 3, fica)
-	o.entulho(Vector2(-5.2, -1.6), Vector2(1.6, 1.4), 5, 0.4, 0.9)
-	o.entulho(Vector2(5.0, 3.6), Vector2(1.4, 1.4), 4, 0.4, 0.8)
-	# a antena e duas caixas
-	o.bloco(Vector3(3.3, cy + 3.0, 3.6), Vector3(0.13, 6.4, 0.13), Basis.from_euler(Vector3(0.03, 0.0, -0.04)), "ferrugem", false)
-	o.bloco(Vector3(3.3, cy + 5.0, 3.6), Vector3(1.3, 0.08, 0.08), Basis(Vector3.UP, 0.5), "ferrugem", false)
-	o.bola(Vector3(3.2, cy + 6.25, 3.6), 0.16, "casco_claro")
-	o.bloco(Vector3(-3.1, cy + 0.36, 2.2), Vector3(0.8, 0.72, 0.8), Basis(Vector3.UP, 0.3), "casco_claro")
-	o.bloco(Vector3(-3.7, cy + 0.26, 1.3), Vector3(0.55, 0.52, 0.55), Basis(Vector3.UP, -0.5), "casco")
-	o.arbusto(Vector3(-5.4, o.chao(-5.4, 2.6), 2.6), 0.9)
-	o.arbusto(Vector3(4.9, o.chao(4.9, 1.2), 1.2), 0.8)
+	BaseVale.montar(o)
 
 
 # ---------------------------------------------------------------- Os Arcos
@@ -450,6 +420,8 @@ class Obra:
 		cs.shape = f
 		cs.transform = t * xf
 		corpo.add_child(cs)
+		var w := cs.transform.origin
+		Obstaculos.registrar_forma(f, cs.transform, v.altura(w.x, w.z) if na_clareira else v._fora(w.x, w.z))
 
 	## Um bloco talhado: centro, tamanho e giro, na medida do lugar.
 	func bloco(centro: Vector3, tam: Vector3, giro := Basis.IDENTITY, mat := "ruina", colide := true) -> void:
