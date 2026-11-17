@@ -1715,7 +1715,7 @@ ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação 
   parando o voo). Um golpe em arco que alterna de lado a cada vez, pega as máquinas a até 3,6 m num leque de
   160° à frente, vale dois tiros de pistola, dá um passo à frente e não esquenta o motor. Disponível desde
   o começo. A lâmina é um objeto de verdade preso à mão direita, que acompanha o braço (o ombro varre de
-  -85° a +85° em 0,3 s e o tronco torce junto); o rastro é um leque de luz fraco e parado que só acende e
+  -85° a +85° em 0,2 s (0,3 s entre golpes; era 0,3 e 0,42) e o tronco torce junto); o rastro é um leque de luz fraco e parado que só acende e
   apaga (girando, parecia uma segunda espada ao usuário).
 - O usuário escreveu "L3" para a espada; como o L3 no chão é correr e a conversa era sobre liberar o R3,
   ficou no R3. Confirmar com ele.
