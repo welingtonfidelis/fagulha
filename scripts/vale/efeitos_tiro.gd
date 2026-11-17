@@ -66,8 +66,9 @@ static func clarao(pai: Node, onde: Vector3, dir: Vector3, tam := 1.0, imagem :=
 	no.look_at_from_position(onde, onde + dir, Vector3.UP if absf(dir.normalized().y) < 0.98 else Vector3.RIGHT)
 	var luz := OmniLight3D.new()
 	luz.light_color = cor
-	luz.light_energy = 2.2 * tam
-	luz.omni_range = 4.0 * tam
+	luz.light_energy = 1.6 * tam
+	luz.omni_range = 2.4 * tam
+	luz.position.z = -0.4 * tam  # à frente da boca, para iluminar adiante e não o corpo
 	luz.shadow_enabled = false
 	no.add_child(luz)
 	var tw := no.create_tween()
@@ -230,6 +231,41 @@ static func estouro(pai: Node, onde: Vector3, raio: float) -> void:
 	var tl := luz.create_tween()
 	tl.tween_property(luz, "light_energy", 0.0, 0.4)
 	tl.tween_callback(luz.queue_free)
+
+
+## O rastro do golpe de espada: um arco de luz deitado na frente do robô, que varre de um lado ao outro e some.
+static func arco_espada(pai: Node, onde: Vector3, frente: Vector3, lado: float, raio: float, cor: Color) -> void:
+	if pai == null or not pai.is_inside_tree() or frente.length() < 0.01:
+		return
+	_contar("espada")
+	var no := Node3D.new()
+	no.top_level = true
+	pai.add_child(no)
+	no.look_at_from_position(onde, onde + frente, Vector3.UP)
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(raio * 2.2, raio * 1.5)
+	q.orientation = PlaneMesh.FACE_Y
+	mi.mesh = q
+	# o rastro é um leque parado e fraco, que só acende e apaga: a lâmina de verdade é a que vai na mão do
+	# robô (girando junto, o rastro parecia uma segunda espada)
+	var m := mat("slash_02", Color(cor.r, cor.g, cor.b, 0.0), true, false).duplicate() as StandardMaterial3D
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, 0, -raio * 0.5)
+	mi.scale.x = lado
+	no.add_child(mi)
+	var tw := no.create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.38, 0.12)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.2)
+	tw.tween_callback(no.queue_free)
+	var luz := OmniLight3D.new()
+	luz.light_color = cor
+	luz.light_energy = 1.2
+	luz.omni_range = raio * 2.0
+	luz.shadow_enabled = false
+	luz.position = Vector3(0, 0.2, -raio * 0.5)
+	no.add_child(luz)
 
 
 ## A aura de subir de nível: presa ao robô por uns dois segundos e meio. Uma coluna de luz que sobe e apaga,

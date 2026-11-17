@@ -49,7 +49,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "sentar", "espada", "voar", "pairar", "golpe", "mirar", "marcar", "atirar"]:
 		Input.action_release(acao)
 
 
@@ -507,9 +507,9 @@ func _pouso_e_batida() -> void:
 	# abaixar e sentar
 	a.recomecar()
 	await _esperar(1.0)
-	# o R3 de verdade (evento do controle): no chão abaixa, no ar para no ar
+	# a seta para a esquerda de verdade (evento do controle) senta; outro toque levanta
 	var l3 := InputEventJoypadButton.new()
-	l3.button_index = JOY_BUTTON_RIGHT_STICK
+	l3.button_index = JOY_BUTTON_DPAD_LEFT
 	l3.pressed = true
 	Input.parse_input_event(l3)
 	await _esperar(0.15)
@@ -517,35 +517,26 @@ func _pouso_e_batida() -> void:
 	l3s.pressed = false
 	Input.parse_input_event(l3s)
 	await _esperar(0.3)
-	_ok(a.postura == 1 and a.estado == Armadura.Estado.CHAO, "R3 do controle abaixa (postura %d, %s)" % [a.postura, a.nome_estado()])
+	_ok(a.postura == 2 and a.estado == Armadura.Estado.CHAO and _hv() < 0.1, "a seta para a esquerda senta (postura %d, %s)" % [a.postura, a.nome_estado()])
 	Input.parse_input_event(l3)
 	await _esperar(0.1)
 	Input.parse_input_event(l3s)
+	await _esperar(1.3)
+	_ok(a.postura == 0, "a seta de novo levanta (%d)" % a.postura)
+	# o R3 no chão não agacha mais: é o golpe de espada (no vale); aqui só confere que a postura não muda
+	var r3 := InputEventJoypadButton.new()
+	r3.button_index = JOY_BUTTON_RIGHT_STICK
+	r3.pressed = true
+	Input.parse_input_event(r3)
+	await _esperar(0.15)
+	var r3s := r3.duplicate() as InputEventJoypadButton
+	r3s.pressed = false
+	Input.parse_input_event(r3s)
 	await _esperar(0.3)
-	_ok(a.postura == 0, "R3 do controle de novo levanta (%d)" % a.postura)
-	Input.parse_input_event(l3)
-	await _esperar(0.9)
-	Input.parse_input_event(l3s)
-	await _esperar(0.3)
-	_ok(a.postura == 2 and _hv() < 0.1, "R3 do controle segurado senta (%d)" % a.postura)
-	Input.parse_input_event(l3)
-	await _esperar(0.1)
-	Input.parse_input_event(l3s)
-	await _esperar(0.5)
-	await _apertar("abaixar")
+	_ok(a.postura == 0 and a.estado == Armadura.Estado.CHAO, "R3 no chão não agacha mais (postura %d)" % a.postura)
+	await _apertar("sentar")
 	await _esperar(0.2)
-	_ok(a.postura == 1, "toque no botão de abaixar abaixa (%d)" % a.postura)
-	Input.action_press("frente")
-	await _esperar(1.0)
-	_ok(a.postura == 1 and absf(_hv() - Ajustes.ANDAR_ABAIXADO * Armadura.vel_chao) < 0.4, "abaixado anda devagar (%.1f m/s)" % _hv())
-	Input.action_release("frente")
-	await _esperar(0.5)
-	await _apertar("abaixar")
-	_ok(a.postura == 0, "outro toque levanta (%d)" % a.postura)
-	Input.action_press("abaixar")
-	await _esperar(0.9)
-	Input.action_release("abaixar")
-	_ok(a.postura == 2, "segurar o botão de abaixar senta (%d)" % a.postura)
+	_ok(a.postura == 2, "toque no botão de sentar senta (%d)" % a.postura)
 	await _esperar(1.0)
 	_ok(a.postura == 2 and _hv() < 0.1, "sentado, fica sentado depois de soltar o botão")
 	Input.action_press("frente")
@@ -560,7 +551,7 @@ func _pouso_e_batida() -> void:
 	l3cs.pressed = false
 	Input.parse_input_event(l3cs)
 	await _esperar(1.0)
-	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 do controle corre e não abaixa (%.1f m/s, postura %d)" % [_hv(), a.postura])
+	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 do controle corre e não senta (%.1f m/s, postura %d)" % [_hv(), a.postura])
 	Input.action_release("frente")
 	await _esperar(0.5)
 	# batida numa árvore: voa reto contra a copa

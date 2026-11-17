@@ -76,7 +76,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar", "agir", "scanner", "luz", "roda", "granada"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "sentar", "espada", "voar", "pairar", "golpe", "mirar", "marcar", "atirar", "agir", "scanner", "luz", "roda", "granada"]:
 		Input.action_release(acao)
 
 
@@ -1583,8 +1583,14 @@ func _ponto_31() -> void:
 	var contando: bool = f.fase == Fundicao.Fase.CONTAGEM and f.onda == 1
 	await _esperar(Fundicao.T_CONTAGEM + 4.5)
 	var esperado := Fundicao.receita(1).size()
+	# saem da porta e se abrem em leque: não ficam todos na mesma linha
+	var xs := []
+	for mc0 in f.vivos:
+		xs.append(mc0.global_position.x)
+	var abertura: float = (xs.max() - xs.min()) if xs.size() > 1 else 0.0
 	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
-		"quadrado no painel liga a onda 1: %d robôs saem dos portões" % f.vivos.size())
+		"quadrado no painel liga a onda 1: %d robôs saem da porta e se espalham (%.0f m de um lado ao outro)" % [f.vivos.size(), abertura])
+	_ok(abertura > 3.0, "os robôs não saem em fila reta: 4,5 s depois da porta já abriram %.0f m" % abertura)
 	Arsenal.xp = 95  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
 	var xp0 := Arsenal.xp
 	var auras0 := int(EfeitosTiro.contagem.get("aura", 0))
@@ -1783,6 +1789,36 @@ func _ponto_32() -> void:
 		await _esperar(0.4)
 	_ok(fd.caixas_pegas == 2 and a.avaria == 0 and Arsenal.granadas == Arsenal.granadas_max() and Arsenal.misseis == Arsenal.misseis_max(),
 		"caixas das forjas: a de conserto apagou os acertos e a de munição encheu os lançadores (%d pegas)" % fd.caixas_pegas)
+	# a espada de laser: R3 no chão dá um golpe em arco que alterna de lado e esquenta a mecha à frente,
+	# mas não a que está atrás
+	_zerar()
+	a.teleportar(lugar, Armadura.Estado.CHAO)
+	cam.yaw = 0.0
+	cam.pitch = 0.0
+	await _esperar(0.4)
+	var me1 := Mecha.new()
+	var me2 := Mecha.new()
+	for par in [[me1, Vector3(0, 0, -3.0)], [me2, Vector3(0, 0, 3.2)]]:
+		var mx: Mecha = par[0]
+		mx.mapa = v
+		mx.casa = lugar + (par[1] as Vector3)
+		mx.semente = 33
+		m.add_child(mx)
+		mx.global_position = mx.casa
+		mx.pose_foto = 0
+	await _esperar(0.3)
+	var lado0: float = a.espada_lado
+	await _apertar("espada")
+	await _esperar(0.1)
+	var acesa: bool = a.espada_t > 0.0 and a.espada_lado == -lado0
+	await _esperar(0.5)
+	await _apertar("espada")
+	await _esperar(0.15)
+	_ok(acesa and m.tiro.golpes_espada == 2 and a.espada_lado == lado0 and me1.calor > 30.0 and me2.calor == 0.0 and a.calor < 1.0,
+		"espada: dois golpes, um de cada lado; a mecha da frente esquentou (%.0f), a de trás não, e o motor do robô não aqueceu" % me1.calor)
+	me1.queue_free()
+	me2.queue_free()
+	await _esperar(0.5)
 	# chegando à base, no chão, munição e vida voltam
 	Arsenal.granadas = 0
 	Arsenal.misseis = 1

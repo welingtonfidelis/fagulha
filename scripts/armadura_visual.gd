@@ -585,6 +585,14 @@ func atualizar(delta: float, a: Armadura) -> void:
 		_alvo("ombroE", -88.0 - pe, 0.0, 4.0)
 		_alvo("cotoveloE", -4.0)
 		_alvo("cabeca", -pe * 0.5)
+	# golpe de espada: o braço direito varre de um lado ao outro, na altura do peito, e o tronco acompanha
+	if a.espada_t > 0.0 and not a.em_pane:
+		var fe := 1.0 - a.espada_t / float(Arsenal.ESPADA["tempo"])
+		var giro := lerpf(-85.0, 85.0, smoothstep(0.0, 1.0, fe)) * a.espada_lado
+		_alvo("ombroD", -84.0, -giro, -6.0)
+		_alvo("cotoveloD", -6.0)
+		_alvo("tronco", 0.0, -giro * 0.3, 0.0)
+	_lamina(a.espada_t > 0.0 and not a.em_pane)
 	# chegando ao chão: corpo em pé, pernas armadas para baixo e braços abertos para equilibrar
 	if a.chegando_ao_chao() and not a.em_pane:
 		_alvo("raiz", 8.0)
@@ -697,3 +705,40 @@ func atualizar(delta: float, a: Armadura) -> void:
 		brilho = 0.05
 	mat_calor.emission_energy_multiplier = brilho
 	mat_calor.emission = Color(1.0, 0.42, 0.1).lerp(Color(1.0, 0.85, 0.65), smoothstep(0.8, 1.0, q))
+
+
+var _lamina_no: MeshInstance3D
+
+
+## A lâmina de laser: sai da mão direita, ao longo do braço, só enquanto dura o golpe.
+func _lamina(acesa: bool) -> void:
+	if _lamina_no == null:
+		if not acesa or not (j.get("punhoD") is Node3D):
+			return
+		_lamina_no = MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.045
+		cm.height = 1.25
+		_lamina_no.mesh = cm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.75, 1.0, 1.0)
+		m.emission_enabled = true
+		m.emission = Color(0.3, 0.9, 1.0)
+		m.emission_energy_multiplier = 4.0
+		_lamina_no.material_override = m
+		_lamina_no.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var punho := j["punhoD"] as Node3D
+		punho.add_child(_lamina_no)
+		# no descanso a mão pende para baixo do punho: a lâmina segue o braço (o -Y da junta), passando da
+		# mão. As medidas são em metros do mundo, desfeita a escala do modelo
+		var h := ALTURA_ALVO * Armadura.porte
+		var esc := maxf(0.001, punho.global_basis.get_scale().y)
+		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.6) / esc, 0))
+		var luz := OmniLight3D.new()
+		luz.light_color = Color(0.3, 0.9, 1.0)
+		luz.light_energy = 1.6
+		luz.omni_range = 3.5
+		luz.shadow_enabled = false
+		_lamina_no.add_child(luz)
+	_lamina_no.visible = acesa

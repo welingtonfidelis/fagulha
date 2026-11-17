@@ -429,6 +429,40 @@ func rodar(main: Node) -> void:
 			await _foto("aura_%d" % k)
 		get_tree().quit()
 		return
+	if "--espada" in args:
+		# o golpe de espada em três momentos, com uma mecha na frente (`--espada --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		var lugar := Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0)
+		a.teleportar(lugar, Armadura.Estado.CHAO)
+		cam.yaw = 0.0
+		cam.pitch = 0.0
+		m.hud.visible = false
+		var mx := Mecha.new()
+		mx.mapa = c
+		mx.casa = lugar + Vector3(0, 0, -3.2)
+		mx.semente = 33
+		m.add_child(mx)
+		mx.global_position = mx.casa
+		mx.rotation.y = PI
+		mx.pose_foto = 0
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 45.0
+		livre.global_position = lugar + Vector3(3.6, 2.6, 3.4)
+		livre.look_at(lugar + Vector3(0, 0.9, -1.4))
+		livre.make_current()
+		await _esperar(1.0)
+		for k in 2:
+			Input.action_press("espada")
+			await _esperar(0.1)
+			Input.action_release("espada")
+			await _foto("e%d_a" % k)
+			await _esperar(0.1)
+			await _foto("e%d_b" % k)
+			await _esperar(0.6)
+		get_tree().quit()
+		return
 	if "--oficina" in args:
 		await _oficina()
 		return
@@ -1171,9 +1205,9 @@ func _posturas() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(pasta + "%s_%s.png" % [nome, v[0]])
 	await tirar.call("a_de_pe")
-	Input.action_press("abaixar")
+	Input.action_press("sentar")
 	await _esperar(0.1)
-	Input.action_release("abaixar")
+	Input.action_release("sentar")
 	await _esperar(0.8)
 	await tirar.call("b_abaixado")
 	Input.action_press("frente")
@@ -1181,13 +1215,13 @@ func _posturas() -> void:
 	await tirar.call("c_abaixado_andando")
 	Input.action_release("frente")
 	await _esperar(0.6)
-	Input.action_press("abaixar")
+	Input.action_press("sentar")
 	await _esperar(0.1)
-	Input.action_release("abaixar")
+	Input.action_release("sentar")
 	await _esperar(0.4)
-	Input.action_press("abaixar")
+	Input.action_press("sentar")
 	await _esperar(1.0)
-	Input.action_release("abaixar")
+	Input.action_release("sentar")
 	await _esperar(1.2)
 	await tirar.call("d_sentado")
 	# sentado, pela câmera do jogo, com o capim
@@ -1557,9 +1591,9 @@ func _levantar() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(pasta + nome + ".png")
 	await tirar.call("a_de_pe")
-	Input.action_press("abaixar")
+	Input.action_press("sentar")
 	await _esperar(0.1)
-	Input.action_release("abaixar")
+	Input.action_release("sentar")
 	await _esperar(0.8)
 	await tirar.call("b_abaixado")
 	Input.action_press("frente")

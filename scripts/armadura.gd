@@ -63,6 +63,8 @@ var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-
 var _planar_botao := "voar"
 var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: pronto)
 var escudos_gastos := 0  # testes
+var espada_t := 0.0  # tempo que falta do golpe de espada (o visual balança o braço e acende a lâmina)
+var espada_lado := 1.0  # +1 da esquerda para a direita, -1 ao contrário
 var luz_ligada := false  # a luz do peito (melhoria), ligada pelo jogador
 var nado_rapido := false  # nadando com os jatos abertos (o visual e os efeitos leem)
 var nados := 0  # quantas vezes entrou a nadar (testes)
@@ -362,6 +364,7 @@ func _passo(delta: float) -> void:
 	impulso = maxf(0.0, impulso - delta * 3.0)
 	atirando = maxf(0.0, atirando - delta)
 	atirando_e = maxf(0.0, atirando_e - delta)
+	espada_t = maxf(0.0, espada_t - delta)
 	clarao_tiro = maxf(0.0, clarao_tiro - delta * 5.0)
 	if ilha:
 		ilha.atualizar_colisao_arvores(global_position)
@@ -460,29 +463,19 @@ func _chao(delta: float, mov: Vector2) -> void:
 		erguendo = 0.0
 
 
-## Abaixar e sentar (R3 no chão / Ctrl): um toque abaixa, segurar senta; outro toque levanta. Abaixado ele
-## anda devagar; sentado, mexer o analógico ou apertar o X levanta. Correr sempre levanta.
+## Sentar (seta para a esquerda / Ctrl): um toque senta, parado; outro toque, mexer o analógico ou apertar o
+## X levanta. Correr sempre levanta. (Agachar saiu: não tinha uso no jogo.)
 func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	if estado != Estado.CHAO or esquivando > 0.0:
 		postura = 0
 		_abaixar_seg = false
 		return
-	if Input.is_action_just_pressed("abaixar"):
-		if postura == 0:
-			postura = 1
-			_abaixar_seg = true
-			_abaixar_t = 0.0
+	# sentar é um toque na seta para a esquerda (Ctrl), parado; outro toque levanta. Agachar saiu do jogo
+	if Input.is_action_just_pressed("sentar"):
+		if postura == 0 and quieto:
+			postura = 2
 		else:
 			postura = 0
-			_abaixar_seg = false
-	elif _abaixar_seg:
-		if Input.is_action_pressed("abaixar"):
-			_abaixar_t += delta
-			if _abaixar_t >= Ajustes.SENTAR_SEGURAR and quieto:
-				postura = 2
-				_abaixar_seg = false
-		else:
-			_abaixar_seg = false
 	if postura == 2 and mov.length() > 0.35:
 		postura = 0
 	if postura != 0 and correr:

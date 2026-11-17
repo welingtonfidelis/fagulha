@@ -954,7 +954,11 @@ func _soltar(dados: Dictionary) -> void:
 	mc.resistencia = dados["resistencia"]
 	add_child(mc)
 	mc.global_position = de
-	mc.guiado = aqui(0.0, 0.0, -MZ + 9.0)
+	# passam pela fresta da porta e então se abrem em leque, cada um para um ponto diferente da largura do
+	# galpão (saindo todos em fila reta, uma arma de tiro rápido pegava a fila inteira)
+	mc.guiado = aqui(randf_range(-1.0, 1.0), 0.0, -MZ + 4.5)
+	var leque := (_portao % 5 - 2) * 11.0 + randf_range(-4.0, 4.0)
+	mc.set_meta("espalha", aqui(leque, 0.0, -MZ + randf_range(11.0, 22.0)))
 	vivos.append(mc)
 
 
@@ -1165,6 +1169,10 @@ func _physics_process(delta: float) -> void:
 			if _t <= 0.0:
 				_comecar_onda()
 		Fase.ONDA:
+			for mc in vivos.duplicate():
+				if is_instance_valid(mc) and not mc.guiado.is_finite() and mc.has_meta("espalha"):
+					mc.guiado = mc.get_meta("espalha")
+					mc.remove_meta("espalha")
 			for mc in vivos.duplicate():
 				if not is_instance_valid(mc):
 					vivos.erase(mc)

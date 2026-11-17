@@ -37,6 +37,9 @@ var _segurando_missil := false
 var _mirando_granada := false
 var _arco_no: Node3D
 var granadas_jogadas := 0  # testes
+var golpes_espada := 0
+var espada_acertos := 0
+var _espada_espera := 0.0
 var _granadas: Array[Dictionary] = []
 var _mat_projetil: StandardMaterial3D
 var _mat_faisca: StandardMaterial3D
@@ -95,6 +98,7 @@ func _physics_process(delta: float) -> void:
 	var modo: Dictionary = Arsenal.MODOS[Arsenal.modo if Arsenal.tem_arma(Arsenal.modo) else "pistola"]
 	CameraVoo.fov_mira = float(modo.get("fov", Ajustes.FOV_MIRA))
 	_granada(delta)
+	_espada(delta)
 	# o gatilho de cada arma: a pistola dispara uma vez por aperto (segurar não repete; um aperto dado um
 	# instante antes de a arma estar pronta ainda vale); a rajada repete enquanto segura; o canhão carrega
 	# segurando e dispara ao soltar
@@ -426,6 +430,49 @@ func _pode_atirar() -> bool:
 	return e == Armadura.Estado.CHAO or e == Armadura.Estado.PAIRAR
 
 
+## A espada de laser (R3 no chão / X): um golpe em arco na frente do robô, que alterna de lado a cada vez
+## (da esquerda para a direita, depois da direita para a esquerda). Pega todas as máquinas ao alcance, dá um
+## passo à frente e não esquenta o motor.
+func _espada(delta: float) -> void:
+	_espada_espera = maxf(0.0, _espada_espera - delta)
+	if not Input.is_action_just_pressed("espada") or _espada_espera > 0.0 or RodaArmas.aberta:
+		return
+	if armadura.estado != Armadura.Estado.CHAO or armadura.em_pane or armadura.travado or armadura.escaneando or armadura.postura != 0:
+		return
+	var e: Dictionary = Arsenal.ESPADA
+	_espada_espera = float(e["espera"])
+	armadura.espada_t = float(e["tempo"])
+	armadura.espada_lado = -armadura.espada_lado
+	golpes_espada += 1
+	var yaw: float = armadura.camera.yaw if armadura.camera else armadura.rotation.y
+	var frente := Vector3(-sin(yaw), 0, -cos(yaw))
+	armadura.velocity += frente * 3.5
+	armadura.atirando = maxf(armadura.atirando, float(e["tempo"]))
+	var meio := armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.5, 0)
+	var cor := Color(0.4, 0.95, 1.0)
+	EfeitosTiro.arco_espada(self, meio, frente, armadura.espada_lado, float(e["alcance"]), cor)
+	var acertou := false
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		if not n.has_method("ponto_de_trava"):
+			continue
+		var pt: Vector3 = n.call("ponto_de_trava")
+		if not pt.is_finite():
+			continue
+		var para := pt - meio
+		var folga: float = n.call("raio_acerto") if n.has_method("raio_acerto") else 1.0
+		if Vector2(para.x, para.z).length() > float(e["alcance"]) + folga or absf(para.y) > 4.5:
+			continue
+		if rad_to_deg(frente.angle_to(Vector3(para.x, 0, para.z))) > float(e["abre"]):
+			continue
+		n.call("levar_tiro", pt, float(e["dano"]), 0.0)
+		EfeitosTiro.impacto_laser(self, pt, cor, 1.2)
+		acertou = true
+	if acertou:
+		armadura.tremor = maxf(armadura.tremor, 0.35)
+		espada_acertos += 1
+	get_tree().call_group("bichos", "assustar", armadura.global_position)
+
+
 ## A granada (R1 / G): sai em arco para onde a câmera aponta, quica uma vez e estoura.
 func _granada(delta: float) -> void:
 	for g in _granadas.duplicate():
@@ -548,7 +595,8 @@ func _estouro(ponto: Vector3, dano: float, area: float) -> void:
 func _disparar(modo: Dictionary = Arsenal.MODOS["pistola"], forca := 1.0, esquerdo := false) -> void:
 	disparos += 1
 	armadura.calor = minf(100.0, armadura.calor + float(modo["calor"]) * lerpf(0.5, 1.0, forca))
-	armadura.clarao_tiro = 1.0  # só o jato da mão que dispara acende (não os dos pés)
+	if not esquerdo:
+		armadura.clarao_tiro = 1.0  # só o jato da mão direita acende, e só quando é ela que dispara
 	armadura.tremor = maxf(armadura.tremor, 0.12 + 0.1 * float(modo["dano"]) * forca)
 	_um_tiro(modo, forca, esquerdo)
 
@@ -560,6 +608,9 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	if not impacto.is_finite():
 		guiado = false
 		impacto = _ponto_de_impacto()
+	# o tiro sai da ponta da arma, um palmo adiante do punho na direção do alvo (do punho, o clarão e a luz
+	# nasciam em cima do antebraço)
+	origem += (impacto - origem).normalized() * 0.2 * armadura.altura_corpo()
 	var espalha := float(modo.get("espalha", 0.0))
 	if espalha > 0.0 and not guiado:
 		var dist := origem.distance_to(impacto)
@@ -660,10 +711,17 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 	if impacto.distance_to(origem) > 0.01:
 		proj.look_at(impacto, cabeca)
 	# o raio em duas camadas: um miolo fino quase branco dentro de um halo comprido na cor da arma
-	var halo := EfeitosTiro.cruzado("trace_01", cor, 0.9 * tam, comp * 1.2, comp * 0.35, true)
+	# o raio fica todo para trás da ponta (a cauda), dentro de um nó que começa encolhido e estica conforme
+	# o tiro se afasta: inteiro desde o começo, a cauda nascia atravessando o braço e o corpo do robô, e a
+	# luz parecia sair de partes dele
+	var raio := Node3D.new()
+	raio.scale = Vector3(1, 1, 0.04)
+	proj.add_child(raio)
+	raio.create_tween().tween_property(raio, "scale:z", 1.0, comp * 1.1 / maxf(vel, 1.0))
+	var halo := EfeitosTiro.cruzado("trace_01", cor, 0.9 * tam, comp, comp * 0.5, true)
 	var halo2 := EfeitosTiro.cruzado("light_02", cor, 0.7 * tam, 0.7 * tam, 0.0, true)
 	proj.add_child(halo2)
-	proj.add_child(halo)
+	raio.add_child(halo)
 	var miolo := MeshInstance3D.new()
 	var cm := CapsuleMesh.new()
 	cm.radius = 0.045 * tam
@@ -675,12 +733,12 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 	miolo.material_override = mm
 	miolo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	miolo.rotation.x = PI / 2.0  # a cápsula fica no eixo -Z do nó, que aponta ao alvo
-	miolo.position.z = comp * 0.3
-	proj.add_child(miolo)
+	miolo.position.z = comp * 0.38
+	raio.add_child(miolo)
 	var luz_p := OmniLight3D.new()
 	luz_p.light_color = cor
 	luz_p.light_energy = 1.0 * tam
-	luz_p.omni_range = 3.5
+	luz_p.omni_range = 3.0
 	luz_p.shadow_enabled = false
 	proj.add_child(luz_p)
 	var tempo := maxf(0.02, origem.distance_to(impacto) / vel)
@@ -760,8 +818,8 @@ func _clarao_impacto(ponto: Vector3) -> void:
 func _clarao(ponto: Vector3, duracao: float) -> void:
 	var luz := OmniLight3D.new()
 	luz.light_color = Color(1.0, 0.6, 0.3)
-	luz.light_energy = 1.5
-	luz.omni_range = 2.5
+	luz.light_energy = 0.8
+	luz.omni_range = 1.6
 	add_child(luz)
 	luz.global_position = ponto
 	get_tree().create_timer(duracao).timeout.connect(luz.queue_free)

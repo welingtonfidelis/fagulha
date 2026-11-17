@@ -18,13 +18,14 @@ const DICAS := [
 	"Atrás de uma árvore ou de uma pedra, o tiro delas não chega.",
 	"Se o robô desligar, o drone colega vem buscar e leva para a base.",
 	"Na água funda o robô nada com os jatos, e isso esfria o motor.",
-	"Aperte para abaixar e segure para sentar: os bichos chegam mais perto.",
+	"Sente (seta para a esquerda): os bichos chegam mais perto.",
 ]
 const COMANDOS := [
 	["Andar", "analógico esquerdo", "W A S D"],
 	["Olhar", "analógico direito", "mouse"],
 	["Correr", "L3", "Shift"],
-	["Abaixar · sentar", "R3 · segurar R3", "Ctrl · segurar"],
+	["Sentar", "Seta para a esquerda", "Ctrl"],
+	["Espada de laser", "R3 no chão", "X"],
 	["Pular · pulo duplo", "X · X no ar", "Espaço"],
 	["Decolar", "segurar X", "segurar Espaço"],
 	["Ligar o voo · desligar e cair", "L3 no ar · toque em L3 ou X", "Shift no ar"],

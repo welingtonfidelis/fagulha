@@ -1706,3 +1706,24 @@ ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação 
   uma colisão de 2 m de espessura (para dentro) que passa um pouco dos vizinhos, as nervuras e as cintas
   têm colisão, e o bloco de concreto do túnel também. Teste: seis pousos em cima e um voo a 40 m/s contra
   a lateral do arco.
+
+## 70. Sentar na seta, sem agachar, e a espada de laser (2026-11-17)
+
+- **Sentar** foi para a seta para a esquerda (Ctrl): um toque senta, parado; outro toque, andar ou pular
+  levanta. **Agachar saiu** do jogo (não tinha uso); a postura 1 ficou sem comando.
+- **Espada de laser** (`Tiro._espada`, `Arsenal.ESPADA`): R3 no chão (X no teclado; no ar o R3 continua
+  parando o voo). Um golpe em arco que alterna de lado a cada vez, pega as máquinas a até 3,6 m num leque de
+  160° à frente, vale dois tiros de pistola, dá um passo à frente e não esquenta o motor. Disponível desde
+  o começo. A lâmina é um objeto de verdade preso à mão direita, que acompanha o braço (o ombro varre de
+  -85° a +85° em 0,3 s e o tronco torce junto); o rastro é um leque de luz fraco e parado que só acende e
+  apaga (girando, parecia uma segunda espada ao usuário).
+- O usuário escreveu "L3" para a espada; como o L3 no chão é correr e a conversa era sobre liberar o R3,
+  ficou no R3. Confirmar com ele.
+- Fotos: `--vale-captura --espada`. Vale 63 pontos; voo 95 (saíram os três testes de agachar).
+- **Luz do tiro (mesmo dia):** o usuário viu luz saindo de partes erradas do corpo ao atirar. O raio era
+  criado inteiro, com a cauda de até 2 m para trás da origem, atravessando o braço e o tronco; e a origem
+  era o punho, não a ponta da arma. Agora o tiro nasce um palmo adiante do punho, o raio começa encolhido e
+  estica conforme se afasta, o clarão ilumina à frente da boca, as luzes ficaram mais curtas, e o jato da
+  mão direita só acende quando é ela que atira.
+- **Saída dos robôs:** depois da fresta da porta cada um vai para um ponto diferente da largura do galpão
+  (cinco faixas de 11 m, com sorteio), em vez de todos em fila reta.
