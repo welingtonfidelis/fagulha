@@ -901,7 +901,7 @@ func _ponto_21() -> void:
 	Input.action_release("atirar")
 	var tiros := 0
 	for nome in Sons.registro:
-		if nome.begins_with("tiro_"):
+		if nome.begins_with("tiro_") or nome.begins_with("laser_"):
 			tiros += 1
 	Sons.registrar = false
 	# fora e dentro do Sumidouro
@@ -1606,6 +1606,8 @@ func _ponto_31() -> void:
 	var segunda: bool = f.fase == Fundicao.Fase.ONDA and f.onda == 2
 	a.teleportar(Vector3(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, v.altura(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, Fundicao.CENTRO.y) + 0.5, Fundicao.CENTRO.y), Armadura.Estado.CHAO)
 	await _esperar(0.6)
+	_ok(m.hud.resumo_t > 0.0 and m.hud._resumo_linhas.size() == 5 and String(m.hud._resumo_linhas[1]).begins_with("Novo recorde") and Arsenal.recorde == 1,
+		"ao sair aparece o resumo da rodada, com o recorde novo (%s)" % String(m.hud._resumo_linhas[1] if m.hud._resumo_linhas.size() > 1 else "nada"))
 	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 1 and m.hud.placar == "",
 		"a onda 2 vem sozinha; saindo da cratera tudo para e a onda 2 fica para a volta")
 	# o telhado segura o robô: solto de cima em vários pontos (painéis, emendas e nervuras) ele para em cima,
@@ -1627,6 +1629,26 @@ func _ponto_31() -> void:
 	_ok(em_cima == pontos_teto.size() and fora_arco, "o telhado da forja segura o robô (%d de %d pousos em cima; voando contra a lateral, parou a %.0f m do meio)" % [em_cima, pontos_teto.size(), a.global_position.x - Fundicao.CENTRO.x])
 	a.teleportar(meio, Armadura.Estado.CHAO)
 	await _esperar(0.3)
+	# o minichefe: aviso antes de sair, depois a barra de vida no alto; os sons novos existem
+	a.teleportar(meio, Armadura.Estado.CHAO)
+	await _esperar(0.3)
+	Arsenal.ponto_volta = 5
+	f.onda = 4
+	f.ligar()
+	await _esperar(Fundicao.T_CONTAGEM + 1.2)
+	var avisando: bool = f._chefe_t > 0.0 and f.chefe_vivo == null and m.hud.chefe_vida < 0.0
+	await _esperar(Fundicao.T_AVISO_CHEFE + 2.0)
+	var com_barra: bool = f.chefe_vivo != null and f.chefe_vivo is MaquinaPacote and (f.chefe_vivo as MaquinaPacote).tipo == "stan" and m.hud.chefe_vida > 0.9 and m.hud.chefe_nome == "Stan"
+	var sons_ok := true
+	for nome_s: String in ["laser_pistola", "laser_rajada", "laser_precisao", "laser_duplo", "canhao_tiro", "canhao_carga", "missil_sai", "granada_sai", "explosao_1", "explosao_2",
+			"espada_1", "espada_2", "trava", "sem_municao", "roda_abre", "roda_troca", "caixa_sai", "caixa_pega", "nivel", "fabricou", "onda_comeca", "onda_vencida", "chefe_aviso",
+			"porta_abre", "chefe_cai", "perdeu"]:
+		if not ResourceLoader.exists(Som.PASTA % nome_s):
+			sons_ok = false
+	_ok(avisando and com_barra and sons_ok, "minichefe: 2,6 s de aviso, depois o Stan sai e a barra de vida aparece; os 26 sons novos existem")
+	f._parar("")
+	Arsenal.ponto_volta = 1
+	f.onda = 0
 	_ok(Fundicao.receita(5)[0]["chefe"] and Fundicao.receita(10).size() < Fundicao.receita(9).size(), "de 5 em 5 ondas a receita traz um minichefe com escolta menor")
 	# a dificuldade sobe aos poucos: só ataque de perto nas três primeiras; fuzis da 4ª, canhões da 7ª, mísseis da 10ª
 	var so_perto := true
@@ -1655,6 +1677,9 @@ func _ponto_31() -> void:
 	a.escudo_t = 0.0
 	a.avaria = 0
 	a.levar_golpe(Vector3.FORWARD, 1.0)
+	a.visual.vestir_melhorias()
+	var no_corpo: bool = a.visual.pecas.has("vida") and a.visual.pecas.has("escudo")
+	_ok(no_corpo, "a vida extra (ombreiras) e o escudo (emissor nas costas) aparecem no robô")
 	_ok(fez and Arsenal.tem("mira") and Arsenal.sucata == 15 and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES + 1 and a.avaria == 0 and a.escudo_t > 0.0,
 		"fabricou mira, escudo e vida extra: sobra %d de sucata, aguenta %d acertos e o escudo engoliu um" % [Arsenal.sucata, Arsenal.golpes_pane()])
 	Arsenal.tudo = true

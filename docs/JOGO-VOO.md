@@ -1727,3 +1727,35 @@ ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação 
   mão direita só acende quando é ela que atira.
 - **Saída dos robôs:** depois da fresta da porta cada um vai para um ponto diferente da largura do galpão
   (cinco faixas de 11 m, com sorteio), em vez de todos em fila reta.
+
+## 71. Acabamento da Fundição: sons próprios e a entrada do minichefe (2026-11-17)
+
+- **Sons por síntese** (`tools/sons_arena.py`, 26 arquivos em `assets/sons/`): um laser por arma
+  (`laser_pistola`, `laser_rajada`, `laser_precisao`, `laser_duplo`, `canhao_tiro` e o `canhao_carga` que
+  sobe enquanto carrega), `missil_sai`, `granada_sai`, `explosao_1/2`, `espada_1/2` (um por lado), `trava`
+  dos mísseis, `sem_municao`, `roda_abre` e `roda_troca`, `caixa_sai` e `caixa_pega`, `nivel`, `fabricou`,
+  `onda_comeca`, `onda_vencida`, `chefe_aviso`, `porta_abre`, `chefe_cai` e `perdeu`. O som do tiro sai de
+  `Arsenal.MODOS[...]["som"]` em `Sons.ao_atirar`; os outros por `Som.toque3d` ou `Sons._toque`.
+- **Entrada do minichefe:** na onda dele há 2,6 s de aviso (`T_AVISO_CHEFE`): buzina de três toques, som de
+  porta pesada, a luz vermelha da fresta pulsando e o chão tremendo; só depois ele sai. Em campo, uma barra
+  de vida com o nome aparece no alto da tela (`Hud.chefe_nome`, `chefe_vida`), e ao cair toca `chefe_cai`.
+- Vale 65 pontos, voo 95. Os sons não foram ouvidos por quem os fez: falta o usuário avaliar.
+- **Fim de rodada:** ao sair do galpão ou ser desligado, um cartão fica 9 s no meio da tela sem parar o jogo
+  (`Hud.mostrar_resumo`): ondas vencidas, recorde (em dourado quando é novo), robôs desligados, experiência,
+  materiais levados (com a metade perdida na derrota) e a onda em que recomeça. O convite do painel mostra
+  o recorde.
+- **Escudo e vida extra no corpo:** a vida extra são duas ombreiras baixas; o escudo é um disco emissor por
+  fora do antebraço esquerdo, aceso quando está pronto e apagado enquanto recarrega, e uma bolha pisca em
+  volta do robô quando ele engole um acerto (`MelhoriasVisual.bolha_escudo`). Vale 67 pontos.
+- **Paredes e rampas do galpão:** a rocha do morro (`_morro`) agora tem duas superfícies: o que é deitado (o
+  alto do paredão e as rampas dos lados, menos de uns 40°) leva o chão de capim do vale, com 150 plantas
+  espalhadas; o que é em pé leva a rocha. As rampas deixaram de ser duas faixas cinza. A parede dos fundos
+  ganhou painéis do MegaKit na frente do concreto (8 por 6 m, em quatro fiadas até o arco: inteiros e com
+  janelas embaixo, quebrados e com falhas em cima), e os restos de parede da frente também, dos dois lados.
+  Mais quatro paredes copiadas para `assets/vale/base/` (sem as texturas embutidas, como as outras).
+- **Ferrugem com textura:** a ferrugem de `vale_base.gdshader` era só um ruído que alaranjava em manchas
+  largas (os painéis pareciam queimados). Agora vem de duas texturas do Poly Haven (CC0), em
+  `assets/vale/ferrugem/`, ligadas como variáveis globais de shader (`fer_chapa`, `fer_grossa` em
+  `project.godot`), projetadas pelo mundo: a grossa dá a cor e o grão, a de chapa pintada dá as pintas que
+  esfarelam a borda das manchas e salpicam o resto; o ruído só decide onde enferruja mais. Vale para tudo
+  que usa esse material: a base, o cilindro, a Fundição e as peças do Kenney e do MegaKit.

@@ -15,6 +15,8 @@ uniform float luz_forca = 0.0;  // quanto a textura de luz acende (telas, olho d
 uniform vec3 aceso : source_color = vec3(0.0);  // cor acesa na peça toda (lâmpadas)
 uniform float borda = 0.14;
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
+global uniform sampler2D fer_chapa : source_color, filter_linear_mipmap, repeat_enable;
+global uniform sampler2D fer_grossa : source_color, filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -42,11 +44,18 @@ void fragment() {
 	float r2 = texture(ruido, pl * 0.21 + vec2(0.13, 0.71)).r;
 	float tempo = 0.0;
 	if (ferrugem > 0.0) {
-		// placas largas de ferrugem, mais fortes embaixo das peças e nas quinas viradas para baixo
-		float m = smoothstep(0.66 - ferrugem * 0.3, 0.8 - ferrugem * 0.22, r1 * 0.78 + r2 * 0.22 + (1.0 - n.y) * 0.05);
-		vec3 fer = mix(vec3(0.085, 0.03, 0.012), vec3(0.24, 0.085, 0.022), smoothstep(0.3, 0.7, r2));
-		c = mix(c, fer, m * min(1.0, ferrugem * 1.25));
-		c *= 1.0 - 0.25 * ferrugem * (1.0 - m);  // o que não enferrujou perdeu o brilho
+		// a ferrugem vem de duas texturas (Poly Haven, CC0), projetadas pelo mundo para emendar de uma peça
+		// para a outra: a grossa dá a cor e o grão; a de chapa pintada dá as pintas, que esfarelam a borda
+		// das manchas e salpicam o resto. O ruído só decide onde enferruja mais (embaixo e nas quinas).
+		vec3 grossa = texture(fer_grossa, pl * 0.17).rgb;
+		vec3 chapa = texture(fer_chapa, pl * 0.12).rgb;
+		float pinta = smoothstep(0.06, 0.3, chapa.r - chapa.b);
+		float zona = r1 * 0.78 + r2 * 0.22 + (1.0 - n.y) * 0.05;
+		float lim = 0.74 - ferrugem * 0.3;
+		float m = smoothstep(lim - 0.1, lim + 0.08, zona + (pinta - 0.45) * 0.24);
+		m = max(m, pinta * ferrugem * 0.55);
+		c = mix(c, grossa * 1.25, m * min(1.0, ferrugem * 1.3));
+		c *= 1.0 - 0.18 * ferrugem * (1.0 - m);  // o que não enferrujou perdeu o brilho
 		tempo = m;
 	}
 	if (musgo > 0.0) {

@@ -159,6 +159,12 @@ func _todas(h: float) -> void:
 			rot_a.text = dados[1]
 			_olhar(_h, dados[2], 0.25, 1.45, dados[3])
 			await _foto("arma_" + String(dados[0]))
+		_robo(["vida", "escudo"])
+		rot_a.text = "Vida extra (ombreiras) e escudo"
+		_olhar(_h, PI + 0.9, 0.25, 1.5, 0.55)
+		await _foto("arma_vida_escudo_costas")
+		_olhar(_h, PI - 0.5, 0.3, 1.5, 0.62)
+		await _foto("arma_vida_escudo_frente")
 		_robo(["arma_canhao", "lanca_misseis", "lanca_granadas"])
 		rot_a.text = "Canhão e os dois lançadores"
 		_olhar(_h, 0.35, 0.3, 2.4, 0.55)

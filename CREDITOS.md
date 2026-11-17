@@ -63,3 +63,8 @@ Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.
 - **Stan**, do Animated Mech Pack (março de 2021), e **Trilobite** e **QuadShell**, do Sci-Fi Essentials Kit,
   de Quaternius (https://quaternius.com), CC0 1.0 (`assets/vale/inimigos/`).
 - Partículas de explosão, clarão e laser: Kenney Particle Pack (www.kenney.nl), CC0 (`assets/fx/kenney/`).
+
+## Texturas de ferrugem (Poly Haven)
+
+- **Rusty Metal 02** e **Rust Coarse 01**, de Poly Haven (https://polyhaven.com), CC0
+  (`assets/vale/ferrugem/`, em 1024 px). Usadas na ferrugem da base e da Fundição.

@@ -25,6 +25,7 @@ var chama_tiro: Node3D
 var abertura_aletas := 0.0
 var pecas := {}  # melhorias vestidas: nome -> nós (MelhoriasVisual)
 var asas_f := 0.0  # 0 asas recolhidas, 1 abertas
+var escudos_vistos := 0  # quantos acertos o escudo já engoliu (para piscar a bolha uma vez por acerto)
 var yaw_forcado := NAN  # a oficina vira o robô para mostrar a peça
 var previa := false  # na oficina: asas abertas e luz acesa para ver a peça
 var _fase := 0.0
@@ -93,6 +94,10 @@ func vestir_melhorias(extra: Array = []) -> void:
 	# a arma em uso muda a ponta do braço; os lançadores fabricados ficam nos ombros
 	if Arsenal.modo in ["rajada", "canhao", "precisao", "duplo"] and Arsenal.tem_arma(Arsenal.modo):
 		lista.append("arma_" + Arsenal.modo)
+	if Arsenal.fabricados.has("vida"):
+		lista.append("vida")
+	if Arsenal.fabricados.has("escudo"):
+		lista.append("escudo")
 	if Arsenal.fabricados.has("misseis"):
 		lista.append("lanca_misseis")
 	if Arsenal.fabricados.has("granadas"):

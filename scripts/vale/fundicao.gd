@@ -19,6 +19,7 @@ const ATIVOS := 7  # robôs ligados ao mesmo tempo, no máximo
 const T_CONTAGEM := 5.0
 const T_RESPIRO := 15.0
 const CHEFE_A_CADA := 5
+const T_AVISO_CHEFE := 2.6  # s de aviso antes de o minichefe sair da porta
 const AGUA := Color(0.35, 0.95, 0.85)
 const LARANJA := Color(1.0, 0.62, 0.3)
 
@@ -33,6 +34,7 @@ var onda := 0  # a onda em andamento (ou a última ligada)
 var vivos: Array[Vigia] = []
 var vencidos_total := 0  # testes
 var rodada := {"sucata": 0, "nucleos": 0, "chips": 0}  # o que esta rodada já rendeu (a derrota leva metade)
+var conta := {"xp": 0, "vencidos": 0, "ondas": 0, "recorde_antes": 0}  # o resto da rodada, para o resumo do fim
 var _fila: Array[Dictionary] = []
 var _t := 0.0
 var _solta_t := 0.0
@@ -40,6 +42,8 @@ var _portao := 0
 var _caidos: Array[Dictionary] = []
 var _espolios: Array[Dictionary] = []
 var _painel_luz: OmniLight3D
+var chefe_vivo: Vigia
+var _chefe_t := 0.0
 var _caixas: Array[Dictionary] = []
 var _caixa_n := 0
 var _caixa_t := 25.0
@@ -95,6 +99,7 @@ static var _tex: Texture2D
 static var luzes_forja: Array[OmniLight3D] = []
 static var bracos_forja: Array[Node3D] = []
 static var lampadas: Array[Dictionary] = []
+static var luz_porta: OmniLight3D
 static var esteiras: Array = []  # [boca, fim] de cada esteira das forjas, no mundo: por onde saem as caixas
 
 
@@ -573,9 +578,15 @@ static func _morro(v: Vale, raiz: Node3D) -> void:
 				y = base - (0.7 if arco > real else 0.3)
 			alt[iz * nx + ix] = y
 			vale_a_pena[iz * nx + ix] = 1 if y > base + 0.2 else 0
+	# duas superfícies: o que é deitado (o alto do paredão e as rampas dos lados) leva o chão de capim do
+	# vale; o que é em pé leva a rocha. Tudo em rocha, as rampas viravam duas faixas cinza no morro
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_smooth_group(0)
+	var sc := SurfaceTool.new()
+	sc.begin(Mesh.PRIMITIVE_TRIANGLES)
+	sc.set_smooth_group(0)
+	sc.set_color(Color(0, 0, 0, 1))
 	var faces := PackedVector3Array()
 	for iz in nz - 1:
 		for ix in nx - 1:
@@ -586,19 +597,45 @@ static func _morro(v: Vale, raiz: Node3D) -> void:
 			var p10 := aqui(x0 + (ix + 1) * passo, alt[i + 1], z0 + iz * passo)
 			var p01 := aqui(x0 + ix * passo, alt[i + nx], z0 + (iz + 1) * passo)
 			var p11 := aqui(x0 + (ix + 1) * passo, alt[i + nx + 1], z0 + (iz + 1) * passo)
+			var sobe := maxf(maxf(p00.y, p10.y), maxf(p01.y, p11.y)) - minf(minf(p00.y, p10.y), minf(p01.y, p11.y))
+			var deitado := sobe < passo * 1.15  # menos de uns 40 graus
 			for p: Vector3 in [p00, p10, p11, p00, p11, p01]:
-				st.add_vertex(p)
+				if deitado:
+					sc.set_color(Color(0, 0, 0, 1))
+					sc.add_vertex(p)
+				else:
+					st.add_vertex(p)
 				faces.append(p)
 	st.index()
 	st.generate_normals()
+	sc.index()
+	sc.generate_normals()
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scripts/shaders/vale_rocha.gdshader")
 	mat.set_shader_parameter("ruido", _tex)
+	var mat_chao := ShaderMaterial.new()
+	mat_chao.shader = load("res://scripts/shaders/vale_chao.gdshader")
+	mat_chao.set_shader_parameter("ruido", _tex)
 	var mi := MeshInstance3D.new()
 	mi.name = "MorroDaFundicao"
-	mi.mesh = st.commit()
-	mi.material_override = mat
+	var malha := st.commit()
+	malha.surface_set_material(0, mat)
+	sc.commit(malha)
+	malha.surface_set_material(1, mat_chao)
+	mi.mesh = malha
 	raiz.add_child(mi)
+	# capim e mato nas rampas e no alto, para emendar com o morro
+	var rm := RandomNumberGenerator.new()
+	rm.seed = 9911
+	for k in 150:
+		var ix := rm.randi_range(1, nx - 2)
+		var iz := rm.randi_range(1, nz - 2)
+		var i := iz * nx + ix
+		if vale_a_pena[i] == 0 or absf(alt[i + 1] - alt[i]) > passo * 0.9 or absf(alt[i + nx] - alt[i]) > passo * 0.9:
+			continue
+		var nome: String = ["q_planta_a", "q_samambaia", "q_moita", "q_planta_c", "q_trevo", "q_planta_b"][rm.randi() % 6]
+		if v._malhas.has(nome):
+			v._por(nome, Transform3D(Basis(Vector3.UP, rm.randf() * TAU).scaled(Vector3.ONE * rm.randf_range(0.9, 1.9)), aqui(x0 + ix * passo, alt[i] - 0.05, z0 + iz * passo)))
 	var pedra := Paredoes.rocha(77, 4)
 	var pedra2 := Paredoes.rocha(91, 3)
 	var corpo_p := StaticBody3D.new()
@@ -674,7 +711,25 @@ static func montar(v: Vale) -> void:
 		if absf(xm) < PORTA_LARG * 0.5 + 2.4:
 			de = PORTA_ALT + 3.0
 		if h > de:
-			_caixa(raiz, corpo, Vector3(MX * 2.0 / 12.0 + 0.05, h - de, 1.6), Transform3D(Basis.IDENTITY, aqui(xm, (h + de) * 0.5 - 0.3, -MZ - 0.2)), _mat(CONCRETO.darkened(rng.randf_range(0.0, 0.12)), 0.25, 0.4))
+			_caixa(raiz, corpo, Vector3(MX * 2.0 / 12.0 + 0.05, h - de, 1.6), Transform3D(Basis.IDENTITY, aqui(xm, (h + de) * 0.5 - 0.3, -MZ - 0.2)), _mat(CONCRETO.darkened(0.45 + rng.randf_range(0.0, 0.12)), 0.3, 0.3))
+	# na frente do concreto, painéis de parede do MegaKit (8 m de largura por 6 de altura), em fiadas até o
+	# arco: a de baixo inteira e com janelas, as de cima cada vez mais quebradas e com falhas
+	var paineis := ["WallAstra_Straight", "WallAstra_Straight_Divided", "WallBand_Straight", "WallAstra_Straight_Flat_Window", "WallAstra_Straight_Window"]
+	var quebrados := ["WallAstra_Straight_Broken", "WallBand_Straight_Broken"]
+	for fiada in 4:
+		for col in 13:
+			var xm := -48.0 + col * 8.0
+			if absf(xm) < PORTA_LARG * 0.5 + 5.0 and fiada < 3:
+				continue  # o vão da porta e o pórtico
+			var folga := teto(xm) - (fiada + 1) * 6.0
+			if minf(teto(xm - 4.0), teto(xm + 4.0)) < fiada * 6.0 + 2.0:
+				continue  # já fora do arco
+			var nome: String = paineis[rng.randi() % paineis.size()]
+			if fiada >= 2 or folga < 2.0:
+				if rng.randf() < 0.25:
+					continue
+				nome = quebrados[rng.randi() % 2] if rng.randf() < 0.6 else nome
+			_megakit(raiz, nome, Transform3D(Basis(Vector3.UP, PI * 0.5).scaled(Vector3(2.0, 2.0, 2.0)), aqui(xm, fiada * 6.0, -MZ + 1.3)), 0.16 + fiada * 0.09 + rng.randf() * 0.12, 0.2 + rng.randf() * 0.3)
 	# o bloco de concreto que cobre o túnel, dentro do morro
 	_caixa(raiz, corpo, Vector3(PORTA_LARG + 9.0, PORTA_ALT + 6.0, 23.0), Transform3D(Basis.IDENTITY, aqui(0, (PORTA_ALT + 6.0) * 0.5 + 0.9, -MZ - 12.6)), _mat(CONCRETO.darkened(0.1), 0.2, 0.6))
 	# a porta grande: o pórtico e duas folhas só um pouco abertas. Lá dentro é breu; os robôs saem pela
@@ -697,6 +752,15 @@ static func montar(v: Vale) -> void:
 	_caixa(raiz, corpo, Vector3(PORTA_LARG + 2.4, 1.0, 18.0), Transform3D(Basis.IDENTITY, aqui(0, PORTA_ALT + 0.5, -MZ - 10.0)), breu)
 	_caixa(raiz, corpo, Vector3(PORTA_LARG + 2.4, PORTA_ALT, 1.0), Transform3D(Basis.IDENTITY, aqui(0, PORTA_ALT * 0.5, -MZ - 19.0)), breu)
 	_caixa(raiz, corpo, Vector3(PORTA_LARG, 0.3, 18.0), Transform3D(Basis.IDENTITY, aqui(0, -0.11, -MZ - 10.0)), breu, false)
+	# a luz vermelha da fresta: fraca em paz, pulsa forte quando o minichefe é anunciado
+	luz_porta = OmniLight3D.new()
+	luz_porta.light_color = Color(1.0, 0.25, 0.18)
+	luz_porta.light_energy = 2.4
+	luz_porta.omni_range = 22.0
+	luz_porta.shadow_enabled = false
+	luz_porta.position = aqui(0, 5.0, -MZ + 2.5)
+	raiz.add_child(luz_porta)
+	_caixa(raiz, corpo, Vector3(PORTA_LARG - 3.0, 0.35, 0.35), Transform3D(Basis.IDENTITY, aqui(0, PORTA_ALT + 0.4, -MZ + 1.7)), _luz(Color(1.0, 0.3, 0.2), 3.0), false)
 	# o vão fechado para o jogador (as mechas andam por conta própria e passam)
 	var tranca := CollisionShape3D.new()
 	var ft := BoxShape3D.new()
@@ -753,7 +817,14 @@ static func montar(v: Vale) -> void:
 		for i in 3:
 			var xm := s * (MX - 4.0 - i * 7.5)
 			var h := maxf(1.5, teto(xm + s * 3.6) - rng.randf_range(0.5, 5.0 + i * 3.0))
-			_caixa(raiz, corpo, Vector3(7.5, h, 1.4), Transform3D(Basis.IDENTITY, aqui(xm, h * 0.5 - 0.3, MZ - 0.4)), _mat(CONCRETO.darkened(rng.randf_range(0.0, 0.12)), 0.25, 0.45))
+			_caixa(raiz, corpo, Vector3(7.5, h, 1.0), Transform3D(Basis.IDENTITY, aqui(xm, h * 0.5 - 0.3, MZ - 0.4)), _mat(CONCRETO.darkened(0.4 + rng.randf_range(0.0, 0.12)), 0.3, 0.4))
+			for fiada in int(h / 6.0) + 1:
+				if fiada * 6.0 > h - 1.0:
+					break
+				var inteiro := (fiada + 1) * 6.0 <= h
+				for face: float in [-1.0, 1.0]:
+					_megakit(raiz, (["WallAstra_Straight", "WallBand_Straight"][rng.randi() % 2]) if inteiro else (["WallAstra_Straight_Broken", "WallBand_Straight_Broken"][rng.randi() % 2]),
+						Transform3D(Basis(Vector3.UP, PI * 0.5 * face).scaled(Vector3(1.9, 2.0, 1.9)), aqui(xm, fiada * 6.0, MZ - 0.4 + face * 0.75)), 0.22 + rng.randf() * 0.18, 0.3 + rng.randf() * 0.3)
 	_caixa(raiz, corpo, Vector3(12.0, 6.5, 0.5), Transform3D(Basis.from_euler(Vector3(0, 0, 0.05)), aqui(0, ARCO_H - 5.4, MZ + 0.9)), _mat(Color(0.5, 0.3, 0.16), 0.9, 0.2))
 	_kit(raiz, "cog-b", Transform3D((Basis.from_euler(Vector3(PI * 0.5, 0, 0.05))).scaled(Vector3.ONE * 5.0), aqui(0, ARCO_H - 5.4, MZ + 1.5)), Color(0.9, 0.5, 0.25), 0.7, 0.15)
 	for s: float in [-1.0, 1.0]:
@@ -913,6 +984,9 @@ static func receita(numero: int) -> Array[Dictionary]:
 func ligar() -> void:
 	if fase != Fase.PARADA or armadura.em_pane:
 		return
+	conta = {"xp": 0, "vencidos": 0, "ondas": 0, "recorde_antes": Arsenal.recorde}
+	if hud:
+		hud.resumo_t = 0.0
 	onda = maxi(onda, Arsenal.ponto_volta - 1) + 1
 	fase = Fase.CONTAGEM
 	_t = T_CONTAGEM
@@ -920,13 +994,20 @@ func ligar() -> void:
 		hud.dica = ""
 		hud.avisar("Fundição ligada", "onda %d em %d s" % [onda, int(T_CONTAGEM)])
 	if sons:
-		sons._toque("religar", -6.0)
+		sons._toque("onda_comeca", -5.0, 0.0)
 
 
 func _comecar_onda() -> void:
 	fase = Fase.ONDA
 	_fila = receita(onda)
 	_solta_t = 0.0
+	chefe_vivo = null
+	if onda % CHEFE_A_CADA == 0:
+		# o minichefe é anunciado: buzina, a luz da porta pulsa, o chão treme, e só então ele sai
+		_chefe_t = T_AVISO_CHEFE
+		if sons:
+			sons._toque("chefe_aviso", -2.0, 0.0)
+			sons._toque("porta_abre", -4.0, 0.0)
 	if hud:
 		hud.avisar("Onda %d" % onda, ("minichefe: %s" % MaquinaPacote.TITULOS[_fila[0]["tipo"]]) if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
 
@@ -960,6 +1041,10 @@ func _soltar(dados: Dictionary) -> void:
 	var leque := (_portao % 5 - 2) * 11.0 + randf_range(-4.0, 4.0)
 	mc.set_meta("espalha", aqui(leque, 0.0, -MZ + randf_range(11.0, 22.0)))
 	vivos.append(mc)
+	if chefe:
+		chefe_vivo = mc
+		if hud:
+			hud.chefe_nome = MaquinaPacote.TITULOS.get(String(dados.get("tipo", "")), "Minichefe")
 
 
 ## Uma caixa sai da forja pela esteira (as forjas ainda fabricam): "municao" enche as granadas e os mísseis,
@@ -996,6 +1081,7 @@ func soltar_caixa(tipo: String) -> void:
 	no.add_child(luz)
 	_caixas.append({"no": no, "tipo": tipo, "t": 0.0, "e": e})
 	caixas_soltas += 1
+	Som.toque3d(self, "caixa_sai", e[0], 2.0, 14.0, 120.0)
 	if hud:
 		hud.avisar("Caixa de munição" if tipo == "municao" else "Caixa de conserto", "saindo de uma forja")
 
@@ -1028,7 +1114,7 @@ func _andar_caixas(delta: float) -> void:
 					hud.avisar("Robô consertado", "os acertos foram apagados")
 			caixas_pegas += 1
 			if sons:
-				sons._toque("marcar", -4.0, 0.0)
+				sons._toque("caixa_pega", -3.0, 0.0)
 			no.queue_free()
 			_caixas.erase(cx)
 		elif t > 90.0:
@@ -1041,6 +1127,8 @@ func _recompensa(mc: Vigia) -> void:
 	var xp := roundi((80.0 if mc.chefe else 10.0) * (1.0 + onda * 0.15))
 	var nivel_antes := Arsenal.nivel()
 	Arsenal.xp += xp
+	conta["xp"] += xp
+	conta["vencidos"] += 1
 	var ganho := {"sucata": 6 if mc.chefe else 1 + int(mc.semente % 3 == 0), "nucleos": 0, "chips": 0}
 	if mc.chefe:
 		ganho["nucleos"] = 2
@@ -1059,7 +1147,7 @@ func _recompensa(mc: Vigia) -> void:
 		if hud:
 			hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações na base")
 		if sons:
-			sons._toque("religar", -3.0, 0.0)
+			sons._toque("nivel", -2.0, 0.0)
 	# os espólios: cubinhos de luz que saem do robô caído e voam para o jogador
 	for i in mini(4, int(ganho["sucata"]) + int(ganho["nucleos"]) + int(ganho["chips"])):
 		var cubo := MeshInstance3D.new()
@@ -1073,7 +1161,18 @@ func _recompensa(mc: Vigia) -> void:
 	_caidos.append({"no": mc, "t": 0.0})
 
 
-func _parar(motivo: String, sub := "") -> void:
+func _parar(motivo: String, sub := "", perdeu := {}) -> void:
+	# o resumo da rodada: até onde foi, o recorde e o que levou (só se chegou a lutar)
+	if hud and motivo != "" and (int(conta["vencidos"]) > 0 or int(conta["ondas"]) > 0):
+		var linhas := []
+		linhas.append("Ondas vencidas: %d   ·   última: onda %d" % [int(conta["ondas"]), Arsenal.recorde if int(conta["ondas"]) > 0 and onda >= Arsenal.recorde else maxi(0, onda - (0 if fase == Fase.RESPIRO else 1))])
+		linhas.append(("Novo recorde: onda %d!" % Arsenal.recorde) if Arsenal.recorde > int(conta["recorde_antes"]) else "Recorde: onda %d" % Arsenal.recorde)
+		linhas.append("Robôs desligados: %d   ·   experiência: +%d   ·   nível %d" % [int(conta["vencidos"]), int(conta["xp"]), Arsenal.nivel()])
+		var levou := "Sucata +%d   ·   núcleos +%d   ·   chips +%d" % [int(rodada["sucata"]) - int(perdeu.get("sucata", 0)), int(rodada["nucleos"]) - int(perdeu.get("nucleos", 0)), int(rodada["chips"]) - int(perdeu.get("chips", 0))]
+		linhas.append(levou + ("   (metade ficou na Fundição)" if not perdeu.is_empty() else ""))
+		linhas.append("Recomeça na onda %d" % Arsenal.ponto_volta if Arsenal.ponto_volta > 1 else "Vença o minichefe da onda 5 para salvar o ponto de volta")
+		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]))
+		motivo = ""
 	for cx in _caixas:
 		(cx["no"] as Node3D).queue_free()
 	_caixas.clear()
@@ -1131,6 +1230,15 @@ func _physics_process(delta: float) -> void:
 			(l["vidro"] as StandardMaterial3D).emission_energy_multiplier = 2.2 if acesa else 0.15
 	for i in bracos_forja.size():
 		bracos_forja[i].rotation.y = float(bracos_forja[i].get_meta("giro0")) + sin(agora * 0.45 + i * 1.3) * 0.7
+	# a luz da porta: calma em paz, pulsando forte enquanto o minichefe é anunciado
+	if luz_porta:
+		luz_porta.light_energy = (4.0 + 5.0 * absf(sin(agora * 9.0))) if _chefe_t > 0.0 else 2.4
+	# a barra de vida do minichefe (o quanto falta para ele desligar)
+	if hud:
+		if chefe_vivo and is_instance_valid(chefe_vivo) and not chefe_vivo.desligada and fase == Fase.ONDA:
+			hud.chefe_vida = 1.0 - chefe_vivo.calor / 100.0
+		else:
+			hud.chefe_vida = -1.0
 	var pulso := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.004)
 	_mat_painel.emission = AGUA if fase == Fase.PARADA else LARANJA
 	_mat_painel.emission_energy_multiplier = lerpf(0.8, 2.6, pulso) if fase == Fase.PARADA else 1.2
@@ -1142,6 +1250,8 @@ func _physics_process(delta: float) -> void:
 		if hud:
 			var perto := d < 4.0 and absf(armadura.global_position.y - PISO) < 3.0 and armadura.estado == Armadura.Estado.CHAO and not armadura.travado
 			var texto := "Quadrado / E:  ligar a Fundição (onda %d)" % (maxi(onda, Arsenal.ponto_volta - 1) + 1)
+			if Arsenal.recorde > 0:
+				texto += "   ·   recorde: onda %d" % Arsenal.recorde
 			if perto:
 				hud.dica = texto
 				if Input.is_action_just_pressed("agir"):
@@ -1158,7 +1268,9 @@ func _physics_process(delta: float) -> void:
 		Arsenal.nucleos -= perdeu["nucleos"]
 		Arsenal.chips -= perdeu["chips"]
 		Arsenal.guardar()
-		_parar("A Fundição venceu desta vez", "metade dos materiais da rodada ficou lá")
+		if sons:
+			sons._toque("perdeu", -3.0, 0.0)
+		_parar("A Fundição venceu desta vez", "metade dos materiais da rodada ficou lá", perdeu)
 		return
 	if d > SAIU:
 		_parar("Fundição desligada", "você saiu da cratera")
@@ -1188,6 +1300,10 @@ func _physics_process(delta: float) -> void:
 					soltar_caixa("conserto")
 				elif Arsenal.granadas < Arsenal.granadas_max() or Arsenal.misseis < Arsenal.misseis_max():
 					soltar_caixa("municao")
+			if _chefe_t > 0.0:
+				_chefe_t -= delta
+				armadura.tremor = maxf(armadura.tremor, 0.18)
+				_solta_t = 0.2
 			_solta_t -= delta
 			if not _fila.is_empty() and vivos.size() < ATIVOS and _solta_t <= 0.0:
 				_soltar(_fila.pop_front())
@@ -1213,6 +1329,7 @@ func _physics_process(delta: float) -> void:
 
 func _vencer_onda() -> void:
 	Arsenal.recorde = maxi(Arsenal.recorde, onda)
+	conta["ondas"] += 1
 	# no respiro as forjas mandam o que faltar: munição, e conserto se o robô levou acerto
 	if Arsenal.granadas < Arsenal.granadas_max() or Arsenal.misseis < Arsenal.misseis_max():
 		soltar_caixa("municao")
@@ -1227,5 +1344,5 @@ func _vencer_onda() -> void:
 	if hud:
 		hud.avisar("Onda %d vencida" % onda, "ponto de volta salvo" if chefe else "respiro de %d s" % int(T_RESPIRO))
 	if sons:
-		sons._toque("marcar", -4.0, 0.0)
+		sons._toque("chefe_cai" if chefe else "onda_vencida", -3.0, 0.0)
 	onda_vencida.emit(onda)

@@ -54,6 +54,7 @@ func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	resumo_t = maxf(0.0, resumo_t - delta)
 	if _tempo_lugar >= 0.0:
 		_tempo_lugar += delta
 		if _tempo_lugar >= TEMPO_ENTRAR + TEMPO_FICAR + TEMPO_SAIR:
@@ -206,6 +207,60 @@ func _desenhar_placar() -> void:
 
 
 var tiro_no: Node  # o Tiro (para a carga do canhão)
+var resumo_t := 0.0  # tempo que o cartão de fim de rodada ainda fica na tela
+var _resumo_titulo := ""
+var _resumo_linhas: Array = []
+var _resumo_recorde := false
+const RESUMO_DURA := 9.0
+
+
+## O cartão de fim de rodada da Fundição: fica uns segundos no meio da tela, sem parar o jogo.
+func mostrar_resumo(titulo: String, linhas: Array, recorde: bool) -> void:
+	_resumo_titulo = titulo
+	_resumo_linhas = linhas
+	_resumo_recorde = recorde
+	resumo_t = RESUMO_DURA
+
+
+func _desenhar_resumo() -> void:
+	if resumo_t <= 0.0:
+		return
+	var alfa := clampf(minf(resumo_t, RESUMO_DURA - resumo_t) * 3.0, 0.0, 1.0)
+	var larg := 620.0
+	var alt := 96.0 + _resumo_linhas.size() * 30.0
+	var p := Vector2(size.x * 0.5 - larg * 0.5, size.y * 0.5 - alt * 0.5 - 60.0)
+	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.03, 0.06, 0.07, 0.88 * alfa))
+	draw_rect(Rect2(p, Vector2(larg, 5.0)), Color(1.0, 0.62, 0.3, alfa))
+	var wt := _fonte.get_string_size(_resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+	draw_string(_fonte, p + Vector2(larg * 0.5 - wt * 0.5, 50.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(1, 1, 1, alfa))
+	for i in _resumo_linhas.size():
+		var linha := String(_resumo_linhas[i])
+		var cor := Color(0.93, 0.94, 0.9, alfa)
+		if i == 1:
+			cor = Color(1.0, 0.82, 0.35, alfa) if _resumo_recorde else Color(0.62, 0.68, 0.66, alfa)
+		elif i == _resumo_linhas.size() - 1:
+			cor = Color(0.35, 0.95, 0.85, alfa)
+		var w := _fonte.get_string_size(linha, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		draw_string(_fonte, p + Vector2(larg * 0.5 - w * 0.5, 92.0 + i * 30.0), linha, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, cor)
+
+
+var chefe_nome := ""  # o minichefe da Fundição em campo
+var chefe_vida := -1.0  # 0 a 1; negativo: sem barra
+
+
+## A barra do minichefe, no alto, debaixo da bússola: o nome e quanto falta para ele desligar.
+func _desenhar_chefe() -> void:
+	if chefe_vida < 0.0:
+		return
+	var larg := 460.0
+	var p := Vector2(size.x * 0.5 - larg * 0.5, 104.0)
+	var w := _fonte.get_string_size(chefe_nome, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	draw_string(_fonte, Vector2(size.x * 0.5 - w * 0.5, p.y - 8.0), chefe_nome, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.95))
+	draw_rect(Rect2(p.x - 3.0, p.y - 3.0, larg + 6.0, 20.0), Color(0, 0, 0, 0.55))
+	draw_rect(Rect2(p.x, p.y, larg * clampf(chefe_vida, 0.0, 1.0), 14.0), Color(1.0, 0.32, 0.22))
+	for k in range(1, 4):
+		draw_rect(Rect2(p.x + larg * k / 4.0 - 1.0, p.y, 2.0, 14.0), Color(0, 0, 0, 0.5))
+
 
 
 ## A arma em uso e as granadas, no canto de baixo à direita (só quando há mais que a pistola de fábrica).
@@ -265,6 +320,8 @@ func _draw() -> void:
 	_desenhar_dica()
 	_desenhar_placar()
 	_desenhar_arma()
+	_desenhar_chefe()
+	_desenhar_resumo()
 	if alvo == null:
 		return
 	var c := size * 0.5

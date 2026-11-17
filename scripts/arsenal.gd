@@ -18,12 +18,12 @@ static var misseis := 0  # no lançador agora
 ## para carregar e solta). dano é em tiros de pistola; area, o raio do estouro; fov, o zoom ao mirar.
 const ORDEM := ["pistola", "rajada", "canhao", "precisao", "duplo", "misseis"]
 const MODOS := {
-	"pistola": {"cor": Color(1.0, 0.55, 0.2), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Pistola", "resumo": "um tiro por aperto", "gatilho": "aperto", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0},
-	"rajada": {"cor": Color(1.0, 0.88, 0.3), "boca": "muzzle_03", "comp": 1.5, "grosso": 0.6, "titulo": "Rajada", "resumo": "muitos tiros fracos; esquenta", "gatilho": "segura", "cadencia": 0.085, "dano": 0.34, "calor": 1.5, "area": 0.0, "vel": 150.0, "espalha": 0.022},
-	"canhao": {"cor": Color(1.0, 0.35, 0.15), "boca": "muzzle_05", "comp": 1.6, "grosso": 2.6, "titulo": "Canhão", "resumo": "segure para carregar e solte", "gatilho": "carga", "cadencia": 0.7, "dano": 3.6, "calor": 13.0, "area": 5.0, "vel": 70.0, "carga": 1.1},
-	"precisao": {"cor": Color(0.35, 0.75, 1.0), "boca": "muzzle_02", "comp": 6.0, "grosso": 0.7, "titulo": "Precisão", "resumo": "zoom, um tiro forte e lento", "gatilho": "aperto", "cadencia": 1.15, "dano": 3.2, "calor": 8.0, "area": 0.0, "vel": 320.0, "fov": 20.0},
-	"duplo": {"cor": Color(0.4, 1.0, 0.8), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Tiro duplo", "resumo": "R2 o braço direito, L2 o esquerdo", "gatilho": "duplo", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0},
-	"misseis": {"titulo": "Mísseis", "resumo": "segure para travar até 4 alvos e solte", "gatilho": "trava", "cadencia": 0.9, "dano": 3.0, "calor": 4.0, "area": 4.5, "vel": 34.0},
+	"pistola": {"som": "laser_pistola", "cor": Color(1.0, 0.55, 0.2), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Pistola", "resumo": "um tiro por aperto", "gatilho": "aperto", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0},
+	"rajada": {"som": "laser_rajada", "cor": Color(1.0, 0.88, 0.3), "boca": "muzzle_03", "comp": 1.5, "grosso": 0.6, "titulo": "Rajada", "resumo": "muitos tiros fracos; esquenta", "gatilho": "segura", "cadencia": 0.085, "dano": 0.34, "calor": 1.5, "area": 0.0, "vel": 150.0, "espalha": 0.022},
+	"canhao": {"som": "canhao_tiro", "cor": Color(1.0, 0.35, 0.15), "boca": "muzzle_05", "comp": 1.6, "grosso": 2.6, "titulo": "Canhão", "resumo": "segure para carregar e solte", "gatilho": "carga", "cadencia": 0.7, "dano": 3.6, "calor": 13.0, "area": 5.0, "vel": 70.0, "carga": 1.1},
+	"precisao": {"som": "laser_precisao", "cor": Color(0.35, 0.75, 1.0), "boca": "muzzle_02", "comp": 6.0, "grosso": 0.7, "titulo": "Precisão", "resumo": "zoom, um tiro forte e lento", "gatilho": "aperto", "cadencia": 1.15, "dano": 3.2, "calor": 8.0, "area": 0.0, "vel": 320.0, "fov": 20.0},
+	"duplo": {"som": "laser_duplo", "cor": Color(0.4, 1.0, 0.8), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Tiro duplo", "resumo": "R2 o braço direito, L2 o esquerdo", "gatilho": "duplo", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0},
+	"misseis": {"som": "missil_sai", "titulo": "Mísseis", "resumo": "segure para travar até 4 alvos e solte", "gatilho": "trava", "cadencia": 0.9, "dano": 3.0, "calor": 4.0, "area": 4.5, "vel": 34.0},
 }
 ## A espada de laser (R3 no chão): um golpe em arco, que alterna de lado a cada vez.
 const ESPADA := {"dano": 2.0, "alcance": 3.6, "abre": 80.0, "tempo": 0.2, "espera": 0.3}

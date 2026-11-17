@@ -310,7 +310,7 @@ func _escolher(nome: String) -> void:
 			_estado.text = "Fabricar gasta " + Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "") + "."
 		else:
 			_estado.text = "Custa " + Arsenal.custo(nome) + " (" + Arsenal.falta(nome) + "). Os materiais vêm da Fundição."
-		var previa_de := {"mira": "mira", "misseis": "lanca_misseis", "granadas": "lanca_granadas", "rajada": "arma_rajada", "canhao": "arma_canhao", "precisao": "arma_precisao", "duplo": "arma_duplo"}
+		var previa_de := {"mira": "mira", "vida": "vida", "escudo": "escudo", "misseis": "lanca_misseis", "granadas": "lanca_granadas", "rajada": "arma_rajada", "canhao": "arma_canhao", "precisao": "arma_precisao", "duplo": "arma_duplo"}
 		armadura.visual.vestir_melhorias([previa_de[nome]] if previa_de.has(nome) else [])
 		armadura.visual.previa = true
 		_virar("antena")
@@ -469,8 +469,9 @@ func _physics_process(delta: float) -> void:
 				fase = Fase.ABERTA
 				if Arsenal.RECEITAS.has(nome):
 					if Arsenal.fabricar(nome):
+						armadura.visual.escudos_vistos = armadura.escudos_gastos
 						if sons:
-							sons._toque("marcar", -4.0, 0.0)
+							sons._toque("fabricou", -3.0, 0.0)
 						instalou.emit(nome)
 					_refazer_lista()
 					_escolher(nome)

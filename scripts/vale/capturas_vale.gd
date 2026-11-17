@@ -463,6 +463,18 @@ func rodar(main: Node) -> void:
 			await _esperar(0.6)
 		get_tree().quit()
 		return
+	if "--resumo" in args:
+		# o cartão de fim de rodada da Fundição (`--resumo --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		a.teleportar(Fundicao.aqui(60.0, 0.0, 60.0) + Vector3(0, 1.0, 0), Armadura.Estado.CHAO)
+		await _esperar(1.0)
+		m.hud.mostrar_resumo("Fundição desligada", ["Ondas vencidas: 6   ·   última: onda 6", "Novo recorde: onda 6!", "Robôs desligados: 31   ·   experiência: +412   ·   nível 4",
+			"Sucata +38   ·   núcleos +3   ·   chips +1", "Recomeça na onda 6"], true)
+		await _esperar(1.0)
+		await _foto("resumo")
+		get_tree().quit()
+		return
 	if "--oficina" in args:
 		await _oficina()
 		return

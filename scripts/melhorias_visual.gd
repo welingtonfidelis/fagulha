@@ -129,6 +129,12 @@ static func animar(v: ArmaduraVisual, a: Armadura, delta: float) -> void:
 		por_asas(v.pecas["asas"], smoothstep(0.0, 1.0, v.asas_f))
 	if v.pecas.has("farol"):
 		por_farol(v.pecas["farol"], (a.luz_ligada and not a.em_pane) or v.previa)
+	if v.pecas.has("escudo"):
+		# o emissor apaga enquanto o escudo recarrega; quando ele engole um acerto, uma bolha pisca em volta
+		((v.pecas["escudo"] as Array)[0] as Node3D).visible = a.escudo_t <= 0.0
+		if a.escudos_gastos != v.escudos_vistos:
+			v.escudos_vistos = a.escudos_gastos
+			bolha_escudo(v, a.altura_corpo())
 	if v.pecas.has("antena"):
 		var luz := (v.pecas["antena"] as Array)[0] as Node3D
 		luz.scale = Vector3.ONE * (1.0 + 0.25 * sin(Time.get_ticks_msec() * 0.006))
@@ -539,6 +545,22 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 				_cil(g, 0.036, 0.036, 0.012, Vector3(0, -0.03, 0), _mat(VERDE))
 				_cil(g, 0.024, 0.024, 0.004, Vector3(0, 0.081, 0), _mat(PESSEGO, 1.8))
 			nos.append(g)
+		"vida":
+			# vida extra: uma ombreira baixa em cada ombro (placas a mais de armadura)
+			for s in [-1.0, 1.0]:
+				var g := _grupo(_ancora(v, "ombroE" if s < 0.0 else "ombroD"), Vector3(s * 0.168, 0.662, 0.0), Vector3(0, 0, -s * 14.0))
+				_bola(g, 0.052, Vector3(0, 0.0, 0), _mat(CLARO), Vector3(1.0, 0.34, 0.95))
+				_bola(g, 0.056, Vector3(0, -0.006, 0), _mat(ESCURO), Vector3(1.0, 0.3, 0.98))
+				_caixa(g, Vector3(0.05, 0.006, 0.02), Vector3(0, 0.018, 0), _mat(VERDE))
+				nos.append(g)
+		"escudo":
+			# o escudo de energia: um disco emissor por fora do antebraço esquerdo, como um broquel; aceso quando
+			# está pronto
+			var g := _grupo(_ancora(v, "cotoveloE"), Vector3(-0.252, 0.43, 0.0), Vector3(0, 0, 90))
+			_cil(g, 0.05, 0.05, 0.014, Vector3.ZERO, _mat(ESCURO))
+			_cil(g, 0.054, 0.054, 0.005, Vector3(0, 0.004, 0), _mat(CLARO))
+			nos.append(_cil(g, 0.036, 0.036, 0.005, Vector3(0, 0.009, 0), _mat(Color(0.35, 0.95, 0.85), 2.6)))
+			nos.append(g)
 		"mira":
 			# um aro com um ponto vermelho no punho direito, o braço que atira
 			var g := _grupo(_ancora(v, "cotoveloD"), Vector3(0.204, 0.4, -0.004))
@@ -552,3 +574,29 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 			_cil(g, 0.019, 0.019, 0.005, Vector3(0, 0.008, 0), _mat(CLARO))
 			nos.append(_cil(g, 0.011, 0.011, 0.003, Vector3(0, -0.012, 0), _mat(Color(0.35, 0.9, 1.0), 2.6)))
 	return nos
+
+
+## A bolha do escudo de energia: aparece em volta do robô no instante em que ele engole um acerto e some.
+static func bolha_escudo(v: ArmaduraVisual, alt: float) -> void:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = alt * 0.62
+	sm.height = alt * 1.24
+	sm.radial_segments = 20
+	sm.rings = 10
+	mi.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(0.35, 0.95, 0.85, 0.55)
+	m.rim_enabled = true
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position.y = alt * 0.5
+	v.add_child(mi)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE * 1.18, 0.35).from(Vector3.ONE * 0.9)
+	tw.parallel().tween_property(m, "albedo_color:a", 0.0, 0.35)
+	tw.tween_callback(mi.queue_free)

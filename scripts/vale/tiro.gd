@@ -109,6 +109,8 @@ func _physics_process(delta: float) -> void:
 			quer = Input.is_action_pressed("atirar")
 		"carga":
 			if Input.is_action_pressed("atirar") and _pode_atirar():
+				if carga <= 0.0:
+					Som.toque3d(self, "canhao_carga", armadura.global_position, -6.0)
 				carga = minf(1.0, carga + delta / float(modo["carga"]))
 				armadura.atirando = 0.6
 			elif carga > 0.0:
@@ -198,15 +200,17 @@ func _travar_misseis(delta: float, modo: Dictionary) -> void:
 			if melhor:
 				travas.append(melhor)
 				_trava_t = 0.3
-				Som.toque3d(self, "marcar", armadura.global_position, -10.0)
+				Som.toque3d(self, "trava", armadura.global_position, -4.0)
 		return
 	if not _segurando_missil:
 		return
 	_segurando_missil = false
 	_trava_t = 0.0
 	if _espera > 0.0 or Arsenal.misseis <= 0:
-		if Arsenal.misseis <= 0 and hud:
-			hud.avisar("Sem mísseis", "reponha na oficina ou numa caixa da Fundição")
+		if Arsenal.misseis <= 0:
+			Som.toque3d(self, "sem_municao", armadura.global_position, -4.0)
+			if hud:
+				hud.avisar("Sem mísseis", "reponha na oficina ou numa caixa da Fundição")
 		travas.clear()
 		return
 	_espera = float(modo["cadencia"])
@@ -451,6 +455,7 @@ func _espada(delta: float) -> void:
 	var meio := armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.5, 0)
 	var cor := Color(0.4, 0.95, 1.0)
 	EfeitosTiro.arco_espada(self, meio, frente, armadura.espada_lado, float(e["alcance"]), cor)
+	Som.toque3d(self, "espada_1" if armadura.espada_lado > 0.0 else "espada_2", armadura.global_position, -3.0)
 	var acertou := false
 	for n in get_tree().get_nodes_in_group("maquinas"):
 		if not n.has_method("ponto_de_trava"):
@@ -507,6 +512,7 @@ func _granada(delta: float) -> void:
 	# segurando o botão aparece o arco (a tela desenha `arco`); soltando, a granada sai do lançador do ombro
 	var pode := not RodaArmas.aberta and _pode_atirar() and Arsenal.granadas > 0
 	if Input.is_action_just_pressed("granada") and not RodaArmas.aberta and Arsenal.granadas <= 0:
+		Som.toque3d(self, "sem_municao", armadura.global_position, -4.0)
 		if hud and _aviso_amigo <= 0.0:
 			hud.avisar("Sem granadas", "fabrique o lança-granadas na oficina" if Arsenal.granadas_max() == 0 else "reponha na oficina ou numa caixa da Fundição")
 			_aviso_amigo = 2.5
@@ -529,6 +535,7 @@ func _granada(delta: float) -> void:
 	add_child(no)
 	no.global_position = _ombro(1.0)
 	_granadas.append({"no": no, "vel": _lance_granada(), "t": 0.0, "quiques": 0})
+	Som.toque3d(self, "granada_sai", armadura.global_position, -2.0)
 	armadura.atirando = 0.4
 	EfeitosTiro.clarao(self, no.global_position, Vector3.UP, 0.5)
 
@@ -589,6 +596,7 @@ func _estouro(ponto: Vector3, dano: float, area: float) -> void:
 	get_tree().call_group("bichos", "assustar", ponto)
 	get_tree().call_group("maquinas", "levar_tiro", ponto, dano, area)
 	EfeitosTiro.estouro(self, ponto, area)
+	Som.toque3d(self, Som.variacao("explosao", 2), ponto, 3.0, 20.0, 220.0)
 	armadura.tremor = maxf(armadura.tremor, clampf(1.2 - armadura.global_position.distance_to(ponto) * 0.05, 0.0, 0.8))
 
 

@@ -43,6 +43,7 @@ func _abrir() -> void:
 	_mouse = Vector2.ZERO
 	Engine.time_scale = LENTO
 	CameraVoo.travada = true
+	Som.toque3d(self, "roda_abre", armadura.global_position, -6.0)
 
 
 func _fechar(aplica: bool) -> void:
@@ -59,6 +60,8 @@ func trocar(nome: String) -> void:
 		return
 	Arsenal.modo = nome
 	trocas += 1
+	if armadura:
+		Som.toque3d(self, "roda_troca", armadura.global_position, -5.0)
 	if armadura and armadura.visual:
 		armadura.visual.vestir_melhorias()
 	Arsenal.guardar()

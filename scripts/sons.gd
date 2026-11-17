@@ -103,7 +103,9 @@ func _toques_por_variavel() -> void:
 
 ## O tiro da mão (ligue em Tiro.disparou).
 func ao_atirar(_origem: Vector3, _alvo: Vector3) -> void:
-	_toque(Som.variacao("tiro", 3), TIRO_DB)
+	# cada arma tem o seu som (síntese, tools/sons_arena.py)
+	var modo: Dictionary = Arsenal.MODOS.get(Arsenal.modo, Arsenal.MODOS["pistola"])
+	_toque(String(modo.get("som", "laser_pistola")), TIRO_DB - (4.0 if Arsenal.modo == "rajada" else 0.0), 0.05)
 
 
 ## Folhas ao atravessar uma copa (ligue em EfeitosMato.atravessou_copa).

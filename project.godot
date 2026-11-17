@@ -37,3 +37,11 @@ troca_fator={
 "type": "float",
 "value": 1.0
 }
+fer_chapa={
+"type": "sampler2D",
+"value": "res://assets/vale/ferrugem/ferrugem_chapa.jpg"
+}
+fer_grossa={
+"type": "sampler2D",
+"value": "res://assets/vale/ferrugem/ferrugem_grossa.jpg"
+}
