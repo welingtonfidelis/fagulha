@@ -5,6 +5,9 @@ render_mode cull_disabled;
 // Capim: a cor vem do chão onde a touceira nasce, mais clara na ponta. O vento passa em ondas
 // largas que atravessam o campo. A luz usa a normal para cima, como se fosse o próprio chão.
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
+// Duas densidades: as touceiras marcadas (INSTANCE_CUSTOM.x = 1) só existem perto da câmera; encolhem até
+// sumir entre 70% e 100% de `perto_ate`. As outras ficam até o fim do capim.
+uniform float perto_ate = 34.0;
 
 varying vec3 raiz;
 varying float alt;
@@ -20,6 +23,10 @@ void vertex() {
 	VERTEX.z += bal * 0.55;
 	VERTEX.y -= bal * bal * 0.5;
 	NORMAL = normalize((inverse(MODEL_MATRIX) * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+	if (INSTANCE_CUSTOM.x > 0.5) {
+		float d = distance(raiz, MAIN_CAM_INV_VIEW_MATRIX[3].xyz);
+		VERTEX *= 1.0 - smoothstep(perto_ate * 0.7, perto_ate, d);
+	}
 }
 
 void fragment() {

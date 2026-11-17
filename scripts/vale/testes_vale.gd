@@ -614,7 +614,7 @@ func _ponto_16() -> void:
 	var chegou := dr != null and dr.resgates == res0 + 1 and dr.chegou_a < 0.6
 	await _esperar(Ajustes.PANE_TEMPO - Ajustes.PANE_ESCURECE + 3.0)
 	await _esperar(2.5)
-	var no_posto := dr != null and dr.modo == DroneColega.Modo.POSTO and dr.global_position.distance_to(dr.posto) < 0.6
+	var no_posto := dr != null and dr.modo == DroneColega.Modo.POSTO and dr.global_position.distance_to(dr.posto) < 3.2  # com o robô ali ele chega um pouco para o lado dele
 	var em_terra := v.altura(a.global_position.x, a.global_position.z) > 1.0 and v.distancia_da_costa(a.global_position.x, a.global_position.z) < 1.0
 	em_terra = em_terra and Vector2(a.global_position.x - v.spawn.x, a.global_position.z - v.spawn.z).length() < 4.0  # reaparece na base
 	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1 and chegou and no_posto
@@ -656,7 +656,7 @@ func _ponto_17() -> void:
 	a.teleportar(em_cima, Armadura.Estado.AR)
 	await _esperar(1.6)
 	var sobre: float = a.global_position.y - chao
-	_ok(sinuoso > 1.05 and rochas > 50 and obras == 4 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
+	_ok(sinuoso > 1.05 and rochas > 50 and obras == 5 and pedras > 300 and sobre > 13.0 and a.estado == Armadura.Estado.CHAO,
 		"rio, paredões e ruínas: o rio anda %.2f vezes a reta; %d rochas com colisão nos paredões; %d ruínas com %d pedras; o robô pousa no aqueduto a %.1f m do chão"
 			% [sinuoso, rochas, obras, pedras, sobre])
 

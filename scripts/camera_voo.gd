@@ -36,12 +36,17 @@ func basis_plano() -> Basis:
 	return Basis(Vector3.UP, yaw)
 
 
+# ajustes da pausa (Guardado): multiplicador da sensibilidade e o eixo de cima-baixo invertido
+static var fator_sens := 1.0
+static var inverter_y := false
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
-		var sens := Ajustes.SENS_MOUSE * (Ajustes.SENS_MIRANDO if alvo and alvo.mirando_agora() else 1.0)
+		var sens := Ajustes.SENS_MOUSE * fator_sens * (Ajustes.SENS_MIRANDO if alvo and alvo.mirando_agora() else 1.0)
 		yaw -= mm.relative.x * sens
-		pitch -= mm.relative.y * sens
+		pitch -= mm.relative.y * sens * (-1.0 if inverter_y else 1.0)
 		pitch = clampf(pitch, deg_to_rad(-85.0), deg_to_rad(75.0))
 
 
@@ -51,9 +56,9 @@ func _process(delta: float) -> void:
 	_t += delta
 	var olhar := Input.get_vector("olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo")
 	olhar *= olhar.length()  # curva: precisão no meio, rapidez no fim
-	var sens := Ajustes.SENS_ANALOGICO * (Ajustes.SENS_MIRANDO if alvo.mirando_agora() else 1.0)
+	var sens := Ajustes.SENS_ANALOGICO * fator_sens * (Ajustes.SENS_MIRANDO if alvo.mirando_agora() else 1.0)
 	yaw -= olhar.x * sens * delta
-	pitch -= olhar.y * sens * 0.75 * delta
+	pitch -= olhar.y * sens * 0.75 * delta * (-1.0 if inverter_y else 1.0)
 	pitch = clampf(pitch, deg_to_rad(-85.0), deg_to_rad(75.0))
 
 	var voando := alvo.em_voo() or alvo.estado == Armadura.Estado.NADO

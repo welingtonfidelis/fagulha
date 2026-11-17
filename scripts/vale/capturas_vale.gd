@@ -55,6 +55,9 @@ func rodar(main: Node) -> void:
 	if "--sonda-som" in args:
 		await _sonda_som()
 		return
+	if "--perf" in args:
+		await _perf()
+		return
 	if "--pausa" in args:
 		await _esperar(2.5)
 		m.pausa._abrir()
@@ -65,6 +68,10 @@ func rodar(main: Node) -> void:
 		m.pausa._sair()
 		await _esperar(0.2)
 		await _foto("p2_sair")
+		m.pausa._abrir_ajustes()
+		await _esperar(0.2)
+		await _foto("p5_ajustes")
+		m.pausa._fechar_ajustes()
 		m.pausa._abrir_comandos()
 		await _esperar(0.2)
 		await _foto("p3_comandos")
@@ -547,6 +554,133 @@ func _fisica() -> void:
 	get_tree().quit()
 
 
+## Medição de desempenho (`--perf`): tempo de CPU e de placa por quadro em vários pontos, sem limite de
+## quadros, e de novo com uma coisa desligada de cada vez (quanto cada uma custa).
+func _perf() -> void:
+	await _esperar(3.0)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = 0
+	var vp := get_viewport()
+	RenderingServer.viewport_set_measure_render_time(vp.get_viewport_rid(), true)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 70.0
+	livre.far = 4000.0
+	livre.make_current()
+	var v: Vale = m.ilha
+	print("PERF janela ", vp.size, " msaa ", vp.msaa_3d, " nós ", get_tree().get_node_count(), " memória MB ", int(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0),
+		" vídeo MB ", int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0), " formas de colisão ", int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS)))
+	var medir := func(rotulo: String) -> void:
+		for q in 20:
+			await get_tree().process_frame
+		var cpu := 0.0
+		var gpu := 0.0
+		var t0 := Time.get_ticks_usec()
+		var n := 80
+		for q in n:
+			await get_tree().process_frame
+			cpu += RenderingServer.viewport_get_measured_render_time_cpu(vp.get_viewport_rid()) + RenderingServer.get_frame_setup_time_cpu()
+			gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp.get_viewport_rid())
+		var total := (Time.get_ticks_usec() - t0) / 1000.0 / n
+		print("PERF %-34s quadro %5.1f ms (%3d qps) | desenho CPU %4.1f | placa %5.1f | script %4.1f | física %4.1f | %4d desenhos | %5d mil tri | %5d objetos"
+			% [rotulo, total, int(1000.0 / total), cpu / n, gpu / n, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0), int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))])
+	var pontos := [["base, olhando o campo", Vector3(2, 2.5, 46), Vector3(0, 1, 0)], ["campo da clareira, no chão", Vector3(-20, 1.6, 20), Vector3(30, 2, -20)],
+		["mata fechada, no chão", Vector3(140, 1.6, -600), Vector3(100, 3, -640)], ["sobre a mata, a 60 m", Vector3(60, 60, -420), Vector3(200, 0, -700)],
+		["platô das flores, no chão", Vector3(640, 1.6, 120), Vector3(700, 0, 60)], ["cachoeira e poço", Vector3(-268, 8, -440), Vector3(-300, 0, -512)],
+		["do cume, vista inteira", Vector3(0, 0, 0), Vector3(0, 0, 0)], ["campos do sul", Vector3(-100, 1.6, 500), Vector3(100, 0, 700)],
+		["no alto, 250 m, mapa inteiro", Vector3(0, 250, 300), Vector3(0, 0, -300)]]
+	if "--so-base" in OS.get_cmdline_user_args():
+		pontos = []
+	for pt: Array in pontos:
+		var de: Vector3 = pt[1]
+		var para: Vector3 = pt[2]
+		if String(pt[0]).begins_with("do cume"):
+			de = v.cume + Vector3(0, 6, 0)
+			para = Vector3(0, 20, 0)
+		elif de.y < 20.0:
+			de.y += v.altura(de.x, de.z)
+			para.y += v.altura(para.x, para.z)
+		a.teleportar(Vector3(de.x, v.altura(de.x, de.z) + 0.4, de.z), Armadura.Estado.CHAO)
+		livre.global_position = de
+		livre.look_at(para)
+		await _esperar(1.2)
+		await medir.call(pt[0])
+	# quanto custa cada coisa: na mata fechada no chão e sobre a mata
+	var casos := [["mata fechada, no chão", Vector3(140, 1.6, -600), Vector3(100, 3, -640)], ["sobre a mata, a 60 m", Vector3(60, 60, -420), Vector3(200, 0, -700)], ["base, olhando o campo", Vector3(2, 2.5, 46), Vector3(0, 1, 0)]]
+	if "--so-base" in OS.get_cmdline_user_args():
+		casos = [casos[2], ["campos do sul", Vector3(-100, 1.6, 500), Vector3(100, 0, 700)], casos[0]]
+	for caso: Array in casos:
+		var de: Vector3 = caso[1]
+		var para: Vector3 = caso[2]
+		if de.y < 20.0:
+			de.y += v.altura(de.x, de.z)
+			para.y += v.altura(para.x, para.z)
+		a.teleportar(Vector3(de.x, v.altura(de.x, de.z) + 0.4, de.z), Armadura.Estado.CHAO)
+		livre.global_position = de
+		livre.look_at(para)
+		await _esperar(1.2)
+		print("PERF --- ", caso[0])
+		for q: int in [0, 1, 2]:
+			Qualidade.aplicar(m, q)
+			await _esperar(0.3)
+			await medir.call("  qualidade " + Qualidade.NOMES[q])
+		await medir.call("  tudo ligado")
+		var sol: DirectionalLight3D = null
+		for n in m.find_children("*", "DirectionalLight3D", true, false):
+			if (n as DirectionalLight3D).shadow_enabled:
+				sol = n
+		if sol:
+			sol.shadow_enabled = false
+			await medir.call("  sem sombras do sol")
+			sol.shadow_enabled = true
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		await medir.call("  sem suavização (MSAA)")
+		vp.msaa_3d = Viewport.MSAA_4X
+		var capins := m.find_children("*", "CapimVivo", true, false)
+		for n in capins:
+			(n as Node3D).visible = false
+		await medir.call("  sem capim vivo")
+		for n in capins:
+			(n as Node3D).visible = true
+		var mms: Array = []
+		for n in v.get_children():
+			if n is MultiMeshInstance3D:
+				mms.append(n)
+		for n in mms:
+			(n as Node3D).visible = false
+		await medir.call("  sem árvores, plantas e rochas")
+		for n in mms:
+			(n as Node3D).visible = true
+		var so_capim: Array = []
+		for n in mms:
+			if (n as MultiMeshInstance3D).multimesh.mesh == v.capim_malha:
+				so_capim.append(n)
+		for n in so_capim:
+			(n as Node3D).visible = false
+		await medir.call("  sem o capim fixo da clareira (%d blocos)" % so_capim.size())
+		for n in so_capim:
+			(n as Node3D).visible = true
+		var kits := m.find_children("Kit_*", "Node3D", true, false)
+		for n in kits:
+			(n as Node3D).visible = false
+		await medir.call("  sem as peças dos kits da base (%d)" % kits.size())
+		for n in kits:
+			(n as Node3D).visible = true
+		for n in [m.vida, m.inimigos]:
+			if n:
+				(n as Node).process_mode = Node.PROCESS_MODE_DISABLED
+		await medir.call("  bichos e mechas parados")
+		for n in [m.vida, m.inimigos]:
+			if n:
+				(n as Node).process_mode = Node.PROCESS_MODE_INHERIT
+		vp.scaling_3d_scale = 0.7
+		await medir.call("  resolução 3D a 70%")
+		vp.scaling_3d_scale = 1.0
+	get_tree().quit()
+
+
 func _cavernas() -> void:
 	await _esperar(2.5)
 	m.hud.visible = false
@@ -890,8 +1024,16 @@ func _largo() -> void:
 			["r5_rio_do_alto", Vector3(120, 190, 420), Vector3(260, 5, 420)], ["r6_riacho_norte_alto", Vector3(-60, 260, -200), Vector3(-230, 60, -330)], ["r4_foz", Vector3(300, 0, 760), Vector3(350, 0, 900)]]
 	if "--borda" in OS.get_cmdline_user_args():
 		vistas = [["b1_plato_de_fora", Vector3(1090, 12, 330), Vector3(1000, 15, 120)], ["b2_plato_rente", Vector3(1040, 6, 20), Vector3(1000, 12, 160)],
-			["b3_norte_de_fora", Vector3(-200, 60, -1140), Vector3(-300, 40, -1000)], ["b4_oeste_de_fora", Vector3(-1150, 50, -300), Vector3(-1000, 30, -450)],
-			["b5_canto", Vector3(-1130, 70, -1130), Vector3(-1000, 30, -1000)], ["b6_plato_de_cima", Vector3(940, 0, 150), Vector3(1010, 10, 60)]]
+			["b3_norte_de_fora", Vector3(-200, 60, -1040), Vector3(-300, 40, -800)], ["b4_oeste_de_fora", Vector3(-1040, 50, -300), Vector3(-800, 30, -450)],
+			["b5_canto", Vector3(-1030, 90, -1030), Vector3(-700, 30, -700)], ["b6_ilha_do_alto", Vector3(0, 1500, 700), Vector3(0, 0, 60)],
+			["b7_costa_norte_rente", Vector3(-420, 0, -905), Vector3(-200, 30, -820)], ["b8_costa_oeste_rente", Vector3(-905, 0, 240), Vector3(-820, 20, 0)]]
+	if "--marcos" in OS.get_cmdline_user_args():
+		var am := Marcos.arvore_mae
+		var an := Marcos.anel
+		var co := Marcos.colunas
+		vistas = [["m1_arvore_mae", am + Vector3(70, 14, 90), am + Vector3(0, 30, 0)], ["m2_arvore_de_baixo", am + Vector3(16, 2.5, 14), am + Vector3(0, 28, 0)],
+			["m3_anel", an + Vector3(60, 0, 80), an + Vector3(0, 6, 0)], ["m4_anel_de_dentro", an + Vector3(-30, 8, -40), an + Vector3(30, 0, 40)],
+			["m5_colunas", co + Vector3(80, 20, 90), co + Vector3(0, 30, 0)], ["m6_do_alto", Vector3(100, 320, 200), Vector3(300, 0, -100)]]
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
 	for v: Array in vistas:

@@ -7,17 +7,21 @@
 // as duas tramas são o avesso uma da outra, então onde uma peça some a outra aparece.
 // Devolve (quanto aparece de 0 a 1, 1 se a trama é a do avesso).
 const float FAIXA_TROCA = 34.0;
+// A qualidade do desenho encurta todas as distâncias de troca (1 na alta; Qualidade.aplicar).
+global uniform float troca_fator;
 
 vec2 presenca(vec4 dado, vec3 origem, vec3 cam) {
 	float d = distance(origem, cam);
 	float p = 1.0;
+	float some = dado.x * troca_fator;
+	float surge = dado.y * troca_fator;
 	if (dado.x > 0.0) {
-		p *= 1.0 - smoothstep(dado.x - FAIXA_TROCA, dado.x, d);
+		p *= 1.0 - smoothstep(some - FAIXA_TROCA, some, d);
 	}
 	if (dado.y > 0.0) {
-		p *= smoothstep(dado.y - FAIXA_TROCA, dado.y, d);
+		p *= smoothstep(surge - FAIXA_TROCA, surge, d);
 	}
-	return vec2(p, dado.y > 0.0 && d < dado.y ? 1.0 : 0.0);
+	return vec2(p, dado.y > 0.0 && d < surge ? 1.0 : 0.0);
 }
 
 bool fora_da_trama(vec2 pr, vec2 px) {

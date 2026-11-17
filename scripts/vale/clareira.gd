@@ -5,7 +5,8 @@ extends Ilha
 ## riacho que cruza até uma lagoa, uma pedra-mirante, carvalhos soltos, e a mata fechando em volta
 ## sobre colinas. Estilo: luz em faixas, formas simples, cores limpas (scripts/shaders/vale_*).
 
-const TROCA_ARVORE := 190.0  # a esta distância cada árvore já é o vulto de longe
+const TROCA_ARVORE := 190.0  # a esta distância cada árvore já é a versão leve dela
+const TROCA_VULTO := 450.0  # e a esta, o vulto genérico
 const FAIXA_TROCA := 34.0  # a mesma de vale_comum.gdshaderinc
 const C_N := 321
 const C_META := 160.0
@@ -384,9 +385,15 @@ static func tipo_variado(tipo: String, u: float) -> String:
 			return ["q_arvore_a", "q_arvore_b", "q_arvore_c", "q_arvore_d"][int(v * 4.0) % 4]
 
 
-## O modelo de longe de cada árvore. As dos pacotes de folha verde usam os vultos de longe do vale (juntam-se
-## aos mesmos desenhos e não custam nada a mais); só as de outra cor e as mortas têm o delas.
+## A versão leve de cada árvore (176 a 550 triângulos nas dos pacotes): é o que se vê de TROCA_ARVORE até
+## TROCA_VULTO, para a troca não mudar a forma da árvore.
 static func longe_de(tipo: String) -> String:
+	return tipo + "_longe"
+
+
+## O vulto genérico, de TROCA_VULTO em diante: lá a forma exata não se nota, e os vultos das árvores antigas
+## são bem mais baratos (levar a versão leve de cada modelo até o horizonte custava uns 20% nas vistas altas).
+static func vulto_de(tipo: String) -> String:
 	if not tipo.begins_with("q_") or Q_CORES.has(tipo) or tipo.contains("morta"):
 		return tipo + "_longe"
 	if tipo.contains("pinheiro"):
@@ -562,9 +569,12 @@ func _arvores_e_pedras() -> void:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
 		_multi(tipo, xfs, centro, 0.0, TROCA_ARVORE, true)
-	for chave in _por_bloco(_fila_arv, 80.0, true):
+	for chave in _por_bloco(_fila_arv, 400.0, true):
 		var xfs2: Array = chave[1]
-		_multi(chave[0], xfs2, _centro(xfs2), TROCA_ARVORE, 0.0, true)
+		_multi(chave[0], xfs2, _centro(xfs2), TROCA_ARVORE, TROCA_VULTO, true)
+	for chave in _por_bloco(_fila_arv, 400.0, true, true):
+		var xfs3: Array = chave[1]
+		_multi(chave[0], xfs3, _centro(xfs3), TROCA_VULTO, 0.0, false)
 	# arbustos na beira da mata
 	var arb: Array = []
 	for k in 260:
@@ -590,11 +600,11 @@ func _arvores_e_pedras() -> void:
 
 ## Junta a fila de árvores por modelo e por bloco do mapa: [[modelo, transformações], ...]. Com `longe`, pelo
 ## modelo de longe (vários tipos caem no mesmo).
-func _por_bloco(fila: Array, bloco: float, longe: bool) -> Array:
+func _por_bloco(fila: Array, bloco: float, longe: bool, vulto := false) -> Array:
 	var grupos := {}
 	for item in fila:
 		var xf: Transform3D = item[1]
-		var nome: String = longe_de(item[0]) if longe else String(item[0])
+		var nome: String = (vulto_de(item[0]) if vulto else longe_de(item[0])) if longe else String(item[0])
 		var chave := "%s|%d|%d" % [nome, floori(xf.origin.x / bloco), floori(xf.origin.z / bloco)]
 		if not grupos.has(chave):
 			grupos[chave] = [nome, []]
@@ -631,13 +641,11 @@ func _multi(nome: String, xfs: Array, centro: Vector3, de: float, ate: float, so
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.position = centro
-		if de > 0.0:
-			if de - FAIXA_TROCA - raio > 1.0:
-				mmi.visibility_range_begin = de - FAIXA_TROCA - raio
-				mmi.visibility_range_begin_margin = 6.0
-		if ate > 0.0:
-			mmi.visibility_range_end = ate + raio
-			mmi.visibility_range_end_margin = 6.0
+		if de > 0.0 or ate > 0.0:
+			# as distâncias mudam com a qualidade do desenho: Qualidade refaz as faixas destes blocos
+			mmi.set_meta("troca", Vector3(de, ate, raio))
+			mmi.add_to_group("por_distancia")
+			Qualidade.preparar_bloco(mmi)
 		if not sombra:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
@@ -672,6 +680,7 @@ func _capim() -> void:
 	mat.shader = load("res://scripts/shaders/vale_capim.gdshader")
 	mat.set_shader_parameter("ruido", _tex)
 	touceira.surface_set_material(0, mat)
+	Qualidade.registrar_material(mat)
 	capim_malha = touceira
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12
@@ -702,20 +711,36 @@ func _capim() -> void:
 		var xfs: Array = blocos[chave]
 		total += xfs.size()
 		var centro := Vector3((chave.x + 0.5) * 32.0, 20.0, (chave.y + 0.5) * 32.0)
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = touceira
-		mm.instance_count = xfs.size()
-		for k in xfs.size():
-			var t: Transform3D = xfs[k]
-			t.origin -= centro
-			mm.set_instance_transform(k, t)
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = centro
-		mmi.visibility_range_end = 95.0
-		mmi.visibility_range_end_margin = 20.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(mmi)
+		# duas densidades, como no capim de fora (Qualidade): uma parte vai até 95 m, o resto só perto do robô
+		for perto: bool in [false, true]:
+			var parte: Array = []
+			for k in xfs.size():
+				if ((k * 7 + 3) % 10 < int(Qualidade.PARTE_LONGE * 10.0)) != perto:
+					var t: Transform3D = xfs[k]
+					if not perto:
+						t = Transform3D(t.basis.scaled_local(Vector3.ONE * Qualidade.ESCALA_LONGE), t.origin)
+					t.origin -= centro
+					parte.append(t)
+			if parte.is_empty():
+				continue
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_custom_data = perto
+			mm.mesh = touceira
+			mm.instance_count = parte.size()
+			for k in parte.size():
+				mm.set_instance_transform(k, parte[k])
+				if perto:
+					mm.set_instance_custom_data(k, Color(1.0, 0.0, 0.0, 0.0))
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.position = centro
+			mmi.visibility_range_end = 95.0
+			mmi.visibility_range_end_margin = 20.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if perto:
+				mmi.add_to_group("capim_perto")
+				Qualidade.preparar_capim_perto(mmi)
+			add_child(mmi)
 	print("capim: %d touceiras" % total)

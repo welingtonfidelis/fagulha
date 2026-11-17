@@ -82,8 +82,8 @@ static func livre(mapa: Ilha, x: float, z: float, raio: float) -> bool:
 				var p := mapa.arv_pos[i]
 				var ex := p.x - x
 				var ez := p.z - z
-				if absf(ex) > 2.5 or absf(ez) > 2.5:
-					continue
+				if (absf(ex) > 2.5 or absf(ez) > 2.5) and mapa.arv_escala[i] < 2.5:
+					continue  # árvore comum: tronco fino, nem faz a conta (a Árvore-Mãe passa)
 				var soma: float = float(mapa._medidas_colisao(i)[0]) + raio
 				if ex * ex + ez * ez < soma * soma:
 					return false

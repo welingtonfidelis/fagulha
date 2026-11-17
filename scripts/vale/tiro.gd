@@ -91,9 +91,11 @@ func _physics_process(delta: float) -> void:
 	if _amigo_na_mira():
 		poupados += 1
 		_espera = CADENCIA
-		if hud and _aviso_amigo <= 0.0:
-			hud.avisar("colega na mira", "o tiro não sai")
+		if _aviso_amigo <= 0.0:
+			if hud:
+				hud.avisar("colega na mira", "o tiro não sai")
 			_aviso_amigo = 4.0
+			get_tree().call_group("amigos", "levou_mira")
 		return
 	_espera = CADENCIA
 	armadura.atirando = 0.6

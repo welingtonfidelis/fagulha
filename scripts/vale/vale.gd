@@ -71,6 +71,7 @@ func gerar(_semente := 7) -> void:
 		Sumidouro.assar()
 	Sumidouro.montar(self)
 	Ruinas.montar(self)
+	Marcos.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
 
@@ -82,7 +83,40 @@ func _carregar() -> void:
 		_fora_h.resize(F_N * F_N)
 		_fora_h.fill(22.0)
 		_cob.resize(F_N * F_N)
+	_borda_ilha()
 
+
+## O vale é uma ilha: perto das quatro bordas do mapa a terra desce até o fundo do mar. No arquivo de
+## alturas o norte e o oeste chegavam ao fim do mapa a até 88 m de altura (era um corte reto, disfarçado por
+## uma falésia). A faixa de descida tem de 105 a 345 m (mais comprida onde a terra é alta), variando ao longo
+## da costa para ela não sair reta, e o
+## que fica perto do nível do mar vira areia.
+const BORDA_ILHA := 150.0
+
+func _borda_ilha() -> void:
+	for gz in F_N:
+		for gx in F_N:
+			var x := -F_META + gx * F_PASSO
+			var z := -F_META + gz * F_PASSO
+			var d := minf(F_META - absf(x), F_META - absf(z))
+			if d > BORDA_ILHA + 200.0:
+				continue
+			var i := gz * F_N + gx
+			var h := _fora_h[i]
+			if h <= -13.9:
+				continue
+			# a largura da faixa ondula ao longo da costa (pela coordenada que corre junto da borda)
+			var ao_longo := z if (F_META - absf(x)) < (F_META - absf(z)) else x
+			# terra alta desce por uma faixa mais comprida, para a encosta não virar um paredão de pedra
+			var faixa := BORDA_ILHA + 28.0 * sin(ao_longo * 0.011 + 1.3) + 17.0 * sin(ao_longo * 0.031 + 4.1) + clampf(h * 1.5, 0.0, 150.0)
+			var fica := smoothstep(0.08, 1.0, d / faixa)
+			if fica >= 1.0:
+				continue
+			var novo := lerpf(-14.0, h, fica)
+			if novo < h:
+				_fora_h[i] = novo
+				if novo < 2.6:
+					_cob[i] = 4  # areia
 
 ## Altura do terreno de fora (a grade de 4 m), em qualquer ponto.
 func _fora(x: float, z: float) -> float:
@@ -1097,6 +1131,9 @@ func _mata_fora() -> void:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
 		_multi(tipo, xfs, centro, 0.0, TROCA_ARVORE, true)
-	for g in _por_bloco(fila, 160.0, true):
+	for g in _por_bloco(fila, 200.0, true):
 		var xfs2: Array = g[1]
-		_multi(g[0], xfs2, _centro(xfs2), TROCA_ARVORE, 1300.0, false)
+		_multi(g[0], xfs2, _centro(xfs2), TROCA_ARVORE, TROCA_VULTO, false)
+	for g2 in _por_bloco(fila, 400.0, true, true):
+		var xfs3: Array = g2[1]
+		_multi(g2[0], xfs3, _centro(xfs3), TROCA_VULTO, 1300.0, false)

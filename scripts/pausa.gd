@@ -47,6 +47,14 @@ var _pagina_comandos: Control
 var _primeiro: Button
 var _botao_comandos: Button
 var _botao_vibra: Button
+var _botao_ajustes: Button
+var _botao_qualidade: Button
+var _botao_sens: Button
+var _botao_eixo: Button
+var _botao_apagar: Button
+var _voltar_ajustes: Button
+var _pagina_ajustes: Control
+var _apagar_armado := 0.0
 var _botao_sair: Button
 var _voltar_comandos: Button
 var _dica: Label
@@ -86,9 +94,20 @@ func _ready() -> void:
 	_primeiro = _botao(_inicio, "Continuar", "voltar ao jogo", _continuar, true)
 	_botao(_inicio, "Voltar à base", "o robô reaparece no estrado", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "o que cada botão faz", _abrir_comandos)
-	_botao_vibra = _botao(_inicio, "", "", _trocar_vibra)
-	_botao_sair = _botao(_inicio, "Sair do jogo", "fecha o jogo", _sair)
-	_escrever_vibra()
+	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade do desenho, câmera e vibração", _abrir_ajustes)
+	_botao_sair = _botao(_inicio, "Sair do jogo", "fecha o jogo (o progresso fica guardado)", _sair)
+	# página de ajustes
+	_pagina_ajustes = VBoxContainer.new()
+	_pagina_ajustes.add_theme_constant_override("separation", 10)
+	_pagina_ajustes.visible = false
+	pilha.add_child(_pagina_ajustes)
+	_botao_qualidade = _botao(_pagina_ajustes, "", "", _trocar_qualidade, true)
+	_botao_sens = _botao(_pagina_ajustes, "", "", _trocar_sens)
+	_botao_eixo = _botao(_pagina_ajustes, "", "", _trocar_eixo)
+	_botao_vibra = _botao(_pagina_ajustes, "", "", _trocar_vibra)
+	_botao_apagar = _botao(_pagina_ajustes, "Apagar o progresso", "esquece os lugares visitados e as peças achadas", _apagar)
+	_voltar_ajustes = _botao(_pagina_ajustes, "Voltar", "", _fechar_ajustes)
+	_escrever_ajustes()
 	# página de comandos
 	_pagina_comandos = VBoxContainer.new()
 	_pagina_comandos.add_theme_constant_override("separation", 10)
@@ -195,19 +214,75 @@ func _ao_focar(b: Button) -> void:
 		_botao_sair.text = "Sair do jogo"
 
 
-func _escrever_vibra() -> void:
-	_botao_vibra.text = "Vibração do controle: " + ("ligada" if Vibra.ligada else "desligada")
+func _escrever_ajustes() -> void:
+	_botao_qualidade.text = "Qualidade do desenho: " + Qualidade.NOMES[clampi(int(Guardado.ajuste("qualidade")), 0, 2)]
+	_botao_qualidade.set_meta("explica", "mais baixa: menos capim, sombras mais curtas e o jogo mais solto")
+	_botao_sens.text = "Sensibilidade da câmera: %d de 5" % (int(Guardado.ajuste("sensibilidade")) + 1)
+	_botao_sens.set_meta("explica", "quanto a câmera gira com o analógico direito e o mouse")
+	_botao_eixo.text = "Olhar para cima e para baixo: " + ("invertido" if bool(Guardado.ajuste("inverter_y")) else "normal")
+	_botao_eixo.set_meta("explica", "invertido: empurrar o analógico para a frente olha para baixo")
+	_botao_vibra.text = "Vibração do controle: " + ("ligada" if bool(Guardado.ajuste("vibra")) else "desligada")
 	_botao_vibra.set_meta("explica", "o controle treme nos golpes, no pouso e nos tiros")
+	_botao_apagar.text = "Apagar o progresso"
+
+
+func _aplicar() -> void:
+	_escrever_ajustes()
+	var principal := get_parent()
+	if principal and principal.has_method("aplicar_ajustes"):
+		principal.call("aplicar_ajustes")
+
+
+func _trocar_qualidade() -> void:
+	Guardado.por_ajuste("qualidade", (int(Guardado.ajuste("qualidade")) + 1) % 3)
+	_aplicar()
+
+
+func _trocar_sens() -> void:
+	Guardado.por_ajuste("sensibilidade", (int(Guardado.ajuste("sensibilidade")) + 1) % 5)
+	_aplicar()
+
+
+func _trocar_eixo() -> void:
+	Guardado.por_ajuste("inverter_y", not bool(Guardado.ajuste("inverter_y")))
+	_aplicar()
 
 
 func _trocar_vibra() -> void:
-	Vibra.ligada = not Vibra.ligada
-	_escrever_vibra()
+	Guardado.por_ajuste("vibra", not bool(Guardado.ajuste("vibra")))
+	_aplicar()
+
+
+## Apagar o progresso pede um segundo toque.
+func _apagar() -> void:
+	if _apagar_armado > 0.0:
+		_apagar_armado = 0.0
+		Guardado.recomecar_progresso()
+		_botao_apagar.text = "Progresso apagado (vale na próxima vez que abrir o jogo)"
+		return
+	_apagar_armado = 4.0
+	_botao_apagar.text = "Apagar mesmo? Aperte de novo"
+
+
+func _abrir_ajustes() -> void:
+	_inicio.visible = false
+	_pagina_ajustes.visible = true
+	_escrever_ajustes()
+	_botao_qualidade.grab_focus()
+
+
+func _fechar_ajustes() -> void:
+	_pagina_ajustes.visible = false
+	_inicio.visible = true
+	_botao_ajustes.grab_focus()
 
 
 ## Sair pede um segundo toque: o primeiro só arma.
 func _sair() -> void:
 	if _sair_armado > 0.0:
+		var principal := get_parent()
+		if principal and principal.has_method("guardar_progresso"):
+			principal.call("guardar_progresso")
 		get_tree().quit()
 		return
 	_sair_armado = 4.0
@@ -244,6 +319,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif visible and event.is_action_pressed("ui_cancel"):
 		if _pagina_comandos.visible:
 			_fechar_comandos()
+		elif _pagina_ajustes.visible:
+			_fechar_ajustes()
 		else:
 			_continuar()
 		get_viewport().set_input_as_handled()
@@ -257,6 +334,7 @@ func _abrir() -> void:
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_pagina_comandos.visible = false
+	_pagina_ajustes.visible = false
 	_inicio.visible = true
 	_sair_armado = 0.0
 	_botao_sair.text = "Sair do jogo"
@@ -280,6 +358,10 @@ func _continuar() -> void:
 
 
 func _process(delta: float) -> void:
+	if _apagar_armado > 0.0:
+		_apagar_armado -= delta
+		if _apagar_armado <= 0.0 and _botao_apagar:
+			_botao_apagar.text = "Apagar o progresso"
 	if _sair_armado > 0.0:
 		_sair_armado -= delta
 		if _sair_armado <= 0.0 and _botao_sair:

@@ -99,13 +99,17 @@ func _soltar(chave: Vector2i) -> void:
 	var par: Array = _blocos[chave]
 	var cap: MultiMeshInstance3D = par[0]
 	var flo: MultiMeshInstance3D = par[1]
+	var cap_perto: MultiMeshInstance3D = par[2] if par.size() > 2 else null
 	if cap != null:
 		touceiras -= cap.multimesh.instance_count
 		cap.queue_free()
+	if cap_perto != null:
+		touceiras -= cap_perto.multimesh.instance_count
+		cap_perto.queue_free()
 	if flo != null:
 		flores -= flo.multimesh.instance_count
 		flo.queue_free()
-	if cap != null or flo != null:
+	if cap != null or flo != null or cap_perto != null:
 		blocos_vivos -= 1
 	_blocos.erase(chave)
 
@@ -206,26 +210,41 @@ func _criar(chave: Vector2i) -> void:
 				Vector3(px - cc.x, h - 0.02 - cy, pz - cc.y)))
 			cf.append(PALETA[banda].srgb_to_linear())  # a cor da instância chega ao shader sem conversão
 	var cap: MultiMeshInstance3D = null
+	var cap_perto: MultiMeshInstance3D = null
 	var flo: MultiMeshInstance3D = null
 	if not ts.is_empty():
-		cap = _mmi(mapa.capim_malha, ts, [], Vector3(cc.x, cy, cc.y))
+		# duas densidades: uma parte das touceiras, maiores, vai até o fim; o resto só existe perto do robô
+		var longe: Array = []
+		var perto: Array = []
+		for t0: Transform3D in ts:
+			if rng.randf() < Qualidade.PARTE_LONGE:
+				longe.append(Transform3D(t0.basis.scaled_local(Vector3.ONE * Qualidade.ESCALA_LONGE), t0.origin))
+			else:
+				perto.append(t0)
+		if not longe.is_empty():
+			cap = _mmi(mapa.capim_malha, longe, [], Vector3(cc.x, cy, cc.y))
+		if not perto.is_empty():
+			cap_perto = _mmi(mapa.capim_malha, perto, [], Vector3(cc.x, cy, cc.y), true)
 		touceiras += ts.size()
 	if not tf.is_empty():
 		flo = _mmi(_malha_flor, tf, cf, Vector3(cc.x, cy, cc.y))
 		flores += tf.size()
-	_blocos[chave] = [cap, flo]
-	if cap != null or flo != null:
+	_blocos[chave] = [cap, flo, cap_perto]
+	if cap != null or flo != null or cap_perto != null:
 		blocos_vivos += 1
 
 
-func _mmi(malha: Mesh, ts: Array, cores: Array, centro: Vector3) -> MultiMeshInstance3D:
+func _mmi(malha: Mesh, ts: Array, cores: Array, centro: Vector3, perto := false) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = not cores.is_empty()
+	mm.use_custom_data = perto
 	mm.mesh = malha
 	mm.instance_count = ts.size()
 	for k in ts.size():
 		mm.set_instance_transform(k, ts[k])
+		if perto:
+			mm.set_instance_custom_data(k, Color(1.0, 0.0, 0.0, 0.0))
 		if not cores.is_empty():
 			mm.set_instance_color(k, cores[k])
 	var m := MultiMeshInstance3D.new()
@@ -235,6 +254,9 @@ func _mmi(malha: Mesh, ts: Array, cores: Array, centro: Vector3) -> MultiMeshIns
 	m.visibility_range_end_margin = 20.0
 	m.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if perto:
+		m.add_to_group("capim_perto")
+		Qualidade.preparar_capim_perto(m)
 	add_child(m)
 	return m
 

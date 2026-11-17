@@ -150,6 +150,9 @@ func _desenhar_lugar() -> void:
 		draw_string(_fonte, Vector2(cx - ws * 0.5, y + 30.0), _sub_lugar, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.85 * a))
 
 
+var _dano_visto := 0.0
+
+
 func _draw() -> void:
 	_desenhar_bussola()
 	_desenhar_lugar()
@@ -195,6 +198,22 @@ func _draw() -> void:
 	else:
 		draw_circle(c, 2.5, Color(1, 1, 1, 0.85))
 		draw_arc(c, 9.0, 0.0, TAU, 32, Color(1, 1, 1, 0.25), 1.5, true)
+	# marcas de dano: três traços à esquerda da mira. Cada acerto de máquina apaga um (vira laranja); o
+	# terceiro desliga o robô. Só aparecem quando há dano, e somem um instante depois de ele sarar.
+	var dano := float(alvo.avaria) + float(alvo.get("_dano_frac"))
+	_dano_visto = move_toward(_dano_visto, 1.0 if dano > 0.01 else 0.0, get_process_delta_time() * (4.0 if dano > 0.01 else 0.7))
+	if _dano_visto > 0.01:
+		var pisca_d := fmod(Time.get_ticks_msec() * 0.001, 0.5) < 0.25
+		for k in Ajustes.PANE_GOLPES:
+			var ang := deg_to_rad(180.0 + (k - (Ajustes.PANE_GOLPES - 1) * 0.5) * 30.0)
+			var perdido := clampf(dano - k, 0.0, 1.0)  # este traço: 0 inteiro, 1 perdido
+			var cor_d := Color(0.45, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.15), perdido)
+			if perdido >= 1.0:
+				cor_d = Color(1.0, 0.2, 0.12, 0.9) if (pisca_d or dano < Ajustes.PANE_GOLPES - 1) else Color(0.5, 0.1, 0.06, 0.9)
+			var de_p := c + Vector2(cos(ang), -sin(ang)) * 40.0
+			var ate_p := c + Vector2(cos(ang), -sin(ang)) * 52.0
+			draw_line(de_p, ate_p, Color(0, 0, 0, 0.4 * _dano_visto), 8.0, true)
+			draw_line(de_p, ate_p, Color(cor_d, cor_d.a * _dano_visto), 5.0, true)
 	# barra de calor: arco à direita da mira, enche de baixo para cima
 	var raio := 46.0
 	var a0 := deg_to_rad(62.0)

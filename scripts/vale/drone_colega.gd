@@ -25,6 +25,9 @@ var _luz: OmniLight3D
 var _t := 0.0
 var _de := Vector3.ZERO
 var _fase := 0.0
+var gestos := 0  # quantos gestos fez: olhar em volta, cambalhota, susto (testes)
+var _gesto_t := 0.0  # tempo que falta do gesto em curso
+var _ocio_t := 5.0  # até o próximo olhar em volta
 var bipes := 0  # quantas vezes falou (testes)
 var _perto := false
 var _fala_t := 3.0
@@ -104,12 +107,33 @@ func _na_base() -> void:
 	global_position = armadura.global_position + Vector3(0, ALTURA_SOBRE, 0)
 
 
-## O robô religou: o drone apaga o facho e volta ao posto.
+## O robô religou: o drone apaga o facho, comemora com uma cambalhota e volta ao posto.
 func _soltar() -> void:
 	modo = Modo.VOLTA
 	_t = 0.0
 	_de = global_position
-	_tocar("Idle")
+	gesto("BackFlip", 1.1)
+
+
+## Um gesto curto (uma animação do modelo) e depois volta a pairar.
+func gesto(nome: String, dura: float) -> void:
+	if _anim == null:
+		return
+	for an in _anim.get_animation_list():
+		if String(an).ends_with(nome):
+			_anim.get_animation(an).loop_mode = Animation.LOOP_NONE
+			_anim.play(an, 0.15)
+			_gesto_t = dura
+			gestos += 1
+			return
+
+
+## O robô apontou a arma para ele (o tiro não sai): leva um susto e reclama.
+func levou_mira() -> void:
+	if modo != Modo.POSTO or _gesto_t > 0.0:
+		return
+	gesto("Hit", 0.9)
+	falar()
 
 
 ## Uma frase de bipes e assobios (sons de síntese: tools/sons_sinteticos.py).
@@ -131,14 +155,30 @@ func _olhar(para: Vector3, delta: float, pressa: float) -> void:
 
 func _process(delta: float) -> void:
 	_fase += delta
+	if _gesto_t > 0.0:
+		_gesto_t -= delta
+		if _gesto_t <= 0.0:
+			_tocar("Idle")
 	var balanco := Vector3(0, sin(_fase * 1.7) * 0.12, 0)
 	match modo:
 		Modo.POSTO:
-			global_position = global_position.lerp(posto + balanco, 1.0 - exp(-3.0 * delta))
-			if armadura and armadura.global_position.distance_to(posto) < 22.0:
+			# com o robô por perto ele chega um pouco para o lado dele (sem sair de junto do cilindro)
+			var lugar := posto
+			var dist_robo := armadura.global_position.distance_to(posto) if armadura else INF
+			if dist_robo < 10.0:
+				var para_ele := armadura.global_position + Vector3(0, 1.5, 0) - posto
+				lugar = posto + para_ele.limit_length(minf(2.4, dist_robo * 0.3))
+			global_position = global_position.lerp(lugar + balanco, 1.0 - exp(-2.2 * delta))
+			if dist_robo < 22.0:
 				_olhar(armadura.global_position, delta, 3.0)
+				_ocio_t = maxf(_ocio_t, 3.0)
 			else:
+				# sozinho: gira devagar e de vez em quando olha em volta
 				rotation.y += delta * 0.25 * sin(_fase * 0.3)
+				_ocio_t -= delta
+				if _ocio_t <= 0.0 and _gesto_t <= 0.0:
+					_ocio_t = randf_range(7.0, 14.0)
+					gesto("Look", 2.4)
 			# fala quando o robô chega perto, e de vez em quando enquanto ele fica por ali
 			var junto := armadura != null and not armadura.em_pane and armadura.global_position.distance_to(global_position) < 7.5
 			_fala_t -= delta

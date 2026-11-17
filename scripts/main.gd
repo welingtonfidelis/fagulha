@@ -27,6 +27,9 @@ var sol: DirectionalLight3D
 func _ready() -> void:
 	Controles.configurar()
 	var args := OS.get_cmdline_user_args()
+	# nos testes e nas fotos nada é lido nem gravado da última partida
+	Guardado.ativo = not ("--teste" in args or "--teste-vale" in args or "--captura" in args or "--vale-captura" in args)
+	Guardado.carregar()
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
@@ -123,6 +126,9 @@ func _ready() -> void:
 					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0]]:
 				var lp: Vector2 = l[1]
 				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
+			for mc: Array in Marcos.lugares:
+				var mp: Vector2 = mc[1]
+				locais.adicionar(mc[0], Vector3(mp.x, mapa_vale.altura(mp.x, mp.y) + 6.0, mp.y), mc[2])
 			if Sumidouro.existe:
 				if Sumidouro.morcegos:
 					Sumidouro.morcegos.alvo = armadura
@@ -214,6 +220,8 @@ func _ready() -> void:
 	pausa = Pausa.new()
 	pausa.armadura = armadura
 	add_child(pausa)
+	aplicar_ajustes()
+	_retomar_progresso()
 	if "--teste" in args:
 		var t := Testes.new()
 		add_child(t)
@@ -350,3 +358,62 @@ func _ambiente() -> void:
 	sol.directional_shadow_max_distance = 380.0
 	sol.directional_shadow_blend_splits = true
 	add_child(sol)
+
+
+const SENSIBILIDADES := [0.5, 0.75, 1.0, 1.35, 1.8]
+
+
+## Os ajustes guardados valem agora: qualidade do desenho, câmera e vibração. Nas fotos e nos testes a
+## qualidade é a alta, para as imagens serem comparáveis.
+func aplicar_ajustes() -> void:
+	Qualidade.aplicar(self, int(Guardado.ajuste("qualidade")) if Guardado.ativo else 2)
+	CameraVoo.fator_sens = SENSIBILIDADES[clampi(int(Guardado.ajuste("sensibilidade")), 0, SENSIBILIDADES.size() - 1)]
+	CameraVoo.inverter_y = bool(Guardado.ajuste("inverter_y"))
+	Vibra.ligada = bool(Guardado.ajuste("vibra"))
+
+
+var _guardar_t := 0.0
+
+
+## O progresso da última partida: os lugares já visitados e a hora do dia.
+func _retomar_progresso() -> void:
+	if not Guardado.ativo:
+		return
+	if ciclo:
+		ciclo.hora = float(Guardado.progresso("hora"))
+	if locais:
+		var vistos: Array = Guardado.progresso("lugares")
+		for it in locais.lista:
+			if vistos.has(it["nome"]):
+				it["visto"] = true
+		locais.chegou.connect(func(_nome: String, primeira: bool) -> void:
+			if primeira:
+				guardar_progresso())
+
+
+func guardar_progresso() -> void:
+	if not Guardado.ativo:
+		return
+	if ciclo:
+		Guardado.por_progresso("hora", ciclo.hora, false)
+	if locais:
+		var vistos: Array = []
+		for it in locais.lista:
+			if it["visto"]:
+				vistos.append(it["nome"])
+		Guardado.por_progresso("lugares", vistos, false)
+	Guardado.salvar()
+
+
+func _process(delta: float) -> void:
+	# a hora do dia é guardada de minuto em minuto; os lugares, na hora em que são achados
+	_guardar_t += delta
+	if _guardar_t >= 60.0:
+		_guardar_t = 0.0
+		guardar_progresso()
+
+
+func _notification(o_que: int) -> void:
+	if o_que == NOTIFICATION_WM_CLOSE_REQUEST or o_que == NOTIFICATION_PREDELETE:
+		if is_inside_tree():
+			guardar_progresso()
