@@ -5,6 +5,8 @@ extends Ilha
 ## riacho que cruza até uma lagoa, uma pedra-mirante, carvalhos soltos, e a mata fechando em volta
 ## sobre colinas. Estilo: luz em faixas, formas simples, cores limpas (scripts/shaders/vale_*).
 
+const TROCA_ARVORE := 190.0  # a esta distância cada árvore já é o vulto de longe
+const FAIXA_TROCA := 34.0  # a mesma de vale_comum.gdshaderinc
 const C_N := 321
 const C_META := 160.0
 const NIVEL := 19.4  # água do riacho e da lagoa
@@ -497,10 +499,10 @@ func _arvores_e_pedras() -> void:
 		for xf in xfs:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
-		_multi(tipo, xfs, centro, 0.0, 150.0, true)
+		_multi(tipo, xfs, centro, 0.0, TROCA_ARVORE, true)
 	for chave in _por_bloco(_fila_arv, 80.0, true):
 		var xfs2: Array = chave[1]
-		_multi(chave[0], xfs2, _centro(xfs2), 150.0, 0.0, true)
+		_multi(chave[0], xfs2, _centro(xfs2), TROCA_ARVORE, 0.0, true)
 	# arbustos na beira da mata
 	var arb: Array = []
 	for k in 260:
@@ -545,25 +547,35 @@ func _centro(xfs: Array) -> Vector3:
 	return centro / maxf(1.0, xfs.size())
 
 
+## Um MultiMesh por malha do modelo. `de` e `ate` são distâncias por peça (0 desliga): o modelo aparece aos
+## poucos até `de` e some aos poucos até `ate`, cada peça pela distância dela até a câmera (vale_comum:
+## `presenca`). O bloco inteiro só deixa de ser desenhado quando nenhuma peça dele pode aparecer.
 func _multi(nome: String, xfs: Array, centro: Vector3, de: float, ate: float, sombra: bool) -> void:
+	var raio := 0.0
+	for xf in xfs:
+		raio = maxf(raio, (xf as Transform3D).origin.distance_to(centro))
 	for par in _malhas[nome]:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = de > 0.0 or ate > 0.0
 		mm.mesh = par[0]
 		mm.instance_count = xfs.size()
 		for k in xfs.size():
 			var t := (xfs[k] as Transform3D) * (par[1] as Transform3D)
 			t.origin -= centro
 			mm.set_instance_transform(k, t)
+			if mm.use_custom_data:
+				mm.set_instance_custom_data(k, Color(ate, de, 0.0, 0.0))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.position = centro
 		if de > 0.0:
-			mmi.visibility_range_begin = de
-			mmi.visibility_range_begin_margin = 15.0
+			if de - FAIXA_TROCA - raio > 1.0:
+				mmi.visibility_range_begin = de - FAIXA_TROCA - raio
+				mmi.visibility_range_begin_margin = 6.0
 		if ate > 0.0:
-			mmi.visibility_range_end = ate
-			mmi.visibility_range_end_margin = 15.0
+			mmi.visibility_range_end = ate + raio
+			mmi.visibility_range_end_margin = 6.0
 		if not sombra:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)

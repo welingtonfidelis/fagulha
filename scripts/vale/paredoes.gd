@@ -161,6 +161,45 @@ static func montar(v: Vale) -> void:
 			if forca < 0.5 and rng.randf() < 0.1:
 				var s := rng.randf_range(0.8, 1.5)
 				arbustos.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
+	# a falésia da borda do mapa (Vale._falesia_da_borda) é uma parede reta: colunas de rocha encostadas
+	# nela, de alturas e larguras variadas, quebram a linha; no pé, pedras meio dentro d'água
+	var n_borda := 0
+	var ult := Vale.F_N - 1
+	for lado: Array in [[Vector2i(0, 0), Vector2i(1, 0), Vector3(0, 0, -1)], [Vector2i(ult, 0), Vector2i(0, 1), Vector3(1, 0, 0)],
+			[Vector2i(ult, ult), Vector2i(-1, 0), Vector3(0, 0, 1)], [Vector2i(0, ult), Vector2i(0, -1), Vector3(-1, 0, 0)]]:
+		var fora: Vector3 = lado[2]
+		var base := Basis.looking_at(-fora, Vector3.UP)
+		for k in range(1, ult):
+			var g: Vector2i = (lado[0] as Vector2i) + (lado[1] as Vector2i) * k
+			var h := v._fora_h[g.y * Vale.F_N + g.x]
+			if h < 1.5:
+				continue
+			var x := -Vale.F_META + g.x * Vale.F_PASSO
+			var z := -Vale.F_META + g.y * Vale.F_PASSO
+			var total := h + 15.0
+			if h > 5.0 and rng.randf() < 0.42:
+				var larg := rng.randf_range(5.0, 9.5) * (1.5 if rng.randf() < 0.12 else 1.0)
+				var alt := h * rng.randf_range(0.45, 0.8)
+				var cy := minf(h * rng.randf_range(0.2, 0.62), h + 1.0 - alt * 0.8)
+				# a parede sai para fora conforme desce: a coluna fica encostada nela, na altura do meio dela
+				var desce := clampf((h - cy) / total, 0.0, 1.0)
+				var afasta := total * 0.3 * desce + larg * rng.randf_range(0.0, 0.25)
+				var xf := Transform3D((base * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.14), rng.randf_range(-0.5, 0.5), rng.randf_range(-0.1, 0.1))))
+					.scaled_local(Vector3(larg, alt, larg * rng.randf_range(0.6, 0.9))), Vector3(x, cy, z) + fora * afasta)
+				var vi := rng.randi() % VARIANTES
+				_guardar(grupos, vi, xf, true)
+				_colisao(corpo, pontos[vi], xf)
+				n_borda += 1
+			if rng.randf() < 0.3:
+				var tam := rng.randf_range(1.5, 4.5) * (1.7 if rng.randf() < 0.12 else 1.0)
+				var esc := Vector3(tam * rng.randf_range(0.8, 1.3), tam * rng.randf_range(0.6, 1.1), tam * rng.randf_range(0.8, 1.3))
+				var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))).scaled_local(esc),
+					Vector3(x, rng.randf_range(-0.5, 0.6) * tam * 0.5, z) + fora * (total * rng.randf_range(0.3, 0.5) + 3.0) + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2)))
+				var vi := rng.randi() % VARIANTES
+				_guardar(grupos, vi, xf, true)
+				_colisao(corpo, pontos[vi], xf)
+				n_borda += 1
+	print("paredões: %d rochas na falésia da borda" % n_borda)
 	for chave: String in grupos:
 		var partes := chave.split("|")
 		var xfs: Array = grupos[chave]

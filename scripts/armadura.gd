@@ -67,6 +67,7 @@ var _pairar_travado := false  # desligou o voo parado com o L2 ainda apertado: s
 var _solto := false  # motor desligado ou travado no voo: cai pesado até pousar ou religar
 var golpes := 0  # quantos golpes de máquina levou (testes)
 var avaria := 0  # acertos acumulados; saram com o tempo
+var _dano_frac := 0.0  # pedaço de acerto das balas, até somar um inteiro
 var em_pane := false  # desligado por excesso de acertos (o visual, a tela e as máquinas leem)
 var graca_pane := 0.0  # depois de religar, as máquinas não o enxergam por este tempo
 var panes := 0
@@ -146,17 +147,23 @@ func altura_do_chao() -> float:
 ## Para os testes e as fotos: põe a armadura num lugar, num estado e com uma velocidade.
 ## Golpe de uma máquina: empurra e esquenta. Com Ajustes.PANE_GOLPES acertos seguidos o robô entra em pane:
 ## desliga, o dia avança e ele religa no mesmo lugar (não há vida nem morte). Os acertos saram com o tempo.
-func levar_golpe(direcao: Vector3, forca: float) -> void:
+## `dano` é quanto do acerto conta: 1 para um golpe ou um míssil, uma fração para uma bala (três balas valem
+## um acerto).
+func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 	if em_pane or graca_pane > 0.0:
 		return
 	velocity += direcao.normalized() * forca + Vector3(0, forca * 0.35, 0)
-	calor = minf(100.0, calor + Ajustes.GOLPE_CALOR)
-	tremor = maxf(tremor, 0.8)
+	calor = minf(100.0, calor + Ajustes.GOLPE_CALOR * dano)
+	tremor = maxf(tremor, 0.3 + 0.5 * minf(dano, 1.0))
 	golpes += 1
 	levou_golpe.emit()
-	avaria += 1
+	_dano_frac += dano
+	while _dano_frac >= 0.999:
+		_dano_frac -= 1.0
+		avaria += 1
 	_avaria_tempo = Ajustes.AVARIA_SARA
 	if avaria >= Ajustes.PANE_GOLPES:
+		_dano_frac = 0.0
 		em_pane = true
 		_pane_t = 0.0
 		_pane_volta = base

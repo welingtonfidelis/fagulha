@@ -1,5 +1,36 @@
 // Estilo do vale (técnica de luz em faixas): funções comuns.
 
+// Troca por distância, peça a peça (árvores, plantas e pedras em MultiMesh). As distâncias vêm no dado de
+// cada peça (INSTANCE_CUSTOM: x = some até aqui, y = surge a partir daqui; zero desliga, e fora de MultiMesh
+// é sempre zero). O modelo de perto some aos poucos até x; o de longe aparece na mesma faixa até y. A
+// distância é da peça até a câmera do jogo (também na passada de sombra), e a transição é em pontilhado:
+// as duas tramas são o avesso uma da outra, então onde uma peça some a outra aparece.
+// Devolve (quanto aparece de 0 a 1, 1 se a trama é a do avesso).
+const float FAIXA_TROCA = 34.0;
+
+vec2 presenca(vec4 dado, vec3 origem, vec3 cam) {
+	float d = distance(origem, cam);
+	float p = 1.0;
+	if (dado.x > 0.0) {
+		p *= 1.0 - smoothstep(dado.x - FAIXA_TROCA, dado.x, d);
+	}
+	if (dado.y > 0.0) {
+		p *= smoothstep(dado.y - FAIXA_TROCA, dado.y, d);
+	}
+	return vec2(p, dado.y > 0.0 && d < dado.y ? 1.0 : 0.0);
+}
+
+bool fora_da_trama(vec2 pr, vec2 px) {
+	if (pr.x >= 1.0) {
+		return false;
+	}
+	float t = fract(52.9829189 * fract(dot(floor(px), vec2(0.06711056, 0.00583715))));
+	if (pr.y > 0.5) {
+		t = 1.0 - t;
+	}
+	return pr.x <= t;
+}
+
 // Luz em duas faixas: sombra e luz com transição curta, mais um realce no lado bem voltado ao sol.
 vec3 luz_faixas(vec3 n, vec3 l, vec3 cor_luz, float aten) {
 	float nl = dot(n, l);

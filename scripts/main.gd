@@ -121,9 +121,6 @@ func _ready() -> void:
 					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0]]:
 				var lp: Vector2 = l[1]
 				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
-			for cav: Dictionary in Cavernas.lista:
-				var mc: Vector2 = ((cav["a"] as Vector2) + (cav["b"] as Vector2)) * 0.5
-				locais.adicionar(cav["nome"], Vector3(mc.x, mapa_vale.altura(mc.x, mc.y) + 3.0, mc.y), float(cav["comp"]) * 0.45)
 			if Sumidouro.existe:
 				if Sumidouro.morcegos:
 					Sumidouro.morcegos.alvo = armadura
@@ -177,14 +174,13 @@ func _ready() -> void:
 			add_child(coelho)
 			_pintar(coelho, ilha as Clareira)
 			k_c += 1
-		# máquina agressiva: um Sentinela rio acima, longe do começo
-		var sentinela := Sentinela.new()
-		sentinela.mapa = ilha
-		sentinela.alvo = armadura
-		sentinela.casa = Vector3(-62, 0, -56)
-		sentinela.semente = 5
-		sentinela.pintar = pinta
-		add_child(sentinela)
+		# máquina agressiva: um mecha rio acima, longe do começo
+		var mecha := Mecha.new()
+		mecha.mapa = ilha
+		mecha.alvo = armadura
+		mecha.casa = Vector3(-62, ilha.altura(-62, -56), -56)
+		mecha.semente = 5
+		add_child(mecha)
 		var peixes := Peixes.new()
 		peixes.mapa = ilha
 		peixes.ameaca = armadura

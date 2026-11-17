@@ -84,16 +84,13 @@ func rio_em(pontos: Array[Vector3]) -> void:
 		p.global_position = pos
 
 
-## 0 fora, 1 debaixo do teto de alguma caverna (perto do eixo e abaixo do chão que havia antes de cavar).
+## 0 fora, 1 dentro do Sumidouro (debaixo da terra, num vazio dele).
 func _peso_caverna() -> float:
-	if ouvinte == null or (Cavernas.lista.is_empty() and not Sumidouro.existe):
+	if ouvinte == null or not Sumidouro.existe:
 		return 0.0
 	var o := ouvinte.global_position
 	if Sumidouro.no_vazio(o + Vector3.UP * 1.5):
 		return 1.0
-	for c in Cavernas.lista:
-		if Cavernas._eixo(c, o.x, o.z).x < Cavernas.MEIA + 2.0 and o.y < Cavernas.chao_antes(o.x, o.z) - 1.5:
-			return 1.0
 	return 0.0
 
 

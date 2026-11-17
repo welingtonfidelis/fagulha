@@ -58,6 +58,7 @@ func gerar(_semente := 7) -> void:
 	super.gerar(_semente)
 	_malha_fora()
 	_colisao_fora()
+	_falesia_da_borda()
 	_mar()
 	_fita_rio()
 	_preparar_costa()
@@ -66,9 +67,7 @@ func gerar(_semente := 7) -> void:
 	_plantas_do_chao()
 	Paredoes.montar(self)
 	if "--assar-rochas" in OS.get_cmdline_user_args():
-		Cavernas.assar()
 		Sumidouro.assar()
-	Cavernas.montar(self)
 	Sumidouro.montar(self)
 	Ruinas.montar(self)
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
@@ -727,6 +726,89 @@ func _malha_fora() -> void:
 			add_child(mi)
 
 
+## Onde o mapa acaba com a terra acima do mar (o norte, o oeste e o Platô das Flores a leste), a grade
+## terminava no ar: de fora via-se o chão por baixo, sem parede. Aqui a borda desce em falésia de pedra até
+## o fundo do mar, um pouco inclinada e irregular, com colisão.
+var falesia_faces := 0
+
+func _falesia_da_borda() -> void:
+	var n := F_N - 1
+	var fundo := -15.0
+	var faces := PackedVector3Array()
+	var ru := FastNoiseLite.new()
+	ru.seed = 771
+	ru.frequency = 0.03
+	# os quatro lados: [nó inicial, passo ao longo da borda, direção para fora]
+	for lado: Array in [[Vector2i(0, 0), Vector2i(1, 0), Vector2(0, -1)], [Vector2i(n, 0), Vector2i(0, 1), Vector2(1, 0)],
+			[Vector2i(n, n), Vector2i(-1, 0), Vector2(0, 1)], [Vector2i(0, n), Vector2i(0, -1), Vector2(-1, 0)]]:
+		var g0: Vector2i = lado[0]
+		var passo: Vector2i = lado[1]
+		var para_fora: Vector2 = lado[2]
+		var ao_longo := Vector2(passo)
+		var linhas: Array = []  # por nó: [topo, meio, pé]
+		for k in n + 1:
+			var g := g0 + passo * k
+			var h := _fora_h[g.y * F_N + g.x]
+			var x := -F_META + g.x * F_PASSO
+			var z := -F_META + g.y * F_PASSO
+			# nos cantos os dois lados saem na diagonal, para se encontrarem
+			var d := para_fora
+			if k == 0:
+				d = para_fora - ao_longo
+			elif k == n:
+				d = para_fora + ao_longo
+			var alto := maxf(h - fundo, 0.0)
+			var r1 := ru.get_noise_2d(x * 1.7 + z, z * 1.7 - x)
+			var r2 := ru.get_noise_2d(x - 300.0, z + 300.0)
+			var o1 := alto * (0.10 + 0.10 * r1) + 1.0
+			var o2 := alto * (0.34 + 0.14 * r2) + 3.0
+			linhas.append([h, Vector3(x, h, z), Vector3(x + d.x * o1, lerpf(h, fundo, 0.45 + 0.1 * r2), z + d.y * o1), Vector3(x + d.x * o2, fundo, z + d.y * o2)])
+		for k in n:
+			var a: Array = linhas[k]
+			var b: Array = linhas[k + 1]
+			if float(a[0]) < fundo + 0.5 and float(b[0]) < fundo + 0.5:
+				continue
+			var fora3 := Vector3(para_fora.x, 0, para_fora.y)
+			for f in 2:
+				for tri: Array in [[a[1 + f], b[1 + f], b[2 + f]], [a[1 + f], b[2 + f], a[2 + f]]]:
+					var t0: Vector3 = tri[0]
+					var t1: Vector3 = tri[1]
+					var t2: Vector3 = tri[2]
+					# a frente da face olha para fora do mapa
+					if (t2 - t0).cross(t1 - t0).dot(fora3) < 0.0:
+						var troca := t1
+						t1 = t2
+						t2 = troca
+					faces.append_array(PackedVector3Array([t0, t1, t2]))
+	falesia_faces = faces.size() / 3
+	if faces.is_empty():
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for v in faces:
+		st.add_vertex(v)
+	st.generate_normals()
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/vale_rocha.gdshader")
+	mat.set_shader_parameter("ruido", _tex)
+	var mi := MeshInstance3D.new()
+	mi.name = "FalesiaDaBorda"
+	mi.mesh = st.commit()
+	mi.mesh.surface_set_material(0, mat)
+	add_child(mi)
+	var corpo := StaticBody3D.new()
+	corpo.name = "FalesiaDaBordaCorpo"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	add_child(corpo)
+	var forma := ConcavePolygonShape3D.new()
+	forma.backface_collision = true
+	forma.set_faces(faces)
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	corpo.add_child(cs)
+
+
 func normal_em_fora(gx: int, gz: int) -> Vector3:
 	var hl := _fora_h[gz * F_N + maxi(gx - 1, 0)]
 	var hr := _fora_h[gz * F_N + mini(gx + 1, F_N - 1)]
@@ -921,7 +1003,7 @@ func _plantas_do_chao() -> void:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
 		var grande := tipo.begins_with("q_pedra") or tipo.begins_with("q_moita")
-		_multi(tipo, xfs, centro, 0.0, 260.0 if grande else 120.0, grande)
+		_multi(tipo, xfs, centro, 0.0, 280.0 if grande else 140.0, grande)
 	# as pedras seguram o robô
 	var corpo := StaticBody3D.new()
 	corpo.name = "PedrasSoltas"
@@ -995,11 +1077,12 @@ func _mata_fora() -> void:
 		var l: PackedInt32Array = _grade_arv.get(cel, PackedInt32Array())
 		l.append(i)
 		_grade_arv[cel] = l
-	# desenho: por tipo e por bloco de 160 m; completo perto, leve de longe, e nada além de 1.300 m
+	# desenho: por tipo e por bloco (100 m perto, 160 m longe); completo perto, leve de longe, e nada além
+	# de 1.300 m. A troca é árvore a árvore (Clareira._multi)
 	var grupos := {}
 	for item in fila:
 		var xf: Transform3D = item[1]
-		var chave := "%s|%d|%d" % [item[0], floori(xf.origin.x / 160.0), floori(xf.origin.z / 160.0)]
+		var chave := "%s|%d|%d" % [item[0], floori(xf.origin.x / 100.0), floori(xf.origin.z / 100.0)]
 		if not grupos.has(chave):
 			grupos[chave] = []
 		(grupos[chave] as Array).append(xf)
@@ -1010,7 +1093,7 @@ func _mata_fora() -> void:
 		for xf in xfs:
 			centro += (xf as Transform3D).origin
 		centro /= xfs.size()
-		_multi(tipo, xfs, centro, 0.0, 170.0, true)
+		_multi(tipo, xfs, centro, 0.0, TROCA_ARVORE, true)
 	for g in _por_bloco(fila, 160.0, true):
 		var xfs2: Array = g[1]
-		_multi(g[0], xfs2, _centro(xfs2), 170.0, 1300.0, false)
+		_multi(g[0], xfs2, _centro(xfs2), TROCA_ARVORE, 1300.0, false)

@@ -63,6 +63,20 @@ static func cavar(v: Vale) -> void:
 		% [centro, topo, piso, topo - piso, saida, varanda, Time.get_ticks_msec() - t0])
 
 
+## Onde ficavam as seis grutas pequenas (tiradas em 2026-11-16). A busca desviava delas; a lista continua
+## aqui só para o Sumidouro não mudar de morro (a malha gravada e a cachoeira contam com este lugar).
+const ANTIGAS: Array[Vector2] = [Vector2(-492.6811, -617.3805), Vector2(-618.4566, -626.3876), Vector2(-210.7176, -811.5591), Vector2(-247.4296, -770.0528),
+	Vector2(284.0017, 16.83289), Vector2(333.7697, 70.8974), Vector2(-384.0333, -438.239), Vector2(-434.2597, -469.4907),
+	Vector2(853.1016, -110.6418), Vector2(777.1662, -90.60742), Vector2(-667.7155, -385.8185), Vector2(-649.8335, -435.4403)]
+
+
+static func _perto_das_antigas(c: Vector2) -> bool:
+	for i in range(0, ANTIGAS.size(), 2):
+		if Geometry2D.get_closest_point_to_segment(c, ANTIGAS[i], ANTIGAS[i + 1]).distance_to(c) < 162.0:
+			return true
+	return false
+
+
 ## Procura um morro largo com uma encosta que desça pelo menos 46 m em até 130 m: o poço abre no alto e o
 ## túnel sai na encosta. Sempre o mesmo lugar (a busca não sorteia nada).
 static func _achar_lugar(v: Vale) -> bool:
@@ -70,7 +84,7 @@ static func _achar_lugar(v: Vale) -> bool:
 	for gz in range(-31, 32):
 		for gx in range(-31, 32):
 			var c := Vector2(gx * 24.0, gz * 24.0)
-			if c.length() < 300.0 or not Ruinas.livre(c.x, c.y) or Cavernas.dentro(c.x, c.y, 150.0):
+			if c.length() < 300.0 or not Ruinas.livre(c.x, c.y) or _perto_das_antigas(c):
 				continue
 			var h := Cavernas.chao_antes(c.x, c.y)
 			if h < 70.0:

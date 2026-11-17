@@ -15,6 +15,7 @@ uniform float apagado = 0.0;  // escurece (máquina desligada)
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
+varying vec2 pres;
 
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -25,9 +26,16 @@ void vertex() {
 		VERTEX.z += onda * 0.04 * alto * vento;
 	}
 	wpos = w;
+	pres = presenca(INSTANCE_CUSTOM, MODEL_MATRIX[3].xyz, MAIN_CAM_INV_VIEW_MATRIX[3].xyz);
+	if (pres.x <= 0.0) {
+		VERTEX = vec3(0.0);  // fora da faixa: a peça vira um ponto e não é desenhada
+	}
 }
 
 void fragment() {
+	if (fora_da_trama(pres, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec4 t = texture(tex, UV);
 	if (corte > 0.0 && t.a < corte) {
 		discard;

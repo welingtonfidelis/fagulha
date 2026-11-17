@@ -1,6 +1,6 @@
 class_name MaquinaPequena
 extends Node3D
-## O que o Zangão e o Carrapato têm em comum: o corpo montado por código com peças simples, a lente
+## A base das máquinas do vale (hoje só as mechas): a lente
 ## vermelha, o calor que sobe a cada tiro do robô e desliga a máquina, a fumaça de desligada e o tempo
 ## até religar. Ninguém é destruído: desligam, ficam um tempo paradas e religam no mesmo lugar.
 ## O mergulho com impacto do robô por perto desliga na hora.
@@ -35,10 +35,17 @@ var _relogio := 0.0
 var _ronco: AudioStreamPlayer3D
 var mech: MechVisual  # o corpo animado (um dos robôs do pacote)
 var _tiros: Array[Dictionary] = []
-var _mat_tiro: StandardMaterial3D
-const VEL_TIRO := 15.0
-const RAIO_TIRO := 1.1
-const FORCA_TIRO := 5.0
+## Os projéteis das máquinas, por tipo de arma. vel em m/s; raio é a distância do robô que conta como acerto;
+## dano é quanto de um acerto ele vale (três acertos inteiros desligam o robô); guia é quanto o míssil vira
+## por segundo (rad); estouro é o raio da explosão.
+const TIROS := {
+	"bala": {"vel": 95.0, "raio": 0.85, "forca": 2.0, "dano": 0.34, "alcance": 140.0, "som": "tiro_1", "db": -7.0},
+	"pesado": {"vel": 62.0, "raio": 1.0, "forca": 5.0, "dano": 0.67, "alcance": 160.0, "som": "tiro_sentinela", "db": -6.0},
+	"missil": {"vel": 27.0, "raio": 1.3, "forca": 8.0, "dano": 1.0, "alcance": 190.0, "som": "tiro_zangao_2", "db": -3.0, "guia": 1.5, "estouro": 3.2},
+}
+static var tiros_dados := {}  # tipo -> quantos saíram (testes)
+static var _malhas_tiro := {}
+static var _mats_tiro := {}
 
 
 func calor_por_tiro() -> float:
@@ -105,53 +112,148 @@ func _montar_base() -> void:
 		_ronco = Som.laco3d(_corpo, som_motor(), -6.0, 4.0, 40.0)
 
 
-## Põe o corpo animado: um dos robôs do pacote, com `altura` metros, os pés em `pe_y`.
-func montar_mech(nome: String, altura: float, pe_y := 0.0) -> void:
-	mech = MechVisual.criar(nome, altura, (mapa as Clareira)._tex if mapa is Clareira else null)
-	mech.position.y = pe_y
-	_corpo.add_child(mech)
+## A arte dos projéteis é simples de propósito (passam depressa): a bala é um risco claro, o tiro pesado um
+## caroço laranja comprido, e o míssil um cilindro com ponta e uma chama atrás.
+static func _arte_tiro(tipo: String) -> Node3D:
+	if _mats_tiro.is_empty():
+		for par: Array in [["bala", Color(1.0, 0.92, 0.6)], ["pesado", Color(1.0, 0.55, 0.2)], ["chama", Color(1.0, 0.7, 0.3)]]:
+			var m := StandardMaterial3D.new()
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.albedo_color = par[1]
+			_mats_tiro[par[0]] = m
+		var casco := StandardMaterial3D.new()
+		casco.albedo_color = Color(0.75, 0.76, 0.78)
+		casco.roughness = 0.6
+		_mats_tiro["casco"] = casco
+		var ponta := StandardMaterial3D.new()
+		ponta.albedo_color = Color(0.8, 0.2, 0.12)
+		_mats_tiro["ponta"] = ponta
+		var risco := CapsuleMesh.new()
+		risco.radius = 0.035
+		risco.height = 1.3
+		risco.radial_segments = 6
+		risco.rings = 2
+		_malhas_tiro["bala"] = risco
+		var caroco := CapsuleMesh.new()
+		caroco.radius = 0.1
+		caroco.height = 0.7
+		caroco.radial_segments = 8
+		caroco.rings = 3
+		_malhas_tiro["pesado"] = caroco
+		var corpo := CylinderMesh.new()
+		corpo.top_radius = 0.07
+		corpo.bottom_radius = 0.07
+		corpo.height = 0.6
+		corpo.radial_segments = 8
+		_malhas_tiro["corpo"] = corpo
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 0.07
+		cone.height = 0.2
+		cone.radial_segments = 8
+		_malhas_tiro["cone"] = cone
+		var chama := CylinderMesh.new()
+		chama.top_radius = 0.05
+		chama.bottom_radius = 0.0
+		chama.height = 0.45
+		chama.radial_segments = 6
+		_malhas_tiro["chama"] = chama
+	var no := Node3D.new()
+	# o brilho vem das imagens do pacote de partículas: rastro comprido na bala, bola de fogo no tiro pesado, e
+	# chama e fumaça atrás do míssil
+	if tipo == "bala":
+		no.add_child(EfeitosTiro.cruzado("trace_06", Color(1.0, 0.93, 0.6), 0.4, 3.2, 0.9, false))
+	elif tipo == "pesado":
+		no.add_child(EfeitosTiro.cruzado("trace_06", Color(1.0, 0.6, 0.2), 0.7, 3.0, 1.0, false))
+		no.add_child(EfeitosTiro.cruzado("muzzle_04", Color(1.0, 0.75, 0.3), 0.5, 0.9, 0.1, false))
+	else:
+		no.add_child(EfeitosTiro.cruzado("muzzle_04", Color(1.0, 0.75, 0.35), 0.4, 1.0, 0.75, false))
+		EfeitosTiro.rastro_fumaca(no)
+	var pecas: Array = [["bala", "bala", 0.0]] if tipo == "bala" else ([["pesado", "pesado", 0.0]] if tipo == "pesado"
+		else [["corpo", "casco", 0.0], ["cone", "ponta", -0.4]])
+	for pc: Array in pecas:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _malhas_tiro[pc[0]]
+		mi.material_override = _mats_tiro[pc[1]]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.rotation.x = -PI / 2.0  # o comprido da peça fica no -Z do nó, que aponta para onde ele voa
+		mi.position.z = pc[2]
+		no.add_child(mi)
+	if tipo != "bala":
+		var luz := OmniLight3D.new()
+		luz.light_color = Color(1.0, 0.45, 0.15)
+		luz.light_energy = 1.4
+		luz.omni_range = 3.5
+		luz.shadow_enabled = false
+		no.add_child(luz)
+	return no
 
 
-## Um tiro lento, de luz laranja, que dá para desviar. Sai de `de` na direção de `para`.
-func atirar_em(de: Vector3, para: Vector3) -> void:
-	if _mat_tiro == null:
-		_mat_tiro = StandardMaterial3D.new()
-		_mat_tiro.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_mat_tiro.albedo_color = Color(1.0, 0.5, 0.2)
-	Som.toque3d(self, Som.variacao("tiro_zangao", 2), de, -4.0, 8.0, 70.0)
-	var mi := MeshInstance3D.new()
-	mi.mesh = bola(0.16)
-	mi.material_override = _mat_tiro
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.top_level = true
-	add_child(mi)
-	mi.global_position = de
-	var luz := OmniLight3D.new()
-	luz.light_color = Color(1.0, 0.4, 0.15)
-	luz.light_energy = 1.5
-	luz.omni_range = 3.5
-	mi.add_child(luz)
-	_tiros.append({"no": mi, "pos": de, "dir": (para - de).normalized(), "andou": 0.0})
+## Dispara um projétil do tipo dado de `de` para `para`, com um erro de mira de até `espalha` radianos.
+func atirar_em(de: Vector3, para: Vector3, tipo := "bala", espalha := 0.0) -> void:
+	var t: Dictionary = TIROS[tipo]
+	var dir := (para - de).normalized()
+	if espalha > 0.0:
+		var lado := dir.cross(Vector3.UP).normalized()
+		var cima := lado.cross(dir).normalized()
+		dir = (dir + lado * randf_range(-espalha, espalha) + cima * randf_range(-espalha, espalha)).normalized()
+	if tipo == "missil":
+		dir = (dir + Vector3.UP * 0.35).normalized()  # o míssil sai para cima e depois vira para o alvo
+	Som.toque3d(self, t["som"], de, t["db"], 10.0, 120.0)
+	EfeitosTiro.clarao(self, de, dir, {"bala": 0.8, "pesado": 1.3, "missil": 1.1}[tipo])
+	tiros_dados[tipo] = int(tiros_dados.get(tipo, 0)) + 1
+	var no := _arte_tiro(tipo)
+	no.top_level = true
+	add_child(no)
+	no.global_position = de
+	_tiros.append({"no": no, "pos": de, "dir": dir, "andou": 0.0, "tipo": tipo})
 
 
 func atualizar_tiros(delta: float) -> void:
 	var i := _tiros.size() - 1
+	var tem_alvo := alvo != null and is_instance_valid(alvo) and not alvo.em_pane
 	while i >= 0:
-		var t := _tiros[i]
-		var p: Vector3 = t["pos"] + (t["dir"] as Vector3) * VEL_TIRO * delta
-		t["pos"] = p
-		t["andou"] = float(t["andou"]) + VEL_TIRO * delta
-		var no: MeshInstance3D = t["no"]
-		no.global_position = p
-		var fim := float(t["andou"]) > 70.0 or p.y < mapa.altura(p.x, p.z)
-		if not fim and alvo != null and is_instance_valid(alvo) and not alvo.em_pane and p.distance_to(centro_alvo()) < RAIO_TIRO:
-			alvo.levar_golpe(t["dir"], FORCA_TIRO)
-			golpes_dados += 1
-			fim = true
-		if fim:
+		var pr := _tiros[i]
+		var t: Dictionary = TIROS[pr["tipo"]]
+		var dir: Vector3 = pr["dir"]
+		var de: Vector3 = pr["pos"]
+		if t.has("guia") and tem_alvo:
+			# o míssil vira para o robô aos poucos: dá para escapar correndo de lado ou voando
+			dir = Armadura.girar_para(dir, (centro_alvo() - de).normalized(), float(t["guia"]) * delta)
+			pr["dir"] = dir
+		var passo := float(t["vel"]) * delta
+		var p := de + dir * passo
+		pr["pos"] = p
+		pr["andou"] = float(pr["andou"]) + passo
+		var no: Node3D = pr["no"]
+		no.look_at_from_position(p, p + dir, Vector3.UP if absf(dir.y) < 0.98 else Vector3.RIGHT)
+		var fim := float(pr["andou"]) > float(t["alcance"])
+		var bateu_chao := p.y < mapa.altura(p.x, p.z)
+		var acertou := false
+		if tem_alvo:
+			# o projétil rápido anda mais de um metro por quadro: conta o ponto mais perto do trecho andado
+			var c := centro_alvo()
+			var perto := de + dir * clampf((c - de).dot(dir), 0.0, passo)
+			acertou = perto.distance_to(c) < float(t["raio"])
+		if acertou or bateu_chao or fim:
+			if t.has("estouro") and (acertou or bateu_chao):
+				_estouro(p, float(t["estouro"]))
+				if tem_alvo and p.distance_to(centro_alvo()) < float(t["estouro"]):
+					acertou = true
+			if acertou and tem_alvo:
+				alvo.levar_golpe(dir, t["forca"], t["dano"])
+				golpes_dados += 1
+			if not t.has("estouro") and (acertou or bateu_chao):
+				EfeitosTiro.impacto(self, p, 1.4 if pr["tipo"] == "pesado" else 1.0)
 			no.queue_free()
 			_tiros.remove_at(i)
 		i -= 1
+
+
+## A explosão do míssil: o som e o efeito (fogo, faíscas e fumaça).
+func _estouro(onde: Vector3, raio: float) -> void:
+	Som.toque3d(self, Som.variacao("impacto", 3), onde, 0.0, 14.0, 160.0)
+	EfeitosTiro.explosao(self, onde, raio)
 
 
 func material(nome: String) -> Material:

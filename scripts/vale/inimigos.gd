@@ -1,16 +1,20 @@
 class_name InimigosVale
 extends Node
-## As máquinas agressivas espalhadas pelo vale, fora da clareira: Batedores em dupla, Carrapatos em trio e
-## mais Sentinelas. Elas guardam o estado (uma desligada continua desligada), então ficam sempre criadas;
+## As máquinas agressivas espalhadas pelo vale, fora da clareira: poucos mechas sorteados (Mecha), duas duplas, seis
+## sozinhos e dois grandes. Elas guardam o estado (uma desligada continua desligada), então ficam sempre criadas;
 ## longe do robô só param de pensar. O mergulho com impacto do robô é repassado a todas.
 ## Uso: defina mapa, alvo e pintar; depois add_child.
 
 const ACORDA := 230.0
 const DORME := 290.0
-const DUPLAS: Array[Vector2] = [Vector2(-705, 60), Vector2(-620, 420), Vector2(-690, 150), Vector2(480, -430), Vector2(300, 610), Vector2(-250, -330)]
-const TRIOS: Array[Vector2] = [Vector2(-668, 196), Vector2(-748, 6), Vector2(560, 180), Vector2(-120, 500), Vector2(260, -640), Vector2(720, -260)]
-const POSTOS: Array[Vector2] = [Vector2(-560, 300), Vector2(420, -300), Vector2(150, 620), Vector2(-300, -200), Vector2(640, -420), Vector2(-150, -640)]
-const TORRES: Array[Vector2] = [Vector2(-655, 462), Vector2(610, 60), Vector2(-380, 640)]
+## O vale é para ter muita paz e, de vez em quando, uma briga (pedido do usuário): poucos mechas, longe uns dos
+## outros. [lugar, quantos, grande]
+const LUGARES: Array = [
+	[Vector2(-705, 60), 2, false], [Vector2(480, -430), 2, false],
+	[Vector2(-560, 300), 1, false], [Vector2(420, -300), 1, false], [Vector2(150, 620), 1, false],
+	[Vector2(-250, -330), 1, false], [Vector2(-480, -60), 1, false], [Vector2(560, -120), 1, false],
+	[Vector2(-655, 462), 1, true], [Vector2(610, 60), 1, true],
+]
 
 var mapa: Vale
 var alvo: Armadura
@@ -22,51 +26,24 @@ var _t := 0.0
 
 func _ready() -> void:
 	var k := 0
-	for d in DUPLAS:
-		var c := _chao(d, 20.0)
-		for i in 2:
-			var z := Batedor.new()
-			z.mapa = mapa
-			z.alvo = alvo
-			z.casa = c + Vector3(i * 6.0 - 3.0, 0, 0)
-			z.semente = 300 + k
-			add_child(z)
-			todas.append(z)
+	var grandes := 0
+	for l: Array in LUGARES:
+		var c := _chao(l[0], 30.0)
+		for i in int(l[1]):
+			var mc := Mecha.new()
+			mc.mapa = mapa
+			mc.alvo = alvo
+			mc.casa = c + Vector3(i * 7.0, 0, 0)
+			mc.semente = 700 + k
+			mc.chefe = l[2]
+			add_child(mc)
+			todas.append(mc)
 			k += 1
-	for d in TRIOS:
-		var c := _chao(d, 30.0)
-		for i in 3:
-			var cr := Carrapato.new()
-			cr.mapa = mapa
-			cr.alvo = alvo
-			cr.casa = c + Vector3(cos(i * 2.1) * 4.0, 0, sin(i * 2.1) * 4.0)
-			cr.semente = 400 + k
-			add_child(cr)
-			todas.append(cr)
-			k += 1
-	for d in POSTOS:
-		var vg := Vigia.new()
-		vg.mapa = mapa
-		vg.alvo = alvo
-		vg.casa = _chao(d, 30.0)
-		vg.semente = 600 + k
-		add_child(vg)
-		todas.append(vg)
-		k += 1
-	for d in TORRES:
-		var c := _chao(d, 30.0)
-		var s := Sentinela.new()
-		s.mapa = mapa
-		s.alvo = alvo
-		s.casa = c
-		s.semente = 500 + k
-		s.pintar = pintar
-		add_child(s)
-		todas.append(s)
-		k += 1
+			if l[2]:
+				grandes += 1
 	if alvo:
 		alvo.golpe_chao.connect(func(onde: Vector3) -> void: get_tree().call_group("maquinas", "levar_impacto", onde))
-	print("inimigos do vale: %d batedores, %d carrapatos, %d vigias, %d sentinelas" % [DUPLAS.size() * 2, TRIOS.size() * 3, POSTOS.size(), TORRES.size()])
+	print("inimigos do vale: %d mechas (%d grandes)" % [todas.size(), grandes])
 
 
 ## O ponto pedido, ou o chão bom mais perto dele (fora d'água, pouco inclinado).

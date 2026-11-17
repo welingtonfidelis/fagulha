@@ -40,8 +40,9 @@ Parte das árvores, as plantas de chão, as flores, os cogumelos, as moitas e as
 [Quaternius](https://quaternius.com), em domínio público (CC0), com agradecimento: *Textured Stylized Trees* e
 *Stylized Nature MegaKit*. Foram convertidos por `tools/vale/pacotes.py` e ganharam a luz em faixas do vale.
 
-As máquinas do vale (Sentinela, Carrapato, Batedor e Vigia) usam os quatro robôs do *Animated Mech Pack*, também de
-[Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.
 
 Os cervos, os veados de galhada, as raposas e os lobos são do *Ultimate Animated Animals*, também de
 [Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.
+
+Os mechas sorteados usam o *Mech_00* e a expansão *Mech_00(A)*, de [jimmys7777](https://jimmys7777.itch.io/): uso
+livre em jogos, sem redistribuir os arquivos (por isso o repositório do jogo é privado).

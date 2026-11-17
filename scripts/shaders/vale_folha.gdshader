@@ -9,6 +9,7 @@ uniform vec3 topo : source_color = vec3(0.33, 0.47, 0.12);
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
+varying vec2 pres;
 varying vec3 wnrm;
 
 void vertex() {
@@ -19,9 +20,16 @@ void vertex() {
 	VERTEX.z += onda * 0.04 * alto;
 	wpos = w;
 	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	pres = presenca(INSTANCE_CUSTOM, MODEL_MATRIX[3].xyz, MAIN_CAM_INV_VIEW_MATRIX[3].xyz);
+	if (pres.x <= 0.0) {
+		VERTEX = vec3(0.0);  // fora da faixa: a peça vira um ponto e não é desenhada
+	}
 }
 
 void fragment() {
+	if (fora_da_trama(pres, FRAGCOORD.xy)) {
+		discard;
+	}
 	float r = texture(ruido, wpos.xz * 0.09 + vec2(wpos.y * 0.11)).r;
 	float t = wnrm.y * 0.5 + 0.5 + (r - 0.5) * 0.45;
 	vec3 c = mix(fundo, meio, smoothstep(0.30, 0.42, t));

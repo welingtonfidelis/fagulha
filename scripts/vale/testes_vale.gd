@@ -451,30 +451,27 @@ func _ponto_12() -> void:
 	_zerar()
 
 
-## Sentinela: existe, patrulha longe do começo, desliga com tiros seguidos e religa quando o tempo salta.
+## Mecha da clareira: existe, fica longe do começo, desliga com tiros seguidos e religa quando o tempo salta.
 func _ponto_13() -> void:
-	var st: Node3D = null
+	var st: Mecha = null
 	for n in m.get_children():
-		if n is Sentinela:
+		if n is Mecha:
 			st = n
 	if st == null:
-		_ok(false, "sentinela: não há Sentinela na clareira")
+		_ok(false, "mecha: não há mecha na clareira")
 		return
 	var longe := Vector2(st.global_position.x, st.global_position.z).distance_to(_spawn_xz())
-	var cabeca: Vector3 = st.global_position + Vector3(0, Sentinela.ALTURA_CABECA, 0)
-	var no_cabeca := st.find_child("cabeca", true, false) as Node3D
-	if no_cabeca:
-		cabeca = no_cabeca.global_position
-	for i in 8:
-		st.call("levar_tiro", cabeca)
+	var tiros := 0
+	while not st.desligada and tiros < 12:
+		st.levar_tiro(st.centro())
+		tiros += 1
 	await _esperar(0.3)
-	var desligado: bool = st.call("nome_estado") == "desligado"
-	st.call("avancar_tempo", Sentinela.TEMPO_DESLIGADO + 1.0)
-	await _esperar(2.5)
-	var nome: String = st.call("nome_estado")
-	_ok(longe > 70.0 and desligado and nome != "desligado" and float(st.get("calor")) < 1.0,
-		"sentinela: a %.0f m do começo; tiros seguidos desligam (%s); o salto do tempo religa (estado %s, calor %.0f)"
-			% [longe, desligado, nome, float(st.get("calor"))])
+	var desligado: bool = st.desligada
+	st.avancar_tempo(MaquinaPequena.TEMPO_DESLIGADA + 1.0)
+	await _esperar(0.5)
+	_ok(longe > 70.0 and desligado and tiros >= 3 and tiros <= 5 and not st.desligada and st.calor < 1.0,
+		"mecha da clareira: a %.0f m do começo; %d tiros seguidos desligam (%s); o salto do tempo religa (%s, calor %.0f); ficha %s"
+			% [longe, tiros, desligado, not st.desligada, st.calor, str(st.ficha)])
 
 
 ## Desligar o voo freia e despenca (robô pesado, não plana) e o tiro sai sem mirar.
@@ -692,119 +689,160 @@ func _ponto_18() -> void:
 		% [vida.lugares.size(), ruins, quadrantes.size(), antes, perto, no_chao, longe])
 
 
-## 19. Batedor e Carrapato: enxergam o robô, atacam, desligam com tiros ou com o mergulho e religam com o tempo.
+## 19. Mechas: são sorteados (cada um com a ficha dele), enxergam o robô e atacam conforme a arma (o de espada
+## ou martelo bate, o de tiro atira), desligam com os tiros certos ou com o mergulho, e religam com o tempo.
 func _ponto_19() -> void:
-	print("zangão e carrapato")
+	print("mechas")
 	_soltar_tudo()
 	_zerar()
 	var v: Vale = m.ilha
-	var z: Batedor = null
-	var cr: Carrapato = null
+	var fichas_ok := true
+	var grandes := 0
+	var de_corpo: Mecha = null
+	var de_tiro: Mecha = null
+	var armas := {}
 	for n: Node3D in m.inimigos.todas:
-		if n is Batedor and z == null:
-			z = n
-		if n is Carrapato and cr == null:
-			cr = n
-	# carrapato: o robô parado a 14 m leva a investida
-	var p := cr.casa + Vector3(14, 0, 0)
-	a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
-	a.graca_pane = 0.0
-	a.avaria = 0
-	var g0: int = a.golpes
-	var investiu := false
-	for i in 8 * 60:
-		await get_tree().physics_frame
-		a.avaria = 0
-		if cr.investidas > 0:
-			investiu = true
-		if a.golpes > g0:
-			break
-	var acertou: bool = a.golpes > g0
-	# o mergulho com impacto perto desliga; o tempo religa
-	a.golpe_chao.emit(cr.global_position + Vector3(2, 0, 0))
-	await _esperar(0.2)
-	var caiu: bool = cr.desligada
-	cr.avancar_tempo(MaquinaPequena.TEMPO_DESLIGADA + 1.0)
-	var voltou: bool = not cr.desligada and cr.religamentos == 1
-	# zangão: vê o robô, caça e atira; dois tiros desligam
-	p = z.casa + Vector3(0, 0, 22)
-	a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
-	a.graca_pane = 0.0
+		var mc := n as Mecha
+		if mc == null or mc.mech == null or not (String(mc.ficha.get("arma", "")) in ["tiro", "corpo", "costas"]):
+			fichas_ok = false
+			continue
+		armas[mc.ficha["arma"]] = true
+		if mc.chefe:
+			grandes += 1
+		elif mc.corpo_a_corpo and de_corpo == null:
+			de_corpo = mc
+		elif not mc.corpo_a_corpo and de_tiro == null:
+			de_tiro = mc
+	# o de espada ou martelo: o robô parado a 6 m leva o golpe
+	var bateu := false
+	var p := Vector3.ZERO
+	if de_corpo:
+		p = de_corpo.global_position + Vector3(6, 0, 0)
+		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+		a.graca_pane = 0.0
+		var g0: int = a.golpes
+		for i in 14 * 60:
+			await get_tree().physics_frame
+			a.avaria = 0
+			a.global_position = Vector3(p.x, a.global_position.y, p.z)
+			if a.golpes > g0:
+				bateu = true
+				break
+		# o mergulho com impacto perto desliga; o tempo religa
+		a.golpe_chao.emit(de_corpo.global_position + Vector3(2, 0, 0))
+		await _esperar(0.2)
+	var caiu: bool = de_corpo != null and de_corpo.desligada
+	if de_corpo:
+		de_corpo.avancar_tempo(MaquinaPequena.TEMPO_DESLIGADA + 1.0)
+	var voltou: bool = de_corpo != null and not de_corpo.desligada and de_corpo.religamentos == 1
+	# o de tiro: vê o robô, caça e atira; os tiros certos desligam
 	var cacou := false
-	for i in 12 * 60:
-		await get_tree().physics_frame
+	var atirou := false
+	var antes_nao := false
+	var depois_sim := false
+	var deitou := false
+	if de_tiro:
+		p = de_tiro.global_position + Vector3(0, 0, 20)
+		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+		a.graca_pane = 0.0
+		for i in 14 * 60:
+			await get_tree().physics_frame
+			a.avaria = 0
+			if de_tiro.estado == Vigia.Estado.CACA:
+				cacou = true
+			if de_tiro.disparos > 0:
+				break
+		atirou = de_tiro.disparos > 0
+		var precisa := ceili(100.0 / de_tiro.calor_tiro)
+		for i in precisa - 1:
+			de_tiro.levar_tiro(de_tiro.centro())
+		antes_nao = not de_tiro.desligada
+		de_tiro.levar_tiro(de_tiro.centro())
+		depois_sim = de_tiro.desligada
+		await _esperar(1.0)
+		deitou = de_tiro.mech.atual == "Death"
+	# projéteis: a bala chega depressa no robô parado, o míssil vira e estoura nele, e três balas valem um acerto
+	var tipos := {}
+	for n: Node3D in m.inimigos.todas:
+		if not (n as Mecha).corpo_a_corpo:
+			tipos[(n as Mecha).tipo_tiro] = true
+	var bala_ok := false
+	var missil_ok := false
+	var tempo_bala := 9.0
+	var tempo_missil := 9.0
+	var avaria_3_balas := -1
+	if de_tiro:
+		de_tiro.religar()
+		# ninguém luta sozinho nesta parte (um vizinho atirando estragava a medida): os tiros do teste saem à mão
+		m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED  # o gerente parado: senão ele reacorda os mechas
+		p = de_tiro.global_position + Vector3(0, 0, 40)
+		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+		a.graca_pane = 0.0
 		a.avaria = 0
-		if z.estado == Vigia.Estado.CACA:
-			cacou = true
-		if z.disparos > 0:
-			break
-	var atirou: bool = z.disparos > 0
-	var alto: bool = absf(z.global_position.y - v.altura(z.global_position.x, z.global_position.z)) < 0.2  # todas as máquinas andam no chão
-	z.levar_tiro(z.centro())
-	var um: bool = not z.desligada
-	z.levar_tiro(z.centro())
-	var dois: bool = z.desligada
-	await _esperar(2.5)
-	var no_chao: bool = z.mech.atual == "Death"
+		a._dano_frac = 0.0
+		await _esperar(0.2)
+		var g2: int = a.golpes
+		var boca := de_tiro.centro() + Vector3(0, 1.0, 0)
+		de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "bala", 0.0)
+		for i in 120:
+			await get_tree().physics_frame
+			de_tiro.atualizar_tiros(1.0 / 60.0)
+			if a.golpes > g2:
+				bala_ok = true
+				tempo_bala = i / 60.0
+				break
+		for k in 2:
+			de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "bala", 0.0)
+			for i in 60:
+				await get_tree().physics_frame
+				de_tiro.atualizar_tiros(1.0 / 60.0)
+		avaria_3_balas = a.avaria
+		a.avaria = 0
+		a.velocity = Vector3.ZERO
+		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+		await _esperar(0.2)
+		g2 = a.golpes
+		de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "missil", 0.0)
+		for i in 300:
+			await get_tree().physics_frame
+			de_tiro.atualizar_tiros(1.0 / 60.0)
+			if a.golpes > g2:
+				missil_ok = true
+				tempo_missil = i / 60.0
+				break
+		m.inimigos.process_mode = Node.PROCESS_MODE_INHERIT
+		de_tiro.desligar()
 	a.avaria = 0
 	a.graca_pane = 0.0
-	_ok(m.inimigos.todas.size() == 39 and investiu and acertou and caiu and voltou and cacou and atirou and alto and um and dois and no_chao,
-		"inimigos: %d máquinas; carrapato investe (%s) e acerta o robô parado (%s), o mergulho desliga (%s), o tempo religa (%s); batedor caça (%s), atira (%s), fica no chão (%s), um tiro não desliga (%s), dois desligam (%s) e ele cai (%s)"
-		% [m.inimigos.todas.size(), investiu, acertou, caiu, voltou, cacou, atirou, alto, um, dois, no_chao])
+	_ok(tipos.size() >= 2 and bala_ok and tempo_bala < 0.55 and avaria_3_balas == 1 and missil_ok and tempo_missil > 0.6,
+		"projéteis: %d tipos entre os mechas; a bala cruza 40 m em %.2f s e acerta (%s); três balas somam %d acerto; o míssil vira e estoura no robô parado (%s) em %.1f s"
+		% [tipos.size(), tempo_bala, bala_ok, avaria_3_balas, missil_ok, tempo_missil])
+	_ok(m.inimigos.todas.size() == 12 and grandes == 2 and fichas_ok and armas.size() >= 2 and bateu and caiu and voltou and cacou and atirou and antes_nao and depois_sim and deitou,
+		"mechas: %d no vale (%d grandes), fichas certas (%s), %d jeitos de lutar; o de espada ou martelo acerta o robô parado (%s), o mergulho desliga (%s), o tempo religa (%s); o de tiro caça (%s), atira (%s), aguenta até o penúltimo tiro (%s), desliga no último (%s) e cai (%s)"
+		% [m.inimigos.todas.size(), grandes, fichas_ok, armas.size(), bateu, caiu, voltou, cacou, atirou, antes_nao, depois_sim, deitou])
 
 
-## 20. Cavernas: há túnel e grutas, o chão foi cavado, o teto existe e segura, e dá para atravessar o túnel voando.
+## 20. Sem grutas pequenas: só o Sumidouro cava o chão. Fora dele a grade é a original (nada rebaixado, nenhum
+## retângulo de chão refeito), inclusive onde ficava a gruta do Platô das Flores, e não há peça de gruta.
 func _ponto_20() -> void:
-	print("cavernas")
+	print("sem grutas pequenas")
 	_soltar_tudo()
 	_zerar()
 	var v: Vale = m.ilha
-	var com_teto := 0
-	var tunel: Dictionary = {}
-	for cav: Dictionary in Cavernas.lista:
-		if float(cav["ate"]) - float(cav["de"]) > 12.0:
-			com_teto += 1
-		if not cav["gruta"] and tunel.is_empty():
-			tunel = cav
-	var pa: Vector2 = tunel["a"]
-	var pb: Vector2 = tunel["b"]
-	var d2 := (pb - pa).normalized()
-	var comp: float = tunel["comp"]
-	var meio := pa + d2 * comp * 0.5
-	var esperado := lerpf(tunel["ha"], tunel["hb"], 0.5)
-	var espaco := a.get_world_3d().direct_space_state
-	# o piso e o teto no meio do túnel, medidos na colisão (o corredor serpenteia: mede no meio dele)
-	var perp2 := Vector2(-d2.y, d2.x)
-	var no_meio := meio + perp2 * Cavernas._curva(tunel, comp * 0.5)
-	var de := Vector3(no_meio.x, esperado + 3.0, no_meio.y)
-	var hit_b := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(de, de - Vector3(0, 8, 0), 1))
-	var chao_meio := (hit_b["position"] as Vector3).y if not hit_b.is_empty() else -999.0
-	var morro := Cavernas.chao_antes(meio.x, meio.y) - chao_meio
-	var hit := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(de, de + Vector3(0, 30, 0), 1))
-	var teto := (hit["position"] as Vector3).y - chao_meio if not hit.is_empty() else -1.0
-	# voando de uma boca à outra
-	var ini := pa + d2 * 6.0
-	cam.yaw = atan2(-d2.x, -d2.y)
-	var sobe := atan2(float(tunel["hb"]) - float(tunel["ha"]), comp)
-	cam.pitch = sobe + 0.22  # no cruzeiro o voo só fica nivelado com o nariz uns 12° acima do horizonte
-	a.calor = 0.0
-	a.teleportar(Vector3(ini.x, float(tunel["ha"]) + 4.0, ini.y), Armadura.Estado.VOO, Vector3(d2.x, tan(sobe), d2.y) * 18.0)
-	var andou := 0.0
-	var caiu := false
-	for i in 12 * 60:
-		await get_tree().physics_frame
-		andou = (Vector2(a.global_position.x, a.global_position.z) - ini).dot(d2)
-		if a.estado != Armadura.Estado.VOO:
-			caiu = true
-			break
-		if andou > comp - 12.0:
-			break
-	if caiu:
-		print("    caiu em ", a.global_position, " estado ", a.nome_estado(), " chão ", v.altura(a.global_position.x, a.global_position.z))
-	cam.pitch = -0.12
-	_ok(Cavernas.lista.size() >= 4 and com_teto >= 4 and not tunel.is_empty() and absf(chao_meio - esperado) < 1.5 and morro > 10.0 and teto > 4.0 and teto < 12.0 and not caiu and andou > comp - 12.0,
-		"cavernas: %d (%d com teto); no meio do túnel o chão desceu %.1f m e o teto fica a %.1f m; voando de uma boca à outra andou %.0f de %.0f m (caiu: %s)"
-		% [Cavernas.lista.size(), com_teto, morro, teto, andou, comp, caiu])
+	var cavados := 0
+	var x := -Vale.F_META + 8.0
+	while x < Vale.F_META - 8.0:
+		var z := -Vale.F_META + 8.0
+		while z < Vale.F_META - 8.0:
+			if v._fora(x, z) < Cavernas.chao_antes(x, z) - 0.3 and Vector2(x, z).distance_to(Sumidouro.centro) > 120.0:
+				cavados += 1
+			z += 8.0
+		x += 8.0
+	var pecas := m.find_children("Gruta*", "", true, false).size()
+	var plato := absf(v.altura(815.0, -100.0) - Cavernas.chao_antes(815.0, -100.0))
+	_ok(cavados == 0 and pecas == 0 and plato < 0.05 and Sumidouro.existe,
+		"sem grutas: %d pontos cavados fora do Sumidouro, %d peças de gruta, o platô difere %.2f m do chão original; Sumidouro existe: %s"
+		% [cavados, pecas, plato, Sumidouro.existe])
 
 
 
@@ -845,15 +883,9 @@ func _ponto_21() -> void:
 		if nome.begins_with("tiro_"):
 			tiros += 1
 	Sons.registrar = false
-	# fora e dentro do túnel
+	# fora e dentro do Sumidouro
 	var fora: float = m.som_lugar.debug.get("na_caverna", -1.0)
-	var tunel: Dictionary = {}
-	for cav: Dictionary in Cavernas.lista:
-		if not cav["gruta"] and tunel.is_empty():
-			tunel = cav
-	var meio: Vector2 = ((tunel["a"] as Vector2) + (tunel["b"] as Vector2)) * 0.5
-	var v: Vale = m.ilha
-	a.teleportar(Vector3(meio.x, v.altura(meio.x, meio.y) + 0.3, meio.y), Armadura.Estado.CHAO, Vector3.ZERO)
+	a.teleportar(Vector3(Sumidouro.centro.x, Sumidouro.piso + 3.0, Sumidouro.centro.y), Armadura.Estado.PAIRAR, Vector3.ZERO)
 	await _esperar(3.0)
 	var dentro: float = m.som_lugar.debug.get("na_caverna", -1.0)
 	var eco: float = m.som_lugar.debug.get("caverna_db", -99.0)
@@ -865,7 +897,7 @@ func _ponto_21() -> void:
 		if not (n as AudioStreamPlayer3D).global_position.is_finite():
 			invalidos += 1
 	_ok(invalidos == 0 and faltam.is_empty() and passos >= 3 and passos <= 9 and tiros >= 1 and fora < 0.05 and dentro > 0.95 and eco > -20.0,
-		"sons: %d tocadores em posição inválida; faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do túnel %.2f (eco a %.0f dB)"
+		"sons: %d tocadores em posição inválida; faltam %d arquivos %s; andando 2 s deu %d pisadas; atirando 0,5 s deu %d tiros; caverna fora %.2f, dentro do Sumidouro %.2f (eco a %.0f dB)"
 		% [invalidos, faltam.size(), str(faltam) if not faltam.is_empty() else "", passos, tiros, fora, dentro, eco])
 
 
@@ -930,8 +962,6 @@ func _ponto_22() -> void:
 	var andou := Vector2(a.global_position.x - q0.x, a.global_position.z - q0.z).length()
 	# furos por cima das peças de rocha
 	var furos := RochaMalha.furos(Sumidouro._mn, Sumidouro._mx, Sumidouro.vazio, Sumidouro.extra, 2.0).size()
-	for cv in Cavernas.lista:
-		furos += RochaMalha.furos(cv["mn"], cv["mx"], Cavernas.vazio_de.bind(cv), Callable(), 2.0).size()
 	_ok(decolou and topo > 8.5 and desvio < 2.5 and voo_1 and decolou_2 and voo_2 and so_pulo and levantando and parado < 0.3 and andou > 0.8 and furos == 0,
 		"segurar o pulo no chão decola (%s), sobe %.1f m com %.1f m de desvio e sai voando (%s); no pulo duplo também (%s, %s); toques curtos só pulam (%s); levantando de sentado (%s) andou %.2f m no começo e %.1f m depois; %d furos sobre as rochas"
 		% [decolou, topo, desvio, voo_1, decolou_2, voo_2, so_pulo, levantando, parado, andou, furos])

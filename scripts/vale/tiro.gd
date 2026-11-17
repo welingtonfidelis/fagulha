@@ -11,7 +11,7 @@ signal disparou(origem: Vector3, alvo: Vector3)
 const CADENCIA := 0.28  # s entre disparos
 const CALOR_POR_TIRO := 3.5
 const ALCANCE := 220.0
-const VELOCIDADE := 85.0  # m/s do projétil
+const VELOCIDADE := 130.0  # m/s do projétil (as máquinas atiram bala rápida; o robô acompanha)
 const TRAVA_ANGULO := deg_to_rad(6.5)  # mirando, a máquina a menos disso do centro da mira fica travada
 const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângulo (não fica trocando)
 const TRAVA_ALCANCE := 130.0
@@ -85,6 +85,7 @@ func _disparar() -> void:
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 
 	_clarao(origem, 0.08)
+	EfeitosTiro.clarao(self, origem, impacto - origem, 0.7)
 	_projetil(origem, impacto, travado if guiado else null)
 
 

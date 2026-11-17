@@ -34,6 +34,15 @@ func rodar(main: Node) -> void:
 	if "--posturas" in args:
 		await _posturas()
 		return
+	if "--efeitos-tiro" in args:
+		await _efeitos_tiro()
+		return
+	if "--mechas-tiro" in args:
+		await _mechas_tiro()
+		return
+	if "--mechas" in args:
+		await _mechas()
+		return
 	if "--plantas" in args:
 		await _plantas()
 		return
@@ -46,6 +55,9 @@ func rodar(main: Node) -> void:
 	if "--sonda-som" in args:
 		await _sonda_som()
 		return
+	if "--troca" in args:
+		await _troca()
+		return
 	if "--furos" in args:
 		await _furos()
 		return
@@ -55,9 +67,6 @@ func rodar(main: Node) -> void:
 	if "--cavernas" in args:
 		await _cavernas()
 		return
-	if "--inimigos" in args:
-		await _inimigos()
-		return
 	if "--vida" in args:
 		await _vida()
 		return
@@ -66,9 +75,6 @@ func rodar(main: Node) -> void:
 		return
 	if "--pouso" in args:
 		await _pouso()
-		return
-	if "--sentinela" in args:
-		await _sentinela()
 		return
 	if "--bichos" in args:
 		await _bichos()
@@ -376,84 +382,6 @@ func _bichos() -> void:
 	get_tree().quit()
 
 
-## O Sentinela de perto em cada estado, com câmera solta, e um tiro visto pelo jogador (`--sentinela`).
-func _sentinela() -> void:
-	await _esperar(2.5)
-	var st: Node3D = null
-	for n in m.get_children():
-		if n is Sentinela:
-			st = n
-	# quanto ela anda sozinha em 25 s de patrulha (o robô longe)
-	var p0 := st.global_position
-	var andou := 0.0
-	var ant := p0
-	for i in 25 * 60:
-		await get_tree().physics_frame
-		andou += st.global_position.distance_to(ant)
-		ant = st.global_position
-	print("sentinela: andou %.1f m em 25 s de patrulha (ficou a %.1f m de onde estava)" % [andou, st.global_position.distance_to(p0)])
-	var livre := Camera3D.new()
-	m.add_child(livre)
-	livre.fov = 45.0
-	var p := st.global_position
-	# o robô ao lado, para a escala e para a mira
-	a.teleportar(Vector3(p.x + 4.0, c.altura(p.x + 4.0, p.z + 5.0) + 0.3, p.z + 5.0), Armadura.Estado.CHAO)
-	a.graca_pane = 999.0
-	livre.global_position = p + Vector3(7.5, 2.4, 9.5)
-	livre.look_at(p + Vector3(0, 1.7, 0))
-	livre.make_current()
-	for par: Array in [[0, "patrulha"], [2, "aviso"], [5, "desligado"]]:
-		st.set("pose_foto", par[0])
-		await _esperar(2.2)
-		await _foto("s_%s" % par[1])
-		var mv: MechVisual = st.get("mech")
-		var sk := mv.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
-		var baixo := INF
-		for i in sk.get_bone_count():
-			var w := sk.global_transform * sk.get_bone_global_pose(i).origin
-			if sk.get_bone_name(i).contains("Pole"):
-				continue
-			baixo = minf(baixo, w.y - c.altura(w.x, w.z))
-		print("sentinela %s: osso mais baixo a %.2f m do chão" % [par[1], baixo])
-		if par[0] == 5:
-			livre.global_position = st.global_position + Vector3(-7.0, 2.2, 8.0)
-			livre.look_at(st.global_position + Vector3(0, 0.5, 0))
-			await _esperar(0.3)
-			await _foto("s_desligado_perto")
-	st.set("pose_foto", -1)
-	st.call("religar")
-	await _esperar(2.0)
-	await _foto("s_religado")
-	# andando, de lado
-	for i in 2:
-		await _esperar(2.5)
-		livre.global_position = st.global_position + Vector3(9.0, 2.0, 2.0)
-		livre.look_at(st.global_position + Vector3(0, 1.6, 0))
-		await _esperar(0.1)
-		await _foto("s_andando_%d" % i)
-	livre.queue_free()
-	cam.cam.make_current()
-	# visto pelo jogador: o aviso e o tiro
-	a.graca_pane = 0.0
-	var q := st.global_position
-	a.teleportar(Vector3(q.x + 14.0, c.altura(q.x + 14.0, q.z + 16.0) + 0.3, q.z + 16.0), Armadura.Estado.CHAO)
-	_olhar(a.global_position, q, 0.08)
-	var n0: int = st.get("disparos")
-	for i in 600:
-		await get_tree().physics_frame
-		if st.call("nome_estado") == "aviso":
-			break
-	await _esperar(0.9)
-	await _foto("s_jogador_aviso")
-	for i in 600:
-		await get_tree().physics_frame
-		if int(st.get("disparos")) > n0:
-			break
-	await _esperar(0.18)
-	await _foto("s_jogador_tiro")
-	get_tree().quit()
-
-
 ## A chegada ao chão e os três pousos (`--pouso`): armando as pernas, toque, médio.
 func _pouso() -> void:
 	await _esperar(2.5)
@@ -479,6 +407,42 @@ func _pouso() -> void:
 
 
 ## Cada caverna de fora (a boca), por dentro e de cima (`--cavernas`).
+## A troca das árvores e das plantas por distância (`--troca`): a câmera avança sobre a mata e fotografa a
+## cada 20 m (nenhum bloco pode aparecer ou sumir de uma vez), e mede o custo do quadro.
+func _troca() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 62.0
+	livre.far = 3000.0
+	livre.make_current()
+	var de := Vector3(-20, 0, -330)
+	var rumo := Vector3(0.51, 0, -0.86).normalized()
+	for k in 6:
+		var p := de + rumo * 20.0 * k
+		p.y = m.ilha.altura(p.x, p.z) + 30.0
+		a.teleportar(Vector3(p.x, m.ilha.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
+		livre.global_position = p
+		livre.look_at(p + rumo * 100.0 + Vector3(0, -22.0, 0))
+		await _esperar(0.5)
+		await _foto("t%d" % k)
+	for k in 3:
+		var p := Vector3([40.0, 300.0, 140.0][k], 0, [-430.0, -300.0, -600.0][k])
+		p.y = m.ilha.altura(p.x, p.z) + 3.0
+		a.teleportar(Vector3(p.x, p.y - 2.7, p.z), Armadura.Estado.CHAO)
+		livre.global_position = p
+		livre.look_at(p + rumo * 100.0)
+		await _esperar(1.0)
+		var t0 := Time.get_ticks_usec()
+		for q in 60:
+			await get_tree().process_frame
+		print("custo %d: %.1f ms por quadro, %d desenhos, %d mil triângulos" % [k, (Time.get_ticks_usec() - t0) / 60000.0,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0)])
+		await _foto("chao%d" % k)
+	get_tree().quit()
+
+
 func _cavernas() -> void:
 	await _esperar(2.5)
 	m.hud.visible = false
@@ -486,126 +450,28 @@ func _cavernas() -> void:
 	m.add_child(livre)
 	livre.fov = 62.0
 	livre.make_current()
+	# onde ficavam as grutas pequenas (tiradas em 2026-11-16): o chão tem de estar inteiro
 	var k := 0
-	for cav: Dictionary in Cavernas.lista:
-		var pa: Vector2 = cav["a"]
-		var pb: Vector2 = cav["b"]
+	for l: Array in [[Vector2(853, -111), Vector2(777, -91)], [Vector2(284, 17), Vector2(334, 71)], [Vector2(-493, -617), Vector2(-618, -626)],
+			[Vector2(-211, -812), Vector2(-247, -770)], [Vector2(-384, -438), Vector2(-434, -469)], [Vector2(-668, -386), Vector2(-650, -435)]]:
+		var pa: Vector2 = l[0]
+		var pb: Vector2 = l[1]
 		var d2 := (pb - pa).normalized()
 		var dir := Vector3(d2.x, 0, d2.y)
-		var ini := Vector3(pa.x, float(cav["ha"]), pa.y)
-		a.teleportar(ini + Vector3(0, 60, 0), Armadura.Estado.PAIRAR)
-		Input.action_press("mirar")
+		var c2 := (pa + pb) * 0.5
+		var centro := Vector3(c2.x, m.ilha.altura(c2.x, c2.y), c2.y)
+		a.teleportar(centro + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
 		await _esperar(1.2)
-		var boca := ini + dir * maxf(0.0, float(cav["de"]) - 26.0)
-		livre.global_position = boca + Vector3(0, 4.0, 0) + dir.cross(Vector3.UP) * 5.0
-		livre.look_at(ini + dir * (float(cav["de"]) + 8.0) + Vector3(0, 3.5, 0))
-		await _esperar(0.4)
-		await _foto("g%d_boca" % k)
-		var s_meio := lerpf(float(cav["de"]), float(cav["ate"]), 0.3)
-		var perp := dir.cross(Vector3.UP)
-		var meio := ini + dir * s_meio + perp * Cavernas._curva(cav, s_meio)
-		meio.y = lerpf(cav["ha"], cav["hb"], s_meio / float(cav["comp"])) + 2.6
-		var adiante := ini + dir * (s_meio + 22.0) + perp * Cavernas._curva(cav, s_meio + 22.0)
-		adiante.y = meio.y + 0.6
-		livre.global_position = meio
-		livre.look_at(adiante)
-		await _esperar(0.4)
-		await _foto("g%d_dentro" % k)
-		if cav["gruta"]:
-			var fundo := ini + dir * (float(cav["comp"]) - 24.0) + perp * Cavernas._curva(cav, float(cav["comp"]) - 24.0)
-			fundo.y = float(cav["ha"]) + 3.0
-			livre.global_position = fundo
-			livre.look_at(ini + dir * (float(cav["comp"]) - 8.0) + perp * Cavernas._curva(cav, float(cav["comp"])) + Vector3(0, float(cav["ha"]) - ini.y + 7.0, 0))
-			await _esperar(0.4)
-			await _foto("g%d_salao" % k)
-		var centro := ini + dir * float(cav["comp"]) * 0.5
 		livre.global_position = centro + Vector3(0, 75, 0) - dir * 45.0
 		livre.look_at(centro)
 		await _esperar(0.4)
 		await _foto("g%d_cima" % k)
+		var ini := Vector3(pa.x, m.ilha.altura(pa.x, pa.y) + 4.0, pa.y) - dir * 12.0 + dir.cross(Vector3.UP) * 5.0
+		livre.global_position = ini
+		livre.look_at(centro + Vector3(0, 3, 0))
+		await _esperar(0.4)
+		await _foto("g%d_boca" % k)
 		k += 1
-	Input.action_release("mirar")
-	get_tree().quit()
-
-
-## O Zangão e o Carrapato de perto, e os dois em ação vistos de fora (`--inimigos`).
-func _inimigos() -> void:
-	await _esperar(2.5)
-	m.hud.visible = false
-	var livre := Camera3D.new()
-	m.add_child(livre)
-	livre.fov = 30.0
-	livre.make_current()
-	var z: Batedor = null
-	var cr: Carrapato = null
-	for n: Node3D in m.inimigos.todas:
-		if n is Batedor and z == null:
-			z = n
-		if n is Carrapato and cr == null:
-			cr = n
-	# de perto, parados
-	a.teleportar(z.global_position + Vector3(120, 60, 0), Armadura.Estado.PAIRAR)
-	Input.action_press("mirar")
-	await _esperar(1.0)
-	z.pose_foto = 1
-	for v: Array in [["z1_frente", Vector3(1.0, 1.2, -4.2)], ["z2_lado", Vector3(4.2, 1.2, 0.3)]]:
-		livre.global_position = z.global_position + z.global_basis * (v[1] as Vector3)
-		livre.look_at(z.global_position + Vector3(0, 0.8, 0))
-		await _esperar(0.3)
-		await _foto(v[0])
-	z.pose_foto = -1
-	cr.pose_foto = 1
-	for v: Array in [["c1_frente", Vector3(0.8, 0.9, -3.0)], ["c2_lado", Vector3(3.0, 0.9, 0.2)]]:
-		livre.global_position = cr.global_position + cr.global_basis * (v[1] as Vector3)
-		livre.look_at(cr.global_position + Vector3(0, 0.45, 0))
-		await _esperar(0.3)
-		await _foto(v[0])
-	cr.pose_foto = -1
-	var vg: Vigia = null
-	for n: Node3D in m.inimigos.todas:
-		if n is Vigia and not (n is Batedor) and vg == null:
-			vg = n
-	if vg:
-		vg.pose_foto = 1
-		for v: Array in [["v1_frente", Vector3(1.2, 1.4, -4.6)], ["v2_lado", Vector3(4.6, 1.4, 0.3)]]:
-			livre.global_position = vg.global_position + vg.global_basis * (v[1] as Vector3)
-			livre.look_at(vg.global_position + Vector3(0, 0.9, 0))
-			await _esperar(0.3)
-			await _foto(v[0])
-		vg.pose_foto = -1
-		vg.desligar()
-		await _esperar(2.0)
-		livre.global_position = vg.global_position + vg.global_basis * Vector3(3.0, 1.6, -4.0)
-		livre.look_at(vg.global_position + Vector3(0, 0.5, 0))
-		await _foto("v3_desligado")
-		vg.religar()
-	Input.action_release("mirar")
-	# em ação: o robô no chão perto dos carrapatos
-	var p := cr.casa + Vector3(14, 0, 0)
-	a.teleportar(Vector3(p.x, c.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
-	a.graca_pane = 0.0
-	for i in 200:
-		await get_tree().physics_frame
-		if cr.estado == Carrapato.Estado.INVESTE:
-			break
-	await _esperar(0.25)
-	livre.fov = 50.0
-	livre.global_position = a.global_position + Vector3(4, 3.0, 9)
-	livre.look_at((a.global_position + cr.global_position) * 0.5)
-	await _foto("c3_investida")
-	# o robô perto dos zangões
-	a.avaria = 0
-	p = z.casa + Vector3(0, 0, 22)
-	a.teleportar(Vector3(p.x, c.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
-	for i in 600:
-		await get_tree().physics_frame
-		a.avaria = 0
-		if z.disparos > 0:
-			break
-	await _esperar(0.3)
-	livre.global_position = a.global_position + Vector3(7, 2.5, 8)
-	livre.look_at((a.global_position + z.global_position) * 0.5)
-	await _foto("z3_tiro")
 	get_tree().quit()
 
 
@@ -906,6 +772,10 @@ func _largo() -> void:
 	if "--rio" in OS.get_cmdline_user_args():
 		vistas = [["r0_rio_inteiro", Vector3(-250, 620, 560), Vector3(230, 0, 430)], ["r1_saida_lagoa", Vector3(30, 0, 20), Vector3(100, 18, 100)], ["r3_rio_campo", Vector3(250, 0, 330), Vector3(300, 5, 520)],
 			["r5_rio_do_alto", Vector3(120, 190, 420), Vector3(260, 5, 420)], ["r6_riacho_norte_alto", Vector3(-60, 260, -200), Vector3(-230, 60, -330)], ["r4_foz", Vector3(300, 0, 760), Vector3(350, 0, 900)]]
+	if "--borda" in OS.get_cmdline_user_args():
+		vistas = [["b1_plato_de_fora", Vector3(1090, 12, 330), Vector3(1000, 15, 120)], ["b2_plato_rente", Vector3(1040, 6, 20), Vector3(1000, 12, 160)],
+			["b3_norte_de_fora", Vector3(-200, 60, -1140), Vector3(-300, 40, -1000)], ["b4_oeste_de_fora", Vector3(-1150, 50, -300), Vector3(-1000, 30, -450)],
+			["b5_canto", Vector3(-1130, 70, -1130), Vector3(-1000, 30, -1000)], ["b6_plato_de_cima", Vector3(940, 0, 150), Vector3(1010, 10, 60)]]
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
 	for v: Array in vistas:
@@ -977,9 +847,6 @@ func _furos() -> void:
 		mn = mn.min(p)
 		mx = mx.max(p)
 	print("  de ", mn, " a ", mx)
-	for cv in Cavernas.lista:
-		var fg := RochaMalha.furos(cv["mn"], cv["mx"], Cavernas.vazio_de.bind(cv), Callable())
-		print("furos em ", cv["nome"], ": ", fg.size(), "  ", fg.slice(0, 6))
 	var livre := Camera3D.new()
 	m.add_child(livre)
 	livre.fov = 68.0
@@ -1188,7 +1055,7 @@ func _nado() -> void:
 	# a mira travada numa máquina
 	var alvo_m: Node3D = null
 	for n in get_tree().get_nodes_in_group("maquinas"):
-		if n is Batedor and (n.call("ponto_de_trava") as Vector3).is_finite():
+		if n is Mecha and (n.call("ponto_de_trava") as Vector3).is_finite():
 			alvo_m = n
 			break
 	if alvo_m:
@@ -1246,4 +1113,187 @@ func _plantas() -> void:
 		await _esperar(0.5)
 		await _foto("a_" + base)
 	Input.action_release("mirar")
+	get_tree().quit()
+
+
+## Uma fileira de mechs sorteados, parados e andando, para conferir a montagem (`--mechas`).
+func _mechas() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	for n in c.find_children("*", "MultiMeshInstance3D", true, false):
+		if (n as MultiMeshInstance3D).visibility_range_end > 0.0 and (n as MultiMeshInstance3D).visibility_range_end < 100.0:
+			(n as Node3D).visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 34.0
+	livre.make_current()
+	var claro := Clareira.CLAROS[0]
+	var base := Vector3(claro.x, c.altura(claro.x, claro.y), claro.y)
+	a.teleportar(base + Vector3(0, 0.3, 30), Armadura.Estado.CHAO)
+	var lista: Array[Mech00Visual] = []
+	for i in 8:
+		var v := Mech00Visual.montar(40 + i, 1.8, c._tex)
+		m.add_child(v)
+		var x := (i % 4 - 1.5) * 3.6
+		var z := -3.0 if i < 4 else 2.5
+		v.global_position = Vector3(base.x + x, c.altura(base.x + x, base.z + z), base.z + z)
+		v.rotation.y = PI  # de frente para a câmera (+Z)
+		lista.append(v)
+		print("mech ", 40 + i, ": ", v.ficha)
+	await _esperar(1.0)
+	livre.global_position = base + Vector3(-7.0, 3.6, 12.0)
+	livre.look_at(base + Vector3(0, 0.9, 0))
+	await _foto("a_fileira")
+	livre.global_position = base + Vector3(-9.0, 2.2, -8.0)
+	livre.look_at(base + Vector3(0, 0.9, 0))
+	await _foto("b_costas")
+	for i in lista.size():
+		lista[i].tocar(["Walk", "Run", "Shoot", "Death"][i % 4])
+	await _esperar(0.45)
+	livre.global_position = base + Vector3(-7.0, 3.6, 12.0)
+	livre.look_at(base + Vector3(0, 0.9, 0))
+	await _foto("c_animando")
+	livre.fov = 20.0
+	livre.global_position = lista[1].global_position + Vector3(1.6, 1.3, 4.6)
+	livre.look_at(lista[1].global_position + Vector3(0, 0.9, 0))
+	await _foto("d_perto")
+	get_tree().quit()
+
+
+## O momento do ataque de cada jeito de mecha (uma bolinha branca marca de onde o tiro sai) e dois caídos:
+## um numa ladeira e outro na beira do riacho (`--mechas-tiro`).
+func _mechas_tiro() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	for n in c.find_children("*", "MultiMeshInstance3D", true, false):
+		if (n as MultiMeshInstance3D).visibility_range_end > 0.0 and (n as MultiMeshInstance3D).visibility_range_end < 100.0:
+			(n as Node3D).visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 30.0
+	livre.make_current()
+	var claro := Clareira.CLAROS[0]
+	var base := Vector3(claro.x, c.altura(claro.x, claro.y), claro.y)
+	a.teleportar(base + Vector3(0, 0.3, 40), Armadura.Estado.CHAO)
+	# acha uma semente de cada jeito: arma na mão direita, braço-canhão esquerdo, costas e espada
+	var achados := {}
+	for sem in range(1, 400):
+		var t := Mech00Visual.montar(sem, 1.9, c._tex)
+		var f: Dictionary = t.ficha
+		var chave := String(f["arma"])
+		if f["mao"] == "canhão":
+			chave = "canhao_" + String(f["lado"])
+		if not achados.has(chave):
+			achados[chave] = sem
+		t.free()
+		if achados.size() >= 5:
+			break
+	print("sementes: ", achados)
+	var marca := MeshInstance3D.new()
+	var bm := SphereMesh.new()
+	bm.radius = 0.09
+	bm.height = 0.18
+	marca.mesh = bm
+	var mm := StandardMaterial3D.new()
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mm.no_depth_test = true
+	marca.material_override = mm
+	m.add_child(marca)
+	for chave: String in achados:
+		var v := Mech00Visual.montar(achados[chave], 1.9, c._tex)
+		m.add_child(v)
+		v.global_position = base
+		v.rotation.y = PI
+		await _esperar(0.4)
+		v.tocar("Shoot")
+		await _esperar(v.tempo_do_tiro())
+		marca.global_position = v.ponto_tiro()
+		livre.global_position = base + Vector3(3.2, 1.6, 6.0)
+		livre.look_at(base + Vector3(0, 1.1, 0))
+		await _foto("t_" + chave)
+		v.queue_free()
+	marca.visible = false
+	# caídos: procura uma ladeira e a beira do riacho
+	var ladeira := Vector3.INF
+	for r in range(30, 110, 6):
+		for k in 24:
+			var q := Vector2(cos(k * TAU / 24.0), sin(k * TAU / 24.0)) * float(r)
+			var ny := c.normal_em(q.x, q.y).y
+			if ny > 0.86 and ny < 0.93 and c.agua(q.x, q.y) == -INF and ladeira == Vector3.INF:
+				ladeira = Vector3(q.x, c.altura(q.x, q.y), q.y)
+	var beira := Vector3.INF
+	for rp in Clareira.RIACHO:
+		for d: Vector2 in [Vector2(3.5, 0), Vector2(-3.5, 0), Vector2(0, 3.5), Vector2(0, -3.5)]:
+			var q := Vector2(rp.x, rp.y) + d
+			if c.agua(q.x, q.y) == -INF and beira == Vector3.INF and q.length() > 30.0:
+				beira = Vector3(q.x, c.altura(q.x, q.y), q.y)
+	var k2 := 0
+	for lugar: Vector3 in [ladeira, beira]:
+		if lugar == Vector3.INF:
+			continue
+		var mc := Mecha.new()
+		mc.mapa = c
+		mc.casa = lugar
+		mc.semente = 31 + k2
+		m.add_child(mc)
+		mc.global_position = lugar
+		mc.pose_foto = 0
+		await _esperar(0.3)
+		mc.pose_foto = -1
+		mc.desligar()
+		await _esperar(2.5)
+		livre.global_position = lugar + Vector3(4.5, 2.4, 5.5)
+		livre.look_at(lugar + Vector3(0, 0.3, 0))
+		await _foto("c_caido_%d" % k2)
+		k2 += 1
+	get_tree().quit()
+
+
+## Os efeitos dos tiros de perto (`--efeitos-tiro`): clarão e rastro de cada projétil, impacto e a explosão.
+func _efeitos_tiro() -> void:
+	await _esperar(2.5)
+	m.hud.visible = false
+	m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED
+	for n in c.find_children("*", "MultiMeshInstance3D", true, false):
+		if (n as MultiMeshInstance3D).visibility_range_end > 0.0 and (n as MultiMeshInstance3D).visibility_range_end < 100.0:
+			(n as Node3D).visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 40.0
+	livre.make_current()
+	var claro := Clareira.CLAROS[0]
+	var base := Vector3(claro.x, c.altura(claro.x, claro.y), claro.y)
+	a.teleportar(base + Vector3(0, 0.3, 40), Armadura.Estado.CHAO)
+	var mc := Mecha.new()
+	mc.mapa = c
+	mc.casa = base + Vector3(-7, 0, 0)
+	mc.semente = 1
+	m.add_child(mc)
+	mc.global_position = mc.casa
+	mc.rotation.y = -PI / 2.0
+	mc.pose_foto = 0
+	await _esperar(0.5)
+	livre.global_position = base + Vector3(-3.0, 1.8, 11.0)
+	livre.look_at(base + Vector3(-3.0, 1.4, 0))
+	var de := mc.global_position + Vector3(1.2, 1.5, 0)
+	for tipo: String in ["bala", "pesado", "missil"]:
+		mc.atirar_em(de, de + Vector3(30, 0, 0), tipo, 0.0)
+		for i in (3 if tipo != "missil" else 14):
+			mc.atualizar_tiros(1.0 / 60.0)
+		await get_tree().process_frame
+		await _foto("a_" + tipo)
+		for i in 400:
+			mc.atualizar_tiros(1.0 / 60.0)
+		await _esperar(0.3)
+	# impacto e explosão, em três tempos
+	var alvo_p := base + Vector3(2.0, 0.4, 0)
+	EfeitosTiro.impacto(mc, alvo_p + Vector3(-3, 0.6, 0))
+	await _esperar(0.06)
+	await _foto("b_impacto")
+	await _esperar(0.6)
+	for k in 3:
+		EfeitosTiro.explosao(mc, alvo_p, 3.2)
+		await _esperar([0.07, 0.25, 0.9][k])
+		await _foto("c_explosao_%d" % k)
+		await _esperar(2.2)
 	get_tree().quit()
