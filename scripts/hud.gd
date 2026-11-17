@@ -125,6 +125,27 @@ func _desenhar_bussola() -> void:
 			var yl := y0 + 12.0
 			var losango := PackedVector2Array([Vector2(xm, yl - 8.0), Vector2(xm + 6.0, yl), Vector2(xm, yl + 8.0), Vector2(xm - 6.0, yl)])
 			draw_colored_polygon(losango, Color(0.55, 0.95, 1.0))
+	# a base: uma casinha, sempre (some quando o robô já está nela)
+	if alvo and Melhorias.base.is_finite():
+		var db := Melhorias.base - alvo.global_position
+		db.y = 0.0
+		if db.length() > 14.0:
+			var xb := cx + clampf(wrapf(atan2(db.x, -db.z) - rumo, -PI, PI), -meia, meia) * escala
+			var yb := y0 + 13.0
+			var cor_b := Color(1.0, 0.82, 0.5)
+			draw_colored_polygon(PackedVector2Array([Vector2(xb, yb - 9.0), Vector2(xb + 8.5, yb - 1.0), Vector2(xb - 8.5, yb - 1.0)]), cor_b)
+			draw_rect(Rect2(xb - 5.5, yb - 1.0, 11.0, 8.0), cor_b)
+			draw_rect(Rect2(xb - 1.5, yb + 2.0, 3.0, 5.0), Color(0, 0, 0, 0.55))
+	# a antena de busca: um triângulo verde para cada peça que estiver por perto
+	if alvo:
+		for sinal in Melhorias.sinais:
+			var da := sinal - alvo.global_position
+			da.y = 0.0
+			if da.length() > 4.0:
+				var xa := cx + clampf(wrapf(atan2(da.x, -da.z) - rumo, -PI, PI), -meia, meia) * escala
+				var ya := y0 + 12.0
+				var pulso := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
+				draw_colored_polygon(PackedVector2Array([Vector2(xa, ya + 8.0), Vector2(xa - 7.0, ya - 6.0), Vector2(xa + 7.0, ya - 6.0)]), Color(0.3, 1.0, 0.8, pulso))
 
 
 ## Nome do lugar no terço de cima: entra, fica e sai (alfa), com sombra leve para ler em céu claro.
@@ -153,9 +174,22 @@ func _desenhar_lugar() -> void:
 var _dano_visto := 0.0
 
 
+var dica := ""  # convite de botão embaixo, no meio (ex.: entrar na oficina)
+
+
+func _desenhar_dica() -> void:
+	if dica == "":
+		return
+	var w := _fonte.get_string_size(dica, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	var p := Vector2(size.x * 0.5 - w * 0.5, size.y - 120.0)
+	draw_rect(Rect2(p.x - 18.0, p.y - 26.0, w + 36.0, 40.0), Color(0, 0, 0, 0.45))
+	draw_string(_fonte, p, dica, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.95))
+
+
 func _draw() -> void:
 	_desenhar_bussola()
 	_desenhar_lugar()
+	_desenhar_dica()
 	if alvo == null:
 		return
 	var c := size * 0.5

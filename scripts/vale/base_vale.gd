@@ -15,6 +15,7 @@ const MEIO_CIL := 3.2  # metade do comprimento
 const ESCALA_FAISCA := 0.66  # perto de 1 m de pé: o usuário pediu mais uns 15 a 20% menor que o robô do jogador
 
 static var posto_drone := Vector3.INF  # no mundo: onde o drone fica parado
+static var cilindro_t := Transform3D()  # no mundo: o centro do cilindro, com o X apontando para a boca
 static var boca_cilindro := Vector3.INF  # no mundo: o meio da boca do cilindro
 static var faisca_em := Vector3.INF  # no mundo: onde o Faísca caído está sentado
 static var pecas_kit := 0
@@ -331,6 +332,16 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	o.forma(tampa, Transform3D(Basis.IDENTITY, c + Vector3(-MEIO_CIL + 0.1, 0, 0)))
 	# por dentro: o estrado, os dois braços, o painel e a luz
 	o.bloco(c + Vector3(0.1, -ri + 0.42, 0), Vector3(MEIO_CIL * 2.0 - 0.5, 0.14, 2.4), Basis.IDENTITY, "casco")
+	# a rampa da boca: do chão até o estrado (0,87 m acima), para o robô subir andando
+	var sobe := c.y - ri + 0.49 - cy
+	var corre := 2.15
+	var topo := Vector3(c.x + MEIO_CIL - 0.15, cy + sobe, c.z)
+	var pe := topo + Vector3(corre, -sobe, 0)
+	var incl := atan2(sobe, corre)
+	var giro_rampa := Basis(Vector3.BACK, -incl)
+	o.bloco((topo + pe) * 0.5 - giro_rampa * Vector3(0, 0.06, 0), Vector3(sqrt(sobe * sobe + corre * corre) + 0.1, 0.12, 1.7), giro_rampa, "casco")
+	for lado_r: float in [-1.0, 1.0]:
+		o.bloco((topo + pe) * 0.5 + Vector3(0, 0.02, lado_r * 0.9) - giro_rampa * Vector3(0, 0.06, 0), Vector3(sqrt(sobe * sobe + corre * corre) + 0.1, 0.2, 0.1), giro_rampa, "ferrugem", false)
 	for lado: float in [-1.0, 1.0]:
 		o.bloco(c + Vector3(0.9, 1.25, lado * 1.15), Vector3(0.2, 1.1, 0.2), Basis.from_euler(Vector3(lado * -0.75, 0, 0.2)), "casco_claro", false)
 		o.bloco(c + Vector3(1.1, 0.55, lado * 0.62), Vector3(0.16, 0.95, 0.16), Basis.from_euler(Vector3(lado * 0.5, 0, -0.3)), "ferrugem", false)
@@ -346,6 +357,7 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	luz.position = o.t * (c + Vector3(-0.6, 0.9, 0))
 	o.v.add_child(luz)
 	boca_cilindro = o.t * (c + Vector3(MEIO_CIL, 0, 0))
+	cilindro_t = o.t * Transform3D(Basis.IDENTITY, c)
 	posto_drone = o.t * Vector3(c.x + MEIO_CIL + 2.3, cy + 2.1, c.z - 2.0)
 
 

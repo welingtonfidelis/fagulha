@@ -23,6 +23,10 @@ var mat_chama_fraca: StandardMaterial3D
 var mat_chama_tiro: StandardMaterial3D
 var chama_tiro: Node3D
 var abertura_aletas := 0.0
+var pecas := {}  # melhorias vestidas: nome -> nós (MelhoriasVisual)
+var asas_f := 0.0  # 0 asas recolhidas, 1 abertas
+var yaw_forcado := NAN  # a oficina vira o robô para mostrar a peça
+var previa := false  # na oficina: asas abertas e luz acesa para ver a peça
 var _fase := 0.0
 var _torcao := 0.0  # giro do tronco em relação às pernas (mirar andando de lado)
 var _re := false  # andando de costas: a passada roda ao contrário
@@ -72,6 +76,26 @@ func _ready() -> void:
 			push_warning("junta não achada: " + k)
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
+	if MODELO.ends_with("robo_v1.glb"):
+		MelhoriasVisual.preparar(self)
+		vestir_melhorias()
+
+
+## Põe no corpo as melhorias instaladas (o robô do vale; sem nenhuma, fica o básico, de mochila lisa).
+func vestir_melhorias(extra: Array = []) -> void:
+	if not has_meta("descanso"):
+		return
+	MelhoriasVisual.limpar(self)
+	asas_f = 0.0
+	var lista := Melhorias.vestidas()
+	for nome in extra:
+		if not lista.has(nome):
+			lista.append(nome)
+	pecas = MelhoriasVisual.vestir(self, lista)
+	if pecas.has("asas"):
+		MelhoriasVisual.por_asas(pecas["asas"], 0.0)
+	if pecas.has("farol"):
+		MelhoriasVisual.por_farol(pecas["farol"], false)
 
 
 ## Modelo com esqueleto (padrão Mixamo, pose em T): as mesmas poses do jogo vão para os ossos.
@@ -338,6 +362,8 @@ func atualizar(delta: float, a: Armadura) -> void:
 	else:
 		_passada = 0.0
 	var tc := 1.0 - exp(-10.0 * delta)
+	if not is_nan(yaw_forcado):
+		yaw_alvo = yaw_forcado
 	_yaw = lerp_angle(_yaw, yaw_alvo, tc)
 	rotation = Vector3(lerpf(rotation.x, pitch_alvo, tc), _yaw, lerpf(rotation.z, roll_alvo, tc))
 	var aletas := 0.0
@@ -633,6 +659,8 @@ func atualizar(delta: float, a: Armadura) -> void:
 				baixo = minf(baixo, gt.basis.y.y * v.y + gt.basis.x.y * v.x + gt.basis.z.y * v.z + gt.origin.y)
 		var folga := (baixo - global_position.y) / Armadura.porte
 		_levanta = clampf(_levanta - folga * 0.4, 0.0, 0.6)
+	if not pecas.is_empty():
+		MelhoriasVisual.animar(self, a, delta)
 	# chamas e brilho do calor
 	_chama_tamanho = lerpf(_chama_tamanho, chama, 1.0 - exp(-10.0 * delta))
 	# a origem das peças do modelo fica no chão (não no bocal), então a chama não escala: muda o brilho

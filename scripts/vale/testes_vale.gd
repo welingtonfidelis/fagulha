@@ -49,6 +49,8 @@ func rodar(main: Node) -> void:
 	await _ponto_26()
 	await _ponto_27()
 	await _ponto_28()
+	await _ponto_29()
+	await _ponto_30()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -72,7 +74,7 @@ func _esperar(seg: float) -> void:
 
 
 func _soltar_tudo() -> void:
-	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar"]:
+	for acao in ["frente", "tras", "esquerda", "direita", "pular", "correr", "soltar", "correr_alternar", "abaixar", "voar", "pairar", "golpe", "mirar", "marcar", "atirar", "agir", "scanner", "luz"]:
 		Input.action_release(acao)
 
 
@@ -1426,3 +1428,112 @@ func _ponto_28() -> void:
 	_soltar_tudo()
 	a.recomecar()
 	await _esperar(0.3)
+
+
+## 32. Melhorias: o robô básico esquenta três vezes mais rápido no voo e não tem nado rápido; chegando perto
+## de uma peça ele pega, e entrando no cilindro da base ela é instalada e aparece no corpo.
+func _ponto_29() -> void:
+	print("melhorias: robô básico, achar a peça e instalar no cilindro")
+	_soltar_tudo()
+	_zerar()
+	var pm: PecasMundo = m.pecas
+	Melhorias.tudo = false
+	Melhorias.achadas = []
+	Melhorias.instaladas = []
+	a.visual.vestir_melhorias()
+	pm.repor()
+	await _esperar(0.2)
+	_ok(Melhorias.calor_voo() > Ajustes.CALOR_VOO * 2.5 and not Melhorias.nado_rapido() and Melhorias.esfria_chao() < Ajustes.ESFRIA_CHAO,
+		"o básico esquenta em ~%d s de voo, sem nado rápido" % int(100.0 / Melhorias.calor_voo()))
+	_ok(a.visual.pecas.is_empty() and pm._nos.size() == Melhorias.NOMES.size(), "básico sem peças no corpo; %d peças na ilha" % pm._nos.size())
+	var seco := true
+	for nome: String in pm.onde:
+		var p: Vector3 = pm.onde[nome]
+		var nivel: float = m.ilha.agua(p.x, p.z)
+		if nivel != -INF and nivel > p.y:
+			seco = false
+	_ok(seco, "todas as peças em chão seco")
+	var pa: Vector3 = pm.onde["antena"]
+	# no facho de luz, 6 m acima da caixa, não pega; nem a 3 m de lado
+	a.teleportar(pa + Vector3(0, 6.0, 0), Armadura.Estado.AR)
+	await _esperar(0.1)
+	var no_facho: bool = Melhorias.achadas.is_empty()
+	a.teleportar(pa + Vector3(3.0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.3)
+	_ok(no_facho and Melhorias.achadas.is_empty(), "o facho de luz e a vizinhança não pegam a peça: só encostando na caixa")
+	var pf: Vector3 = pm.onde["farol"]
+	var esp_t := a.get_world_3d().direct_space_state
+	var teto_t := esp_t.intersect_ray(PhysicsRayQueryParameters3D.create(pf + Vector3(0, 0.4, 0), pf + Vector3(0, 4.0, 0), 1))
+	_ok(Sumidouro.existe and absf(pf.y - Sumidouro.piso) < 1.5 and Sumidouro.no_vazio(pf + Vector3(0, 1.0, 0)) and teto_t.is_empty(),
+		"a peça da luz fica no piso do salão do Sumidouro, com vão livre por cima (%.1f m; piso a %.1f)" % [pf.y, Sumidouro.piso])
+	a.teleportar(pa + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.4)
+	_ok(Melhorias.achadas.has("antena") and not Melhorias.tem("antena"), "chegou perto: pegou a antena (ainda não vale)")
+	# a oficina: convite na boca, entra, instala gastando energia, recusa sem energia e sai
+	var of: Oficina = m.oficina
+	var b := BaseVale.boca_cilindro
+	Melhorias.energia = 100.0
+	Melhorias.achar("farol")
+	a.teleportar(Vector3(b.x, m.ilha.altura(b.x, b.z) + 0.4, b.z), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	var convite: bool = of.perto and m.hud.dica != "" and not Melhorias.tem("antena")
+	await _apertar("agir")
+	await _esperar(2.4)
+	_ok(convite and of.fase == Oficina.Fase.ABERTA and a.travado, "quadrado na boca do cilindro abre a oficina (o robô entra e fica parado)")
+	of.instalar("antena")
+	await _esperar(2.3)
+	_ok(Melhorias.tem("antena") and a.visual.pecas.has("antena") and Melhorias.energia < 3.0,
+		"instalou a antena: no corpo, e a base ficou com %d de energia" % int(Melhorias.energia))
+	of.instalar("farol")
+	await _esperar(2.3)
+	_ok(not Melhorias.tem("farol") and Melhorias.achadas.has("farol") and Melhorias.espera() > 240.0,
+		"sem energia a segunda peça espera (faltam %d s)" % int(Melhorias.espera()))
+	of.sair()
+	await _esperar(1.8)
+	_ok(of.fase == Oficina.Fase.FORA and not a.travado and m.hud.visible, "saiu da oficina e o robô voltou ao jogador")
+	Melhorias.achadas.erase("farol")
+	await _esperar(0.7)
+	var longe := Melhorias.sinais.is_empty()
+	var pr: Vector3 = pm.onde["radiador"]
+	var b0 := pm.bipes
+	a.teleportar(Vector3(pr.x + 150.0, m.ilha.altura(pr.x + 150.0, pr.z) + 0.4, pr.z), Armadura.Estado.CHAO)
+	await _esperar(0.8)
+	_ok(longe and Melhorias.sinais.size() >= 1 and Melhorias.sinais.size() <= 2 and pm.bipes == b0 + Melhorias.sinais.size() and Melhorias.base.is_finite(),
+		"a antena só capta peça por perto (%d sinal a 150 m), com bipe; a base está na bússola" % Melhorias.sinais.size())
+	Melhorias.tudo = true
+	Melhorias.instaladas = []
+	Melhorias.energia = 100.0
+	Melhorias.sinais.clear()
+	a.visual.vestir_melhorias()
+	pm.repor()
+
+
+## 33. Scanner: a seta para a direita leva a câmera para os olhos do robô; com o círculo em cima do Faísca
+## caído a leitura enche e sai a ficha; apertando de novo, volta à terceira pessoa.
+func _ponto_30() -> void:
+	print("scanner: primeira pessoa, leitura no círculo e ficha")
+	_soltar_tudo()
+	_zerar()
+	var sc: Scanner = m.scanner
+	var f := BaseVale.faisca_em
+	var de := f + (a.global_position - f).normalized() * 0.0 + Vector3(4.5, 0, 3.0)
+	a.teleportar(Vector3(de.x, m.ilha.altura(de.x, de.z) + 0.4, de.z), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	await _apertar("scanner")
+	await _esperar(0.3)
+	var entrou: bool = sc.ligado and cam.primeira and not a.visual.visible
+	for volta in 3:
+		var d: Vector3 = f + Vector3(0, 0.45, 0) - cam.global_position
+		cam.yaw = atan2(-d.x, -d.z)
+		cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+		await _esperar(0.2)
+	var l0 := sc.leituras
+	await _esperar(2.2)
+	_ok(entrou and sc.leituras == l0 + 1 and String(sc.ficha.get("nome", "")) == "Faísca",
+		"círculo em cima do Faísca: leitura completa e ficha (%s)" % String(sc.ficha.get("nome", "nada")))
+	cam.yaw += PI
+	await _esperar(1.2)
+	var largou: bool = not (sc.alvo_atual is String)  # virado, o Faísca saiu do círculo (outro alvo pode ter entrado)
+	await _apertar("scanner")
+	await _esperar(0.3)
+	_ok(largou and not sc.ligado and not cam.primeira and a.visual.visible, "virando a câmera o Faísca sai do círculo; apertando de novo volta à terceira pessoa")

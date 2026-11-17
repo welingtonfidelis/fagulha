@@ -12,6 +12,9 @@ var armadura: Armadura
 var camera: CameraVoo
 var hud: Hud
 var drone: DroneColega
+var pecas: PecasMundo
+var oficina: Oficina
+var scanner: Scanner
 var pausa: Pausa
 var vida: VidaVale
 var inimigos: InimigosVale
@@ -30,6 +33,12 @@ func _ready() -> void:
 	# nos testes e nas fotos nada é lido nem gravado da última partida
 	Guardado.ativo = not ("--teste" in args or "--teste-vale" in args or "--captura" in args or "--vale-captura" in args)
 	Guardado.carregar()
+	# melhorias: nos testes e nas fotos o robô tem tudo (`--basico` mostra o do começo do jogo)
+	Melhorias.tudo = not Guardado.ativo and not ("--basico" in args)
+	Melhorias.achadas = []
+	Melhorias.instaladas = []
+	if Guardado.ativo:
+		Melhorias.carregar()
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
@@ -41,6 +50,8 @@ func _ready() -> void:
 		ilha = Ilha.new()
 	var vale := mapa == "clareira"
 	Armadura.porte = 0.48 if vale else 1.0
+	if not vale:
+		Melhorias.tudo = true  # a ilha pequena de teste não tem peças
 	Armadura.vel_chao = 0.7 if vale else 1.0
 	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
 	ArmaduraVisual.toon = vale
@@ -149,6 +160,33 @@ func _ready() -> void:
 			drone.posto = BaseVale.posto_drone
 			drone.ruido = (ilha as Clareira)._tex
 			add_child(drone)
+		if ilha is Vale:
+			pecas = PecasMundo.new()
+			pecas.name = "PecasMundo"
+			pecas.armadura = armadura
+			pecas.mapa = ilha as Vale
+			pecas.hud = hud
+			pecas.locais = locais
+			pecas.drone = drone
+			pecas.sons = sons
+			add_child(pecas)
+			if BaseVale.boca_cilindro.is_finite():
+				oficina = Oficina.new()
+				oficina.name = "Oficina"
+				oficina.armadura = armadura
+				oficina.camera = camera
+				oficina.hud = hud
+				oficina.sons = sons
+				oficina.drone = drone
+				add_child(oficina)
+			scanner = Scanner.new()
+			scanner.name = "Scanner"
+			scanner.armadura = armadura
+			scanner.camera = camera
+			scanner.hud = hud
+			scanner.sons = sons
+			scanner.mapa = ilha as Vale
+			add_child(scanner)
 		var noite := Noite.new()
 		noite.camera = camera
 		noite.armadura = armadura
@@ -396,6 +434,7 @@ func guardar_progresso() -> void:
 		return
 	if ciclo:
 		Guardado.por_progresso("hora", ciclo.hora, false)
+	Guardado.por_progresso("energia_base", Melhorias.energia, false)
 	if locais:
 		var vistos: Array = []
 		for it in locais.lista:

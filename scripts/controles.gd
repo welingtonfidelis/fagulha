@@ -25,7 +25,7 @@ static func configurar() -> void:
 	for a in ["olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo"]:
 		InputMap.action_set_deadzone(a, 0.12)
 
-	# Pular / decolar / ligar o voo. No voo o X não desliga nada.
+	# Pular / decolar / ligar o voo. No voo, um toque no X corta os jatos (igual ao L3).
 	_tecla("pular", [KEY_SPACE])
 	_botao("pular", JOY_BUTTON_A)
 	# Correr no chão e arrancada no voo: Shift segurado; L3 alterna (no chão, só andando).
@@ -56,6 +56,14 @@ static func configurar() -> void:
 	_tecla("marcar", [KEY_Q])
 	_mouse("marcar", MOUSE_BUTTON_MIDDLE)
 	_botao("marcar", JOY_BUTTON_RIGHT_SHOULDER)
+	# A luz do peito (melhoria): seta para cima / L.
+	_tecla("luz", [KEY_L])
+	_botao("luz", JOY_BUTTON_DPAD_UP)
+	# Entrar na oficina da base: quadrado / E. Scanner (melhoria): seta para a direita / T.
+	_tecla("agir", [KEY_E])
+	_botao("agir", JOY_BUTTON_X)
+	_tecla("scanner", [KEY_T])
+	_botao("scanner", JOY_BUTTON_DPAD_RIGHT)
 	# Pausa e medidor de desempenho.
 	_tecla("menu", [KEY_ESCAPE, KEY_TAB])
 	_botao("menu", JOY_BUTTON_START)

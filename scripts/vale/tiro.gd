@@ -83,7 +83,7 @@ func _physics_process(delta: float) -> void:
 		return
 	# no chão atira mirando ou não; no ar, só no voo parado (voando ou caindo, não)
 	var e := armadura.estado
-	if armadura.em_pane or (e != Armadura.Estado.CHAO and e != Armadura.Estado.PAIRAR):
+	if armadura.em_pane or armadura.travado or armadura.escaneando or (e != Armadura.Estado.CHAO and e != Armadura.Estado.PAIRAR):
 		return
 	if armadura.superaquecido or _espera > 0.0:
 		return

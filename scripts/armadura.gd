@@ -56,6 +56,11 @@ var _abaixar_t := 0.0
 var erguendo := 0.0  # tempo que falta para acabar de levantar de sentado (o visual lê; não anda nesse tempo)
 var _pulo_seg := -1.0  # há quanto tempo o pulo está segurado desde o aperto (-1: soltou)
 var _decola_y := 0.0  # de onde a decolagem começou
+var travado := false  # a oficina da base conduz o robô (não anda, não cai, não esquenta)
+var escaneando := false  # scanner aberto: primeira pessoa, sem tiro
+var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-1: não está)
+var _planar_botao := "voar"
+var luz_ligada := false  # a luz do peito (melhoria), ligada pelo jogador
 var nado_rapido := false  # nadando com os jatos abertos (o visual e os efeitos leem)
 var nados := 0  # quantas vezes entrou a nadar (testes)
 # a física anda a 60 por segundo e a tela não: o corpo e a câmera aparecem entre os dois últimos passos,
@@ -334,6 +339,10 @@ func _passo(delta: float) -> void:
 	_tempo_estado += delta
 	if _pane(delta):
 		return
+	if travado:
+		return
+	if Input.is_action_just_pressed("luz") and Melhorias.tem("farol"):
+		luz_ligada = not luz_ligada
 	var mira := camera.mira() if camera else -global_basis.z
 	var mov := Input.get_vector("esquerda", "direita", "frente", "tras")
 	mirando = Input.is_action_pressed("mirar")
@@ -422,7 +431,7 @@ func _chao(delta: float, mov: Vector2) -> void:
 	if estado == Estado.CHAO and postura == 2 and Input.is_action_just_pressed("pular"):
 		postura = 0  # sentado, o X só levanta
 	elif estado == Estado.CHAO and Input.is_action_just_pressed("pular") and erguendo <= 0.0:
-		velocity.y = Ajustes.PULO
+		velocity.y = Ajustes.PULO * Melhorias.pulo()
 		_origem_chao = true
 		_segurando = 0.0
 		_pulo_seg = 0.0
@@ -518,7 +527,7 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		return
 	if Input.is_action_just_pressed("pular") and not superaquecido and not caido and not _duplo_usado:
 		_duplo_usado = true
-		velocity.y = maxf(velocity.y, Ajustes.PULO_DUPLO)
+		velocity.y = maxf(velocity.y, Ajustes.PULO_DUPLO * Melhorias.pulo())
 		calor = minf(100.0, calor + Ajustes.CALOR_PULO_DUPLO)
 		impulso = 1.0
 		_pulo_vivo = false
@@ -607,6 +616,8 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 			mira = Vector3(mira.x, piso, mira.z).normalized()
 	var v := velocity.length()
 	var taxa := lerpf(Ajustes.GIRO_LENTO, Ajustes.GIRO_RAPIDO, clampf(v / Ajustes.VEL_TOPO, 0.0, 1.0))
+	if estado == Estado.PLANAR:
+		taxa *= Melhorias.giro_planar()
 	# inclinar o analógico esquerdo para o lado da curva fecha a curva
 	var virando := dir_voo.cross(mira).y  # > 0: virando para a esquerda
 	if absf(mov.x) > 0.2 and signf(-mov.x) == signf(virando) and absf(virando) > 0.02:
@@ -631,9 +642,9 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 	# motor: empurra até a velocidade alvo, perdendo força acima do teto
 	if motor:
 		var frente := maxf(acelerador, 0.0)
-		var alvo := lerpf(Ajustes.VOO_ALVO, Ajustes.ARRANCADA_ALVO, frente)
+		var alvo := lerpf(Melhorias.voo_alvo(), Melhorias.arrancada_alvo(), frente)
 		if acelerador < 0.0:
-			alvo = lerpf(Ajustes.VOO_ALVO, Ajustes.FREIO_ALVO, -acelerador)
+			alvo = lerpf(Melhorias.voo_alvo(), Ajustes.FREIO_ALVO, -acelerador)
 		var ao_longo := velocity.dot(dir_voo)
 		var maximo := lerpf(Ajustes.EMPUXO_MAX, Ajustes.EMPUXO_ARRANCADA, frente)
 		var emp := clampf((alvo - ao_longo) * Ajustes.EMPUXO_GANHO, 0.0, maximo)
@@ -647,26 +658,46 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 	var sust := Ajustes.SUSTENTACAO * clampf(vlen / (Ajustes.VOO_ALVO * 0.7), 0.12, 1.0)
 	velocity = velocity.lerp(dir_voo * vlen, clampf(sust * delta, 0.0, 1.0))
 	# arrasto
-	velocity -= velocity * Ajustes.ARRASTO * vlen * delta
+	velocity -= velocity * (Melhorias.arrasto_planar() if estado == Estado.PLANAR else Ajustes.ARRASTO) * vlen * delta
 	# deslize lateral com o analógico esquerdo
 	var lado := dir_voo.cross(Vector3.UP)
 	if lado.length() > 0.1:
 		velocity += lado.normalized() * mov.x * Ajustes.LATERAL * delta
 	# planando devagar demais, o nariz cai
-	if estado == Estado.PLANAR and vlen < Ajustes.ESTOL:
+	if estado == Estado.PLANAR and vlen < Melhorias.estol():
 		dir_voo = girar_para(dir_voo, (dir_voo + Vector3.DOWN).normalized(), 1.2 * delta)
 	# botões
-	# X no voo não faz nada (pedido do usuário); planando, religa o motor
-	if Input.is_action_just_pressed("pular") and estado == Estado.PLANAR and not superaquecido:
-		_mudar(Estado.VOO)
-	if Input.is_action_just_pressed("voar"):
-		# o botão de voo de novo corta os jatos na hora: fica de pé e cai com a gravidade comum,
-		# levando o embalo; dá para religar a qualquer momento
-		_pulo_vivo = false
-		_duplo_usado = true
-		_solto = false
-		_mudar(Estado.AR)
-	elif Input.is_action_just_pressed("soltar"):
+	# planando, o X religa o motor
+	# L3 / Shift e X fazem o mesmo no voo (pedido do usuário, 2026-11-17): um toque corta tudo e o robô cai,
+	# esteja com o jato ou planando; segurar troca um pelo outro (do jato para o planador e de volta). Sem
+	# as asas não há planador: o toque corta os jatos na hora.
+	if estado == Estado.PLANAR or Melhorias.tem("asas"):
+		if Input.is_action_just_pressed("voar"):
+			_planar_seg = 0.0
+			_planar_botao = "voar"
+		elif Input.is_action_just_pressed("pular"):
+			_planar_seg = 0.0
+			_planar_botao = "pular"
+		if _planar_seg >= 0.0:
+			if Input.is_action_pressed(_planar_botao):
+				_planar_seg += delta
+				if _planar_seg >= Ajustes.PLANAR_SEGURAR:
+					_planar_seg = -1.0
+					_pulo_vivo = false
+					if estado == Estado.VOO:
+						_mudar(Estado.PLANAR)
+					elif not superaquecido:
+						_mudar(Estado.VOO)
+					return
+			else:
+				# soltou antes: era um toque
+				_planar_seg = -1.0
+				_cortar_jatos()
+				return
+	elif Input.is_action_just_pressed("voar") or Input.is_action_just_pressed("pular"):
+		_cortar_jatos()
+		return
+	if Input.is_action_just_pressed("soltar"):
 		# antes de desligar, vira os jatos para a frente e freia
 		_pulo_vivo = false
 		_frear_tempo = lerpf(Ajustes.FREAR_TEMPO_MIN, Ajustes.FREAR_TEMPO, clampf(velocity.length() / Ajustes.VOO_ALVO, 0.0, 1.0))
@@ -676,6 +707,15 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_mergulhar()
 	elif (Input.is_action_just_pressed("mirar") or Input.is_action_just_pressed("pairar")) and not superaquecido:
 		_mudar(Estado.PAIRAR)  # no voo, apertar o L2 ou o R3 freia e paira (segurado de antes não conta)
+
+
+## O botão de voo de novo corta os jatos na hora: fica de pé e cai com a gravidade comum, levando o embalo;
+## dá para religar a qualquer momento.
+func _cortar_jatos() -> void:
+	_pulo_vivo = false
+	_duplo_usado = true
+	_solto = false
+	_mudar(Estado.AR)
 
 
 ## Freada antes de desligar o voo: de pé no ar, pés e mãos para a frente, os jatos seguram o embalo.
@@ -728,7 +768,7 @@ func _nado(delta: float, mov: Vector2) -> void:
 		_duplo_usado = false
 		_mudar(Estado.AR)  # raso: afunda até o chão e anda
 		return
-	if Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr"):
+	if (Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr")) and Melhorias.nado_rapido():
 		nado_rapido = not nado_rapido
 	if mov.length() < 0.15 and not Input.is_action_pressed("pular"):
 		nado_rapido = false
@@ -867,7 +907,7 @@ func _depois_de_mover(antes: Vector3) -> void:
 			if forte or leve:
 				pouso_forca = 1.0 if forte else 0.5
 				tremor = maxf(tremor, 0.9 if forte else 0.3)
-				_pouso_tempo = 0.95 if forte else 0.4
+				_pouso_tempo = (0.95 if forte else 0.4) * Melhorias.tranco()
 				if caido:
 					_pouso_tempo = Ajustes.RECUPERA_SUPER  # caiu superaquecido: leva um tempo para se recompor
 				if bateu:
@@ -914,7 +954,7 @@ func _agua_e_calor(delta: float) -> void:
 	var taxa := 0.0
 	match estado:
 		Estado.CHAO, Estado.POUSO:
-			taxa = -Ajustes.ESFRIA_CHAO
+			taxa = -Melhorias.esfria_chao()
 		Estado.AR:
 			taxa = -Ajustes.ESFRIA_AR
 		Estado.DECOLAGEM:
@@ -923,7 +963,7 @@ func _agua_e_calor(delta: float) -> void:
 			if dir_voo.y < Ajustes.MERGULHO_Y:
 				taxa = -Ajustes.ESFRIA_VOO_MERGULHO
 			else:
-				taxa = Ajustes.CALOR_VOO * (1.0 + Ajustes.CALOR_SUBIDA * maxf(0.0, dir_voo.y))
+				taxa = Melhorias.calor_voo() * (1.0 + Ajustes.CALOR_SUBIDA * maxf(0.0, dir_voo.y))
 				if arrancada:
 					taxa *= Ajustes.CALOR_ARRANCADA
 				elif acelerador > 0.0:
@@ -931,7 +971,7 @@ func _agua_e_calor(delta: float) -> void:
 		Estado.PLANAR:
 			taxa = -Ajustes.ESFRIA_MERGULHO if dir_voo.y < Ajustes.MERGULHO_Y else -Ajustes.ESFRIA_PLANAR
 		Estado.PAIRAR:
-			taxa = Ajustes.CALOR_PAIRAR
+			taxa = Melhorias.calor_pairar()
 		Estado.NADO:
 			taxa = -Ajustes.NADO_ESFRIA
 	if na_agua:

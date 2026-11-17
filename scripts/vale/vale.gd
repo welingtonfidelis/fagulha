@@ -353,8 +353,10 @@ func _cavar_rio(x: float, z: float, h: float) -> float:
 		var r := c.perto(x, z, 190.0)
 		if r.x > 190.0:
 			continue
-		# atrás do começo ou depois do fim da linha o vale não se abre (senão ele aplainava o paredão da cachoeira)
-		if (r.y < 0.5 or r.y > c.total() - 0.5) and r.x > RIO_LEITO:
+		# atrás do começo da linha o vale não se abre (senão ele aplainava o paredão da cachoeira). Depois do
+		# fim ele se abre em volta da ponta, em encosta: parando de uma vez, o morro da clareira ficava cortado
+		# num muro reto de 10 m atravessado no riacho (visto pelo usuário em 2026-11-17)
+		if r.y < 0.5 and r.x > RIO_LEITO:
 			continue
 		var n := c.nivel(r.y)
 		var leito := minf(h, n - RIO_FUNDO)

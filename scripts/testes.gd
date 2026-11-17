@@ -296,13 +296,40 @@ func _voo_e_arrancada() -> void:
 	_ok(v > Ajustes.ARRANCADA_ALVO - 3.0, "arrancada chega perto de 28 m/s (%.1f)" % v)
 	_ok(a.calor - c0 > 4.2 and a.calor - c0 < 6.0, "arrancada esquenta 3× (%.1f em 3 s)" % (a.calor - c0))
 	Input.action_release("frente")
-	# L3 no voo corta os jatos; L3 de novo religa
+	# um toque no L3 no voo corta os jatos (com ou sem asas); L3 de novo religa
 	var vh := _hv()
 	await _apertar("voar")
+	await _esperar(0.1)
 	_ok(a.estado == Armadura.Estado.AR and _hv() > vh * 0.8, "L3 no voo corta os jatos na hora e leva o embalo (%s, %.0f m/s)" % [a.nome_estado(), _hv()])
 	await _esperar(0.5)
 	await _apertar("voar")
 	_ok(a.estado == Armadura.Estado.VOO, "L3 de novo religa no ar (%s)" % a.nome_estado())
+	# com as asas: segurar o L3 troca o jato pelo planador (esfriando) e de volta; o mesmo com o X;
+	# um toque planando corta tudo e ele cai
+	await _esperar(0.5)
+	a.calor = 40.0
+	Input.action_press("voar")
+	await _esperar(0.6)
+	Input.action_release("voar")
+	await _esperar(0.8)
+	var planou: bool = a.estado == Armadura.Estado.PLANAR and a.calor < 40.0 and a.velocity.length() > 10.0
+	Input.action_press("voar")
+	await _esperar(0.6)
+	Input.action_release("voar")
+	await _esperar(0.2)
+	var religou: bool = a.estado == Armadura.Estado.VOO
+	Input.action_press("pular")
+	await _esperar(0.6)
+	Input.action_release("pular")
+	await _esperar(0.2)
+	var pelo_x: bool = a.estado == Armadura.Estado.PLANAR
+	await _apertar("pular")
+	await _esperar(0.2)
+	_ok(planou and religou and pelo_x and a.estado == Armadura.Estado.AR,
+		"com as asas, segurar L3 ou X troca jato e planador; um toque planando corta e cai (%s)" % a.nome_estado())
+	await _apertar("voar")
+	await _esperar(0.3)
+	a.calor = 0.0
 	# R3 paira e R3 de novo cancela
 	await _esperar(0.5)
 	await _apertar("pairar")
@@ -336,7 +363,7 @@ func _planar_e_mergulho() -> void:
 	await _esperar(0.2)
 	await _apertar("pular")
 	await _esperar(0.3)
-	_ok(a.estado == Armadura.Estado.VOO, "X no voo segue voando (%s)" % a.nome_estado())
+	_ok(a.estado == Armadura.Estado.AR, "um toque no X no voo corta os jatos, igual ao L3 (%s)" % a.nome_estado())
 	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.velocity)
 	cam.pitch = -0.2
 	var y0 := a.global_position.y
@@ -345,8 +372,10 @@ func _planar_e_mergulho() -> void:
 	_ok(a.global_position.y < y0, "planando perde altura (%.1f m)" % (a.global_position.y - y0))
 	_ok(a.velocity.length() > 15.0, "planando mantém velocidade (%.1f)" % a.velocity.length())
 	_ok(visual_aletas() > 0.9, "aletas abertas ao planar")
-	await _apertar("pular")
-	_ok(a.estado == Armadura.Estado.VOO, "X planando liga o motor (%s)" % a.nome_estado())
+	Input.action_press("pular")
+	await _esperar(0.6)
+	Input.action_release("pular")
+	_ok(a.estado == Armadura.Estado.VOO, "segurar o X planando liga o motor (%s)" % a.nome_estado())
 	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.velocity)
 	a.calor = 80.0
 	cam.pitch = -1.15

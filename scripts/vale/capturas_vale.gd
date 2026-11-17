@@ -83,6 +83,134 @@ func rodar(main: Node) -> void:
 	if "--fisica" in args:
 		await _fisica()
 		return
+	if "--ingreme" in args:
+		# onde o chão sobe de uma vez perto da clareira (para achar paredões lisos)
+		await _esperar(2.0)
+		var v := c as Vale
+		for k in range(-12, 13):
+			var px := -80.0 + 0.39 * k * 5.0
+			var pz := -78.0 + 0.92 * k * 5.0
+			var perto := Vector2(999, 0)
+			var qual := -1
+			for ci in v._cursos.size():
+				var r: Vector2 = (v._cursos[ci] as Vale.Curso).perto(px, pz, 190.0)
+				if r.x < perto.x:
+					perto = r
+					qual = ci
+			print("perfil %4d: (%.0f, %.0f) altura %.1f  fora %.1f  mistura %.2f  rio %d dist %.0f s %.0f de %.0f" % [k * 5, px, pz, v.altura(px, pz), v._fora(px, pz),
+				smoothstep(Vale.BORDA_DE, Vale.BORDA_ATE, maxf(absf(px), absf(pz))), qual, perto.x, perto.y, (v._cursos[maxi(qual, 0)] as Vale.Curso).total()])
+		for zi in range(-40, 41):
+			var linha := ""
+			for xi in range(-40, 41):
+				var x := xi * 8.0
+				var z := zi * 8.0
+				var h := c.altura(x, z)
+				var d := 0.0
+				for o in [Vector2(6, 0), Vector2(-6, 0), Vector2(0, 6), Vector2(0, -6)]:
+					d = maxf(d, absf(c.altura(x + o.x, z + o.y) - h))
+				linha += "#" if d > 7.0 else ("+" if d > 4.0 else ("o" if xi == 0 and zi == 0 else "."))
+			print(linha)
+		get_tree().quit()
+		return
+	if "--muro" in args:
+		# o paredão a noroeste da clareira, de três lados
+		await _esperar(2.5)
+		a.recomecar()
+		m.hud.visible = false
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 60.0
+		livre.make_current()
+		var n := 0
+		for par in [[Vector2(-50, -40), Vector2(-90, -85)], [Vector2(-120, -20), Vector2(-110, -70)], [Vector2(-20, -70), Vector2(-70, -95)], [Vector2(-110, -120), Vector2(-80, -80)]]:
+			n += 1
+			var de: Vector2 = par[0]
+			var para: Vector2 = par[1]
+			a.teleportar(Vector3(de.x, c.altura(de.x, de.y) + 0.3, de.y), Armadura.Estado.CHAO)
+			await _esperar(0.8)
+			livre.global_position = Vector3(de.x, c.altura(de.x, de.y) + 3.5, de.y)
+			livre.look_at(Vector3(para.x, c.altura(para.x, para.y) + 1.0, para.y))
+			await _esperar(0.5)
+			await _foto("muro_%d" % n)
+		get_tree().quit()
+		return
+	if "--luzes" in args:
+		# à noite: o robô parado e voando, com a luz do peito apagada e acesa (`--luzes --hora 23`)
+		await _esperar(2.5)
+		a.recomecar()
+		m.hud.visible = false
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 50.0
+		livre.make_current()
+		var campo := Vector3(-30, 0, 46)
+		a.teleportar(Vector3(campo.x, c.altura(campo.x, campo.z) + 0.3, campo.z), Armadura.Estado.CHAO)
+		await _esperar(1.0)
+		for aceso in [false, true]:
+			a.luz_ligada = aceso
+			await _esperar(0.4)
+			var fr := -a.visual.global_basis.z.normalized()
+			livre.global_position = a.global_position - fr * 4.2 + Vector3(1.6, 2.0, 0)
+			livre.look_at(a.global_position + fr * 3.0 + Vector3(0, 0.4, 0))
+			await _foto("l_chao_%d" % int(aceso))
+		a.luz_ligada = false
+		a.teleportar(Vector3(campo.x, c.altura(campo.x, campo.z) + 14.0, campo.z), Armadura.Estado.VOO, Vector3(10, 0, -10))
+		for k in 3:
+			await _esperar(0.5)
+			var vel := a.velocity.normalized()
+			livre.global_position = a.pos_suave() - vel * 2.6 + Vector3(0, 0.9, 0)
+			livre.look_at(a.pos_suave() + Vector3(0, 0.7, 0))
+			await _foto("l_voo_%d" % k)
+		get_tree().quit()
+		return
+	if "--pecas" in args:
+		# onde cada peça ficou, com o que há por cima e por baixo, e uma foto de cada (`--pecas --basico`)
+		await _esperar(2.5)
+		a.recomecar()
+		m.hud.visible = false
+		Melhorias.tudo = false
+		m.pecas.repor()
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 55.0
+		livre.make_current()
+		var so := ""
+		for arg in args:
+			if arg.begins_with("--so="):
+				so = arg.substr(5)
+		for nome: String in m.pecas.onde:
+			var p: Vector3 = m.pecas.onde[nome]
+			var esp := a.get_world_3d().direct_space_state
+			var cima := esp.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 1.0, 0), p + Vector3(0, 80, 0), 1))
+			var baixo := esp.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 60.0, 0), p + Vector3(0, -60, 0), 1))
+			print("peca %s: (%.0f, %.1f, %.0f) altura %.1f  teto %s  primeiro chão vindo de cima %s" % [nome, p.x, p.y, p.z, c.altura(p.x, p.z),
+				("%.1f" % cima["position"].y) if not cima.is_empty() else "nenhum", ("%.1f" % baixo["position"].y) if not baixo.is_empty() else "nenhum"])
+			if so != "" and so != nome:
+				continue
+			# a câmera olha do lado do meio da caverna quando a peça está lá dentro
+			var lado := Vector3(7.5, 3.2, 6.0)
+			if nome == "farol" and Sumidouro.existe:
+				var meio := Vector3(Sumidouro.centro.x, p.y, Sumidouro.centro.y)
+				lado = (meio - p).normalized() * 7.0 + Vector3(0, 2.4, 0)
+			a.teleportar(p + lado * 0.5 + Vector3(0, -lado.y * 0.5 + 0.4, 0), Armadura.Estado.CHAO)
+			await _esperar(0.8)
+			livre.global_position = p + lado
+			livre.look_at(p + Vector3(0, 0.9, 0))
+			await _esperar(0.4)
+			await _foto("peca_" + nome)
+		if Sumidouro.existe:
+			print("sumidouro: centro %s piso %.1f" % [Sumidouro.centro, Sumidouro.piso])
+		get_tree().quit()
+		return
+	if "--oficina" in args:
+		await _oficina()
+		return
+	if "--scanner" in args:
+		await _scanner()
+		return
+	if "--melhorias" in args:
+		await _melhorias()
+		return
 	if "--resgate" in args:
 		await _resgate()
 		return
@@ -1554,4 +1682,157 @@ func _efeitos_tiro() -> void:
 		await _esperar([0.07, 0.25, 0.9][k])
 		await _foto("c_explosao_%d" % k)
 		await _esperar(2.2)
+	get_tree().quit()
+
+
+## O robô básico, uma peça na ilha, a instalação e as peças em uso (`--melhorias --basico --hora 12`).
+func _melhorias() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	m.hud.visible = true
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 42.0
+	livre.make_current()
+	var pm: PecasMundo = m.pecas
+	Melhorias.tudo = false
+	a.visual.vestir_melhorias()
+	pm.repor()
+	await _esperar(0.6)
+	var frente := -a.global_basis.z
+	livre.global_position = a.global_position - frente * 3.2 + Vector3(1.2, 1.5, 0)
+	livre.look_at(a.global_position + Vector3(0, 0.75, 0))
+	await _foto("m1_basico_costas")
+	var pa: Vector3 = pm.onde["antena"]
+	a.teleportar(pa + Vector3(5.0, 0.3, 3.0), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	livre.global_position = pa + Vector3(9.5, 2.4, 7.0)
+	livre.look_at(pa + Vector3(1.5, 1.2, 1.0))
+	await _foto("m2_peca_na_ilha")
+	a.teleportar(pa + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	await _foto("m3_pegou")
+	for nome: String in Melhorias.NOMES:
+		Melhorias.achar(nome)
+	pm.repor()
+	var b := BaseVale.boca_cilindro
+	a.teleportar(Vector3(b.x, m.ilha.altura(b.x, b.z) + 0.4, b.z), Armadura.Estado.CHAO)
+	livre.global_position = Vector3(b.x, m.ilha.altura(b.x, b.z), b.z) + (b - C_BASE()).normalized() * 6.0 + Vector3(0, 1.8, 0)
+	livre.look_at(Vector3(b.x, m.ilha.altura(b.x, b.z) + 0.9, b.z))
+	await _esperar(0.75)
+	await _foto("m4_instalando")
+	await _esperar(1.6)
+	frente = -a.global_basis.z
+	livre.global_position = a.global_position - frente * 3.0 + Vector3(0.9, 1.4, 0)
+	livre.look_at(a.global_position + Vector3(0, 0.75, 0))
+	await _foto("m5_instalado_costas")
+	# planando com as asas
+	var alto := Vector3(60, m.ilha.altura(60, 60) + 70.0, 60)
+	a.teleportar(alto, Armadura.Estado.PLANAR, Vector3(-12, -3, -12))
+	await _esperar(1.3)
+	var vel := a.velocity.normalized()
+	livre.global_position = a.global_position - vel * 4.2 + Vector3(0, 1.7, 0)
+	livre.look_at(a.global_position)
+	await _foto("m6_planando")
+	get_tree().quit()
+
+
+func C_BASE() -> Vector3:
+	return BaseVale.posto_drone
+
+
+## A oficina: convite na boca, o robô entrando, a tela com a lista e a prévia, a instalação e a falta de
+## energia (`--oficina --basico --hora 12`).
+func _oficina() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	Melhorias.tudo = false
+	Melhorias.energia = 100.0
+	for nome: String in ["antena", "radiador", "asas", "farol", "amortecedores"]:
+		Melhorias.achar(nome)
+	a.visual.vestir_melhorias()
+	m.pecas.repor()
+	var of: Oficina = m.oficina
+	var b := BaseVale.boca_cilindro
+	var fora := b + of._eixo() * 0.6
+	a.teleportar(Vector3(fora.x, m.ilha.altura(fora.x, fora.z) + 0.4, fora.z), Armadura.Estado.CHAO)
+	cam.yaw = atan2(of._eixo().x, of._eixo().z)
+	cam.pitch = -0.1
+	await _esperar(1.0)
+	await _foto("o1_convite")
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.fov = 45.0
+	livre.global_position = b + of._eixo() * 5.5 + BaseVale.cilindro_t.basis.z.normalized() * 3.6 + Vector3(0, -0.6, 0)
+	livre.look_at(b + Vector3(0, -1.6, 0))
+	livre.make_current()
+	await _esperar(0.3)
+	await _foto("o0_rampa")
+	cam.cam.make_current()
+	livre.queue_free()
+	of.entrar()
+	await _esperar(1.1)
+	await _foto("o2_entrando")
+	await _esperar(1.6)
+	await _foto("o3_tela")
+	for nome: String in ["asas", "radiador", "farol", "amortecedores"]:
+		(of._botoes[nome] as Button).grab_focus()
+		await _esperar(0.9)
+		await _foto("o4_previa_" + nome)
+	of.instalar("asas")
+	await _esperar(1.0)
+	await _foto("o5_instalando")
+	await _esperar(1.4)
+	await _foto("o6_instalado")
+	(of._botoes["radiador"] as Button).grab_focus()
+	of.instalar("radiador")
+	await _esperar(0.6)
+	await _foto("o7_sem_energia")
+	of.sair()
+	await _esperar(2.0)
+	await _foto("o8_saiu")
+	get_tree().quit()
+
+
+## O scanner: o visor procurando, lendo e com a ficha do Faísca, do drone e de uma mecha
+## (`--scanner --hora 12`).
+func _scanner() -> void:
+	await _esperar(2.5)
+	a.recomecar()
+	var sc: Scanner = m.scanner
+	var f := BaseVale.faisca_em
+	a.teleportar(Vector3(f.x + 4.5, m.ilha.altura(f.x + 4.5, f.z + 3.0) + 0.4, f.z + 3.0), Armadura.Estado.CHAO)
+	await _esperar(0.8)
+	sc.ligar()
+	cam.yaw += 0.5
+	await _esperar(0.6)
+	await _foto("s1_procurando")
+	for alvo in [[f + Vector3(0, 0.45, 0), "faisca"], [m.drone.global_position + Vector3(0, 0.5, 0), "drone"]]:
+		for volta in 3:
+			var d: Vector3 = (alvo[0] as Vector3) - cam.global_position
+			cam.yaw = atan2(-d.x, -d.z)
+			cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+			await _esperar(0.25)
+		await _foto("s2_lendo_" + String(alvo[1]))
+		await _esperar(1.9)
+		await _foto("s3_ficha_" + String(alvo[1]))
+	# uma mecha: a mais perto
+	var mais: Node3D = null
+	for no in get_tree().get_nodes_in_group("maquinas"):
+		if mais == null or (no as Node3D).global_position.distance_to(a.global_position) < mais.global_position.distance_to(a.global_position):
+			mais = no
+	if mais:
+		var perto := mais.global_position + Vector3(22, 0, 14)
+		sc.desligar()
+		a.teleportar(Vector3(perto.x, m.ilha.altura(perto.x, perto.z) + 0.4, perto.z), Armadura.Estado.CHAO)
+		await _esperar(0.5)
+		sc.ligar()
+		Input.action_press("atirar")
+		for volta in 12:
+			var d: Vector3 = mais.global_position + Vector3(0, 1.1, 0) - cam.global_position
+			cam.yaw = atan2(-d.x, -d.z)
+			cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+			await _esperar(0.2)
+		await _foto("s4_ficha_mecha")
+		Input.action_release("atirar")
 	get_tree().quit()

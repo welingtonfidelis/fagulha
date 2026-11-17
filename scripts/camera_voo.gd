@@ -17,6 +17,8 @@ var _mira := 0.0
 var _roll := 0.0
 var _iniciado := false
 var _t := 0.0
+var primeira := false  # scanner: a câmera vai para os olhos do robô
+var zoom := 0.0  # 0 a 1, só em primeira pessoa
 
 
 func _ready() -> void:
@@ -57,10 +59,20 @@ func _process(delta: float) -> void:
 	var olhar := Input.get_vector("olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo")
 	olhar *= olhar.length()  # curva: precisão no meio, rapidez no fim
 	var sens := Ajustes.SENS_ANALOGICO * fator_sens * (Ajustes.SENS_MIRANDO if alvo.mirando_agora() else 1.0)
+	if primeira:
+		sens *= lerpf(0.8, 0.22, zoom)  # com zoom, a mira anda mais devagar
 	yaw -= olhar.x * sens * delta
 	pitch -= olhar.y * sens * 0.75 * delta * (-1.0 if inverter_y else 1.0)
 	pitch = clampf(pitch, deg_to_rad(-85.0), deg_to_rad(75.0))
 
+	if primeira:
+		# pelos olhos do robô: sem ombro, sem distância, e o campo de visão fecha com o zoom
+		global_position = alvo.pos_suave() + Vector3(0.0, 2.05 * Armadura.porte, 0.0)
+		global_basis = Basis.from_euler(Vector3(pitch, yaw, 0.0))
+		cam.position = Vector3.ZERO
+		cam.fov = lerpf(cam.fov, lerpf(58.0, 13.0, zoom), 1.0 - exp(-9.0 * delta))
+		_pivo = alvo.pos_suave() + Vector3(0.0, 2.15 * Armadura.porte * 1.12, 0.0)
+		return
 	var voando := alvo.em_voo() or alvo.estado == Armadura.Estado.NADO
 	_mistura = move_toward(_mistura, 1.0 if voando else 0.0, delta * 1.6)
 	var m := smoothstep(0.0, 1.0, _mistura)

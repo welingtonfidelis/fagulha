@@ -71,6 +71,7 @@ const VEL_TOPO := 47.0  # velocidade de referência do mergulho (giro, câmera)
 const SUSTENTACAO := 2.6  # quanto a velocidade gira para o nariz por segundo
 const GIRO_LENTO := 2.8  # rad/s em baixa velocidade
 const GIRO_RAPIDO := 1.3  # rad/s a 70 m/s
+const PLANAR_SEGURAR := 0.35  # s segurando L3 ou X no voo para desligar o motor e planar (com as asas)
 const ESTOL := 12.0  # abaixo disso, planando, o nariz cai
 const LATERAL := 7.0  # m/s² de deslize com o analógico esquerdo
 const IGNICAO_IMPULSO := 4.0  # ligar o voo parado no ar dá um empurrão para cima

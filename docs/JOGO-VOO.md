@@ -1396,3 +1396,101 @@ O usuário pediu uma análise de jogo ("como um designer/dev sênior") e, das pr
 | Antena de busca | a bússola aponta peças e lugares não visitados | antena maior com luz piscando |
 | Farol de peito | luz forte à noite e no Sumidouro | farol no peito |
 | Células de reserva | esfria mais depressa no chão | células acesas na mochila |
+
+
+## 64. Melhorias do robô: peças pela ilha (2026-11-17)
+
+O robô começa básico e ganha cada melhoria achando uma peça na ilha e levando ao cilindro da base. Nenhuma
+mexe em arma (o usuário tem outra ideia para isso). As ombreiras (vida) ficaram para a etapa de combate.
+
+**Como funciona.** Cada peça é uma caixinha que flutua, com um facho de luz verde-água (`PecasMundo`,
+`scripts/vale/pecas_mundo.gd`). Chegando a 2,4 m o robô pega (sem botão); a peça só vale quando ele entra
+na boca do cilindro, que instala tudo o que ele carrega (aro de luz subindo, aviso na tela, o drone
+comemora). O estado fica em `Melhorias` (`scripts/melhorias.gd`): `achadas`, `instaladas`, e as funções
+com os números. No arquivo de progresso são as chaves `pecas` e `melhorias`. Nos testes e nas fotos o robô
+tem tudo (`Melhorias.tudo`); `--basico` mostra o do começo.
+
+| Peça | Onde fica | Básico | Com a peça |
+|---|---|---|---|
+| Antena de busca | na Clareira, perto da base | bússola só com norte e marcador | triângulo verde: peça mais perto, depois lugar novo; carregando peça, a base |
+| Radiador de aletas | Campos do Sul | voo aquece em ~60 s (1,65 %/s), pairar 2,4 %/s | ~3 min (0,55 %/s), pairar 0,8 %/s |
+| Bocais largos | O Anel | arrancada 22 m/s | arrancada 28 m/s, cruzeiro +1,5 m/s |
+| Asas de planar | Serra do Mirante | planar como antes | arrasto ×0,45 planando, estol 8 m/s, giro ×1,35 |
+| Barbatanas | Cachoeira | só o nado normal | nado rápido |
+| Molas | As Colunas | pulo e pouso como antes | pulo ×1,118 (25% mais alto), pouso forte ou leve dura metade |
+| Luz do peito | boca do Sumidouro | sem luz | farol ligado por seta para cima / L |
+| Células de reserva | Árvore-Mãe | esfria 15 %/s no chão | 30 %/s |
+| Scanner | (a fazer) | | visão de câmera com zoom e ficha do bicho ou inimigo |
+
+**Visual** (`MelhoriasVisual`, `scripts/melhorias_visual.gd`): versão minimalista aprovada pelo usuário
+depois de quatro rodadas na vitrine (`tools/vitrine_melhorias.gd`, folhas em `docs/vale/melhorias_*`).
+O robô básico tem a mochila lisa (o painel laranja e as grades do modelo ficam escondidos); o radiador são
+só quatro aletas verticais cujo fio segue o calor; os bocais ficam embaixo dos pés no lugar da brasa, com
+chama azulada; as asas são grandes e saem da mochila só planando (motor desligado e sem cair a pique);
+as molas ficam atrás das coxas; as barbatanas, nos antebraços e por fora das botas; a luz é um aro com
+grade sobre o núcleo do peito. As peças são postas em relação à pose de descanso guardada na criação do
+robô (`preparar`), então podem ser vestidas com ele em qualquer pose. `--cheio` na vitrine mostra a
+versão maior, que ficou de registro.
+
+**Falta:** o scanner (aparelho modelado, visão não desenhada; rascunho da tela antes), animação de entrar
+no cilindro, lista das melhorias na pausa, e afinar os números com o usuário jogando.
+
+
+## 65. Bússola, oficina e scanner (2026-11-17)
+
+Três pedidos do usuário depois de ver a §64 funcionando.
+
+**Bússola.** A base aparece sempre, como uma casinha (some a menos de 14 m). A antena de busca não aponta
+mais a peça mais perto de qualquer distância: só capta peças a menos de 300 m (`PecasMundo.RADAR`, sai do
+radar a 345 m), um triângulo verde por peça, sem distância escrita. Quando uma peça entra no alcance toca
+um bipe e aparece "Sinal captado". A base nunca vira objetivo: instalar é no tempo do jogador.
+
+**Oficina** (`scripts/vale/oficina.gd`). A instalação automática ao passar na boca do cilindro saiu. Perto
+da boca aparece o convite (quadrado / E, ação `agir`); o robô é travado (`Armadura.travado`), entra
+andando, três braços de dois segmentos descem do teto (cotovelo pela conta dos dois comprimentos) e abre a
+tela: câmera própria na boca, o robô à esquerda e o cartão à direita com a energia da base e as nove peças
+(instalada, pronta para instalar, ou "peça ainda não encontrada"). A peça em foco aparece no corpo como
+prévia (`vestir_melhorias(extra)`, `previa` abre as asas e acende a luz) e o robô vira para o lado em que
+ela se vê. Instalar (X / Enter) leva 1,9 s com os braços trabalhando; O / Esc sai.
+**Energia da base:** 0 a 100, cada instalação gasta a carga inteira (`Melhorias.CUSTO`) e a base recarrega
+em 5 min de jogo (`RECARGA`), a pedido do usuário. Começa cheia: a primeira peça sai na hora, as outras
+esperam 5 min cada. O robô fica em cima do estrado do cilindro, e uma rampa na boca sobe do chão até ele. Quando volta a dar para instalar e o robô carrega peça, aviso "Base recarregada" e um toque. Fica no
+progresso como `energia_base`.
+
+**Scanner** (`scripts/vale/scanner.gd`, nona peça, na Torre Caída). Seta para a direita / T, só no chão: a
+câmera vai para os olhos do robô (`CameraVoo.primeira`), com moldura de visor e um círculo no meio; R2 aproxima
+e L2 afasta, até 4,9×, e o zoom fica onde foi solto (a mira anda mais devagar com zoom); o círculo tem 110 px. Com o círculo em cima de um alvo a até 170 m, sem morro
+na frente, a leitura enche em 1,7 s e sai a ficha: bichos (jeito deles), o drone, o Faísca caído, e nas
+mechas o equipamento, o ataque, a distância e com quantos tiros desligam, lidos do que ela carrega. O que
+já foi lido fica em `escaneados`. Escaneando não atira; pular, voar ou pane fecham o scanner.
+
+Fotos: `--vale-captura --oficina --basico` e `--vale-captura --scanner`. Testes: pontos 32 (melhorias e
+oficina) e 33 (scanner), 42 no total.
+
+**Falta:** o usuário jogar; lista do que já foi escaneado (um caderno); som próprio para o radar e para a
+oficina (hoje reaproveitam toques existentes); morcegos e a Sentinela não entram no scanner.
+
+**Ajustes do mesmo dia (pedidos do usuário):** o robô fica em cima do estrado do cilindro (antes afundava no
+fundo curvo) e uma rampa na boca sobe do chão até ele; a luz do peito apontava para as costas e foi virada;
+no scanner R2 aproxima, L2 afasta e o zoom fica onde foi solto. **Muro na saída da clareira:** o vale do
+riacho de baixo parava de uma vez no fim da linha do curso e cortava o morro da clareira num muro reto de
+10 m, atravessado no riacho, perto de (-80, -78). Em `_cavar_rio` só o começo da linha deixa de abrir o vale
+(para proteger o paredão da cachoeira); depois do fim ele se abre em volta da ponta, em encosta.
+`--vale-captura --muro` fotografa o lugar e `--ingreme` imprime o mapa do que é íngreme em volta da clareira.
+**Luz do robô à noite:** a lanterna de `Noite` (0,9 de força, 5,5 m) iluminava o caminho e, presa à posição
+da física dentro do corpo, piscava por baixo da cabeça no voo. Virou só o brilho dos leds: 0,22 de força,
+2,4 m, um palmo à frente do peito, seguindo a posição suavizada. Iluminar o caminho é da luz do peito
+(melhoria). `--vale-captura --luzes --hora 23` fotografa.
+
+**Planar pelo botão (mesmo dia):** nenhum comando levava ao estado de planar (o `PLANAR` só era alcançado por
+teleporte nos testes), então as asas não tinham como ser usadas. Regra pedida pelo usuário, igual para
+L3 / Shift e para o X: no voo, **um toque corta tudo e o robô cai**, esteja com o jato ou planando;
+**segurar** 0,35 s (`Ajustes.PLANAR_SEGURAR`) troca um pelo outro: do jato para o planador (asas abertas,
+motor desligado) e do planador de volta para o jato. Com as asas, o corte do toque acontece ao soltar o
+botão (é quando dá para saber que não era uma segurada); sem as asas, corta ao apertar. O X no voo não fazia
+nada antes. O / C freia e cai, como sempre.
+**Peças (mesmo dia):** a da luz do peito ficava enterrada: no Sumidouro a grade de alturas guarda o fundo da
+caverna, e `_assentar` pôs a caixa a 109 m, dentro da rocha. Agora, com teto a menos de 9 m, `_assentar`
+usa o chão de verdade achado por um raio vindo de cima; e a peça da luz, a pedido do usuário, fica no piso
+do salão do Sumidouro (`_no_salao`, fora da lagoa do meio e com vão livre por cima). Pegar passou a
+exigir encostar na caixa (1,15 m do meio do robô ao meio dela): o facho de luz é só sinal.
