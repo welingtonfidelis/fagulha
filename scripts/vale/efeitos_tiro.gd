@@ -56,16 +56,16 @@ static func cruzado(imagem: String, cor: Color, largura: float, comprimento: flo
 
 
 ## Clarão na boca da arma: a língua de fogo para a frente e um brilho curto.
-static func clarao(pai: Node, onde: Vector3, dir: Vector3, tam := 1.0) -> void:
+static func clarao(pai: Node, onde: Vector3, dir: Vector3, tam := 1.0, imagem := "muzzle_01", cor := Color(1.0, 0.85, 0.45)) -> void:
 	if pai == null or not pai.is_inside_tree() or not onde.is_finite() or dir.length() < 0.01:
 		return
 	_contar("clarao")
-	var no := cruzado("muzzle_01", Color(1.0, 0.85, 0.45), 0.55 * tam, 1.1 * tam, -0.5 * tam, false)
+	var no := cruzado(imagem, cor.lerp(Color.WHITE, 0.35), 0.55 * tam, 1.1 * tam, -0.5 * tam, imagem != "muzzle_01")
 	no.top_level = true
 	pai.add_child(no)
 	no.look_at_from_position(onde, onde + dir, Vector3.UP if absf(dir.normalized().y) < 0.98 else Vector3.RIGHT)
 	var luz := OmniLight3D.new()
-	luz.light_color = Color(1.0, 0.7, 0.35)
+	luz.light_color = cor
 	luz.light_energy = 2.2 * tam
 	luz.omni_range = 4.0 * tam
 	luz.shadow_enabled = false
@@ -73,6 +73,31 @@ static func clarao(pai: Node, onde: Vector3, dir: Vector3, tam := 1.0) -> void:
 	var tw := no.create_tween()
 	tw.tween_property(no, "scale", Vector3(0.5, 0.5, 1.25), 0.09)
 	tw.tween_callback(no.queue_free)
+
+
+## O risco de luz que o tiro deixa no ar, da boca da arma até onde vai bater: aparece e some num instante.
+static func risco(pai: Node, de: Vector3, ate: Vector3, cor: Color, grosso := 1.0) -> void:
+	var comp := minf(de.distance_to(ate), 60.0)
+	if pai == null or not pai.is_inside_tree() or comp < 1.0:
+		return
+	var no := cruzado("trace_02", Color(cor.r, cor.g, cor.b, 0.55), 0.22 * grosso, comp, -comp * 0.5, true)
+	no.top_level = true
+	pai.add_child(no)
+	var dir := (ate - de).normalized()
+	no.look_at_from_position(de, de + dir, Vector3.UP if absf(dir.y) < 0.98 else Vector3.RIGHT)
+	var tw := no.create_tween()
+	tw.tween_property(no, "scale", Vector3(0.15, 0.15, 1.0), 0.16)
+	tw.tween_callback(no.queue_free)
+
+
+## O impacto de um tiro de laser, na cor dele: um anel que abre, um brilho e faíscas.
+static func impacto_laser(pai: Node, onde: Vector3, cor: Color, tam := 1.0) -> void:
+	if pai == null or not pai.is_inside_tree() or not onde.is_finite():
+		return
+	_leva(pai, onde, "circle_02", cor, true, 1, 0.22, 1.5 * tam, Vector2.ZERO, Vector3.ZERO, 0.0, 2.4)
+	_leva(pai, onde, "light_02", cor.lerp(Color.WHITE, 0.5), true, 1, 0.14, 1.6 * tam, Vector2.ZERO, Vector3.ZERO, 0.0, 1.4)
+	_leva(pai, onde, "spark_06", cor.lerp(Color.WHITE, 0.3), true, 7, 0.35, 0.45 * tam, Vector2(3.0, 8.0), Vector3(0, -10.0, 0), 80.0, 0.3)
+	_leva(pai, onde, "smoke_07", Color(0.6, 0.6, 0.62, 0.4), false, 2, 0.8, 0.6 * tam, Vector2(0.3, 0.8), Vector3(0, 0.8, 0), 40.0, 2.0)
 
 
 ## Uma leva de partículas que sai de uma vez e some.
@@ -205,6 +230,103 @@ static func estouro(pai: Node, onde: Vector3, raio: float) -> void:
 	var tl := luz.create_tween()
 	tl.tween_property(luz, "light_energy", 0.0, 0.4)
 	tl.tween_callback(luz.queue_free)
+
+
+## A aura de subir de nível: presa ao robô por uns dois segundos e meio. Uma coluna de luz que sobe e apaga,
+## três anéis que sobem dos pés à cabeça um atrás do outro, um círculo aceso no chão, estrelinhas subindo
+## em espiral e um clarão. `alt` é a altura do robô.
+static func aura_nivel(robo: Node3D, alt: float) -> void:
+	if robo == null or not robo.is_inside_tree():
+		return
+	_contar("aura")
+	var cor := Color(0.4, 1.0, 0.85)
+	var dourado := Color(1.0, 0.85, 0.4)
+	var no := Node3D.new()
+	robo.add_child(no)
+	# a coluna de luz
+	var coluna := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = alt * 0.42
+	cm.bottom_radius = alt * 0.5
+	cm.height = alt * 2.6
+	cm.cap_top = false
+	cm.cap_bottom = false
+	cm.radial_segments = 20
+	coluna.mesh = cm
+	var mc := StandardMaterial3D.new()
+	mc.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mc.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mc.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mc.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mc.albedo_color = Color(cor.r, cor.g, cor.b, 0.0)
+	mc.albedo_texture = load(PASTA % "trace_02")
+	coluna.material_override = mc
+	coluna.position.y = alt * 1.3
+	coluna.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	no.add_child(coluna)
+	var tc := coluna.create_tween()
+	tc.tween_property(mc, "albedo_color:a", 0.55, 0.25)
+	tc.tween_property(mc, "albedo_color:a", 0.3, 1.5)
+	tc.tween_property(mc, "albedo_color:a", 0.0, 0.7)
+	# os anéis que sobem
+	for i in 3:
+		var anel := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = alt * 0.4
+		tm.outer_radius = alt * 0.46
+		tm.rings = 32
+		tm.ring_segments = 6
+		anel.mesh = tm
+		var ma := StandardMaterial3D.new()
+		ma.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ma.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ma.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		ma.albedo_color = Color(dourado.r, dourado.g, dourado.b, 0.0)
+		anel.material_override = ma
+		anel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		no.add_child(anel)
+		var ta := anel.create_tween()
+		ta.tween_interval(i * 0.4)
+		ta.tween_property(ma, "albedo_color:a", 0.95, 0.1)
+		ta.parallel().tween_property(anel, "position:y", alt * 1.25, 0.9).from(0.05)
+		ta.parallel().tween_property(anel, "scale", Vector3(0.6, 1.0, 0.6), 0.9).from(Vector3(1.25, 1.0, 1.25))
+		ta.tween_property(ma, "albedo_color:a", 0.0, 0.25)
+	# o círculo no chão
+	var chao := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * alt * 2.6
+	q.orientation = PlaneMesh.FACE_Y
+	chao.mesh = q
+	var mch := mat("magic_03", cor, true, false).duplicate() as StandardMaterial3D
+	chao.material_override = mch
+	chao.position.y = 0.06
+	chao.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	no.add_child(chao)
+	var tch := chao.create_tween()
+	tch.tween_property(chao, "rotation:y", TAU * 0.6, 2.4)
+	tch.parallel().tween_property(mch, "albedo_color:a", 0.0, 0.8).set_delay(1.6)
+	# estrelinhas e brilhos subindo
+	var estrelas := _leva(no, robo.global_position + Vector3(0, 0.2, 0), "star_04", dourado, true, 26, 1.6, alt * 0.22, Vector2(alt * 0.9, alt * 1.9), Vector3(0, 1.0, 0), 28.0, 0.4)
+	estrelas.explosiveness = 0.25
+	estrelas.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	estrelas.emission_ring_axis = Vector3.UP
+	estrelas.emission_ring_radius = alt * 0.45
+	estrelas.emission_ring_inner_radius = alt * 0.3
+	estrelas.emission_ring_height = 0.1
+	estrelas.orbit_velocity_min = 0.4
+	estrelas.orbit_velocity_max = 0.8
+	_leva(no, robo.global_position + Vector3(0, alt * 0.5, 0), "flare_01", Color(1.0, 0.97, 0.85), true, 1, 0.3, alt * 3.2, Vector2.ZERO, Vector3.ZERO, 0.0, 1.5)
+	var luz := OmniLight3D.new()
+	luz.light_color = cor
+	luz.light_energy = 0.0
+	luz.omni_range = alt * 5.0
+	luz.shadow_enabled = false
+	luz.position.y = alt * 0.7
+	no.add_child(luz)
+	var tl := luz.create_tween()
+	tl.tween_property(luz, "light_energy", 4.0, 0.2)
+	tl.tween_property(luz, "light_energy", 0.0, 2.2)
+	_soltar(no, 2.8)
 
 
 ## Fumaça contínua atrás de um míssil (filha dele; as partículas ficam para trás no mundo).

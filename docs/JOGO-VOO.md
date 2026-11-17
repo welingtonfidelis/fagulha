@@ -1679,3 +1679,30 @@ ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação 
   `tools/vitrine_modelos.gd`, que abre modelos de fora do projeto): CombatMech do KayKit (2,3 m, sem
   animação embutida, lembra um robô de anime conhecido), Leela, Mike e Stan do Quaternius (18 animações,
   com tiro, soco e espada), EyeDrone, QuadShell e Trilobite do Quaternius (6 a 9 animações, com ataque).
+
+## 69. Laser novo, minichefes e um inimigo novo (2026-11-17)
+
+- **Projéteis:** míssil e granada a um terço do tamanho original (o usuário ainda os achou grandes a 50%).
+- **Laser:** cada tiro é um raio em duas camadas (miolo claro dentro de um halo na cor da arma, `trace_01` e
+  `light_02`), deixa um risco de luz da boca ao alvo que some em 0,16 s (`EfeitosTiro.risco`), tem clarão
+  de boca próprio e um impacto na cor do tiro (anel, brilho, faíscas: `impacto_laser`). Cores em
+  `Arsenal.MODOS`: pistola laranja, rajada amarela e fina, canhão vermelho e grosso, precisão azul e
+  comprida, tiro duplo verde-água.
+- **Máquinas de pacote** (`MechPacote` para o corpo, `MaquinaPacote extends Vigia` para o jeito de lutar;
+  modelos em `assets/vale/inimigos/`, só com a textura de cor): **Stan** (minichefe das ondas 5, 15, 25...;
+  4,2 m, dois tiros pesados de longe), **Trilobite** (minichefe das ondas 10, 20...; 2,7 m, corre e bate
+  forte) e **QuadShell** (comum, 1,3 m, rodeia o robô atirando de dois em dois; da 4ª onda em diante é
+  metade dos atiradores de fuzil). As animações respondem pelos nomes comuns (no Sci-Fi Essentials,
+  Shoot é Attack e Death é TurnOff). `chefe` subiu da `Mecha` para o `Vigia`.
+- **EyeDrone ficou de fora:** é o mesmo modelo do drone colega da base; como inimigo confundiria.
+- Os dois modelos do itch.io foram abandonados pelo usuário (pesados). Fotos: `--vale-captura --chefes`.
+- **Aura de nível** (`EfeitosTiro.aura_nivel`): ao subir de nível na Fundição, por 2,5 s o robô fica dentro de
+  uma coluna de luz verde-água, com três anéis dourados subindo dos pés à cabeça, um círculo girando no
+  chão, estrelinhas em espiral, um clarão e um toque. Foto: `--vale-captura --aura`.
+- **Ideia em aberto:** uma arma de curto alcance (espada de laser). O R3 no chão hoje é abaixar e sentar;
+  falta o usuário escolher o botão.
+- **Colisão do telhado da forja:** o robô entrava no telhado em alguns pontos. Os painéis tinham colisão do
+  tamanho da chapa (0,6 m) e as nervuras, por dentro e por fora, não tinham nenhuma. Agora cada painel tem
+  uma colisão de 2 m de espessura (para dentro) que passa um pouco dos vizinhos, as nervuras e as cintas
+  têm colisão, e o bloco de concreto do túnel também. Teste: seis pousos em cima e um voo a 40 m/s contra
+  a lateral do arco.

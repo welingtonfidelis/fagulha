@@ -154,6 +154,9 @@ func _ficha(o) -> Dictionary:
 	if o is String:
 		return {"nome": "Faísca", "tipo": "robô antigo · desligado",
 			"linhas": ["Parou aqui há muito tempo.", "O musgo e as plantas tomaram conta.", "Mesma família do nosso robô."]}
+	if o is MaquinaPacote:
+		var mp := o as MaquinaPacote
+		return {"nome": MaquinaPacote.TITULOS[mp.tipo], "tipo": "máquina · minichefe" if mp.chefe else "máquina · hostil", "linhas": _linhas_maquina(mp)}
 	if o is Mecha:
 		var m := o as Mecha
 		return {"nome": "Mecha chefe" if m.chefe else "Mecha", "tipo": "máquina · hostil", "linhas": _linhas_maquina(m)}

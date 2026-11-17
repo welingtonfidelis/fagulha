@@ -32,6 +32,7 @@ var motor := "carrapato_loop"
 
 var estado := Estado.RONDA
 var disparos := 0
+var chefe := false  # máquina grande: aguenta mais e bate mais forte (a Mecha e a MaquinaPacote acertam o resto)
 var pose_foto := -1
 var guiado := Vector3.INF  # um ponto para onde andar reto antes de qualquer coisa (a saída da porta da Fundição)
 

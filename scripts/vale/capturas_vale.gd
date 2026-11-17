@@ -349,6 +349,86 @@ func rodar(main: Node) -> void:
 		await _foto("b_misseis_virando")
 		get_tree().quit()
 		return
+	if "--chefes" in args:
+		# as máquinas de pacote ao lado do robô, e o laser de cada arma (`--chefes --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		var lugar := Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0)
+		a.teleportar(lugar, Armadura.Estado.CHAO)
+		m.hud.visible = false
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 50.0
+		livre.make_current()
+		var maqs := []
+		var k := 0
+		for tipo: String in ["quadshell", "trilobite", "stan"]:
+			var mp := MaquinaPacote.new()
+			mp.tipo = tipo
+			mp.mapa = c
+			mp.casa = lugar + Vector3(4.0 + k * 5.0, 0, -6.0)
+			mp.casa.y = c.altura(mp.casa.x, mp.casa.z)
+			mp.semente = 5 + k
+			m.add_child(mp)
+			mp.global_position = mp.casa
+			mp.rotation.y = PI
+			mp.pose_foto = 0
+			maqs.append(mp)
+			k += 1
+		await _esperar(1.0)
+		livre.global_position = lugar + Vector3(8.0, 3.2, 10.0)
+		livre.look_at(lugar + Vector3(8.0, 1.8, -6.0))
+		await _foto("c1_maquinas")
+		for mp in maqs:
+			mp.mech.tocar("Shoot", 1.0, 0.05)
+		await _esperar(0.35)
+		await _foto("c2_atacando")
+		for mp in maqs:
+			mp.desligar()
+		await _esperar(2.2)
+		await _foto("c3_desligadas")
+		for mp in maqs:
+			mp.queue_free()
+		# o laser de cada arma, de lado
+		Arsenal.tudo = true
+		var roda: RodaArmas = m.get_node("RodaArmas")
+		cam.yaw = PI * 0.5
+		cam.pitch = 0.0
+		await _esperar(0.5)
+		for nome: String in ["pistola", "rajada", "canhao", "precisao"]:
+			Arsenal.modo = "x"
+			roda.trocar(nome)
+			a.calor = 0.0
+			await _esperar(0.5)
+			livre.global_position = a.global_position + Vector3(-6.0, 3.4, 9.0)
+			livre.look_at(a.global_position + Vector3(-6.0, 1.2, 0))
+			Input.action_press("atirar")
+			await _esperar(1.15 if nome == "canhao" else 0.05)
+			Input.action_release("atirar")
+			await _esperar(0.1 if nome == "canhao" else 0.03)
+			await _foto("c4_laser_" + nome)
+			await _esperar(0.8)
+		get_tree().quit()
+		return
+	if "--aura" in args:
+		# a aura de subir de nível, em três momentos (`--aura --hora 19`)
+		await _esperar(2.5)
+		a.recomecar()
+		a.teleportar(Vector3(-52.0, c.altura(-52.0, 44.0) + 0.4, 44.0) + Vector3(6, 0, 6), Armadura.Estado.CHAO)
+		m.hud.visible = false
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 40.0
+		livre.make_current()
+		await _esperar(1.0)
+		livre.global_position = a.global_position + Vector3(3.4, 2.2, 4.0)
+		livre.look_at(a.global_position + Vector3(0, 1.1, 0))
+		EfeitosTiro.aura_nivel(a, a.altura_corpo())
+		for k in 3:
+			await _esperar([0.3, 0.6, 0.8][k])
+			await _foto("aura_%d" % k)
+		get_tree().quit()
+		return
 	if "--oficina" in args:
 		await _oficina()
 		return

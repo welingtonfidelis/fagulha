@@ -577,9 +577,12 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	disparou.emit(origem, impacto)
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 
+	var cor: Color = modo.get("cor", Color(1.0, 0.55, 0.2))
+	var grosso := float(modo.get("grosso", 1.0)) * lerpf(0.5, 1.0, forca)
 	_clarao(origem, 0.08)
-	EfeitosTiro.clarao(self, origem, impacto - origem, 0.7)
-	_projetil(origem, impacto, travado if guiado else null, float(modo["dano"]) * forca, float(modo["area"]) * lerpf(0.6, 1.0, forca), float(modo["vel"]), 1.0 + 0.5 * (float(modo["dano"]) * forca - 1.0))
+	EfeitosTiro.clarao(self, origem, impacto - origem, 0.5 + 0.3 * grosso, String(modo.get("boca", "muzzle_01")), cor)
+	EfeitosTiro.risco(self, origem, impacto, cor, grosso)
+	_projetil(origem, impacto, travado if guiado else null, float(modo["dano"]) * forca, float(modo["area"]) * lerpf(0.6, 1.0, forca), float(modo["vel"]), grosso, 0.0, cor, float(modo.get("comp", 2.2)))
 
 
 ## Ajuda de mira: mirando (L2), a máquina ligada mais perto do centro da mira, dentro de um cone pequeno e
@@ -648,20 +651,38 @@ func _mao(esquerda := false) -> Vector3:
 	return armadura.global_position + Vector3(0.0, 0.6, 0.0)
 
 
-func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1.0, area := 0.0, vel := VELOCIDADE, tam := 1.0, atraso := 0.0) -> void:
+func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1.0, area := 0.0, vel := VELOCIDADE, tam := 1.0, atraso := 0.0,
+		cor := Color(1.0, 0.55, 0.2), comp := 2.2) -> void:
 	var proj := Node3D.new()
 	add_child(proj)
 	proj.global_position = origem
 	var cabeca := Vector3.UP if absf((impacto - origem).normalized().dot(Vector3.UP)) < 0.99 else Vector3.BACK
 	if impacto.distance_to(origem) > 0.01:
 		proj.look_at(impacto, cabeca)
-	var mi := MeshInstance3D.new()
-	mi.mesh = _malha_projetil
-	mi.material_override = _mat_projetil
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.rotation.x = PI / 2.0  # a cápsula fica no eixo -Z do nó, que aponta ao alvo
-	mi.scale = Vector3.ONE * clampf(tam, 0.6, 2.6)
-	proj.add_child(mi)
+	# o raio em duas camadas: um miolo fino quase branco dentro de um halo comprido na cor da arma
+	var halo := EfeitosTiro.cruzado("trace_01", cor, 0.9 * tam, comp * 1.2, comp * 0.35, true)
+	var halo2 := EfeitosTiro.cruzado("light_02", cor, 0.7 * tam, 0.7 * tam, 0.0, true)
+	proj.add_child(halo2)
+	proj.add_child(halo)
+	var miolo := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.045 * tam
+	cm.height = comp * 0.7
+	miolo.mesh = cm
+	var mm := StandardMaterial3D.new()
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mm.albedo_color = cor.lerp(Color.WHITE, 0.55)
+	miolo.material_override = mm
+	miolo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	miolo.rotation.x = PI / 2.0  # a cápsula fica no eixo -Z do nó, que aponta ao alvo
+	miolo.position.z = comp * 0.3
+	proj.add_child(miolo)
+	var luz_p := OmniLight3D.new()
+	luz_p.light_color = cor
+	luz_p.light_energy = 1.0 * tam
+	luz_p.omni_range = 3.5
+	luz_p.shadow_enabled = false
+	proj.add_child(luz_p)
 	var tempo := maxf(0.02, origem.distance_to(impacto) / vel)
 	var tw := proj.create_tween()
 	if atraso > 0.0:
@@ -670,7 +691,7 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 		tw.tween_callback(func() -> void: proj.visible = true)
 	if guia == null:
 		tw.tween_property(proj, "global_position", impacto, tempo)
-		tw.tween_callback(_impacto.bind(impacto, dano, area))
+		tw.tween_callback(_impacto.bind(impacto, dano, area, cor))
 	else:
 		# tiro travado: o destino acompanha a máquina até chegar
 		var destino := [impacto]
@@ -685,18 +706,17 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 			else:
 				proj.global_position = onde
 		tw.tween_method(passo, 0.0, 1.0, tempo)
-		tw.tween_callback(func() -> void: _impacto(destino[0], dano, area))
+		tw.tween_callback(func() -> void: _impacto(destino[0], dano, area, cor))
 	tw.tween_callback(proj.queue_free)
 
 
-func _impacto(ponto: Vector3, dano := 1.0, area := 0.0) -> void:
+func _impacto(ponto: Vector3, dano := 1.0, area := 0.0, cor := Color(1.0, 0.55, 0.2)) -> void:
 	if area > 0.0:
 		_estouro(ponto, dano, area)
 		return
-	_estrela(ponto)
 	get_tree().call_group("bichos", "assustar", ponto)
 	get_tree().call_group("maquinas", "levar_tiro", ponto, dano, 0.0)
-	_faisca(ponto)
+	EfeitosTiro.impacto_laser(self, ponto, cor, 0.7 + 0.3 * dano)
 	_clarao_impacto(ponto)
 
 

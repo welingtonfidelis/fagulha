@@ -7,7 +7,6 @@ extends Vigia
 
 var ficha := {}
 var arma_forcada := ""  # "corpo", "bala", "pesado" ou "missil" (Mech00Visual.forcar); "" sorteia
-var chefe := false  # mech grande (3 m), no lugar das antigas Sentinelas: aguenta o dobro e bate mais forte
 
 
 func _init() -> void:

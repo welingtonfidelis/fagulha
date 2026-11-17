@@ -1585,11 +1585,14 @@ func _ponto_31() -> void:
 	var esperado := Fundicao.receita(1).size()
 	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
 		"quadrado no painel liga a onda 1: %d robôs saem dos portões" % f.vivos.size())
+	Arsenal.xp = 95  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
 	var xp0 := Arsenal.xp
+	var auras0 := int(EfeitosTiro.contagem.get("aura", 0))
 	for mc in f.vivos.duplicate():
 		mc.calor = 100.0
 		mc.desligar()
 	await _esperar(0.5)
+	_ok(Arsenal.nivel() == 2 and f.subidas == 1 and int(EfeitosTiro.contagem.get("aura", 0)) == auras0 + 1, "subiu para o nível 2 e a aura apareceu em volta do robô")
 	_ok(f.fase == Fundicao.Fase.RESPIRO and Arsenal.xp > xp0 and Arsenal.sucata >= esperado and m.hud.placar != "",
 		"robôs vencidos: experiência %d, sucata %d, e o respiro começa" % [Arsenal.xp, Arsenal.sucata])
 	a.calor = 0.0
@@ -1599,6 +1602,25 @@ func _ponto_31() -> void:
 	await _esperar(0.6)
 	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 1 and m.hud.placar == "",
 		"a onda 2 vem sozinha; saindo da cratera tudo para e a onda 2 fica para a volta")
+	# o telhado segura o robô: solto de cima em vários pontos (painéis, emendas e nervuras) ele para em cima,
+	# e voando depressa contra a lateral do arco ele não atravessa
+	var em_cima := 0
+	var pontos_teto := [Vector2(-30.0, 20.0), Vector2(-14.2, 28.5), Vector2(22.0, -30.0), Vector2(38.0, 0.0), Vector2(-44.0, 9.5), Vector2(9.8, 19.0)]
+	for pt: Vector2 in pontos_teto:
+		a.teleportar(Fundicao.aqui(pt.x, Fundicao.teto(pt.x) + 6.0, pt.y), Armadura.Estado.AR)
+		await _esperar(1.6)
+		var lz: float = a.global_position.z - Fundicao.CENTRO.y
+		var lx: float = a.global_position.x - Fundicao.CENTRO.x
+		if a.global_position.y - Fundicao.PISO > Fundicao.teto(lx) - 0.4 or absf(lx) > Fundicao.ARCO_A or absf(lz) > Fundicao.MZ + 1.0:
+			em_cima += 1
+	a.teleportar(Fundicao.aqui(-75.0, 8.0, 10.0), Armadura.Estado.VOO, Vector3(40.0, 0, 0))
+	cam.yaw = -PI * 0.5
+	cam.pitch = 0.0
+	await _esperar(1.2)
+	var fora_arco: bool = (a.global_position.x - Fundicao.CENTRO.x) < -Fundicao.ARCO_A * 0.75
+	_ok(em_cima == pontos_teto.size() and fora_arco, "o telhado da forja segura o robô (%d de %d pousos em cima; voando contra a lateral, parou a %.0f m do meio)" % [em_cima, pontos_teto.size(), a.global_position.x - Fundicao.CENTRO.x])
+	a.teleportar(meio, Armadura.Estado.CHAO)
+	await _esperar(0.3)
 	_ok(Fundicao.receita(5)[0]["chefe"] and Fundicao.receita(10).size() < Fundicao.receita(9).size(), "de 5 em 5 ondas a receita traz um minichefe com escolta menor")
 	# a dificuldade sobe aos poucos: só ataque de perto nas três primeiras; fuzis da 4ª, canhões da 7ª, mísseis da 10ª
 	var so_perto := true

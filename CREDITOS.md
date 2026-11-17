@@ -57,3 +57,9 @@ livre em jogos, sem redistribuir os arquivos (por isso o repositório do jogo é
 Máquinas, esteiras, braços de robô, tubos, guindastes, engrenagens e telas do galpão da Fundição
 (`assets/vale/fundicao/`). Factory Kit 3.0, de Kenney (www.kenney.nl), licença Creative Commons Zero (CC0).
 Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.
+
+## Máquinas da Fundição (Quaternius)
+
+- **Stan**, do Animated Mech Pack (março de 2021), e **Trilobite** e **QuadShell**, do Sci-Fi Essentials Kit,
+  de Quaternius (https://quaternius.com), CC0 1.0 (`assets/vale/inimigos/`).
+- Partículas de explosão, clarão e laser: Kenney Particle Pack (www.kenney.nl), CC0 (`assets/fx/kenney/`).

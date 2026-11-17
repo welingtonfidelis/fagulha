@@ -30,7 +30,7 @@ var sons: Sons
 var mapa: Vale
 var fase := Fase.PARADA
 var onda := 0  # a onda em andamento (ou a última ligada)
-var vivos: Array[Mecha] = []
+var vivos: Array[Vigia] = []
 var vencidos_total := 0  # testes
 var rodada := {"sucata": 0, "nucleos": 0, "chips": 0}  # o que esta rodada já rendeu (a derrota leva metade)
 var _fila: Array[Dictionary] = []
@@ -43,6 +43,7 @@ var _painel_luz: OmniLight3D
 var _caixas: Array[Dictionary] = []
 var _caixa_n := 0
 var _caixa_t := 25.0
+var subidas := 0  # vezes que subiu de nível na arena (testes)
 var caixas_soltas := 0  # testes
 var caixas_pegas := 0
 var _mat_painel: StandardMaterial3D
@@ -675,7 +676,7 @@ static func montar(v: Vale) -> void:
 		if h > de:
 			_caixa(raiz, corpo, Vector3(MX * 2.0 / 12.0 + 0.05, h - de, 1.6), Transform3D(Basis.IDENTITY, aqui(xm, (h + de) * 0.5 - 0.3, -MZ - 0.2)), _mat(CONCRETO.darkened(rng.randf_range(0.0, 0.12)), 0.25, 0.4))
 	# o bloco de concreto que cobre o túnel, dentro do morro
-	_caixa(raiz, corpo, Vector3(PORTA_LARG + 9.0, PORTA_ALT + 6.0, 23.0), Transform3D(Basis.IDENTITY, aqui(0, (PORTA_ALT + 6.0) * 0.5 + 0.9, -MZ - 12.6)), _mat(CONCRETO.darkened(0.1), 0.2, 0.6), false)
+	_caixa(raiz, corpo, Vector3(PORTA_LARG + 9.0, PORTA_ALT + 6.0, 23.0), Transform3D(Basis.IDENTITY, aqui(0, (PORTA_ALT + 6.0) * 0.5 + 0.9, -MZ - 12.6)), _mat(CONCRETO.darkened(0.1), 0.2, 0.6))
 	# a porta grande: o pórtico e duas folhas só um pouco abertas. Lá dentro é breu; os robôs saem pela
 	# fresta, e o robô do jogador não entra (uma parede que não se vê fecha o vão)
 	var ferro := _mat(FERRO, 0.45, 0.2)
@@ -723,7 +724,15 @@ static func montar(v: Vale) -> void:
 			var meio := (p0 + p1) * 0.5
 			var inclina := Basis(Vector3(0, 0, 1), atan2(p1.y - p0.y, p1.x - p0.x))
 			_caixa(raiz, corpo, Vector3(p0.distance_to(p1) + 0.12, 0.6, comp_vao + 0.05), Transform3D(inclina, aqui(meio.x, meio.y, zc)),
-				_mat(Color(0.5, 0.52, 0.5).darkened(rng.randf() * 0.16), 0.22 + rng.randf() * 0.2, 0.1 + rng.randf() * 0.14))
+				_mat(Color(0.5, 0.52, 0.5).darkened(rng.randf() * 0.16), 0.22 + rng.randf() * 0.2, 0.1 + rng.randf() * 0.14), false)
+			# a colisão do painel é mais grossa que ele (2 m, para dentro) e passa um pouco dos vizinhos: com a
+			# chapa fina de 0,6 m o robô entrava no telhado nas emendas e ao pousar depressa
+			var cp := CollisionShape3D.new()
+			var fp := BoxShape3D.new()
+			fp.size = Vector3(p0.distance_to(p1) + 0.6, 2.0, comp_vao + 0.3)
+			cp.shape = fp
+			cp.transform = Transform3D(inclina, aqui(meio.x, meio.y, zc) + inclina * Vector3(0, 0.7, 0))
+			corpo.add_child(cp)
 	var ferro_arco := _mat(FERRO, 0.5, 0.15)
 	for iz in vaos + 1:
 		var zr := -MZ + iz * comp_vao
@@ -733,11 +742,11 @@ static func montar(v: Vale) -> void:
 			var p0 := Vector2(cos(a0) * (ARCO_A - 0.7), sin(a0) * (ARCO_H - 0.7))
 			var p1 := Vector2(cos(a1) * (ARCO_A - 0.7), sin(a1) * (ARCO_H - 0.7))
 			var meio := (p0 + p1) * 0.5
-			_caixa(raiz, corpo, Vector3(p0.distance_to(p1) + 0.2, 1.1, 0.8 if iz > 0 and iz < vaos else 1.5), Transform3D(Basis(Vector3(0, 0, 1), atan2(p1.y - p0.y, p1.x - p0.x)), aqui(meio.x, meio.y, zr)), ferro_arco, false)
+			_caixa(raiz, corpo, Vector3(p0.distance_to(p1) + 0.2, 1.1, 0.8 if iz > 0 and iz < vaos else 1.5), Transform3D(Basis(Vector3(0, 0, 1), atan2(p1.y - p0.y, p1.x - p0.x)), aqui(meio.x, meio.y, zr)), ferro_arco)
 			# a mesma nervura por fora, mais fina, como cinta do telhado
 			var q0 := Vector2(cos(a0) * (ARCO_A + 0.45), sin(a0) * (ARCO_H + 0.45))
 			var q1 := Vector2(cos(a1) * (ARCO_A + 0.45), sin(a1) * (ARCO_H + 0.45))
-			_caixa(raiz, corpo, Vector3(q0.distance_to(q1) + 0.2, 0.5, 0.9), Transform3D(Basis(Vector3(0, 0, 1), atan2(q1.y - q0.y, q1.x - q0.x)), aqui((q0.x + q1.x) * 0.5, (q0.y + q1.y) * 0.5, zr)), ferro_arco, false)
+			_caixa(raiz, corpo, Vector3(q0.distance_to(q1) + 0.2, 0.5, 0.9), Transform3D(Basis(Vector3(0, 0, 1), atan2(q1.y - q0.y, q1.x - q0.x)), aqui((q0.x + q1.x) * 0.5, (q0.y + q1.y) * 0.5, zr)), ferro_arco)
 	_morro(v, raiz)
 	# a frente aberta: dois pedaços de parede que sobraram nos cantos e a placa da engrenagem no alto
 	for s: float in [-1.0, 1.0]:
@@ -875,8 +884,10 @@ static func receita(numero: int) -> Array[Dictionary]:
 	var quantos := mini(2 + numero, 14)
 	if chefe:
 		quantos = 2 + int(numero / CHEFE_A_CADA)
-		lista.append({"chefe": true, "resistencia": 1.5 + numero / float(CHEFE_A_CADA) * 0.5, "semente": 9100 + numero,
-			"arma": "corpo" if numero <= 5 else ("bala" if numero <= 10 else "pesado")})
+		# os minichefes se revezam: o Stan (atira de longe) nas ondas 5, 15, 25...; o Trilobite (corre e bate)
+		# nas 10, 20, 30...
+		lista.append({"chefe": true, "resistencia": 1.0 + numero / float(CHEFE_A_CADA) * 0.5, "semente": 9100 + numero,
+			"arma": "", "tipo": "stan" if int(numero / CHEFE_A_CADA) % 2 == 1 else "trilobite"})
 	var balas := 0 if numero < 4 else clampi(int((numero - 2) / 2.0), 1, quantos - 2)
 	var pesados := 0 if numero < 7 else clampi(int((numero - 5) / 3.0), 1, 3)
 	var misseis := 0 if numero < 10 else clampi(int((numero - 8) / 3.0), 1, 3)
@@ -889,7 +900,9 @@ static func receita(numero: int) -> Array[Dictionary]:
 			arma = "pesado"
 		elif i < misseis + pesados + balas:
 			arma = "bala"
-		lista.append({"chefe": false, "resistencia": 1.0 + (numero - 1) * 0.1, "semente": 9000 + numero * 37 + i, "arma": arma})
+		# da 4ª onda em diante, metade dos atiradores de fuzil são QuadShells (pequenos, de quatro patas)
+		var tipo := "quadshell" if arma == "bala" and (i - misseis - pesados) % 2 == 0 else "mecha"
+		lista.append({"chefe": false, "resistencia": 1.0 + (numero - 1) * 0.1, "semente": 9000 + numero * 37 + i, "arma": arma, "tipo": tipo})
 	# os de perto saem primeiro; os de arma, por último
 	lista.reverse()
 	if chefe:
@@ -915,7 +928,7 @@ func _comecar_onda() -> void:
 	_fila = receita(onda)
 	_solta_t = 0.0
 	if hud:
-		hud.avisar("Onda %d" % onda, "minichefe!" if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
+		hud.avisar("Onda %d" % onda, ("minichefe: %s" % MaquinaPacote.TITULOS[_fila[0]["tipo"]]) if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
 
 
 func _soltar(dados: Dictionary) -> void:
@@ -923,15 +936,22 @@ func _soltar(dados: Dictionary) -> void:
 	# todos nascem no breu atrás da porta, em fila, e andam reto até passar da fresta
 	_portao += 1
 	var de := aqui(0.0, 0.2, -MZ - 5.0 - (_portao % 4) * 3.2)
-	var mc := Mecha.new()
+	var mc: Vigia
+	if String(dados.get("tipo", "mecha")) == "mecha":
+		var me := Mecha.new()
+		me.arma_forcada = dados["arma"]
+		mc = me
+	else:
+		var mp := MaquinaPacote.new()
+		mp.tipo = dados["tipo"]
+		mc = mp
 	mc.mapa = mapa
 	mc.alvo = armadura
-	# a "casa" é um ponto perto do meio: dali eles já enxergam o robô em quase toda a cratera
+	# a "casa" é um ponto perto do meio: dali eles já enxergam o robô em quase todo o galpão
 	mc.casa = Vector3(CENTRO.x, PISO, CENTRO.y) + (de - Vector3(CENTRO.x, PISO, CENTRO.y)).normalized() * 16.0
 	mc.semente = dados["semente"]
 	mc.chefe = chefe
 	mc.resistencia = dados["resistencia"]
-	mc.arma_forcada = dados["arma"]
 	add_child(mc)
 	mc.global_position = de
 	mc.guiado = aqui(0.0, 0.0, -MZ + 9.0)
@@ -1012,7 +1032,7 @@ func _andar_caixas(delta: float) -> void:
 			_caixas.erase(cx)
 
 
-func _recompensa(mc: Mecha) -> void:
+func _recompensa(mc: Vigia) -> void:
 	vencidos_total += 1
 	var xp := roundi((80.0 if mc.chefe else 10.0) * (1.0 + onda * 0.15))
 	var nivel_antes := Arsenal.nivel()
@@ -1029,8 +1049,13 @@ func _recompensa(mc: Mecha) -> void:
 	for k: String in ganho:
 		rodada[k] += ganho[k]
 	Arsenal.guardar()
-	if Arsenal.nivel() > nivel_antes and hud:
-		hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações na base")
+	if Arsenal.nivel() > nivel_antes:
+		subidas += 1
+		EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
+		if hud:
+			hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações na base")
+		if sons:
+			sons._toque("religar", -3.0, 0.0)
 	# os espólios: cubinhos de luz que saem do robô caído e voam para o jogador
 	for i in mini(4, int(ganho["sucata"]) + int(ganho["nucleos"]) + int(ganho["chips"])):
 		var cubo := MeshInstance3D.new()
