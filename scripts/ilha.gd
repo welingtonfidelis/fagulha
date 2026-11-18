@@ -42,6 +42,15 @@ var _n_mata: FastNoiseLite
 var _n_campo: FastNoiseLite
 
 
+## Chamado entre os passos da montagem (fração de 0 a 1 e o que está sendo feito): a tela de carregamento.
+var aviso := Callable()
+
+
+func _avisar(f: float, texto: String) -> void:
+	if aviso.is_valid():
+		await aviso.call(f, texto)
+
+
 func gerar(semente := 7) -> void:
 	var t0 := Time.get_ticks_msec()
 	_ruidos(semente)

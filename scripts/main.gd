@@ -31,6 +31,9 @@ var sol: DirectionalLight3D
 func _ready() -> void:
 	Controles.configurar()
 	var args := OS.get_cmdline_user_args()
+	Tempos.ligado = "--tempos" in args
+	Cache.ligado = not ("--sem-cache" in args)
+	Tempos.marca("início")
 	# nos testes e nas fotos nada é lido nem gravado da última partida
 	Guardado.ativo = not ("--teste" in args or "--teste-vale" in args or "--captura" in args or "--vale-captura" in args)
 	Guardado.carregar()
@@ -43,6 +46,13 @@ func _ready() -> void:
 	if Guardado.ativo:
 		Melhorias.carregar()
 		Arsenal.carregar()
+	# no jogo de verdade o mundo é montado atrás da tela de carregamento
+	set_process(false)
+	var carga: Carregando = null
+	if Guardado.ativo or "--carregando" in args:
+		carga = Carregando.new()
+		add_child(carga)
+		await carga.mostrar(0.03, "Lendo o relevo")
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
@@ -62,7 +72,17 @@ func _ready() -> void:
 	ArmaduraVisual.toon = vale
 	ilha.name = "Mapa"
 	add_child(ilha)
-	ilha.gerar(7)
+	Tempos.marca("antes de gerar")
+	if carga != null:
+		ilha.aviso = carga.mostrar
+	await ilha.gerar(7)
+	if carga != null:
+		await carga.mostrar(0.92, "Acordando os bichos e as máquinas")
+	Tempos.marca("gerar (total)")
+	if Tempos.ligado:
+		print("TEMPO desde o início do processo: %d ms (cache: %d lidos, %d gravados)" % [Time.get_ticks_msec(), Cache.lidos, Cache.gravados])
+		get_tree().process_frame.connect(func(): print("TEMPO primeiro quadro aos %d ms" % Time.get_ticks_msec()), CONNECT_ONE_SHOT)
+		RenderingServer.frame_post_draw.connect(func(): print("TEMPO primeiro desenho aos %d ms" % Time.get_ticks_msec()), CONNECT_ONE_SHOT)
 	armadura = Armadura.new()
 	armadura.name = "Armadura"
 	armadura.ilha = ilha
@@ -281,6 +301,9 @@ func _ready() -> void:
 	add_child(pausa)
 	aplicar_ajustes()
 	_retomar_progresso()
+	set_process(true)
+	if carga != null:
+		carga.fechar()
 	if "--teste" in args:
 		var t := Testes.new()
 		add_child(t)
@@ -475,5 +498,5 @@ func _process(delta: float) -> void:
 
 func _notification(o_que: int) -> void:
 	if o_que == NOTIFICATION_WM_CLOSE_REQUEST or o_que == NOTIFICATION_PREDELETE:
-		if is_inside_tree():
+		if is_inside_tree() and is_processing():
 			guardar_progresso()

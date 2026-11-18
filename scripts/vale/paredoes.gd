@@ -92,113 +92,133 @@ static func montar(v: Vale) -> void:
 		m.surface_set_material(0, mat)
 		malhas.append(m)
 		pontos.append(m.surface_get_arrays(0)[Mesh.ARRAY_VERTEX])
+	Tempos.marca("  par: variantes")
 	var corpo := StaticBody3D.new()
 	corpo.name = "Paredoes"
 	corpo.collision_layer = 1
 	corpo.collision_mask = 0
 	v.add_child(corpo)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 23
 	var grupos := {}  # "variante|bx|bz|porte" -> transformações
 	var arbustos: Array = []
+	var cols: Array = []  # [casco, lugar] de cada rocha com colisão
 	var n_parede := 0
 	var n_pe := 0
-	for gz in range(2, Vale.F_N - 2):
-		for gx in range(2, Vale.F_N - 2):
-			var x := -Vale.F_META + gx * Vale.F_PASSO
-			var z := -Vale.F_META + gz * Vale.F_PASSO
-			if maxf(absf(x), absf(z)) < Clareira.C_META + 6.0 or Cavernas.dentro(x, z, 2.0):
-				continue
-			var nrm := v.normal_em_fora(gx, gz)
-			if nrm.y > INGREME:
-				continue
-			var h := v._fora_h[gz * Vale.F_N + gx]
-			if h < 1.0:
-				continue
-			var fora := Vector3(nrm.x, 0, nrm.z).normalized()  # para onde a parede olha
-			var forca := smoothstep(INGREME, 0.35, nrm.y)  # 0 na encosta, 1 na parede em pé
-			# massas de rocha encostadas na parede: poucas e grandes, de pé como colunas, uma ao lado da
-			# outra. Onde duas se encontram fica a fenda escura; em cima de cada uma, o capim.
-			if rng.randf() < 0.16 + forca * 0.5:
-				var px := x + rng.randf_range(-2.0, 2.0)
-				var pz := z + rng.randf_range(-2.0, 2.0)
-				var larg := rng.randf_range(4.5, 8.0) * (0.7 + forca * 0.6)
-				if rng.randf() < 0.1:
-					larg *= 1.5  # de vez em quando um contraforte
-				var alt := larg * rng.randf_range(1.3, 2.3) * (0.55 + forca * 0.65)
-				var esc := Vector3(larg, alt, larg * rng.randf_range(0.6, 0.85))
-				var base := Basis.looking_at(-fora, Vector3.UP) if fora.length_squared() > 0.5 else Basis.IDENTITY
-				base = base * Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.16), rng.randf_range(-0.5, 0.5), rng.randf_range(-0.12, 0.12)))
-				var pos := Vector3(px, v._fora(px, pz) - alt * rng.randf_range(0.0, 0.25), pz) + fora * larg * rng.randf_range(-0.15, 0.12)
-				var xf := Transform3D(base.scaled_local(esc * 0.5 / 0.5), pos)
-				var vi := rng.randi() % VARIANTES
-				_guardar(grupos, vi, xf, true)
-				n_parede += 1
-				_colisao(corpo, pontos[vi], xf)
-			# pedras caídas no pé: desce a encosta até o chão deitar e larga algumas ali
-			if rng.randf() < 0.3 * forca + 0.06:
-				var p2 := Vector2(x, z)
-				var achou := false
-				for passo in 9:
-					p2 += Vector2(fora.x, fora.z) * 4.0
-					if v.normal_em(p2.x, p2.y).y > 0.9:
-						achou = true
-						break
-				if achou and maxf(absf(p2.x), absf(p2.y)) > Clareira.C_META + 4.0 and v._fora(p2.x, p2.y) > 1.0 and not v._perto_dagua(p2.x, p2.y):
-					for k in rng.randi_range(1, 3):
-						var qx := p2.x + rng.randf_range(-5.0, 5.0)
-						var qz := p2.y + rng.randf_range(-5.0, 5.0)
-						var tam := rng.randf_range(0.5, 1.5) * (1.9 if rng.randf() < 0.15 else 1.0)
-						var esc := Vector3(tam * rng.randf_range(0.8, 1.3), tam * rng.randf_range(0.6, 1.0), tam * rng.randf_range(0.8, 1.3))
-						var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))).scaled_local(esc),
-							Vector3(qx, v._fora(qx, qz) + tam * 0.15, qz))
-						var vi := rng.randi() % VARIANTES
-						_guardar(grupos, vi, xf, false)
-						n_pe += 1
-						if tam > 1.3:
-							_colisao(corpo, pontos[vi], xf)
-			# arbustos agarrados na beira de cima e nos degraus menos em pé
-			if forca < 0.5 and rng.randf() < 0.1:
-				var s := rng.randf_range(0.8, 1.5)
-				arbustos.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
-	# a falésia da borda do mapa (Vale._falesia_da_borda) é uma parede reta: colunas de rocha encostadas
-	# nela, de alturas e larguras variadas, quebram a linha; no pé, pedras meio dentro d'água
 	var n_borda := 0
-	var ult := Vale.F_N - 1
-	for lado: Array in [[Vector2i(0, 0), Vector2i(1, 0), Vector3(0, 0, -1)], [Vector2i(ult, 0), Vector2i(0, 1), Vector3(1, 0, 0)],
-			[Vector2i(ult, ult), Vector2i(-1, 0), Vector3(0, 0, 1)], [Vector2i(0, ult), Vector2i(0, -1), Vector3(-1, 0, 0)]]:
-		var fora: Vector3 = lado[2]
-		var base := Basis.looking_at(-fora, Vector3.UP)
-		for k in range(1, ult):
-			var g: Vector2i = (lado[0] as Vector2i) + (lado[1] as Vector2i) * k
-			var h := v._fora_h[g.y * Vale.F_N + g.x]
-			if h < 1.5:
-				continue
-			var x := -Vale.F_META + g.x * Vale.F_PASSO
-			var z := -Vale.F_META + g.y * Vale.F_PASSO
-			var total := h + 15.0
-			if h > 5.0 and rng.randf() < 0.42:
-				var larg := rng.randf_range(5.0, 9.5) * (1.5 if rng.randf() < 0.12 else 1.0)
-				var alt := h * rng.randf_range(0.45, 0.8)
-				var cy := minf(h * rng.randf_range(0.2, 0.62), h + 1.0 - alt * 0.8)
-				# a parede sai para fora conforme desce: a coluna fica encostada nela, na altura do meio dela
-				var desce := clampf((h - cy) / total, 0.0, 1.0)
-				var afasta := total * 0.3 * desce + larg * rng.randf_range(0.0, 0.25)
-				var xf := Transform3D((base * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.14), rng.randf_range(-0.5, 0.5), rng.randf_range(-0.1, 0.1))))
-					.scaled_local(Vector3(larg, alt, larg * rng.randf_range(0.6, 0.9))), Vector3(x, cy, z) + fora * afasta)
-				var vi := rng.randi() % VARIANTES
-				_guardar(grupos, vi, xf, true)
-				_colisao(corpo, pontos[vi], xf)
-				n_borda += 1
-			if rng.randf() < 0.3:
-				var tam := rng.randf_range(1.5, 4.5) * (1.7 if rng.randf() < 0.12 else 1.0)
-				var esc := Vector3(tam * rng.randf_range(0.8, 1.3), tam * rng.randf_range(0.6, 1.1), tam * rng.randf_range(0.8, 1.3))
-				var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))).scaled_local(esc),
-					Vector3(x, rng.randf_range(-0.5, 0.6) * tam * 0.5, z) + fora * (total * rng.randf_range(0.3, 0.5) + 3.0) + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2)))
-				var vi := rng.randi() % VARIANTES
-				_guardar(grupos, vi, xf, true)
-				_colisao(corpo, pontos[vi], xf)
-				n_borda += 1
+	# o sorteio das rochas é o passo mais demorado da abertura: fica guardado (Cache)
+	var guardado: Variant = Cache.ler("paredoes")
+	if guardado is Dictionary:
+		grupos = guardado["grupos"]
+		arbustos = guardado["arbustos"]
+		cols = guardado["cols"]
+		n_parede = guardado["n_parede"]
+		n_pe = guardado["n_pe"]
+		n_borda = guardado["n_borda"]
+	else:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 23
+		for gz in range(2, Vale.F_N - 2):
+			for gx in range(2, Vale.F_N - 2):
+				var x := -Vale.F_META + gx * Vale.F_PASSO
+				var z := -Vale.F_META + gz * Vale.F_PASSO
+				if maxf(absf(x), absf(z)) < Clareira.C_META + 6.0 or Cavernas.dentro(x, z, 2.0):
+					continue
+				var nrm := v.normal_em_fora(gx, gz)
+				if nrm.y > INGREME:
+					continue
+				var h := v._fora_h[gz * Vale.F_N + gx]
+				if h < 1.0:
+					continue
+				var fora := Vector3(nrm.x, 0, nrm.z).normalized()  # para onde a parede olha
+				var forca := smoothstep(INGREME, 0.35, nrm.y)  # 0 na encosta, 1 na parede em pé
+				# massas de rocha encostadas na parede: poucas e grandes, de pé como colunas, uma ao lado da
+				# outra. Onde duas se encontram fica a fenda escura; em cima de cada uma, o capim.
+				if rng.randf() < 0.16 + forca * 0.5:
+					var px := x + rng.randf_range(-2.0, 2.0)
+					var pz := z + rng.randf_range(-2.0, 2.0)
+					var larg := rng.randf_range(4.5, 8.0) * (0.7 + forca * 0.6)
+					if rng.randf() < 0.1:
+						larg *= 1.5  # de vez em quando um contraforte
+					var alt := larg * rng.randf_range(1.3, 2.3) * (0.55 + forca * 0.65)
+					var esc := Vector3(larg, alt, larg * rng.randf_range(0.6, 0.85))
+					var base := Basis.looking_at(-fora, Vector3.UP) if fora.length_squared() > 0.5 else Basis.IDENTITY
+					base = base * Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.16), rng.randf_range(-0.5, 0.5), rng.randf_range(-0.12, 0.12)))
+					var pos := Vector3(px, v._fora(px, pz) - alt * rng.randf_range(0.0, 0.25), pz) + fora * larg * rng.randf_range(-0.15, 0.12)
+					var xf := Transform3D(base.scaled_local(esc * 0.5 / 0.5), pos)
+					var vi := rng.randi() % VARIANTES
+					_guardar(grupos, vi, xf, true)
+					n_parede += 1
+					_casco(cols, pontos[vi], xf)
+				# pedras caídas no pé: desce a encosta até o chão deitar e larga algumas ali
+				if rng.randf() < 0.3 * forca + 0.06:
+					var p2 := Vector2(x, z)
+					var achou := false
+					for passo in 9:
+						p2 += Vector2(fora.x, fora.z) * 4.0
+						if v.normal_em(p2.x, p2.y).y > 0.9:
+							achou = true
+							break
+					if achou and maxf(absf(p2.x), absf(p2.y)) > Clareira.C_META + 4.0 and v._fora(p2.x, p2.y) > 1.0 and not v._perto_dagua(p2.x, p2.y):
+						for k in rng.randi_range(1, 3):
+							var qx := p2.x + rng.randf_range(-5.0, 5.0)
+							var qz := p2.y + rng.randf_range(-5.0, 5.0)
+							var tam := rng.randf_range(0.5, 1.5) * (1.9 if rng.randf() < 0.15 else 1.0)
+							var esc := Vector3(tam * rng.randf_range(0.8, 1.3), tam * rng.randf_range(0.6, 1.0), tam * rng.randf_range(0.8, 1.3))
+							var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))).scaled_local(esc),
+								Vector3(qx, v._fora(qx, qz) + tam * 0.15, qz))
+							var vi := rng.randi() % VARIANTES
+							_guardar(grupos, vi, xf, false)
+							n_pe += 1
+							if tam > 1.3:
+								_casco(cols, pontos[vi], xf)
+				# arbustos agarrados na beira de cima e nos degraus menos em pé
+				if forca < 0.5 and rng.randf() < 0.1:
+					var s := rng.randf_range(0.8, 1.5)
+					arbustos.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
+		Tempos.marca("  par: grade")
+		# a falésia da borda do mapa (Vale._falesia_da_borda) é uma parede reta: colunas de rocha encostadas
+		# nela, de alturas e larguras variadas, quebram a linha; no pé, pedras meio dentro d'água
+		n_borda = 0
+		var ult := Vale.F_N - 1
+		for lado: Array in [[Vector2i(0, 0), Vector2i(1, 0), Vector3(0, 0, -1)], [Vector2i(ult, 0), Vector2i(0, 1), Vector3(1, 0, 0)],
+				[Vector2i(ult, ult), Vector2i(-1, 0), Vector3(0, 0, 1)], [Vector2i(0, ult), Vector2i(0, -1), Vector3(-1, 0, 0)]]:
+			var fora: Vector3 = lado[2]
+			var base := Basis.looking_at(-fora, Vector3.UP)
+			for k in range(1, ult):
+				var g: Vector2i = (lado[0] as Vector2i) + (lado[1] as Vector2i) * k
+				var h := v._fora_h[g.y * Vale.F_N + g.x]
+				if h < 1.5:
+					continue
+				var x := -Vale.F_META + g.x * Vale.F_PASSO
+				var z := -Vale.F_META + g.y * Vale.F_PASSO
+				var total := h + 15.0
+				if h > 5.0 and rng.randf() < 0.42:
+					var larg := rng.randf_range(5.0, 9.5) * (1.5 if rng.randf() < 0.12 else 1.0)
+					var alt := h * rng.randf_range(0.45, 0.8)
+					var cy := minf(h * rng.randf_range(0.2, 0.62), h + 1.0 - alt * 0.8)
+					# a parede sai para fora conforme desce: a coluna fica encostada nela, na altura do meio dela
+					var desce := clampf((h - cy) / total, 0.0, 1.0)
+					var afasta := total * 0.3 * desce + larg * rng.randf_range(0.0, 0.25)
+					var xf := Transform3D((base * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.14), rng.randf_range(-0.5, 0.5), rng.randf_range(-0.1, 0.1))))
+						.scaled_local(Vector3(larg, alt, larg * rng.randf_range(0.6, 0.9))), Vector3(x, cy, z) + fora * afasta)
+					var vi := rng.randi() % VARIANTES
+					_guardar(grupos, vi, xf, true)
+					_casco(cols, pontos[vi], xf)
+					n_borda += 1
+				if rng.randf() < 0.3:
+					var tam := rng.randf_range(1.5, 4.5) * (1.7 if rng.randf() < 0.12 else 1.0)
+					var esc := Vector3(tam * rng.randf_range(0.8, 1.3), tam * rng.randf_range(0.6, 1.1), tam * rng.randf_range(0.8, 1.3))
+					var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))).scaled_local(esc),
+						Vector3(x, rng.randf_range(-0.5, 0.6) * tam * 0.5, z) + fora * (total * rng.randf_range(0.3, 0.5) + 3.0) + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2)))
+					var vi := rng.randi() % VARIANTES
+					_guardar(grupos, vi, xf, true)
+					_casco(cols, pontos[vi], xf)
+					n_borda += 1
+		Cache.gravar("paredoes", {"grupos": grupos, "arbustos": arbustos, "cols": cols, "n_parede": n_parede, "n_pe": n_pe, "n_borda": n_borda})
+	Tempos.marca("  par: sorteio ou cache")
+	for item: Array in cols:
+		_colisao(corpo, item[0], item[1])
+	Tempos.marca("  par: colisão")
+	Tempos.marca("  par: borda")
 	print("paredões: %d rochas na falésia da borda" % n_borda)
 	for chave: String in grupos:
 		var partes := chave.split("|")
@@ -248,7 +268,7 @@ static func _guardar(grupos: Dictionary, variante: int, xf: Transform3D, grande:
 
 
 ## Colisão de uma rocha grande: o casco dela já no lugar (a forma não é esticada depois).
-static func _colisao(corpo: StaticBody3D, pts: PackedVector3Array, xf: Transform3D) -> void:
+static func _casco(cols: Array, pts: PackedVector3Array, xf: Transform3D) -> void:
 	var casco := PackedVector3Array()
 	var visto := {}
 	for p in pts:
@@ -257,11 +277,15 @@ static func _colisao(corpo: StaticBody3D, pts: PackedVector3Array, xf: Transform
 		if not visto.has(ch):
 			visto[ch] = true
 			casco.append(q)
+	cols.append([casco, xf.origin])
+
+
+static func _colisao(corpo: StaticBody3D, casco: PackedVector3Array, lugar: Vector3) -> void:
 	var forma := ConvexPolygonShape3D.new()
 	forma.points = casco
 	var cs := CollisionShape3D.new()
 	cs.shape = forma
-	cs.position = xf.origin
+	cs.position = lugar
 	corpo.add_child(cs)
 	if RochaMalha.vale:
-		Obstaculos.registrar_forma(forma, Transform3D(Basis.IDENTITY, xf.origin), RochaMalha.vale.altura(xf.origin.x, xf.origin.z))
+		Obstaculos.registrar_forma(forma, Transform3D(Basis.IDENTITY, lugar), RochaMalha.vale.altura(lugar.x, lugar.z))

@@ -78,37 +78,43 @@ static func rebaixar(mn: Vector3, mx: Vector3, vazio: Callable) -> void:
 	var gz0 := int((mn.z + Vale.F_META) / Vale.F_PASSO)
 	var gz1 := int((mx.z + Vale.F_META) / Vale.F_PASSO) + 1
 	var novo := {}
-	for gz in range(gz0, gz1 + 1):
-		for gx in range(gx0, gx1 + 1):
-			var x := -Vale.F_META + gx * Vale.F_PASSO
-			var z := -Vale.F_META + gz * Vale.F_PASSO
-			var y := mn.y
-			var teto := Cavernas._orig[gz * Vale.F_N + gx] - 1.0
-			while y < teto:
-				if float(vazio.call(Vector3(x, y, z))) < 0.0:
-					novo[Vector2i(gx, gz)] = y - REBAIXO
-					break
-				y += 0.6
-	# cada nó desce até o mais fundo dos vizinhos: na beira de um vazio o piso começa mais alto (parede
-	# curva), e sem isso a grade aparecia ali por dentro
-	var fundo := {}
-	for chave: Vector2i in novo:
-		var m := float(novo[chave])
-		for dz in [-1, 0, 1]:
-			for dx in [-1, 0, 1]:
-				m = minf(m, float(novo.get(chave + Vector2i(dx, dz), INF)))
-		fundo[chave] = m
-	novo = fundo
-	for volta in 2:
-		var mais := {}
+	var nome := "rebaixo_%d_%d_%d_%d" % [gx0, gz0, gx1, gz1]
+	var guardado: Variant = Cache.ler(nome)
+	if guardado is Dictionary:
+		novo = guardado
+	else:
+		for gz in range(gz0, gz1 + 1):
+			for gx in range(gx0, gx1 + 1):
+				var x := -Vale.F_META + gx * Vale.F_PASSO
+				var z := -Vale.F_META + gz * Vale.F_PASSO
+				var y := mn.y
+				var teto := Cavernas._orig[gz * Vale.F_N + gx] - 1.0
+				while y < teto:
+					if float(vazio.call(Vector3(x, y, z))) < 0.0:
+						novo[Vector2i(gx, gz)] = y - REBAIXO
+						break
+					y += 0.6
+		# cada nó desce até o mais fundo dos vizinhos: na beira de um vazio o piso começa mais alto (parede
+		# curva), e sem isso a grade aparecia ali por dentro
+		var fundo := {}
 		for chave: Vector2i in novo:
+			var m := float(novo[chave])
 			for dz in [-1, 0, 1]:
 				for dx in [-1, 0, 1]:
-					var viz := chave + Vector2i(dx, dz)
-					if not novo.has(viz):
-						mais[viz] = minf(float(mais.get(viz, INF)), float(novo[chave]))
-		for chave: Vector2i in mais:
-			novo[chave] = mais[chave]
+					m = minf(m, float(novo.get(chave + Vector2i(dx, dz), INF)))
+			fundo[chave] = m
+		novo = fundo
+		for volta in 2:
+			var mais := {}
+			for chave: Vector2i in novo:
+				for dz in [-1, 0, 1]:
+					for dx in [-1, 0, 1]:
+						var viz := chave + Vector2i(dx, dz)
+						if not novo.has(viz):
+							mais[viz] = minf(float(mais.get(viz, INF)), float(novo[chave]))
+			for chave: Vector2i in mais:
+				novo[chave] = mais[chave]
+		Cache.gravar(nome, novo)
 	for chave: Vector2i in novo:
 		var i := chave.y * Vale.F_N + chave.x
 		if float(novo[chave]) < vale._fora_h[i]:

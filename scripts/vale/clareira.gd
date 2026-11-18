@@ -75,32 +75,49 @@ func gerar(_semente := 7) -> void:
 	_tex.height = 512
 	_tex.seamless = true
 	_tex.noise = _ruido(77, 1.0 / 40.0, 4)
-	alturas.resize(C_N * C_N)
-	for iz in C_N:
-		for ix in C_N:
-			alturas[iz * C_N + ix] = _alt(-C_META + ix, -C_META + iz)
-	normais.resize(C_N * C_N)
-	cores.resize(C_N * C_N)
-	for iz in C_N:
-		for ix in C_N:
-			var i := iz * C_N + ix
-			var hl := alturas[i - 1] if ix > 0 else alturas[i]
-			var hr := alturas[i + 1] if ix < C_N - 1 else alturas[i]
-			var hd := alturas[i - C_N] if iz > 0 else alturas[i]
-			var hu := alturas[i + C_N] if iz < C_N - 1 else alturas[i]
-			normais[i] = Vector3(hl - hr, 2.0, hd - hu).normalized()
-			var p := Vector2(-C_META + ix, -C_META + iz)
-			var trilha := _claro(p)
-			var molhado := 1.0 - smoothstep(NIVEL - 0.1, NIVEL + 0.45, alturas[i])
-			cores[i] = Color(trilha, molhado, 0.0)
+	Tempos.marca("ruídos")
+	var guardado: Variant = Cache.ler("clareira_grade")
+	if guardado is Dictionary:
+		alturas = guardado["alturas"]
+		normais = guardado["normais"]
+		cores = guardado["cores"]
+	else:
+		alturas.resize(C_N * C_N)
+		for iz in C_N:
+			for ix in C_N:
+				alturas[iz * C_N + ix] = _alt(-C_META + ix, -C_META + iz)
+		normais.resize(C_N * C_N)
+		cores.resize(C_N * C_N)
+		for iz in C_N:
+			for ix in C_N:
+				var i := iz * C_N + ix
+				var hl := alturas[i - 1] if ix > 0 else alturas[i]
+				var hr := alturas[i + 1] if ix < C_N - 1 else alturas[i]
+				var hd := alturas[i - C_N] if iz > 0 else alturas[i]
+				var hu := alturas[i + C_N] if iz < C_N - 1 else alturas[i]
+				normais[i] = Vector3(hl - hr, 2.0, hd - hu).normalized()
+				var p := Vector2(-C_META + ix, -C_META + iz)
+				var trilha := _claro(p)
+				var molhado := 1.0 - smoothstep(NIVEL - 0.1, NIVEL + 0.45, alturas[i])
+				cores[i] = Color(trilha, molhado, 0.0)
+		Cache.gravar("clareira_grade", {"alturas": alturas, "normais": normais, "cores": cores})
+	Tempos.marca("grade da clareira")
 	_materiais()
+	Tempos.marca("_materiais")
 	_malha()
+	Tempos.marca("_malha")
 	_colisao()
+	Tempos.marca("_colisao")
 	_agua()
+	Tempos.marca("_agua")
 	_modelos()
+	Tempos.marca("_modelos")
 	_arvores_e_pedras()
+	Tempos.marca("_arvores_e_pedras")
 	_capim()
+	Tempos.marca("_capim")
 	_preparar_colisao_arvores()
+	Tempos.marca("_preparar_colisao_arvores")
 	spawn = Vector3(2.0, altura(2.0, 44.0) + 0.45, 44.0)  # em cima do estrado da base
 	spawn_yaw = atan2(-(LAGOA.x - 2.0) * 0.4, 44.0 + 10.0)  # olhando o campo, o riacho e a lagoa
 	lago_centro = Vector2(LAGOA.x, LAGOA.y)

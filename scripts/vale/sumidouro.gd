@@ -56,6 +56,7 @@ static func cavar(v: Vale) -> void:
 	if not _achar_lugar(v):
 		print("sumidouro: nenhum morro serviu")
 		return
+	Tempos.marca("  sum: achar lugar")
 	existe = true
 	_limites()
 	RochaMalha.rebaixar(_mn, _mx, vazio)

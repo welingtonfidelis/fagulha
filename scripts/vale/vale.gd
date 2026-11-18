@@ -52,28 +52,56 @@ var _costa_terra := PackedInt32Array()  # índice da célula de terra mais perto
 func gerar(_semente := 7) -> void:
 	var t0 := Time.get_ticks_msec()
 	Obstaculos.limpar()
+	Tempos.marca("Obstaculos.limpar")
 	_carregar()
+	Tempos.marca("_carregar")
 	_preparar_rio()
+	Tempos.marca("_preparar_rio")
 	Cavernas.cavar(self)
+	Tempos.marca("Cavernas.cavar")
 	Sumidouro.cavar(self)
+	Tempos.marca("Sumidouro.cavar")
 	Fundicao.cavar(self)
-	super.gerar(_semente)
+	Tempos.marca("Fundicao.cavar")
+	await _avisar(0.12, "Abrindo a clareira")
+	await super.gerar(_semente)
+	await _avisar(0.34, "Estendendo o chão e o mar")
+	Tempos.marca("super.gerar")
 	_malha_fora()
+	Tempos.marca("_malha_fora")
 	_colisao_fora()
+	Tempos.marca("_colisao_fora")
 	_falesia_da_borda()
+	Tempos.marca("_falesia_da_borda")
 	_mar()
+	Tempos.marca("_mar")
 	_fita_rio()
+	Tempos.marca("_fita_rio")
 	_preparar_costa()
+	Tempos.marca("_preparar_costa")
 	_cume()
+	Tempos.marca("_cume")
+	await _avisar(0.46, "Plantando a mata")
 	_mata_fora()
+	Tempos.marca("_mata_fora")
+	await _avisar(0.54, "Espalhando flores e pedras")
 	_plantas_do_chao()
+	Tempos.marca("_plantas_do_chao")
+	await _avisar(0.60, "Erguendo os paredões")
 	Paredoes.montar(self)
+	Tempos.marca("Paredoes.montar")
 	if "--assar-rochas" in OS.get_cmdline_user_args():
 		Sumidouro.assar()
+	await _avisar(0.76, "Acordando as ruínas")
 	Sumidouro.montar(self)
+	Tempos.marca("Sumidouro.montar")
 	Ruinas.montar(self)
+	Tempos.marca("Ruinas.montar")
 	Marcos.montar(self)
+	Tempos.marca("Marcos.montar")
+	await _avisar(0.86, "Acendendo as forjas")
 	Fundicao.montar(self)
+	Tempos.marca("Fundicao.montar")
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
 
@@ -943,85 +971,91 @@ func _plantas_do_chao() -> void:
 	rng.seed = 2311
 	var fila: Array = []
 	var pedras: Array = []
-	var passo := 6.0
-	var z := -F_META + 10.0
-	while z < F_META - 10.0:
-		var x := -F_META + 10.0
-		while x < F_META - 10.0:
-			var px := x + rng.randf_range(-2.8, 2.8)
-			var pz := z + rng.randf_range(-2.8, 2.8)
-			var sorte := rng.randf()
-			var qual := rng.randf()
-			var giro := rng.randf() * TAU
-			var tam := rng.randf_range(0.8, 1.25)
-			x += passo
-			var h := altura(px, pz)
-			if h < 2.5 or agua(px, pz) > -INF or normal_em(px, pz).y < 0.82 or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
-				continue
-			if Vector2(px - spawn.x, pz - spawn.z).length() < 10.0:
-				continue
-			var c := cobertura(px, pz) if maxf(absf(px), absf(pz)) > C_META else (1 if _arvore_cabe(px, pz) and Vector2(px, pz).length() > 70.0 else 0)
-			var mancha := _n_mata.get_noise_2d(px * 2.3 + 500.0, pz * 2.3 - 300.0)
-			var especie := _n_mata.get_noise_2d(px * 0.9 - 900.0, pz * 0.9 + 700.0)
-			var tipo := ""
-			var s := 1.0
-			if c == 0:
-				if mancha > 0.18 and sorte < 0.55:
-					if especie > 0.0:
-						tipo = "q_flor_a" if qual < 0.35 else "q_flor_b"
-					else:
-						tipo = "q_flor_c" if qual < 0.3 else "q_flor_d"
-					s = 0.25
-				elif sorte < 0.05:
-					tipo = ["q_planta_c", "q_planta_d", "q_trevo"][int(qual * 3.0) % 3]
-					s = 0.6
-				elif sorte < 0.062:
-					tipo = "q_seixo_a" if qual < 0.5 else "q_seixo_b"
-					s = 1.6
-				elif sorte < 0.068:
-					tipo = "q_pedra"
-			elif c == 1 or c == 2:
-				if sorte < 0.2:
-					tipo = ["q_samambaia", "q_samambaia", "q_planta_a", "q_planta_b"][int(qual * 4.0) % 4]
-					s = 0.6
-				elif sorte < 0.24:
-					tipo = "q_cogumelo"
-					s = 0.7
-				elif sorte < 0.28:
-					tipo = "q_moita" if qual < 0.7 else "q_moita_flor"
-					s = 0.8
-				elif sorte < 0.287:
-					tipo = "q_pedra"
-			if tipo == "":
-				continue
-			if tipo == "q_pedra":
-				tipo = ["q_pedra_a", "q_pedra_b", "q_pedra_c"][int(qual * 3.0) % 3]
-				s = rng.randf_range(0.3, 0.62)
-				var xfp := Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.12 * s, pz))
-				fila.append([tipo, xfp])
-				pedras.append([tipo, xfp])
-				continue
-			# deitada no chão inclinado
-			var n := normal_em(px, pz)
-			var b := Basis(Vector3.UP, giro)
-			b = Basis(Quaternion(Vector3.UP, n)) * b
-			fila.append([tipo, Transform3D(b.scaled(Vector3.ONE * s * tam), Vector3(px, h - 0.03, pz))])
-			if tipo.begins_with("q_flor"):
-				# flor vem em canteiro: mais três ou quatro em volta, da mesma espécie
-				for k in 3 + int(qual * 2.0):
-					var of := Vector2.from_angle(giro + k * 1.7) * rng.randf_range(0.6, 2.4)
-					var hf := altura(px + of.x, pz + of.y)
-					if agua(px + of.x, pz + of.y) > -INF:
-						continue
-					fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * rng.randf_range(0.7, 1.2)),
-						Vector3(px + of.x, hf - 0.03, pz + of.y))])
-			if tipo == "q_cogumelo":
-				# cogumelo vem em grupo
-				for k in 2:
-					var o := Vector2.from_angle(giro + k * 2.2) * rng.randf_range(0.35, 0.8)
-					fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * rng.randf_range(0.5, 0.9)),
-						Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
-		z += passo
+	var guardado: Variant = Cache.ler("plantas_chao")
+	if guardado is Dictionary:
+		fila = guardado["fila"]
+		pedras = guardado["pedras"]
+	else:
+		var passo := 6.0
+		var z := -F_META + 10.0
+		while z < F_META - 10.0:
+			var x := -F_META + 10.0
+			while x < F_META - 10.0:
+				var px := x + rng.randf_range(-2.8, 2.8)
+				var pz := z + rng.randf_range(-2.8, 2.8)
+				var sorte := rng.randf()
+				var qual := rng.randf()
+				var giro := rng.randf() * TAU
+				var tam := rng.randf_range(0.8, 1.25)
+				x += passo
+				var h := altura(px, pz)
+				if h < 2.5 or agua(px, pz) > -INF or normal_em(px, pz).y < 0.82 or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
+					continue
+				if Vector2(px - spawn.x, pz - spawn.z).length() < 10.0:
+					continue
+				var c := cobertura(px, pz) if maxf(absf(px), absf(pz)) > C_META else (1 if _arvore_cabe(px, pz) and Vector2(px, pz).length() > 70.0 else 0)
+				var mancha := _n_mata.get_noise_2d(px * 2.3 + 500.0, pz * 2.3 - 300.0)
+				var especie := _n_mata.get_noise_2d(px * 0.9 - 900.0, pz * 0.9 + 700.0)
+				var tipo := ""
+				var s := 1.0
+				if c == 0:
+					if mancha > 0.18 and sorte < 0.55:
+						if especie > 0.0:
+							tipo = "q_flor_a" if qual < 0.35 else "q_flor_b"
+						else:
+							tipo = "q_flor_c" if qual < 0.3 else "q_flor_d"
+						s = 0.25
+					elif sorte < 0.05:
+						tipo = ["q_planta_c", "q_planta_d", "q_trevo"][int(qual * 3.0) % 3]
+						s = 0.6
+					elif sorte < 0.062:
+						tipo = "q_seixo_a" if qual < 0.5 else "q_seixo_b"
+						s = 1.6
+					elif sorte < 0.068:
+						tipo = "q_pedra"
+				elif c == 1 or c == 2:
+					if sorte < 0.2:
+						tipo = ["q_samambaia", "q_samambaia", "q_planta_a", "q_planta_b"][int(qual * 4.0) % 4]
+						s = 0.6
+					elif sorte < 0.24:
+						tipo = "q_cogumelo"
+						s = 0.7
+					elif sorte < 0.28:
+						tipo = "q_moita" if qual < 0.7 else "q_moita_flor"
+						s = 0.8
+					elif sorte < 0.287:
+						tipo = "q_pedra"
+				if tipo == "":
+					continue
+				if tipo == "q_pedra":
+					tipo = ["q_pedra_a", "q_pedra_b", "q_pedra_c"][int(qual * 3.0) % 3]
+					s = rng.randf_range(0.3, 0.62)
+					var xfp := Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.12 * s, pz))
+					fila.append([tipo, xfp])
+					pedras.append([tipo, xfp])
+					continue
+				# deitada no chão inclinado
+				var n := normal_em(px, pz)
+				var b := Basis(Vector3.UP, giro)
+				b = Basis(Quaternion(Vector3.UP, n)) * b
+				fila.append([tipo, Transform3D(b.scaled(Vector3.ONE * s * tam), Vector3(px, h - 0.03, pz))])
+				if tipo.begins_with("q_flor"):
+					# flor vem em canteiro: mais três ou quatro em volta, da mesma espécie
+					for k in 3 + int(qual * 2.0):
+						var of := Vector2.from_angle(giro + k * 1.7) * rng.randf_range(0.6, 2.4)
+						var hf := altura(px + of.x, pz + of.y)
+						if agua(px + of.x, pz + of.y) > -INF:
+							continue
+						fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * rng.randf_range(0.7, 1.2)),
+							Vector3(px + of.x, hf - 0.03, pz + of.y))])
+				if tipo == "q_cogumelo":
+					# cogumelo vem em grupo
+					for k in 2:
+						var o := Vector2.from_angle(giro + k * 2.2) * rng.randf_range(0.35, 0.8)
+						fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * rng.randf_range(0.5, 0.9)),
+							Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
+			z += passo
+		Cache.gravar("plantas_chao", {"fila": fila, "pedras": pedras})
 	plantas_chao = fila.size()
 	for item in fila:
 		var onde: Vector3 = (item[1] as Transform3D).origin

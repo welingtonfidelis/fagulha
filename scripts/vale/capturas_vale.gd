@@ -202,6 +202,9 @@ func rodar(main: Node) -> void:
 			print("sumidouro: centro %s piso %.1f" % [Sumidouro.centro, Sumidouro.piso])
 		get_tree().quit()
 		return
+	if "--capa" in args:
+		await _capa()
+		return
 	if "--capim" in args:
 		# o campo de capim visto de perto ao longe: a borda onde as touceiras acabam (`--capim --hora 12`)
 		await _esperar(2.5)
@@ -2230,4 +2233,61 @@ func _scanner() -> void:
 			await _esperar(0.2)
 		await _foto("s4_ficha_mecha")
 		Input.action_release("atirar")
+	get_tree().quit()
+
+
+## Fotos para a arte da Steam (`--capa --hora N`): o robô voando sobre o vale, em vários lugares e ângulos.
+func _capa() -> void:
+	await _esperar(3.0)
+	a.recomecar()
+	m.hud.visible = false
+	var livre := Camera3D.new()
+	m.add_child(livre)
+	livre.far = 9000.0
+	livre.make_current()
+	# [nome, de onde sai (y acima do chão), rumo]
+	var voos := [["serra", Vector3(-80, 90, -160), Vector3(-0.7, 0, -1)]]
+	# [nome, à frente, ao lado, acima, olha à frente, olha acima, fov]
+	var angulos := [["largo", -2.6, 1.0, 0.7, 10.0, 0.6, 50.0], ["largo_b", -3.0, 1.6, 0.5, 10.0, 1.4, 50.0], ["alto", -3.2, 0.5, -0.2, 10.0, 3.2, 58.0],
+		["alto_b", -3.6, 0.9, -0.5, 10.0, 4.2, 62.0], ["alto_c", -2.8, -0.6, 0.0, 10.0, 3.0, 62.0]]
+	if "--pairando" in OS.get_cmdline_user_args():
+		# pairando de frente para a câmera, com a serra atrás
+		var serra := Vector3(-0.7, 0, -1).normalized()
+		var lugar := Vector3(-108, 0, -200)
+		lugar.y = c.altura(lugar.x, lugar.z) + 85.0
+		for caso: Array in [["a", 1.0, false]]:
+			a.calor = 0.0
+			a.teleportar(lugar, Armadura.Estado.PAIRAR)
+			cam.yaw = atan2(serra.x * caso[1], serra.z * caso[1])
+			cam.pitch = 0.0
+			if caso[2]:
+				Input.action_press("mirar")
+			await _esperar(1.6)
+			var p: Vector3 = a.global_position
+			var ld := serra.cross(Vector3.UP).normalized()
+			for v: Array in [["1", 1.8, 0.0, 0.2, 0.35, 60.0], ["2", 2.1, 0.0, 0.5, 0.3, 58.0], ["3", 1.9, 0.25, -0.2, 0.4, 62.0], ["4", 2.3, -0.2, 0.9, 0.2, 55.0], ["5", 1.6, 0.0, 0.5, 0.4, 62.0], ["6", 2.2, 0.0, 1.3, 0.2, 60.0]]:
+				livre.fov = v[5]
+				livre.global_position = p - serra * v[1] + ld * v[2] + Vector3.UP * v[3]
+				livre.look_at(p + Vector3.UP * v[4])
+				await _foto("pairando_%s_%s" % [caso[0], v[0]])
+			Input.action_release("mirar")
+		get_tree().quit()
+		return
+	for voo: Array in voos:
+		var de: Vector3 = voo[1]
+		var rumo: Vector3 = (voo[2] as Vector3).normalized()
+		var lado := rumo.cross(Vector3.UP).normalized()
+		for ang: Array in angulos:
+			a.calor = 0.0
+			a.teleportar(Vector3(de.x, c.altura(de.x, de.z) + de.y, de.z), Armadura.Estado.VOO, rumo * 30.0)
+			cam.yaw = atan2(-rumo.x, -rumo.z)
+			cam.pitch = 0.0
+			Input.action_press("frente")
+			await _esperar(1.4)
+			var p: Vector3 = a.global_position + a.velocity * (1.0 / 60.0)
+			livre.fov = ang[6]
+			livre.global_position = p + rumo * ang[1] + lado * ang[2] + Vector3.UP * ang[3]
+			livre.look_at(p + rumo * ang[4] + Vector3.UP * ang[5])
+			await _foto("%s_%s" % [voo[0], ang[0]])
+			Input.action_release("frente")
 	get_tree().quit()

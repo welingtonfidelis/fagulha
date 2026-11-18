@@ -1811,10 +1811,35 @@ Custo medido no Mac (`--vale-captura --perf`): igual ou melhor que antes (campos
 olhando o campo 32 → 38), porque os blocos de capim cheio deixaram de ser desenhados além de 113 m.
 Acima de 70 m do chão não nasce capim nem tufo novo, como antes. Fotos: `--vale-captura --capim`.
 
-### Fila depois do capim distante (pedido do usuário em 2026-11-17)
+### Fila (pedido do usuário em 2026-11-17)
 
-1. **Cache da montagem do mundo:** guardar em disco o que hoje é calculado a cada abertura (grade de
-   alturas, malhas do chão, posições de árvores, pedras e plantas) e só refazer quando o código que gera
-   mudar, para o jogo abrir mais rápido. Pré-requisito natural da ilha de 3 km.
-2. **Tela de carregamento temática**, no lugar da tela parada da abertura.
-3. Ampliação da ilha para 3 km (para onde crescer e os lugares novos: decisão do usuário).
+1. Ampliação da ilha para 3 km (para onde crescer e os lugares novos: decisão do usuário).
+
+## 74. Abertura mais rápida e tela de carregamento (2026-11-17)
+
+- **Cache da montagem (`Cache`, `scripts/cache.gd`).** Os passos mais demorados guardam o resultado em
+  `user://cache/*.bin` e da segunda abertura em diante só leem: o sorteio das rochas dos paredões
+  (`paredoes`, 1,6 s → 0,7 s; o que sobra é criar as 1.650 formas de colisão), as plantas do chão
+  (`plantas_chao`, 0,62 → 0,07 s), o rebaixo do terreno debaixo do Sumidouro (`rebaixo_*`, 0,64 → 0,01 s) e
+  a grade da clareira (`clareira_grade`, 0,72 → 0 s). Medido no Mac: do começo do processo ao mundo pronto,
+  6,1 s → 3,2 s. A primeira abertura depois de uma build nova continua levando o tempo inteiro.
+- **Quando o guardado vale.** Cada arquivo leva a identidade do jogo: no projeto, as datas de todos os
+  arquivos de `scripts/` e de `assets/vale/mapa/`; na build, a data do executável. Mudou, é refeito.
+  `--sem-cache` não lê nem grava. Passo novo que queira entrar: `Cache.ler(nome)` devolve null ou o dado,
+  `Cache.gravar(nome, dado)` guarda (o dado tem de ser só números, vetores, textos, listas e dicionários).
+- **Onde o tempo vai (`--tempos`).** `Tempos.marca` imprime quanto cada passo da montagem levou.
+- **Tela de carregamento (`Carregando`).** O vale ao amanhecer, desenhado por código: o céu clareia e o sol
+  sobe por trás dos morros conforme a montagem anda; embaixo, uma linha fina laranja e o passo ("Plantando
+  a mata", "Erguendo os paredões"...). A montagem avisa entre os passos por `Ilha.aviso` (`_avisar`), e cada
+  aviso desenha um quadro. Só no jogo de verdade (nos testes e nas fotos a montagem segue de uma vez;
+  `--carregando` força). A tela de abertura do motor ficou escura e sem logotipo, para emendar.
+  Na ponta da linha voa o vulto do robô (`_robo`): sobe, desce e inclina conforme o progresso, com o
+  jato aceso; ele só muda de pose a cada aviso (uns 10 quadros por carga).
+  Fotos: `godot --path . -s tools/foto_carregando.gd`; folha em `docs/telas/carregando.png`.
+
+## 75. Arte e nome na Steam do PC (2026-11-18)
+
+- O atalho do PC (appid 2572398341) passou a se chamar "Faísca 2: Em Busca do Sossego" e ganhou capa em pé, capa deitada, fundo, logo e ícone.
+- As peças ficam em `docs/steam/`. As fotos de base saem de `godot --path . --resolution 2560x1440 -- --vale-captura --capa --hora 6.5` (o robô voando rumo à serra ao amanhecer; com `--pairando`, ele parado no ar de frente para a câmera, usado na capa em pé porque de costas ele não se reconhecia) e vão para `docs/steam/fotos/`.
+- `godot --path . -s tools/arte_steam.gd` recorta as fotos e escreve o título, no estilo da tela de carregamento.
+- No PC, nome e arte entram com a Steam aberta, pela porta de depuração dela (`~/Games/JogoVoo/arte-steam/steam_js.py aplicar.js`), sem reiniciar a Steam.
