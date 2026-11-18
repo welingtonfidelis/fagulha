@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bjv3ch7hwlmvy"
+path="res://.godot/imported/Blobfish.obj-0d7ea089fb1c42ac89cf60d2142b477d.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Blobfish.obj-0d7ea089fb1c42ac89cf60d2142b477d.mesh"]
+
+source_file="res://assets/vale/peixes/Blobfish.obj"
+dest_files=["res://.godot/imported/Blobfish.obj-0d7ea089fb1c42ac89cf60d2142b477d.mesh", "res://.godot/imported/Blobfish.obj-0d7ea089fb1c42ac89cf60d2142b477d.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

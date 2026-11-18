@@ -10,17 +10,28 @@ extends Node3D
 
 const PERTO := 150.0
 const LONGE := 210.0
-const CARDUMES := 70
-const PEIXES_POR_CARDUME := 18
-const CORES: Array[Color] = [Color(0.95, 0.5, 0.12), Color(0.95, 0.82, 0.2), Color(0.25, 0.6, 0.9), Color(0.75, 0.8, 0.85), Color(0.9, 0.3, 0.35), Color(0.3, 0.8, 0.7)]
+const CARDUMES := 120
+const PEIXES_POR_CARDUME := 18  # o máximo num cardume de peixes pequenos
+## Os peixes vêm do Cute Fish Pack do Quaternius (CC0), que já estava na máquina do usuário: 32 espécies em
+## assets/vale/peixes/ (ficaram de fora o peixe-pescador, a piranha e o tubarão-duende, pelos dentes). Todos
+## olham para +Z e têm uns 5 de comprimento; aqui cada espécie ganha o tamanho dela, em metros.
+## nome -> [comprimento mínimo, máximo]
+const MAR_PEQUENOS := {"Clownfish": [0.4, 0.6], "ZebraClownFish": [0.4, 0.6], "BlueTang": [0.5, 0.75], "YellowTang": [0.5, 0.7], "Tang": [0.5, 0.7],
+	"ButterflyFish": [0.45, 0.65], "MoorishIdol": [0.5, 0.7], "CardinalFish": [0.4, 0.55], "RoyalGramma": [0.35, 0.5], "MandarinFish": [0.35, 0.5],
+	"RedSnapper": [0.7, 1.0], "ParrotFish": [0.8, 1.1], "Cowfish": [0.5, 0.7], "Puffer": [0.5, 0.75], "Blobfish": [0.5, 0.7], "Lionfish": [0.6, 0.85],
+	"BlackLionFish": [0.6, 0.85], "Flatfish": [0.6, 0.9], "Turbot": [0.6, 0.9]}
+const MAR_GRANDES := {"Shark": [3.0, 3.8], "Swordfish": [2.6, 3.2], "Tuna": [1.8, 2.4], "Sunfish": [2.0, 2.6], "Humphead": [1.4, 1.9], "CoralGrouper": [1.1, 1.5]}
+const DOCE := {"Koi": [0.6, 0.9], "Goldfish": [0.35, 0.5], "BlueGoldfish": [0.35, 0.5], "Betta": [0.35, 0.5], "Tetra": [0.3, 0.42], "ArmoredCatfish": [0.6, 0.9],
+	"FlowerHorn": [0.5, 0.7]}
 
 var mapa: Vale
 var alvo: Node3D
 var lugares: Array[Dictionary] = []  # {pos, semente, cor, no}
 var plantas := 0
+var PERTO_FOTO := 0.0  # as fotos ligam: cardumes nascem a qualquer distância
 var vivos := 0
 
-var _malha_peixe: Mesh
+var _malhas := {}  # espécie -> [malha com os materiais do vale, comprimento da malha]
 var _fila := 0
 var _t := 0.0
 
@@ -37,14 +48,31 @@ func _ready() -> void:
 	var t0 := Time.get_ticks_msec()
 	_plantar()
 	_sortear()
-	var cena := load("res://assets/vale/peixe.glb") as PackedScene
-	if cena:
-		var inst := cena.instantiate()
-		for n in inst.find_children("*", "MeshInstance3D", true, false):
-			_malha_peixe = (n as MeshInstance3D).mesh
-			break
-		inst.free()
-	print("vida na água: %d plantas e pedras de fundo, %d cardumes, %d ms" % [plantas, lugares.size(), Time.get_ticks_msec() - t0])
+	var especies := {}
+	for l: Dictionary in lugares:
+		especies[l["especie"]] = true
+	print("vida na água: %d plantas e pedras de fundo, %d cardumes de %d espécies, %d ms" % [plantas, lugares.size(), especies.size(), Time.get_ticks_msec() - t0])
+
+
+## A malha de uma espécie, com as cores do pacote na luz do vale (um material por cor, guardado).
+static var _mats_cor := {}
+
+static func malha_de(especie: String, mapa: Clareira) -> Array:
+	var m := load("res://assets/vale/peixes/%s.obj" % especie) as Mesh
+	if m == null:
+		return []
+	var copia := m.duplicate() as Mesh
+	for sup in copia.get_surface_count():
+		var orig := copia.surface_get_material(sup) as BaseMaterial3D
+		# as cores do pacote estão em valores lineares (saíram do Blender assim) e o jogo as lia como se fossem de
+		# tela: os peixes ficavam quase pretos. Convertidas, e um pouco mais vivas para aparecerem debaixo d'água.
+		var cor: Color = orig.albedo_color.linear_to_srgb() if orig else Color(0.6, 0.6, 0.6)
+		cor = Color.from_hsv(cor.h, minf(1.0, cor.s * 1.1), minf(1.0, cor.v * 1.15 + 0.04))
+		var chave := cor.to_html()
+		if not _mats_cor.has(chave):
+			_mats_cor[chave] = mapa._solido(cor)
+		copia.surface_set_material(sup, _mats_cor[chave])
+	return [copia, maxf(0.1, copia.get_aabb().size.z)]
 
 
 ## O fundo: algas altas, plantas baixas, corais (cogumelos grandes, coloridos pela cor do material) e pedras.
@@ -116,7 +144,8 @@ func _sortear() -> void:
 	rng.seed = 4096
 	var fixos: Array[Vector2] = [Vector2(MarcosMar.CAIS.x + 60.0, MarcosMar.CAIS.y + 24.0), Vector2(MarcosMar.CAIS.x + 100.0, MarcosMar.CAIS.y + 36.0),
 		Vector2(MarcosMar.RELE.x - 70.0, MarcosMar.RELE.y), Vector2(MarcosOeste.CASCO.x - 30.0, MarcosOeste.CASCO.y + 16.0),
-		Vector2(Vale.REPRESA_LAGOA.x, Vale.REPRESA_LAGOA.y), Vector2(Vale.REPRESA_LAGOA.x + 40.0, Vale.REPRESA_LAGOA.y - 20.0)]
+		Vector2(Vale.REPRESA_LAGOA.x, Vale.REPRESA_LAGOA.y), Vector2(Vale.REPRESA_LAGOA.x + 40.0, Vale.REPRESA_LAGOA.y - 20.0),
+		Vector2(Vale.REPRESA_LAGOA.x - 40.0, Vale.REPRESA_LAGOA.y + 25.0), Vector2(Vale.POCO.x + 4.0, Vale.POCO.y + 3.0)]
 	var feitos: Array[Vector2] = []
 	for f: Vector2 in fixos:
 		if _agua_boa(f.x, f.y, 2.5) > -INF:
@@ -129,16 +158,40 @@ func _sortear() -> void:
 			continue
 		var livre := true
 		for q in feitos:
-			if q.distance_to(p) < 70.0:
+			if q.distance_to(p) < 55.0:
 				livre = false
 				break
 		if livre:
 			feitos.append(p)
+	var pequenos := MAR_PEQUENOS.keys()
+	var grandes := MAR_GRANDES.keys()
+	var doces := DOCE.keys()
 	for i in feitos.size():
 		var p2 := feitos[i]
 		var nivel := mapa.agua(p2.x, p2.y)
 		var fundo := mapa.altura(p2.x, p2.y)
-		lugares.append({"pos": Vector3(p2.x, lerpf(fundo, nivel, 0.45), p2.y), "nivel": nivel, "fundo": fundo, "semente": 300 + i * 7, "cor": CORES[i % CORES.size()], "no": null, "peixes": []})
+		# água doce (lagoas e poço, acima do mar) tem os peixes dela; no mar, um lugar em cada seis é de peixe
+		# grande, sozinho ou em dois ou três, e só onde é fundo
+		var especie: String
+		var quantos := rng.randi_range(8, PEIXES_POR_CARDUME)
+		var medida: Array
+		var raio := 6.0
+		if nivel > Vale.MAR + 1.0:
+			especie = doces[rng.randi() % doces.size()]
+			medida = DOCE[especie]
+			quantos = rng.randi_range(6, 14)
+		elif i % 6 == 5 and nivel - fundo > 6.0:
+			especie = grandes[rng.randi() % grandes.size()]
+			medida = MAR_GRANDES[especie]
+			quantos = rng.randi_range(1, 3)
+			raio = 16.0
+		else:
+			especie = pequenos[(i * 5 + rng.randi() % 3) % pequenos.size()]
+			medida = MAR_PEQUENOS[especie]
+			if especie == "Flatfish" or especie == "Turbot" or especie == "Blobfish" or especie.contains("LionFish") or especie == "Lionfish" or especie == "Puffer":
+				quantos = rng.randi_range(3, 6)  # estes não andam em cardume grande
+		lugares.append({"pos": Vector3(p2.x, lerpf(fundo, nivel, 0.45), p2.y), "nivel": nivel, "fundo": fundo, "semente": 300 + i * 7, "especie": especie, "medida": medida,
+			"quantos": quantos, "raio": raio, "no": null, "peixes": []})
 
 
 func _process(delta: float) -> void:
@@ -151,10 +204,10 @@ func _process(delta: float) -> void:
 		_fila = (_fila + 1) % lugares.size()
 		var l := lugares[_fila]
 		var d := Vector2(a.x - (l["pos"] as Vector3).x, a.z - (l["pos"] as Vector3).z).length()
-		if l["no"] == null and d < PERTO:
+		if l["no"] == null and d < maxf(PERTO, PERTO_FOTO):
 			_criar(l)
 			vivos += 1
-		elif l["no"] != null and d > LONGE:
+		elif l["no"] != null and d > maxf(LONGE, PERTO_FOTO):
 			(l["no"] as Node).queue_free()
 			l["no"] = null
 			l["peixes"] = []
@@ -176,7 +229,7 @@ func _process(delta: float) -> void:
 			alvo_p += Vector3(sin(_t * 0.07 + float(l["semente"])), 0, cos(_t * 0.05 + float(l["semente"]))) * 6.0
 			var pos: Vector3 = px["pos"]
 			var foge := pos - a
-			var vel_alvo := (alvo_p - pos).limit_length(1.0) * 1.6
+			var vel_alvo := (alvo_p - pos).limit_length(1.0) * (2.4 if float(l["raio"]) > 10.0 else 1.6)
 			if foge.length() < 6.0:
 				vel_alvo = foge.normalized() * 7.0  # o robô chegou: dispara para longe
 				px["susto"] = 1.0
@@ -193,27 +246,36 @@ func _process(delta: float) -> void:
 
 
 func _criar(l: Dictionary) -> void:
-	if _malha_peixe == null:
+	var especie: String = l["especie"]
+	if not _malhas.has(especie):
+		_malhas[especie] = malha_de(especie, mapa)
+	var par: Array = _malhas[especie]
+	if par.is_empty():
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(l["semente"])
+	var quantos: int = l["quantos"]
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _malha_peixe
-	mm.instance_count = PEIXES_POR_CARDUME
+	mm.mesh = par[0]
+	mm.instance_count = quantos
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = mapa._solido(l["cor"])
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mmi.custom_aabb = AABB(Vector3(-40, -20, -40), Vector3(80, 40, 80))
+	mmi.custom_aabb = AABB(Vector3(-60, -25, -60), Vector3(120, 50, 120))
 	add_child(mmi)
 	mmi.global_position = l["pos"]
 	var peixes: Array = []
 	var altura_agua := float(l["nivel"]) - float(l["fundo"])
-	for i in PEIXES_POR_CARDUME:
-		var raio := rng.randf_range(1.5, 6.0)
+	var medida: Array = l["medida"]
+	var raio_max: float = l["raio"]
+	var grande := raio_max > 10.0
+	for i in quantos:
+		var raio := rng.randf_range(raio_max * 0.25, raio_max)
 		var fase := rng.randf() * TAU
-		peixes.append({"raio": raio, "fase": fase, "vel": rng.randf_range(0.25, 0.6) * (1.0 if i % 3 != 0 else -1.0), "sobe": rng.randf_range(0.2, 0.45) * altura_agua * 0.5,
-			"tam": rng.randf_range(2.6, 5.0), "pos": (l["pos"] as Vector3) + Vector3(cos(fase) * raio, 0, sin(fase) * raio), "v": Vector3.ZERO, "susto": 0.0})
+		var comp := rng.randf_range(medida[0], medida[1])
+		peixes.append({"raio": raio, "fase": fase, "vel": rng.randf_range(0.25, 0.6) * (0.5 if grande else 1.0) * (1.0 if i % 3 != 0 else -1.0),
+			"sobe": rng.randf_range(0.2, 0.45) * altura_agua * 0.5, "tam": comp / float(par[1]), "pos": (l["pos"] as Vector3) + Vector3(cos(fase) * raio, 0, sin(fase) * raio),
+			"v": Vector3.ZERO, "susto": 0.0})
 	l["peixes"] = peixes
 	l["no"] = mmi

@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dn0eewdh4qfqe"
+path="res://.godot/imported/Sunfish.obj-dd4a177f93124c96b6a477ca4c9d8806.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Sunfish.obj-dd4a177f93124c96b6a477ca4c9d8806.mesh"]
+
+source_file="res://assets/vale/peixes/Sunfish.obj"
+dest_files=["res://.godot/imported/Sunfish.obj-dd4a177f93124c96b6a477ca4c9d8806.mesh", "res://.godot/imported/Sunfish.obj-dd4a177f93124c96b6a477ca4c9d8806.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

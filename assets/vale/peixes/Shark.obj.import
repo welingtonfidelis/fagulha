@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dh0nlq8q58dm2"
+path="res://.godot/imported/Shark.obj-e214f53b7c30e7cba5d24f15157ffbde.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Shark.obj-e214f53b7c30e7cba5d24f15157ffbde.mesh"]
+
+source_file="res://assets/vale/peixes/Shark.obj"
+dest_files=["res://.godot/imported/Shark.obj-e214f53b7c30e7cba5d24f15157ffbde.mesh", "res://.godot/imported/Shark.obj-e214f53b7c30e7cba5d24f15157ffbde.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

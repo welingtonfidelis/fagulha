@@ -1674,6 +1674,17 @@ func _largo() -> void:
 			["u03_banco_do_rele", Vector3(1180, -2.5, 650), Vector3(1215, -3.5, 640)], ["u04_lagoa_represa", Vector3(1000, 22.5, -345), Vector3(1030, 21.0, -330)],
 			["u05_navio", Vector3(MarcosOeste.CASCO.x - 40, -4.0, MarcosOeste.CASCO.y + 34), Vector3(MarcosOeste.CASCO.x - 16, -5.0, MarcosOeste.CASCO.y + 8)],
 			["u06_de_cima_cais", Vector3(ca.x + 70, 26, ca.y + 80), Vector3(ca.x + 70, -4, ca.y + 30)]]
+		# um cardume pequeno, um de peixes grandes e um de água doce, de perto
+		var visto := {}
+		for lv: Dictionary in m.vida_agua.lugares:
+			var tipo_v := "doce" if float(lv["nivel"]) > 1.0 else ("grande" if float(lv["raio"]) > 10.0 else "pequeno")
+			if int(visto.get(tipo_v, 0)) >= (3 if tipo_v == "pequeno" else 2):
+				continue
+			visto[tipo_v] = int(visto.get(tipo_v, 0)) + 1
+			var pv: Vector3 = lv["pos"]
+			var dist_v := 9.0 if tipo_v != "grande" else 20.0
+			vistas.append(["u1%d_%s_%s" % [vistas.size(), tipo_v, lv["especie"]], pv + Vector3(dist_v, 0.6, dist_v * 0.4), pv])
+			m.vida_agua.PERTO_FOTO = 4000.0  # nas fotos todos os cardumes nascem, onde quer que o robô esteja
 	if "--fenda" in OS.get_cmdline_user_args():
 		# a Fenda Escura: de cima, as bocas e por dentro (sem a luz do peito; `--farol` acende)
 		var fq := func(sv: float, lado: float, y: float) -> Vector3:

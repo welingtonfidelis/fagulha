@@ -2161,12 +2161,22 @@ func _ponto_33() -> void:
 	a.teleportar(Vector3(pc2.x + 20.0, 30.0, pc2.z), Armadura.Estado.PAIRAR)
 	Input.action_press("mirar")
 	await _esperar(1.5)
-	var nasceu: bool = lugar_c["no"] != null and (lugar_c["peixes"] as Array).size() == VidaAgua.PEIXES_POR_CARDUME
+	var nasceu: bool = lugar_c["no"] != null and (lugar_c["peixes"] as Array).size() == int(lugar_c["quantos"])
+	var especies_v := {}
+	var doces_v := 0
+	var grandes_v := 0
+	for lv: Dictionary in va.lugares:
+		especies_v[lv["especie"]] = true
+		if float(lv["nivel"]) > 1.0:
+			doces_v += 1
+		elif float(lv["raio"]) > 10.0:
+			grandes_v += 1
 	a.teleportar(Vector3(0, 300.0, 0), Armadura.Estado.PAIRAR)
 	await _esperar(1.5)
 	Input.action_release("mirar")
-	_ok(va.plantas > 5000 and va.lugares.size() >= 40 and nasceu and lugar_c["no"] == null,
-		"vida na água: %d plantas e pedras no fundo, %d lugares de cardume; o cardume nasce de perto (%s) e some de longe (%s)" % [va.plantas, va.lugares.size(), nasceu, lugar_c["no"] == null])
+	_ok(va.plantas > 5000 and va.lugares.size() >= 80 and especies_v.size() >= 20 and doces_v >= 3 and grandes_v >= 5 and nasceu and lugar_c["no"] == null,
+		"vida na água: %d plantas e pedras no fundo; %d cardumes de %d espécies (%d de água doce, %d de peixes grandes); o cardume nasce de perto (%s) e some de longe (%s)" % [
+			va.plantas, va.lugares.size(), especies_v.size(), doces_v, grandes_v, nasceu, lugar_c["no"] == null])
 	# as memórias: dez cristais, nenhum no lugar de uma peça; tocar abre o texto e para o jogo; fechar devolve
 	var me: Memorias = m.memorias
 	var longe_das_pecas := true

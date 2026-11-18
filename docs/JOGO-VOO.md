@@ -2199,3 +2199,19 @@ Depois de testar a seção 89 no PC, o usuário pediu:
 - **Trancos para a frente e para trás no voo** (vistos no PC e no Mac): a câmera perseguia a posição do robô com `lerp`, e a distância de atraso dependia do tempo de cada quadro. A 28 m/s, um quadro de 33 ms entre os de 16 ms deslocava o robô uns 20 cm na tela. Com a cena mais pesada (árvores do pacote, mais objetos) os quadros variam mais e isso voltou a aparecer. Agora o atraso é calculado pela velocidade (`CameraVoo._atraso`), sem depender do tempo do quadro. Também `Engine.physics_jitter_fix = 0`, porque o robô é desenhado entre dois passos da física.
 - **Testes:** `--teste-vale` 84 pontos (o teste da água cobre as regras novas), `--teste` 95.
 - **Não conferido:** os trancos não têm como ser medidos em teste; a causa vem da conta e da leitura do código. O contador da mira foi visto em foto, com pouco contraste sobre capim claro (ganhou sombra depois). Nada jogado.
+
+## 91. Peixes do Cute Fish Pack (2026-11-18)
+
+O usuário pediu para trocar os peixes pelos do Cute Fish Pack do Quaternius (CC0), que já estava na máquina dele em `Projects/others/Cute Fish Pack - Feb 2020`, variando as espécies e pondo mais peixes se fizesse sentido.
+
+![Peixes do pacote](vale/peixes_pacote.jpg)
+
+- **Modelos:** 32 espécies copiadas para `assets/vale/peixes/` (OBJ e MTL, 2,4 MB). Ficaram de fora o peixe-pescador, a piranha e o tubarão-duende, pelos dentes, e o que não é peixe (barco, píer, varas, iscas).
+- **Cardumes de fundo** (`VidaAgua`): de 70 para 120 lugares, com 28 espécies em uso. Cada lugar tem uma espécie só:
+  - no mar, 19 espécies pequenas (30 a 110 cm) em cardumes de 8 a 18; as que não andam em bando (linguado, baiacu, peixe-leão) em grupos de 3 a 6;
+  - um lugar em cada seis, onde o mar tem mais de 6 m, é de peixe grande (tubarão, espadarte, atum, peixe-lua, napoleão, garoupa: de 1,1 a 3,8 m), sozinho ou em dois ou três, dando voltas largas;
+  - na água doce (lagoa da represa e poço da cachoeira), carpas, peixes-dourados, bettas e tetras.
+- **Peixes de superfície** (`Peixes`, na lagoa da clareira e no poço): também passaram a ser do pacote (carpa, dourados e tetra). O modelo é uma peça só, então o balanço da cauda virou um balanço leve do corpo inteiro.
+- **Cor:** as cores do pacote vêm em valores lineares e o jogo as lia como de tela; os peixes saíam quase pretos. São convertidas e ficam um pouco mais vivas. Cada cor vira um material do vale (`VidaAgua.malha_de`).
+- **Testes:** `--teste-vale` 84 pontos (120 cardumes, 28 espécies, 4 de água doce, 14 de peixes grandes), `--teste` 95.
+- **Não conferido:** nada jogado. Os tamanhos foram escolhidos por mim; o tubarão de 3 a 3,8 m é manso como os outros (foge do robô). O modelo antigo `assets/vale/peixe.glb` ficou sem uso.

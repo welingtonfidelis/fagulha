@@ -74,10 +74,12 @@ func _ready() -> void:
 		return
 	_rng.seed = semente * 7919 + 31
 	_c = Vector2(centro.x, centro.z)
-	var cena := load(CENA) as PackedScene
-	if cena == null:
-		push_error("peixes: modelo não encontrado em %s" % CENA)
-		return
+	# os modelos são os do Cute Fish Pack (água doce: carpa e peixes dourados), como os cardumes de VidaAgua
+	var especies := ["Koi", "Goldfish", "BlueGoldfish", "Koi", "Tetra"]
+	var malhas: Array = []
+	if mapa is Clareira:
+		for e: String in especies:
+			malhas.append(VidaAgua.malha_de(e, mapa as Clareira))
 	for i in quantos:
 		var p := Peixe.new()
 		p.no = Node3D.new()
@@ -87,18 +89,22 @@ func _ready() -> void:
 		modelo.rotation.y = PI  # o modelo olha para +Z; aqui a frente é -Z
 		modelo.scale = Vector3.ONE * 1.5
 		p.no.add_child(modelo)
-		var inst := cena.instantiate() as Node3D
-		modelo.add_child(inst)
-		p.corpo = inst if inst.name == "corpo" else (inst.find_child("corpo", true, false) as Node3D)
-		p.cauda = inst.find_child("cauda", true, false) as Node3D
-		if p.cauda == null:
-			push_error("peixes: peça 'cauda' não achada no modelo")
+		var par: Array = malhas[i % malhas.size()] if not malhas.is_empty() else []
+		if par.is_empty():
 			return
-		if p.corpo != null:
-			p.corpo_y0 = p.corpo.position.y
-		p.cauda_giro0 = p.cauda.rotation.y
-		if pintar.is_valid():
-			pintar.call(inst)
+		var inst := Node3D.new()
+		modelo.add_child(inst)
+		var corpo_m := MeshInstance3D.new()
+		corpo_m.name = "corpo"
+		corpo_m.mesh = par[0]
+		# uns 45 cm de comprimento (o `modelo` já aumenta 1,5 vez)
+		corpo_m.scale = Vector3.ONE * (_rng.randf_range(0.36, 0.52) / float(par[1]) / 1.5)
+		corpo_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		inst.add_child(corpo_m)
+		p.corpo = corpo_m
+		p.cauda = corpo_m  # o modelo é uma peça só: o balanço da cauda vira o corpo inteiro, de leve
+		p.corpo_y0 = corpo_m.position.y
+		p.cauda_giro0 = corpo_m.rotation.y
 		p.prof = _rng.randf_range(PROF_MIN, PROF_MAX)
 		p.prof_atual = p.prof
 		p.vel = _rng.randf_range(VEL_MIN, VEL_MAX)
@@ -256,7 +262,7 @@ func _posicionar(p: Peixe) -> void:
 
 func _animar(p: Peixe, dt: float) -> void:
 	p.fase += dt * (4.0 + 5.0 * p.vel_atual)
-	p.cauda.rotation.y = p.cauda_giro0 + 0.5 * sin(p.fase)
+	p.cauda.rotation.y = p.cauda_giro0 + 0.16 * sin(p.fase)
 	if p.corpo != null:
 		p.corpo.position.y = p.corpo_y0 + 0.012 * sin(p.fase * 0.5)
 
