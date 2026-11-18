@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+<rect width="1600" height="900" fill="#3d6b58"/>
+<rect y="520" width="1600" height="380" fill="#3f7a48"/>
+<rect width="1600" height="110" fill="#10191b"/>
+<text x="40" y="50" font-size="32" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Tela do jogo (HUD) · proposta</text>
+<text x="40" y="84" font-size="17" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Hoje quase tudo é texto pequeno. Proposta: cada canto com uma função, em figuras; texto só de apoio.</text>
+<rect x="560" y="130" width="480" height="46" rx="23" fill="#0b1416" opacity="0.75"/>
+<rect x="590" y="140" width="3" height="26" fill="#eceee6" opacity="0.7"/>
+<rect x="642" y="146" width="3" height="14" fill="#eceee6" opacity="0.7"/>
+<rect x="694" y="140" width="3" height="26" fill="#eceee6" opacity="0.7"/>
+<rect x="746" y="146" width="3" height="14" fill="#eceee6" opacity="0.7"/>
+<rect x="798" y="140" width="3" height="26" fill="#eceee6" opacity="0.7"/>
+<rect x="850" y="146" width="3" height="14" fill="#eceee6" opacity="0.7"/>
+<rect x="902" y="140" width="3" height="26" fill="#eceee6" opacity="0.7"/>
+<rect x="954" y="146" width="3" height="14" fill="#eceee6" opacity="0.7"/>
+<rect x="1006" y="140" width="3" height="26" fill="#eceee6" opacity="0.7"/>
+<path d="M 940 140 l 16 13 h -5 v 13 h -22 v -13 h -5 Z" fill="#ffd27f"/>
+<circle cx="660" cy="153" r="13" fill="#ffdcd2"/><circle cx="655" cy="151" r="3" fill="#200"/><circle cx="665" cy="151" r="3" fill="#200"/>
+<text x="800" y="204" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">bússola: como hoje, com a casa e a caveira maiores</text>
+<rect x="40" y="740" width="360" height="120" rx="20" fill="#0b1416" opacity="0.8"/>
+<g transform="translate(86,782) scale(1.5)"><path d="M 0 12 C -22 -4 -12 -18 0 -7 C 12 -18 22 -4 0 12 Z" fill="#ff6b6b"/></g>
+<g transform="translate(138,782) scale(1.5)"><path d="M 0 12 C -22 -4 -12 -18 0 -7 C 12 -18 22 -4 0 12 Z" fill="#ff6b6b"/></g>
+<g transform="translate(190,782) scale(1.5)"><path d="M 0 12 C -22 -4 -12 -18 0 -7 C 12 -18 22 -4 0 12 Z" fill="#ff6b6b"/></g>
+<g transform="translate(242,782) scale(1.5)"><path d="M 0 12 C -22 -4 -12 -18 0 -7 C 12 -18 22 -4 0 12 Z" fill="#3a4a4a"/></g>
+<circle cx="318" cy="782" r="24" fill="none" stroke="#59f2d9" stroke-width="6"/><circle cx="318" cy="782" r="9" fill="#59f2d9"/>
+<rect x="66" y="822" width="300" height="18" rx="9" fill="#22352f"/><rect x="66" y="822" width="170" height="18" rx="9" fill="#ff9e4d"/>
+<text x="220" y="726" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">vida em corações, o escudo (anel) e a barra de calor do motor</text>
+<rect x="1180" y="720" width="380" height="140" rx="20" fill="#0b1416" opacity="0.8"/>
+<rect x="1200" y="738" width="104" height="104" rx="18" fill="#10191b" stroke="#ff5a3a" stroke-width="5"/>
+<g transform="translate(1248,790) scale(1.5)"><rect x="-26" y="-13" width="34" height="26" rx="8" fill="#ff5a3a"/><circle cx="24" cy="0" r="13" fill="#ff5a3a"/><circle cx="24" cy="0" r="6" fill="#fff" opacity="0.8"/></g>
+<g transform="translate(1350,770) scale(1.0)"><circle cx="0" cy="3" r="14" fill="#4f6b55"/><rect x="-5" y="-17" width="10" height="8" rx="2" fill="#d6b24a"/><circle cx="0" cy="3" r="4" fill="#ff5a3a"/></g>
+<g transform="translate(1394,770) scale(1.0)"><circle cx="0" cy="3" r="14" fill="#4f6b55"/><rect x="-5" y="-17" width="10" height="8" rx="2" fill="#d6b24a"/><circle cx="0" cy="3" r="4" fill="#ff5a3a"/></g>
+<circle cx="1438" cy="773" r="14" fill="none" stroke="#4a5a5a" stroke-width="3"/>
+<rect x="1334" y="806" width="16" height="28" rx="5" fill="#ff6b6b"/>
+<rect x="1360" y="806" width="16" height="28" rx="5" fill="#ff6b6b"/>
+<rect x="1386" y="806" width="16" height="28" rx="5" fill="#ff6b6b"/>
+<rect x="1412" y="806" width="16" height="28" rx="5" fill="#ff6b6b"/>
+<rect x="1438" y="806" width="16" height="28" rx="5" fill="#ff6b6b"/>
+<rect x="1464" y="806" width="16" height="28" rx="5" fill="#34484a"/>
+<rect x="1490" y="806" width="16" height="28" rx="5" fill="#34484a"/>
+<rect x="1516" y="806" width="16" height="28" rx="5" fill="#34484a"/>
+<text x="1370" y="706" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">a arma em figura; granadas e mísseis contados um a um</text>
+<rect x="40" y="130" width="330" height="96" rx="20" fill="#0b1416" opacity="0.8"/>
+<text x="64" y="170" font-size="26" fill="#ff9e4d" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Onda 7</text>
+<g transform="translate(190,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#eceee6"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#eceee6"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(220,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#eceee6"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#eceee6"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(250,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#eceee6"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#eceee6"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(280,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#eceee6"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#eceee6"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(310,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#3a4a4a"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#3a4a4a"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(340,162) scale(0.9)"><rect x="-9" y="-12" width="18" height="14" rx="5" fill="#3a4a4a"/><rect x="-7" y="4" width="14" height="10" rx="3" fill="#3a4a4a"/><circle cx="-3" cy="-5" r="2" fill="#10191b"/><circle cx="4" cy="-5" r="2" fill="#10191b"/></g>
+<g transform="translate(76,204) scale(0.7)"><circle cx="0" cy="0" r="11" fill="none" stroke="#59f2d9" stroke-width="6" stroke-dasharray="6 4"/><circle cx="0" cy="0" r="4" fill="#59f2d9"/></g>
+<text x="96" y="210" font-size="17" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">34</text>
+<g transform="translate(150,204) scale(0.7)"><path d="M 0 -13 L 11 -6 V 6 L 0 13 L -11 6 V -6 Z" fill="#59f2d9"/></g>
+<text x="168" y="210" font-size="17" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">2</text>
+<g transform="translate(214,204) scale(0.7)"><rect x="-10" y="-10" width="20" height="20" rx="3" fill="#59f2d9"/><path d="M -14 -5 h 4 M -14 5 h 4 M 10 -5 h 4 M 10 5 h 4" stroke="#59f2d9" stroke-width="3"/></g>
+<text x="232" y="210" font-size="17" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">0</text>
+<text x="205" y="250" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">placar da Fundição: um boneco por robô que falta</text>
+<circle cx="800" cy="480" r="16" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="800" cy="480" r="3" fill="#fff"/>
+<text x="800" y="530" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">mira limpa: dano e munição saem de perto dela</text>
+<rect x="610" y="780" width="380" height="64" rx="32" fill="#0b1416" opacity="0.85"/><rect x="632" y="792" width="40" height="40" rx="8" fill="none" stroke="#ff9ed8" stroke-width="4"/>
+<text x="692" y="820" font-size="22" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">entrar na oficina</text>
+<text x="800" y="766" font-size="15" fill="#fff" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">convites: o desenho do botão e poucas palavras</text>
+</svg>

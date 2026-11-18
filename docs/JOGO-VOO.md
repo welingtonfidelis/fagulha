@@ -1759,3 +1759,36 @@ ossos, animações Idle e Walk, 4 materiais sem textura). Nenhum tem animação 
   `project.godot`), projetadas pelo mundo: a grossa dá a cor e o grão, a de chapa pintada dá as pintas que
   esfarelam a borda das manchas e salpicam o resto; o ruído só decide onde enferruja mais. Vale para tudo
   que usa esse material: a base, o cilindro, a Fundição e as peças do Kenney e do MegaKit.
+
+## 72. Tela limpa (2026-11-17)
+
+Revisão das telas a pedido do usuário. A primeira proposta (figuras cheias, corações, cores por arma) foi
+rejeitada como infantil e visual demais; a segunda, sóbria, ficou em `docs/telas/proposta_v2_*.png`. Para o
+HUD ele deu uma referência de tela limpa (um jogo de voo em armadura): quase nada na tela, mira só com a
+arma, calor numa barra embaixo. Feito em `Hud._draw`:
+- **Mira:** só aparece com a arma em uso (mirando, atirando, pairando, carregando o canhão, travando mísseis
+  ou mirando a granada) e some 0,6 s depois. Andando e voando, o meio da tela fica vazio.
+- **Calor:** saiu o arco em volta da mira. É uma barra curta embaixo, no centro, entre duas marcas vermelhas,
+  que enche do meio para as pontas; surge acima de 6% e some ao esfriar. Sem porcentagem.
+- **Vida:** um traço por acerto que o robô aguenta, por cima da barra de calor, só com dano. **Escudo:** uma
+  linha fina por baixo, só enquanto recarrega.
+- **Arma e munição:** sem caixa, à direita embaixo, só com a arma em uso ou por 3 s depois de trocar.
+- **Velocidade e altura:** só voando, menores.
+Fotos: `--vale-captura --hud`. Menus (roda de armas, oficina, pausa) ainda por refazer na linha sóbria.
+- **Menus na linha sóbria (mesmo dia):** ícones de traço fino compartilhados (`scripts/icones.gd`, linhas numa
+  caixa de 32, desenhadas na cor pedida). **Roda de armas:** gomos escuros com ícone e nome, a escolha em
+  contorno laranja, o não fabricado apagado com cadeado. **Toque no L1** passa para a próxima arma fabricada
+  e mostra uma faixa discreta embaixo por 2 s; **segurar** 0,22 s abre a roda. **Oficina:** três abas (Peças
+  da ilha, Armas, Defesa; L1 / R1 trocam), linhas com ícone, nome, custo e estado em colunas, foco em
+  contorno laranja, materiais numa linha no alto. **Pausa:** mesmo conteúdo, com o foco em contorno, a
+  explicação à direita na linha e os comandos agrupados (no chão, no ar, combate, outros).
+  Fotos: `--vale-captura --menus --basico`.
+- **Ajustes do HUD depois do teste do usuário:** o calor virou um arco (raio 300, 30° de abertura) embaixo, no
+  centro; a vida são pedaços de arco por cima dele e o escudo um arco fino por baixo, os três com o mesmo
+  centro. Saiu o texto "MOTOR SUPERAQUECIDO". **Vida que não sumia:** o pedaço de dano das balas
+  (`_dano_frac`) nunca sarava; agora some junto com os acertos. **Inimigos brancos ao cair:** o clarão de
+  "levou tiro" ficava aceso quando o tiro que desligava era o último; é zerado enquanto a máquina está
+  desligada. **Munição:** bolinhas (granadas, à direita) e tracinhos (mísseis, à esquerda) ao lado do arco,
+  só quando o jogador tenta usar e por 2,5 s. **Onda:** sem caixa, no alto à esquerda, com um tracinho por
+  robô que falta; os materiais só no respiro. **Resumo de rodada:** painel de canto reto, rótulo à esquerda
+  e valor à direita. **Ícones:** tiro duplo são duas pistolas; precisão é um retículo de luneta.

@@ -188,6 +188,14 @@ func _desenhar_lugar() -> void:
 
 
 var _dano_visto := 0.0
+var _mira_vista := 0.0
+var _calor_visto := 0.0
+var _voo_visto := 0.0
+var _arma_vista := 0.0
+var _arma_antes := ""
+var _muni_vista := 0.0
+var _gran_antes := 0
+var _miss_antes := 0
 
 
 var dica := ""  # convite de botão embaixo, no meio (ex.: entrar na oficina)
@@ -198,12 +206,19 @@ var placar2 := ""  # nível e materiais
 func _desenhar_placar() -> void:
 	if placar == "":
 		return
-	var w := maxf(_fonte.get_string_size(placar, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, _fonte.get_string_size(placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
-	var p := Vector2(28.0, size.y - 190.0)
-	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, w + 28.0, 66.0), Color(0, 0, 0, 0.5))
-	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, 4.0, 66.0), Color(1.0, 0.62, 0.3))
-	draw_string(_fonte, p, placar, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.95))
-	draw_string(_fonte, p + Vector2(0, 24.0), placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.35, 0.95, 0.85))
+	# sem caixa: no alto à esquerda, o número da onda em letras espaçadas e um tracinho por robô que falta
+	var p := Vector2(34.0, 52.0)
+	draw_string(_fonte, p, placar.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.92))
+	draw_rect(Rect2(p.x, p.y + 8.0, 34.0, 2.0), Color(1.0, 0.62, 0.3, 0.9))
+	for i in placar_total:
+		var x := p.x + i * 9.0
+		draw_rect(Rect2(x, p.y + 20.0, 5.0, 12.0), Color(1, 1, 1, 0.9 if i < placar_restam else 0.2))
+	if placar2 != "":
+		draw_string(_fonte, p + Vector2(0, 34.0 if placar_total == 0 else 54.0), placar2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.35, 0.95, 0.85, 0.9))
+
+
+var placar_restam := 0
+var placar_total := 0
 
 
 var tiro_no: Node  # o Tiro (para a carga do canhão)
@@ -225,23 +240,25 @@ func mostrar_resumo(titulo: String, linhas: Array, recorde: bool) -> void:
 func _desenhar_resumo() -> void:
 	if resumo_t <= 0.0:
 		return
+	# no estilo dos menus: painel escuro de canto reto, título, um fio, e linhas de rótulo e valor
 	var alfa := clampf(minf(resumo_t, RESUMO_DURA - resumo_t) * 3.0, 0.0, 1.0)
-	var larg := 620.0
-	var alt := 96.0 + _resumo_linhas.size() * 30.0
-	var p := Vector2(size.x * 0.5 - larg * 0.5, size.y * 0.5 - alt * 0.5 - 60.0)
-	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.03, 0.06, 0.07, 0.88 * alfa))
-	draw_rect(Rect2(p, Vector2(larg, 5.0)), Color(1.0, 0.62, 0.3, alfa))
-	var wt := _fonte.get_string_size(_resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
-	draw_string(_fonte, p + Vector2(larg * 0.5 - wt * 0.5, 50.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(1, 1, 1, alfa))
+	var larg := 520.0
+	var alt := 84.0 + _resumo_linhas.size() * 28.0
+	var p := Vector2(size.x * 0.5 - larg * 0.5, size.y * 0.5 - alt * 0.5 - 70.0)
+	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.045, 0.075, 0.08, 0.93 * alfa))
+	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.2, 0.3, 0.31, alfa), false, 1.0)
+	draw_string(_fonte, p + Vector2(26.0, 40.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.93, 0.94, 0.9, alfa))
+	draw_rect(Rect2(p.x + 26.0, p.y + 54.0, larg - 52.0, 1.0), Color(0.2, 0.3, 0.31, alfa))
 	for i in _resumo_linhas.size():
-		var linha := String(_resumo_linhas[i])
+		var par: Array = _resumo_linhas[i]
+		var y := p.y + 84.0 + i * 28.0
+		draw_string(_fonte, Vector2(p.x + 26.0, y), String(par[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.62, 0.68, 0.66, alfa))
+		var valor := String(par[1])
 		var cor := Color(0.93, 0.94, 0.9, alfa)
-		if i == 1:
-			cor = Color(1.0, 0.82, 0.35, alfa) if _resumo_recorde else Color(0.62, 0.68, 0.66, alfa)
-		elif i == _resumo_linhas.size() - 1:
-			cor = Color(0.35, 0.95, 0.85, alfa)
-		var w := _fonte.get_string_size(linha, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		draw_string(_fonte, p + Vector2(larg * 0.5 - w * 0.5, 92.0 + i * 30.0), linha, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, cor)
+		if i == 1 and _resumo_recorde:
+			cor = Color(1.0, 0.62, 0.3, alfa)
+		var w := _fonte.get_string_size(valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_string(_fonte, Vector2(p.x + larg - 26.0 - w, y), valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cor)
 
 
 var chefe_nome := ""  # o minichefe da Fundição em campo
@@ -269,20 +286,18 @@ func _desenhar_arma() -> void:
 		return
 	if Arsenal.modo == "pistola" and Arsenal.granadas_max() == 0 and Arsenal.fabricados.is_empty():
 		return
-	var titulo: String = Arsenal.MODOS[Arsenal.modo]["titulo"]
-	var linha2 := "L1 troca"
-	if Arsenal.granadas_max() > 0 or Arsenal.misseis_max() > 0:
-		linha2 = ""
-		if Arsenal.granadas_max() > 0:
-			linha2 += "granadas %d de %d (R1)" % [Arsenal.granadas, Arsenal.granadas_max()]
-		if Arsenal.misseis_max() > 0:
-			linha2 += ("   ·   " if linha2 != "" else "") + "mísseis %d de %d" % [Arsenal.misseis, Arsenal.misseis_max()]
-	var w := maxf(_fonte.get_string_size(titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, _fonte.get_string_size(linha2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
-	var p := Vector2(size.x - w - 42.0, size.y - 190.0)
-	draw_rect(Rect2(p.x - 14.0, p.y - 30.0, w + 28.0, 66.0), Color(0, 0, 0, 0.5))
-	draw_rect(Rect2(p.x + w + 10.0, p.y - 30.0, 4.0, 66.0), Color(1.0, 0.62, 0.3))
-	draw_string(_fonte, p, titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.95))
-	draw_string(_fonte, p + Vector2(0, 24.0), linha2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.35, 0.95, 0.85))
+	# só o nome da arma, à direita embaixo, por uns segundos depois de trocar (a munição fica ao lado da
+	# curva do calor)
+	if Arsenal.modo != _arma_antes:
+		_arma_antes = Arsenal.modo
+		_arma_vista = 3.0
+	_arma_vista = maxf(_arma_vista - get_process_delta_time(), 0.0)
+	var aa := clampf(_arma_vista, 0.0, 1.0)
+	if aa > 0.01:
+		var titulo: String = Arsenal.MODOS[Arsenal.modo]["titulo"]
+		var w := _fonte.get_string_size(titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		Icones.desenhar(self, Arsenal.modo, Vector2(size.x - w - 62.0, size.y - 46.0), 0.9, Color(1, 1, 1, 0.9 * aa), 1.5)
+		draw_string(_fonte, Vector2(size.x - w - 34.0, size.y - 40.0), titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.92 * aa))
 	# os mísseis travando: um losango numerado em cada máquina travada
 	var cam3 := get_viewport().get_camera_3d()
 	if tiro_no and cam3:
@@ -340,76 +355,111 @@ func _draw() -> void:
 		var txt_m := "%d m" % roundi(dist_m)
 		var wm := _fonte.get_string_size(txt_m, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 		draw_string(_fonte, tela + Vector2(-wm * 0.5, 26), txt_m, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cor_m)
-	# mira
-	if alvo.mirando_agora():
-		var cm := Color(1, 1, 1, 0.9)
-		for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
-			draw_line(c + d * 7.0, c + d * 16.0, cm, 2.0, true)
-		# máquina travada: quatro cantos em volta dela
-		if tiro and tiro.travado and is_instance_valid(tiro.travado) and cam:
-			var pt: Vector3 = tiro.travado.call("ponto_de_trava")
-			if pt.is_finite() and not cam.is_position_behind(pt):
-				var t2 := cam.unproject_position(pt)
-				var lado := clampf(900.0 / maxf(4.0, cam.global_position.distance_to(pt)), 16.0, 60.0)
-				var cor_t := Color(1.0, 0.62, 0.2, 0.95)
-				for sx: float in [-1.0, 1.0]:
-					for sy: float in [-1.0, 1.0]:
-						var canto := t2 + Vector2(sx, sy) * lado
-						draw_line(canto, canto - Vector2(sx * lado * 0.45, 0), cor_t, 2.5, true)
-						draw_line(canto, canto - Vector2(0, sy * lado * 0.45), cor_t, 2.5, true)
-		var txt_d := "%d m" % roundi(alvo.global_position.distance_to(alvo.alvo_mira)) if alvo.alvo_mira_ok else "—"
-		draw_string(_fonte, c + Vector2(14, 30), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.75))
-		if alvo.estado == Armadura.Estado.PAIRAR:
-			draw_string(_fonte, c + Vector2(-26, 52), "pairando", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.55))
-	else:
-		draw_circle(c, 2.5, Color(1, 1, 1, 0.85))
-		draw_arc(c, 9.0, 0.0, TAU, 32, Color(1, 1, 1, 0.25), 1.5, true)
-	# o escudo de energia (fabricável): um arco verde-água à direita da mira; cheio quando está pronto,
-	# enchendo enquanto recarrega
-	if Arsenal.tem("escudo"):
-		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
-		draw_arc(c, 30.0, deg_to_rad(-38.0), deg_to_rad(38.0), 20, Color(0.35, 0.95, 0.85, 0.16), 3.0, true)
-		draw_arc(c, 30.0, deg_to_rad(38.0 - 76.0 * pronto), deg_to_rad(38.0), 20, Color(0.35, 0.95, 0.85, 0.9 if pronto >= 1.0 else 0.5), 3.0, true)
-	# marcas de dano: três traços à esquerda da mira. Cada acerto de máquina apaga um (vira laranja); o
-	# terceiro desliga o robô. Só aparecem quando há dano, e somem um instante depois de ele sarar.
+	# Tela limpa (referência do usuário, 2026-11-17): a mira só aparece com a arma em uso; o calor do motor
+	# é uma barra curta embaixo, no centro, que surge quando ele aquece; nada fica fixo no meio da tela.
+	var dt := get_process_delta_time()
+	var usando: bool = alvo.mirando_agora() or alvo.atirando > 0.0 or alvo.atirando_e > 0.0 or alvo.estado == Armadura.Estado.PAIRAR
+	if tiro_no:
+		usando = usando or float(tiro_no.get("carga")) > 0.0 or not (tiro_no.get("travas") as Array).is_empty() or (tiro_no.get("arco") as PackedVector3Array).size() > 0
+	_mira_vista = move_toward(_mira_vista, 1.0 if usando else 0.0, dt * (8.0 if usando else 1.6))
+	if _mira_vista > 0.01:
+		var am := _mira_vista
+		if alvo.mirando_agora():
+			var cm := Color(1, 1, 1, 0.9 * am)
+			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+				draw_line(c + d * 7.0, c + d * 16.0, cm, 2.0, true)
+			var txt_d := "%d m" % roundi(alvo.global_position.distance_to(alvo.alvo_mira)) if alvo.alvo_mira_ok else ""
+			draw_string(_fonte, c + Vector2(22, 5), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.6 * am))
+		else:
+			draw_circle(c, 2.0, Color(1, 1, 1, 0.9 * am))
+			draw_arc(c, 11.0, 0.0, TAU, 32, Color(1, 1, 1, 0.55 * am), 1.5, true)
+	# máquina travada pela mira assistida: quatro cantos em volta dela
+	if alvo.mirando_agora() and tiro and tiro.travado and is_instance_valid(tiro.travado) and cam:
+		var pt: Vector3 = tiro.travado.call("ponto_de_trava")
+		if pt.is_finite() and not cam.is_position_behind(pt):
+			var t2 := cam.unproject_position(pt)
+			var lado := clampf(900.0 / maxf(4.0, cam.global_position.distance_to(pt)), 16.0, 60.0)
+			var cor_t := Color(1.0, 0.62, 0.2, 0.95)
+			for sx: float in [-1.0, 1.0]:
+				for sy: float in [-1.0, 1.0]:
+					var canto := t2 + Vector2(sx, sy) * lado
+					draw_line(canto, canto - Vector2(sx * lado * 0.45, 0), cor_t, 2.5, true)
+					draw_line(canto, canto - Vector2(0, sy * lado * 0.45), cor_t, 2.5, true)
+	# embaixo, no centro, em três arcos de mesmo centro: a vida por cima, o calor no meio, o escudo por
+	# baixo. Cada um só aparece quando tem o que dizer. (Sem texto de superaquecido: o arco vermelho
+	# piscando e o robô travado já dizem.)
+	var raio := 300.0
+	var centro := Vector2(size.x * 0.5, size.y - 84.0 - raio)
+	var meio := PI * 0.5  # o ponto de baixo do círculo
+	var abre := deg_to_rad(15.0)
+	var q := alvo.calor / 100.0
+	var pisca := fmod(Time.get_ticks_msec() * 0.001, 0.4) < 0.2
+	_calor_visto = move_toward(_calor_visto, 1.0 if (q > 0.06 or alvo.superaquecido) else 0.0, dt * (5.0 if q > 0.06 else 0.9))
+	if _calor_visto > 0.01:
+		var ac := _calor_visto
+		var cor := Color(0.4, 0.9, 0.95).lerp(Color(1.0, 0.62, 0.15), smoothstep(0.45, 0.75, q))
+		cor = cor.lerp(Color(1.0, 0.18, 0.12), smoothstep(0.82, 0.98, q))
+		if alvo.superaquecido:
+			cor = Color(1.0, 0.15, 0.1) if pisca else Color(0.5, 0.08, 0.05)
+		draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0, 0, 0, 0.35 * ac), 4.0, true)
+		# enche do meio para as pontas
+		if q > 0.01:
+			draw_arc(centro, raio, meio - abre * q, meio + abre * q, 40, Color(cor, 0.95 * ac), 4.0, true)
+		for sx: float in [-1.0, 1.0]:
+			var am := meio + sx * (abre + deg_to_rad(1.2))
+			draw_line(centro + Vector2.from_angle(am) * (raio - 7.0), centro + Vector2.from_angle(am) * (raio + 7.0), Color(1.0, 0.25, 0.18, (0.9 if q > 0.8 else 0.45) * ac), 3.0, true)
+	if alvo.na_agua and alvo.calor > 1.0:
+		var txt2 := "esfriando na água"
+		var w2 := _fonte.get_string_size(txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		draw_string(_fonte, Vector2(size.x * 0.5 - w2 * 0.5, size.y - 54.0), txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.6, 0.9, 1.0, 0.85))
+	# a vida: um pedaço de arco por acerto que o robô aguenta, acompanhando a curva por cima dela. Só
+	# aparece com dano, e some depois de sarar
 	var dano := float(alvo.avaria) + float(alvo.get("_dano_frac"))
-	_dano_visto = move_toward(_dano_visto, 1.0 if dano > 0.01 else 0.0, get_process_delta_time() * (4.0 if dano > 0.01 else 0.7))
+	_dano_visto = move_toward(_dano_visto, 1.0 if dano > 0.01 else 0.0, dt * (4.0 if dano > 0.01 else 0.7))
 	if _dano_visto > 0.01:
-		var pisca_d := fmod(Time.get_ticks_msec() * 0.001, 0.5) < 0.25
-		for k in Arsenal.golpes_pane():
-			var ang := deg_to_rad(180.0 + (k - (Arsenal.golpes_pane() - 1) * 0.5) * 30.0)
-			var perdido := clampf(dano - k, 0.0, 1.0)  # este traço: 0 inteiro, 1 perdido
+		var total := Arsenal.golpes_pane()
+		var passo := deg_to_rad(6.2)
+		var vao := deg_to_rad(1.0)
+		for k in total:
+			var perdido := clampf(dano - k, 0.0, 1.0)
 			var cor_d := Color(0.45, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.15), perdido)
 			if perdido >= 1.0:
-				cor_d = Color(1.0, 0.2, 0.12, 0.9) if (pisca_d or dano < Arsenal.golpes_pane() - 1) else Color(0.5, 0.1, 0.06, 0.9)
-			var de_p := c + Vector2(cos(ang), -sin(ang)) * 40.0
-			var ate_p := c + Vector2(cos(ang), -sin(ang)) * 52.0
-			draw_line(de_p, ate_p, Color(0, 0, 0, 0.4 * _dano_visto), 8.0, true)
-			draw_line(de_p, ate_p, Color(cor_d, cor_d.a * _dano_visto), 5.0, true)
-	# barra de calor: arco à direita da mira, enche de baixo para cima
-	var raio := 46.0
-	var a0 := deg_to_rad(62.0)
-	var a1 := deg_to_rad(-62.0)
-	draw_arc(c, raio, a0, a1, 40, Color(0, 0, 0, 0.35), 7.0, true)
-	var q := alvo.calor / 100.0
-	var cor := Color(0.45, 0.85, 0.45).lerp(Color(1.0, 0.62, 0.15), smoothstep(0.35, 0.7, q))
-	cor = cor.lerp(Color(1.0, 0.18, 0.12), smoothstep(0.8, 0.98, q))
-	var pisca := fmod(Time.get_ticks_msec() * 0.001, 0.4) < 0.2
-	if alvo.superaquecido:
-		cor = Color(1.0, 0.15, 0.1) if pisca else Color(0.5, 0.08, 0.05)
-	if q > 0.005:
-		draw_arc(c, raio, a0, lerpf(a0, a1, q), 40, cor, 5.0, true)
-	draw_string(_fonte, c + Vector2(raio + 10.0, 5.0), "%d%%" % roundi(alvo.calor), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(cor, 0.9))
-	if alvo.superaquecido:
-		var txt := "MOTOR SUPERAQUECIDO"
-		var w := _fonte.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
-		draw_string(_fonte, c + Vector2(-w * 0.5, -70.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1.0, 0.25, 0.15, 1.0 if pisca else 0.6))
-	elif alvo.na_agua and alvo.calor > 1.0:
-		var txt2 := "esfriando na água"
-		var w2 := _fonte.get_string_size(txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		draw_string(_fonte, c + Vector2(-w2 * 0.5, -66.0), txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.6, 0.9, 1.0, 0.9))
-	# velocidade e altura
-	var v := alvo.velocity.length() * 3.6
-	var base := Vector2(28.0, size.y - 34.0)
-	draw_string(_fonte, base, "%d km/h" % roundi(v), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.9))
-	draw_string(_fonte, base + Vector2(0, 22), "%d m de altitude · %d m do chão" % [roundi(alvo.global_position.y), roundi(maxf(0.0, alvo.altura_do_chao()))], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.65))
+				cor_d = Color(1.0, 0.2, 0.12, 0.9) if (pisca or dano < total - 1) else Color(0.5, 0.1, 0.06, 0.9)
+			# da esquerda para a direita (o ângulo cresce para a esquerda na parte de baixo do círculo)
+			var a_ini := meio + (total * 0.5 - k) * passo
+			draw_arc(centro, raio - 13.0, a_ini - passo + vao, a_ini, 8, Color(cor_d, cor_d.a * _dano_visto), 5.0, true)
+	# o escudo de energia: um arco fino por baixo, só enquanto recarrega
+	if Arsenal.tem("escudo") and alvo.escudo_t > 0.0:
+		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
+		draw_arc(centro, raio + 9.0, meio - abre, meio + abre, 30, Color(0, 0, 0, 0.3), 2.0, true)
+		draw_arc(centro, raio + 9.0, meio + abre - abre * 2.0 * pronto, meio + abre, 30, Color(0.35, 0.95, 0.85, 0.85), 2.0, true)
+	# a munição: marcas pequenas ao lado da curva, só quando o jogador tenta usar (granada ou mísseis) e por
+	# uns segundos depois
+	var tentando := Input.is_action_pressed("granada") or (Arsenal.modo == "misseis" and Input.is_action_pressed("atirar"))
+	if Arsenal.granadas != _gran_antes or Arsenal.misseis != _miss_antes or tentando:
+		_muni_vista = 2.5
+	_gran_antes = Arsenal.granadas
+	_miss_antes = Arsenal.misseis
+	_muni_vista = maxf(0.0, _muni_vista - dt)
+	var amu := clampf(_muni_vista * 2.0, 0.0, 1.0)
+	if amu > 0.01:
+		var py := size.y - 84.0
+		# granadas à direita: bolinhas (cheias as que restam)
+		for i in Arsenal.granadas_max():
+			var pg := Vector2(size.x * 0.5 + 112.0 + i * 13.0, py)
+			if i < Arsenal.granadas:
+				draw_circle(pg, 4.0, Color(1, 1, 1, 0.9 * amu))
+			else:
+				draw_arc(pg, 4.0, 0.0, TAU, 12, Color(1, 1, 1, 0.35 * amu), 1.2, true)
+		# mísseis à esquerda: tracinhos em pé
+		for i in Arsenal.misseis_max():
+			var pm := Vector2(size.x * 0.5 - 112.0 - i * 8.0, py)
+			draw_line(pm + Vector2(0, -6.0), pm + Vector2(0, 6.0), Color(1, 1, 1, (0.9 if i < Arsenal.misseis else 0.25) * amu), 2.5, true)
+	# velocidade e altura: só enquanto voa (no chão a tela fica limpa)
+	var voando: bool = alvo.em_voo() or alvo.estado == Armadura.Estado.PAIRAR
+	_voo_visto = move_toward(_voo_visto, 1.0 if voando else 0.0, dt * (4.0 if voando else 1.2))
+	if _voo_visto > 0.01:
+		var v := alvo.velocity.length() * 3.6
+		var base := Vector2(28.0, size.y - 34.0)
+		draw_string(_fonte, base, "%d km/h" % roundi(v), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.85 * _voo_visto))
+		draw_string(_fonte, base + Vector2(0, 18), "%d m do chão" % roundi(maxf(0.0, alvo.altura_do_chao())), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.6 * _voo_visto))

@@ -469,10 +469,108 @@ func rodar(main: Node) -> void:
 		a.recomecar()
 		a.teleportar(Fundicao.aqui(60.0, 0.0, 60.0) + Vector3(0, 1.0, 0), Armadura.Estado.CHAO)
 		await _esperar(1.0)
-		m.hud.mostrar_resumo("Fundição desligada", ["Ondas vencidas: 6   ·   última: onda 6", "Novo recorde: onda 6!", "Robôs desligados: 31   ·   experiência: +412   ·   nível 4",
-			"Sucata +38   ·   núcleos +3   ·   chips +1", "Recomeça na onda 6"], true)
+		m.hud.mostrar_resumo("Fundição desligada", [["Ondas vencidas", "6"], ["Recorde", "onda 6 · novo"], ["Robôs desligados", "31"], ["Experiência", "+412 · nível 4"],
+			["Materiais", "sucata +38 · núcleos +3 · chips +1"], ["Recomeça na", "onda 6"]], true)
+		m.hud.placar = "Onda 7"
+		m.hud.placar_total = 9
+		m.hud.placar_restam = 4
 		await _esperar(1.0)
 		await _foto("resumo")
+		get_tree().quit()
+		return
+	if "--hud" in args:
+		# a tela limpa em quatro situações (`--hud --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		Arsenal.tudo = false
+		Arsenal.fabricados = ["rajada", "canhao", "granadas", "misseis", "escudo"]
+		Arsenal.repor_granadas()
+		a.teleportar(Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0), Armadura.Estado.CHAO)
+		cam.yaw = 0.6
+		cam.pitch = -0.08
+		await _esperar(3.5)
+		await _foto("h1_andando")
+		a.calor = 55.0
+		a.avaria = 1
+		a.escudo_t = 9.0
+		Input.action_press("granada")
+		await _esperar(0.2)
+		Input.action_release("granada")
+		await _esperar(0.5)
+		Input.action_press("mirar")
+		await _esperar(0.5)
+		Input.action_press("atirar")
+		await _esperar(0.05)
+		Input.action_release("atirar")
+		await _esperar(0.25)
+		await _foto("h2_mirando_quente")
+		Input.action_release("mirar")
+		a.avaria = 0
+		a.teleportar(a.global_position + Vector3(0, 30.0, 0), Armadura.Estado.VOO, Vector3(8, 0, -14))
+		cam.pitch = -0.15
+		a.calor = 30.0
+		await _esperar(1.2)
+		await _foto("h3_voando")
+		a.calor = 100.0
+		a.superaquecido = true
+		await _esperar(0.3)
+		await _foto("h4_superaquecido")
+		get_tree().quit()
+		return
+	if "--menus" in args:
+		# a roda de armas, a faixa do toque, a oficina nas três abas e a pausa (`--menus --basico --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		Melhorias.tudo = false
+		Arsenal.tudo = false
+		Arsenal.xp = 420
+		Arsenal.sucata = 34
+		Arsenal.nucleos = 2
+		Arsenal.fabricados = ["rajada", "canhao", "precisao", "mira"]
+		for nome: String in ["antena", "radiador", "asas"]:
+			Melhorias.achar(nome)
+		Melhorias.instalar("antena")
+		a.visual.vestir_melhorias()
+		a.teleportar(Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0), Armadura.Estado.CHAO)
+		var roda: RodaArmas = m.get_node("RodaArmas")
+		await _esperar(1.0)
+		roda.proxima()
+		await _esperar(0.3)
+		await _foto("n1_faixa")
+		await _esperar(2.2)
+		Input.action_press("roda")
+		await _esperar(0.5)
+		Input.action_press("olhar_direita")
+		Input.action_press("olhar_baixo")
+		await _esperar(0.3)
+		await _foto("n2_roda")
+		Input.action_release("olhar_direita")
+		Input.action_release("olhar_baixo")
+		Input.action_release("roda")
+		await _esperar(0.5)
+		var of: Oficina = m.oficina
+		var b := BaseVale.boca_cilindro
+		var fora := b + of._eixo() * 0.6
+		a.teleportar(Vector3(fora.x, c.altura(fora.x, fora.z) + 0.4, fora.z), Armadura.Estado.CHAO)
+		await _esperar(0.6)
+		of.entrar()
+		await _esperar(2.8)
+		await _foto("n3_oficina_pecas")
+		of._mudar_aba(1)
+		await _esperar(0.4)
+		await _foto("n4_oficina_armas")
+		of._mudar_aba(1)
+		await _esperar(0.4)
+		await _foto("n5_oficina_defesa")
+		of.sair()
+		await _esperar(2.0)
+		m.pausa._abrir()
+		get_tree().paused = false
+		await _esperar(0.5)
+		await _foto("n6_pausa")
+		m.pausa._abrir_comandos()
+		await _esperar(0.3)
+		await _foto("n7_comandos")
 		get_tree().quit()
 		return
 	if "--oficina" in args:

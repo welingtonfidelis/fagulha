@@ -1164,13 +1164,16 @@ func _recompensa(mc: Vigia) -> void:
 func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 	# o resumo da rodada: até onde foi, o recorde e o que levou (só se chegou a lutar)
 	if hud and motivo != "" and (int(conta["vencidos"]) > 0 or int(conta["ondas"]) > 0):
-		var linhas := []
-		linhas.append("Ondas vencidas: %d   ·   última: onda %d" % [int(conta["ondas"]), Arsenal.recorde if int(conta["ondas"]) > 0 and onda >= Arsenal.recorde else maxi(0, onda - (0 if fase == Fase.RESPIRO else 1))])
-		linhas.append(("Novo recorde: onda %d!" % Arsenal.recorde) if Arsenal.recorde > int(conta["recorde_antes"]) else "Recorde: onda %d" % Arsenal.recorde)
-		linhas.append("Robôs desligados: %d   ·   experiência: +%d   ·   nível %d" % [int(conta["vencidos"]), int(conta["xp"]), Arsenal.nivel()])
-		var levou := "Sucata +%d   ·   núcleos +%d   ·   chips +%d" % [int(rodada["sucata"]) - int(perdeu.get("sucata", 0)), int(rodada["nucleos"]) - int(perdeu.get("nucleos", 0)), int(rodada["chips"]) - int(perdeu.get("chips", 0))]
-		linhas.append(levou + ("   (metade ficou na Fundição)" if not perdeu.is_empty() else ""))
-		linhas.append("Recomeça na onda %d" % Arsenal.ponto_volta if Arsenal.ponto_volta > 1 else "Vença o minichefe da onda 5 para salvar o ponto de volta")
+		var novo: bool = Arsenal.recorde > int(conta["recorde_antes"])
+		var mats := "sucata +%d · núcleos +%d · chips +%d" % [int(rodada["sucata"]) - int(perdeu.get("sucata", 0)), int(rodada["nucleos"]) - int(perdeu.get("nucleos", 0)), int(rodada["chips"]) - int(perdeu.get("chips", 0))]
+		var linhas := [
+			["Ondas vencidas", str(int(conta["ondas"]))],
+			["Recorde", "onda %d" % Arsenal.recorde + (" · novo" if novo else "")],
+			["Robôs desligados", str(int(conta["vencidos"]))],
+			["Experiência", "+%d · nível %d" % [int(conta["xp"]), Arsenal.nivel()]],
+			["Materiais" + (" (metade ficou lá)" if not perdeu.is_empty() else ""), mats],
+			["Recomeça na", "onda %d" % Arsenal.ponto_volta],
+		]
 		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]))
 		motivo = ""
 	for cx in _caixas:
@@ -1316,15 +1319,19 @@ func _physics_process(delta: float) -> void:
 				onda += 1
 				_comecar_onda()
 	if hud and fase != Fase.PARADA:
+		hud.placar_total = 0
+		hud.placar2 = ""
 		match fase:
 			Fase.CONTAGEM:
 				hud.placar = "Onda %d em %d" % [onda, ceili(_t)]
 			Fase.ONDA:
-				hud.placar = "Onda %d · %d robôs" % [onda, vivos.size() + _fila.size()]
+				hud.placar = "Onda %d" % onda
+				hud.placar_total = receita(onda).size()
+				hud.placar_restam = vivos.size() + _fila.size()
 			Fase.RESPIRO:
-				hud.placar = "Respiro · onda %d em %d" % [onda + 1, ceili(_t)]
-		var b := Arsenal.barra()
-		hud.placar2 = "Nível %d (%d de %d)  ·  Sucata %d  ·  Núcleos %d  ·  Chips %d" % [Arsenal.nivel(), b.x, b.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips]
+				hud.placar = "Onda %d em %d" % [onda + 1, ceili(_t)]
+				var b := Arsenal.barra()
+				hud.placar2 = "nível %d (%d de %d)   sucata %d   núcleos %d   chips %d" % [Arsenal.nivel(), b.x, b.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips]
 
 
 func _vencer_onda() -> void:

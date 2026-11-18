@@ -1606,8 +1606,8 @@ func _ponto_31() -> void:
 	var segunda: bool = f.fase == Fundicao.Fase.ONDA and f.onda == 2
 	a.teleportar(Vector3(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, v.altura(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, Fundicao.CENTRO.y) + 0.5, Fundicao.CENTRO.y), Armadura.Estado.CHAO)
 	await _esperar(0.6)
-	_ok(m.hud.resumo_t > 0.0 and m.hud._resumo_linhas.size() == 5 and String(m.hud._resumo_linhas[1]).begins_with("Novo recorde") and Arsenal.recorde == 1,
-		"ao sair aparece o resumo da rodada, com o recorde novo (%s)" % String(m.hud._resumo_linhas[1] if m.hud._resumo_linhas.size() > 1 else "nada"))
+	_ok(m.hud.resumo_t > 0.0 and m.hud._resumo_linhas.size() == 6 and String(m.hud._resumo_linhas[1][1]).ends_with("novo") and Arsenal.recorde == 1,
+		"ao sair aparece o resumo da rodada, com o recorde novo (%s)" % String(m.hud._resumo_linhas[1][1] if m.hud._resumo_linhas.size() > 1 else "nada"))
 	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 1 and m.hud.placar == "",
 		"a onda 2 vem sozinha; saindo da cratera tudo para e a onda 2 fica para a volta")
 	# o telhado segura o robô: solto de cima em vários pontos (painéis, emendas e nervuras) ele para em cima,
@@ -1857,10 +1857,14 @@ func _ponto_32() -> void:
 	await _esperar(0.3)
 	# a roda: abre em câmera lenta, o analógico direito escolhe e soltar troca
 	roda.trocar("pistola")
+	# um toque no L1 passa para a próxima arma, sem abrir a roda
+	await _apertar("roda")
+	await _esperar(0.1)
+	var toque: bool = Arsenal.modo == "rajada" and not RodaArmas.aberta and Engine.time_scale == 1.0
+	roda.trocar("pistola")
 	Input.action_press("roda")
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var abriu: bool = RodaArmas.aberta and Engine.time_scale < 0.5 and CameraVoo.travada
+	await _esperar(0.4)
+	var abriu: bool = toque and RodaArmas.aberta and Engine.time_scale < 0.5 and CameraVoo.travada
 	Input.action_press("olhar_direita")
 	for k in 4:
 		await get_tree().process_frame
@@ -1870,6 +1874,6 @@ func _ponto_32() -> void:
 	for k in 3:
 		await get_tree().process_frame
 	_ok(abriu and not RodaArmas.aberta and Engine.time_scale == 1.0 and not CameraVoo.travada and Arsenal.modo == apontou and apontou != "pistola",
-		"a roda abre em câmera lenta, o analógico escolhe e soltar troca (%s)" % Arsenal.modo)
+		"um toque no L1 passa para a próxima arma; segurando abre a roda em câmera lenta e soltar troca (%s)" % Arsenal.modo)
 	Arsenal.modo = "pistola"
 	_zerar()

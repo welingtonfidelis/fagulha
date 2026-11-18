@@ -422,6 +422,8 @@ func _passo_base(delta: float) -> bool:
 	if desligada:
 		_restante -= delta
 		mat_lente.emission_energy_multiplier = 0.02
+		if mech:
+			mech.clarao(0.0)  # o clarão de "levou tiro" ficava aceso se o tiro que desligou era o último: a máquina caía branca
 		if _restante <= 0.0:
 			religar()
 		return true

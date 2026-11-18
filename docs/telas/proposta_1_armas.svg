@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+<rect width="1600" height="900" fill="#10191b"/>
+<text x="40" y="54" font-size="34" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Seletor de armas · duas propostas</text>
+<text x="40" y="86" font-size="18" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Hoje: seis gomos só com texto pequeno. Proposta: figura grande e cor por arma, e um jeito de trocar que não exige segurar e mirar ao mesmo tempo.</text>
+<text x="420" y="140" font-size="24" fill="#ff9e4d" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">A · Roda com figuras (segurar L1)</text>
+<circle cx="420" cy="500" r="300" fill="#0b1416"/>
+<path d="M 368.4 402.9 L 283.9 243.9 A 290 290 0 0 1 556.1 243.9 L 471.6 402.9 A 110 110 0 0 0 368.4 402.9 Z" fill="#1f3033" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(420.0,287.0) scale(1.7)"><rect x="-22" y="-7" width="40" height="14" rx="5" fill="#ff8c33"/><circle cx="26" cy="0" r="5" fill="#ff8c33"/></g>
+<text x="420" y="341" font-size="19" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Pistola</text>
+<path d="M 478.3 406.7 L 573.7 254.1 A 290 290 0 0 1 709.8 489.9 L 529.9 496.2 A 110 110 0 0 0 478.3 406.7 Z" fill="#1f3033" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(597.5352077758099,389.5) scale(1.7)"><rect x="-22" y="-13" width="34" height="6" rx="3" fill="#ffe04d"/><rect x="-22" y="-3" width="34" height="6" rx="3" fill="#ffe04d"/><rect x="-22" y="7" width="34" height="6" rx="3" fill="#ffe04d"/><circle cx="20" cy="-10" r="3" fill="#ffe04d"/><circle cx="29" cy="0" r="3" fill="#ffe04d"/><circle cx="38" cy="10" r="3" fill="#ffe04d"/></g>
+<text x="598" y="444" font-size="19" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rajada</text>
+<path d="M 529.9 503.8 L 709.8 510.1 A 290 290 0 0 1 573.7 745.9 L 478.3 593.3 A 110 110 0 0 0 529.9 503.8 Z" fill="#ff5a3a" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(597.5352077758099,594.5) scale(1.7)"><rect x="-26" y="-13" width="34" height="26" rx="8" fill="#10191b"/><circle cx="24" cy="0" r="13" fill="#10191b"/><circle cx="24" cy="0" r="6" fill="#fff" opacity="0.8"/></g>
+<text x="598" y="648" font-size="19" fill="#10191b" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<path d="M 471.6 597.1 L 556.1 756.1 A 290 290 0 0 1 283.9 756.1 L 368.4 597.1 A 110 110 0 0 0 471.6 597.1 Z" fill="#1f3033" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(420.0,697.0) scale(1.7)"><rect x="-30" y="-3" width="56" height="6" rx="3" fill="#59bfff"/><circle cx="-6" cy="-12" r="8" fill="none" stroke="#59bfff" stroke-width="4"/><path d="M -6 -18 v 12 M -12 -12 h 12" stroke="#59bfff" stroke-width="2"/></g>
+<text x="420" y="751" font-size="19" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Precisão</text>
+<path d="M 361.7 593.3 L 266.3 745.9 A 290 290 0 0 1 130.2 510.1 L 310.1 503.8 A 110 110 0 0 0 361.7 593.3 Z" fill="#141d20" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(242.46479222419012,596.5000000000001) scale(1.5)"><rect x="-11" y="-2" width="22" height="18" rx="4" fill="#4a5a5a"/><path d="M -7 -2 v -6 a 7 7 0 0 1 14 0 v 6" fill="none" stroke="#4a5a5a" stroke-width="4"/></g>
+<path d="M 310.1 496.2 L 130.2 489.9 A 290 290 0 0 1 266.3 254.1 L 361.7 406.7 A 110 110 0 0 0 310.1 496.2 Z" fill="#141d20" stroke="#0b1416" stroke-width="3"/>
+<g transform="translate(242.4647922241901,391.5) scale(1.5)"><rect x="-11" y="-2" width="22" height="18" rx="4" fill="#4a5a5a"/><path d="M -7 -2 v -6 a 7 7 0 0 1 14 0 v 6" fill="none" stroke="#4a5a5a" stroke-width="4"/></g>
+<circle cx="420" cy="500" r="100" fill="#10191b" stroke="#ff5a3a" stroke-width="5"/>
+<g transform="translate(416,488) scale(2.0)"><rect x="-26" y="-13" width="34" height="26" rx="8" fill="#ff5a3a"/><circle cx="24" cy="0" r="13" fill="#ff5a3a"/><circle cx="24" cy="0" r="6" fill="#fff" opacity="0.8"/></g>
+<text x="420" y="558" font-size="24" fill="#ff5a3a" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<text x="120" y="830" font-size="1" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif"></text>
+<text x="120" y="830" font-size="1" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif"></text>
+<text x="120" y="830" font-size="1" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif"></text>
+<text x="120" y="830" font-size="1" fill="#eceee6" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif"></text>
+<text x="420" y="832" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">figura grande e cor do tiro em cada gomo</text>
+<text x="420" y="856" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">o gomo apontado acende e o controle vibra</text>
+<text x="420" y="880" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">arma não fabricada vira um cadeado</text>
+<text x="1180" y="140" font-size="24" fill="#ff9e4d" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">B · Toque troca (L1), fita embaixo</text>
+<rect x="850" y="190" width="660" height="400" rx="16" fill="#1b2a2c"/>
+<rect x="850" y="440" width="660" height="150" fill="#22352f"/>
+<text x="1180" y="300" font-size="18" fill="#6f8580" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">(o jogo continua, sem câmera lenta)</text>
+<rect x="930" y="480" width="100" height="100" rx="18" fill="#10191b" stroke="#34484a" stroke-width="3"/>
+<g transform="translate(976.0,530.0) scale(1.2)"><rect x="-22" y="-7" width="40" height="14" rx="5" fill="#ff8c33"/><circle cx="26" cy="0" r="5" fill="#ff8c33"/></g>
+<rect x="1055" y="480" width="100" height="100" rx="18" fill="#10191b" stroke="#34484a" stroke-width="3"/>
+<g transform="translate(1101.0,530.0) scale(1.2)"><rect x="-22" y="-13" width="34" height="6" rx="3" fill="#ffe04d"/><rect x="-22" y="-3" width="34" height="6" rx="3" fill="#ffe04d"/><rect x="-22" y="7" width="34" height="6" rx="3" fill="#ffe04d"/><circle cx="20" cy="-10" r="3" fill="#ffe04d"/><circle cx="29" cy="0" r="3" fill="#ffe04d"/><circle cx="38" cy="10" r="3" fill="#ffe04d"/></g>
+<rect x="1155" y="430" width="150" height="150" rx="18" fill="#10191b" stroke="#ff5a3a" stroke-width="6"/>
+<g transform="translate(1226.0,495.0) scale(1.9)"><rect x="-26" y="-13" width="34" height="26" rx="8" fill="#ff5a3a"/><circle cx="24" cy="0" r="13" fill="#ff5a3a"/><circle cx="24" cy="0" r="6" fill="#fff" opacity="0.8"/></g>
+<text x="1230.0" y="566" font-size="20" fill="#ff5a3a" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<rect x="1305" y="480" width="100" height="100" rx="18" fill="#10191b" stroke="#34484a" stroke-width="3"/>
+<g transform="translate(1351.0,530.0) scale(1.2)"><rect x="-30" y="-3" width="56" height="6" rx="3" fill="#59bfff"/><circle cx="-6" cy="-12" r="8" fill="none" stroke="#59bfff" stroke-width="4"/><path d="M -6 -18 v 12 M -12 -12 h 12" stroke="#59bfff" stroke-width="2"/></g>
+<rect x="1410" y="480" width="70" height="70" rx="35" fill="#ff9e4d"/>
+<text x="1445" y="524" font-size="24" fill="#10191b" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">L1</text>
+<text x="1180" y="650" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">cada toque no L1 passa para a próxima arma</text>
+<text x="1180" y="678" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">só aparecem as armas que ele já tem</text>
+<text x="1180" y="706" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">a fita surge por 2 s e some sozinha</text>
+<text x="1180" y="734" font-size="18" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">segurar o L1 ainda abre a roda (A), para os maiores</text>
+<text x="1180" y="790" font-size="19" fill="#59f2d9" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Sugestão: usar as duas. A criança troca só apertando;</text>
+<text x="1180" y="816" font-size="19" fill="#59f2d9" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">quem quiser escolher direto segura e aponta.</text>
+</svg>

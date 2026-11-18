@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+<rect width="1600" height="900" fill="#10191b"/>
+<text x="40" y="54" font-size="34" fill="#eceee6" text-anchor="start" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Oficina e pausa · proposta</text>
+<text x="40" y="86" font-size="18" fill="#9db0ab" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Hoje são listas de texto. Proposta: cartões grandes com figura; o que dá para fazer brilha, e o que falta aparece em figuras.</text>
+<text x="420" y="140" font-size="24" fill="#ff9e4d" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Oficina: grade de cartões</text>
+<rect x="70" y="170" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#59f2d9" stroke-width="5"/>
+<g transform="translate(174,256) scale(2.3)"><rect x="-22" y="-13" width="34" height="6" rx="3" fill="#ffe04d"/><circle cx="20" cy="-10" r="3" fill="#ffe04d"/><rect x="-22" y="-3" width="34" height="6" rx="3" fill="#ffe04d"/><circle cx="29" cy="0" r="3" fill="#ffe04d"/><rect x="-22" y="7" width="34" height="6" rx="3" fill="#ffe04d"/><circle cx="38" cy="10" r="3" fill="#ffe04d"/></g>
+<text x="178" y="340" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Rajada</text>
+<text x="178" y="396" font-size="36" fill="#59f2d9" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">✓</text>
+<rect x="310" y="170" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#ff9e4d" stroke-width="5"/>
+<g transform="translate(414,256) scale(2.3)"><rect x="-26" y="-13" width="34" height="26" rx="8" fill="#ff5a3a"/><circle cx="24" cy="0" r="13" fill="#ff5a3a"/><circle cx="24" cy="0" r="6" fill="#fff" opacity="0.8"/></g>
+<text x="418" y="340" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Canhão</text>
+<rect x="338" y="366" width="160" height="46" rx="23" fill="#ff9e4d"/>
+<text x="418" y="397" font-size="21" fill="#10191b" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricar</text>
+<rect x="550" y="170" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<g transform="translate(654,256) scale(2.3)"><rect x="-30" y="-3" width="56" height="6" rx="3" fill="#59bfff"/><circle cx="-6" cy="-12" r="8" fill="none" stroke="#59bfff" stroke-width="4"/></g>
+<text x="658" y="340" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Precisão</text>
+<g transform="translate(600,388) scale(0.9)"><circle cx="0" cy="0" r="11" fill="none" stroke="#ff6b6b" stroke-width="6" stroke-dasharray="6 4"/><circle cx="0" cy="0" r="4" fill="#ff6b6b"/></g>
+<text x="620" y="395" font-size="19" fill="#ff6b6b" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">30</text>
+<g transform="translate(680,388) scale(0.9)"><path d="M 0 -13 L 11 -6 V 6 L 0 13 L -11 6 V -6 Z" fill="#59f2d9"/></g>
+<text x="698" y="395" font-size="19" fill="#59f2d9" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">1</text>
+<rect x="70" y="460" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<g transform="translate(174,546) scale(2.3)"><rect x="-22" y="-16" width="36" height="12" rx="5" fill="#4a5a5a"/><circle cx="22" cy="-10" r="4" fill="#4a5a5a"/><rect x="-22" y="4" width="36" height="12" rx="5" fill="#4a5a5a"/><circle cx="22" cy="10" r="4" fill="#4a5a5a"/></g>
+<text x="178" y="630" font-size="22" fill="#6a7a7a" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Duplo</text>
+<g transform="translate(140,674) scale(1.0)"><rect x="-11" y="-2" width="22" height="18" rx="4" fill="#6a7a7a"/><path d="M -7 -2 v -6 a 7 7 0 0 1 14 0 v 6" fill="none" stroke="#6a7a7a" stroke-width="4"/></g>
+<text x="162" y="686" font-size="19" fill="#6a7a7a" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 4</text>
+<rect x="310" y="460" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<g transform="translate(414,546) scale(2.3)"><g transform="rotate(-40)"><rect x="-20" y="-7" width="32" height="14" rx="3" fill="#e8e8e8"/><path d="M 12 -7 L 28 0 L 12 7 Z" fill="#4a5a5a"/><path d="M -20 -7 l -8 -8 v 30 l 8 -8 Z" fill="#4a5a5a"/></g></g>
+<text x="418" y="630" font-size="22" fill="#6a7a7a" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Mísseis</text>
+<g transform="translate(380,674) scale(1.0)"><rect x="-11" y="-2" width="22" height="18" rx="4" fill="#6a7a7a"/><path d="M -7 -2 v -6 a 7 7 0 0 1 14 0 v 6" fill="none" stroke="#6a7a7a" stroke-width="4"/></g>
+<text x="402" y="686" font-size="19" fill="#6a7a7a" text-anchor="start" font-weight="normal" font-family="Helvetica, Arial, sans-serif">nível 4</text>
+<rect x="550" y="460" width="216" height="266" rx="20" fill="#1b2a2c" stroke="#ff9e4d" stroke-width="5"/>
+<g transform="translate(654,546) scale(2.3)"><circle cx="0" cy="3" r="14" fill="#4f6b55"/><rect x="-5" y="-17" width="10" height="8" rx="2" fill="#d6b24a"/><circle cx="0" cy="3" r="4" fill="#ff5a3a"/></g>
+<text x="658" y="630" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Granadas</text>
+<rect x="578" y="656" width="160" height="46" rx="23" fill="#ff9e4d"/>
+<text x="658" y="687" font-size="21" fill="#10191b" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">fabricar</text>
+<text x="420" y="790" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">✓ já tem · laranja: dá para fabricar · vermelho: o material que falta · cadeado: nível</text>
+<text x="420" y="818" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">abas no alto, com figura: Peças da ilha · Armas · Defesa</text>
+<text x="1200" y="140" font-size="24" fill="#ff9e4d" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Pausa: quatro botões grandes</text>
+<rect x="950" y="180" width="240" height="180" rx="24" fill="#1b2a2c" stroke="#59f2d9" stroke-width="6"/>
+<path d="M 1048 226 L 1104 258 L 1048 290 Z" fill="#59f2d9"/>
+<text x="1070" y="332" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Continuar</text>
+<rect x="1210" y="180" width="240" height="180" rx="24" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<path d="M 1330 222 l 40 32 h -12 v 34 h -56 v -34 h -12 Z" fill="#ffd27f"/>
+<text x="1330" y="332" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Voltar à base</text>
+<rect x="950" y="380" width="240" height="180" rx="24" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<rect x="1022" y="434" width="96" height="48" rx="24" fill="#eceee6"/><circle cx="1048" cy="458" r="9" fill="#10191b"/><circle cx="1092" cy="458" r="9" fill="#10191b"/>
+<text x="1070" y="532" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Comandos</text>
+<rect x="1210" y="380" width="240" height="180" rx="24" fill="#1b2a2c" stroke="#34484a" stroke-width="2"/>
+<circle cx="1330" cy="458" r="26" fill="none" stroke="#eceee6" stroke-width="14" stroke-dasharray="12 9"/><circle cx="1330" cy="458" r="9" fill="#eceee6"/>
+<text x="1330" y="532" font-size="22" fill="#eceee6" text-anchor="middle" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Ajustes</text>
+<rect x="950" y="600" width="500" height="120" rx="20" fill="#0d1517"/>
+<text x="1200" y="640" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Comandos: o desenho do controle, com cada</text>
+<text x="1200" y="666" font-size="18" fill="#eceee6" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">botão ligado à sua ação por uma linha</text>
+<text x="1200" y="698" font-size="16" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">(em vez da tabela de texto de hoje)</text>
+<text x="1200" y="770" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Sair do jogo vira um botão pequeno no canto,</text>
+<text x="1200" y="796" font-size="17" fill="#9db0ab" text-anchor="middle" font-weight="normal" font-family="Helvetica, Arial, sans-serif">para não ser apertado sem querer</text>
+</svg>

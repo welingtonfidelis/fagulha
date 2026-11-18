@@ -205,10 +205,15 @@ func pane_forcada(volta: Vector3) -> void:
 ## Laço do robô desligado: só cai e espera. Devolve true enquanto a pane durar.
 func _pane(delta: float) -> bool:
 	graca_pane = maxf(0.0, graca_pane - delta)
-	if avaria > 0 and not em_pane:
+	if (avaria > 0 or _dano_frac > 0.0) and not em_pane:
 		_avaria_tempo -= delta
 		if _avaria_tempo <= 0.0:
-			avaria -= 1
+			# sara um acerto inteiro; sem nenhum inteiro, some o pedaço que as balas deixaram (ele ficava para
+			# sempre, e as marcas de vida não sumiam da tela)
+			if avaria > 0:
+				avaria -= 1
+			else:
+				_dano_frac = 0.0
 			_avaria_tempo = Ajustes.AVARIA_SARA
 	if not em_pane:
 		return false

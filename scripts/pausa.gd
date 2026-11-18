@@ -21,29 +21,30 @@ const DICAS := [
 	"Sente (seta para a esquerda): os bichos chegam mais perto.",
 ]
 const COMANDOS := [
-	["Andar", "analógico esquerdo", "W A S D"],
-	["Olhar", "analógico direito", "mouse"],
+	["NO CHÃO", "", ""],
+	["Andar · olhar", "analógicos", "W A S D · mouse"],
 	["Correr", "L3", "Shift"],
-	["Sentar", "Seta para a esquerda", "Ctrl"],
-	["Espada de laser", "R3 no chão", "X"],
 	["Pular · pulo duplo", "X · X no ar", "Espaço"],
+	["Esquiva", "O", "C"],
+	["Sentar", "seta para a esquerda", "Ctrl"],
+	["NO AR", "", ""],
 	["Decolar", "segurar X", "segurar Espaço"],
 	["Ligar o voo · desligar e cair", "L3 no ar · toque em L3 ou X", "Shift no ar"],
-	["Acelerar e segurar no voo", "analógico esquerdo", "W · S"],
-	["Parar no ar e mirar", "L2", "botão direito · F"],
-	["Atirar (um tiro por aperto)", "R2", "botão esquerdo"],
-	["Esquiva · frear no voo", "O", "C"],
-	["Mergulho com impacto", "triângulo no ar", "V"],
+	["Acelerar e segurar", "analógico esquerdo", "W · S"],
+	["Planar · voltar ao jato (asas)", "segurar L3 ou X", "segurar Shift"],
+	["Parar no ar · frear", "L2 · O", "F · C"],
+	["Mergulho com impacto", "triângulo", "V"],
+	["COMBATE", "", ""],
+	["Mirar · atirar", "L2 · R2", "botões do mouse"],
+	["Trocar de arma", "toque no L1 · segurar: roda", "R · 1 a 6"],
+	["Granada", "segurar e soltar R1", "G"],
+	["Espada de laser", "R3 no chão", "X"],
+	["OUTROS", "", ""],
+	["Oficina · ligar a Fundição", "quadrado", "E"],
+	["Luz · scanner (melhorias)", "seta para cima · direita", "L · T"],
+	["Marcar um ponto", "seta para baixo", "Q"],
 	["Nadar: subir · descer", "X · O", "Espaço · C"],
-	["Marcar um ponto", "Seta para baixo", "Q"],
-	["Trocar de arma (roda)", "segurar L1", "segurar R · 1 a 6"],
-	["Granada", "R1", "G"],
-	["Planar · voltar ao jato (asas)", "segurar L3 ou X no voo", "segurar Shift ou Espaço"],
-	["Luz do peito (melhoria)", "Seta para cima", "L"],
-	["Scanner (melhoria)", "Seta para a direita", "T"],
-	["Oficina da base · ligar a Fundição", "quadrado", "E"],
-	["Medidor", "Create", "F3"],
-	["Pausa", "Options", "Esc"],
+	["Pausa · medidor", "Options · Create", "Esc · F3"],
 ]
 
 var armadura: Armadura
@@ -83,7 +84,7 @@ func _ready() -> void:
 	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fundo.add_child(centro)
 	_cartao = PanelContainer.new()
-	_cartao.add_theme_stylebox_override("panel", _caixa(Color(0.07, 0.11, 0.12, 0.96), 22, 34, Color(0.35, 0.95, 0.85, 0.35)))
+	_cartao.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.96), 8, 32, Color(0.2, 0.3, 0.31)))
 	centro.add_child(_cartao)
 	var pilha := VBoxContainer.new()
 	pilha.add_theme_constant_override("separation", 18)
@@ -92,17 +93,17 @@ func _ready() -> void:
 	var topo := VBoxContainer.new()
 	topo.add_theme_constant_override("separation", 2)
 	pilha.add_child(topo)
-	topo.add_child(_texto("Pausa", 40, TINTA))
-	topo.add_child(_texto("Faísca 2 · Em Busca do Sossego", 16, AGUA))
+	topo.add_child(_texto("Pausa", 28, TINTA))
+	topo.add_child(_texto("Faísca 2 · Em Busca do Sossego", 13, APAGADO))
 	# página inicial
 	_inicio = VBoxContainer.new()
 	_inicio.add_theme_constant_override("separation", 10)
 	pilha.add_child(_inicio)
-	_primeiro = _botao(_inicio, "Continuar", "voltar ao jogo", _continuar, true)
-	_botao(_inicio, "Voltar à base", "o robô reaparece no estrado", _voltar)
-	_botao_comandos = _botao(_inicio, "Comandos", "o que cada botão faz", _abrir_comandos)
-	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade do desenho, câmera e vibração", _abrir_ajustes)
-	_botao_sair = _botao(_inicio, "Sair do jogo", "fecha o jogo (o progresso fica guardado)", _sair)
+	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true)
+	_botao(_inicio, "Voltar à base", "reaparece na base", _voltar)
+	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
+	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes)
+	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair)
 	# página de ajustes
 	_pagina_ajustes = VBoxContainer.new()
 	_pagina_ajustes.add_theme_constant_override("separation", 10)
@@ -128,13 +129,14 @@ func _ready() -> void:
 	var tabela := GridContainer.new()
 	tabela.columns = 2
 	tabela.add_theme_constant_override("h_separation", 36)
-	tabela.add_theme_constant_override("v_separation", 5)
+	tabela.add_theme_constant_override("v_separation", -3)
 	_pagina_comandos.add_child(tabela)
 	for linha: Array in COMANDOS:
-		var acao := _texto(linha[0], 17, TINTA)
+		var titulo_grupo: bool = String(linha[1]) == ""
+		var acao := _texto(linha[0], 11 if titulo_grupo else 14, AGUA if titulo_grupo else TINTA)
 		acao.custom_minimum_size = Vector2(250, 0)
 		tabela.add_child(acao)
-		var tecla := _texto("", 17, LARANJA)
+		var tecla := _texto("", 14, LARANJA)
 		tecla.custom_minimum_size = Vector2(230, 0)
 		tabela.add_child(tecla)
 		_colunas.append(tecla)
@@ -173,21 +175,30 @@ func _texto(t: String, tamanho: int, cor: Color) -> Label:
 
 
 ## Um botão grande: o nome à esquerda e uma linha curta dizendo o que faz. O escolhido fica aceso.
-func _botao(pai: Control, nome: String, explica: String, acao: Callable, forte := false) -> Button:
+func _botao(pai: Control, nome: String, explica: String, acao: Callable, _forte := false) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(520, 54)
+	b.custom_minimum_size = Vector2(540, 50)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", 21)
+	b.add_theme_font_size_override("font_size", 19)
 	b.add_theme_color_override("font_color", TINTA)
-	b.add_theme_color_override("font_focus_color", Color(0.05, 0.09, 0.09))
+	b.add_theme_color_override("font_focus_color", LARANJA)
 	b.add_theme_color_override("font_hover_color", TINTA)
-	b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19) if not forte else Color(0.15, 0.26, 0.25), 12, 16))
-	b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 12, 16))
-	b.add_theme_stylebox_override("pressed", _caixa(LARANJA.darkened(0.2), 12, 16))
-	b.add_theme_stylebox_override("focus", _caixa(LARANJA, 12, 16))
+	b.add_theme_stylebox_override("normal", _caixa(Color(0.085, 0.13, 0.14), 4, 18))
+	b.add_theme_stylebox_override("hover", _caixa(Color(0.1, 0.155, 0.165), 4, 18))
+	b.add_theme_stylebox_override("pressed", _caixa(Color(0.16, 0.13, 0.09), 4, 18))
+	b.add_theme_stylebox_override("focus", _caixa(Color(0.16, 0.13, 0.09, 0.35), 4, 18, LARANJA))
 	b.set_meta("nome", nome)
 	b.set_meta("explica", explica)
 	b.text = nome
+	# a explicação fica à direita, na mesma linha
+	var ex := _texto(explica, 13, APAGADO)
+	ex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ex.offset_right = -18.0
+	ex.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ex.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ex.name = "explica"
+	b.add_child(ex)
 	b.pressed.connect(acao)
 	b.focus_entered.connect(func() -> void: _ao_focar(b))
 	b.mouse_entered.connect(b.grab_focus)
@@ -204,8 +215,8 @@ func _aba(pai: Control, nome: String, acao: Callable) -> Button:
 	b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19), 10, 12))
 	b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 10, 12))
 	b.add_theme_stylebox_override("pressed", _caixa(Color(0.2, 0.42, 0.4), 10, 12))
-	b.add_theme_stylebox_override("focus", _caixa(LARANJA, 10, 12))
-	b.add_theme_color_override("font_focus_color", Color(0.05, 0.09, 0.09))
+	b.add_theme_stylebox_override("focus", _caixa(Color(0, 0, 0, 0), 10, 12, LARANJA))
+	b.add_theme_color_override("font_focus_color", LARANJA)
 	b.pressed.connect(acao)
 	pai.add_child(b)
 	return b

@@ -27,6 +27,9 @@ var sons: Sons
 var drone: DroneColega
 var fase := Fase.FORA
 var perto := false
+const ABAS := ["Peças da ilha", "Armas", "Defesa"]
+var aba := 0
+var _abas_txt: Array[Label] = []
 var entradas := 0  # testes
 var recargas := 0
 var _t := 0.0
@@ -197,12 +200,12 @@ func _montar_tela() -> void:
 	_tela.visible = false
 	add_child(_tela)
 	var cartao := PanelContainer.new()
-	cartao.add_theme_stylebox_override("panel", _caixa(Color(0.05, 0.09, 0.1, 0.9), 18, 22))
+	cartao.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.93), 8, 24))
 	cartao.anchor_left = 1.0
 	cartao.anchor_right = 1.0
 	cartao.anchor_top = 0.0
 	cartao.anchor_bottom = 1.0
-	cartao.offset_left = -560.0
+	cartao.offset_left = -620.0
 	cartao.offset_right = -28.0
 	cartao.offset_top = 28.0
 	cartao.offset_bottom = -28.0
@@ -210,10 +213,23 @@ func _montar_tela() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
 	cartao.add_child(col)
-	col.add_child(_texto("Oficina", 26, TINTA))
-	_energia_txt = _texto("Instale as peças que achar pela ilha e fabrique com o que a Fundição dá.", 14, APAGADO)
-	_energia_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_texto("Oficina", 24, TINTA))
+	# as abas: peças achadas na ilha, armas e defesa (L1 / R1 trocam), com os materiais à direita
+	var topo := HBoxContainer.new()
+	topo.add_theme_constant_override("separation", 26)
+	col.add_child(topo)
+	for i in ABAS.size():
+		var la := _texto(ABAS[i], 16, APAGADO)
+		topo.add_child(la)
+		_abas_txt.append(la)
+	# os materiais ficam numa linha própria (ao lado das abas, alargavam o cartão para fora da tela)
+	_energia_txt = _texto("", 13, AGUA)
+	_energia_txt.clip_text = true
 	col.add_child(_energia_txt)
+	var fio := ColorRect.new()
+	fio.color = Color(0.2, 0.3, 0.31)
+	fio.custom_minimum_size = Vector2(0, 1)
+	col.add_child(fio)
 	_barra = ProgressBar.new()
 	_barra.max_value = 100.0
 	_barra.show_percentage = false
@@ -228,32 +244,66 @@ func _montar_tela() -> void:
 	var vao := Control.new()
 	vao.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(vao)
-	_titulo = _texto("", 24, LARANJA)
+	var fio2 := ColorRect.new()
+	fio2.color = Color(0.2, 0.3, 0.31)
+	fio2.custom_minimum_size = Vector2(0, 1)
+	col.add_child(fio2)
+	_titulo = _texto("", 19, LARANJA)
 	col.add_child(_titulo)
-	_efeito = _texto("", 18, TINTA)
+	_efeito = _texto("", 15, TINTA)
 	_efeito.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_efeito)
-	_estado = _texto("", 17, AGUA)
+	_estado = _texto("", 14, AGUA)
 	_estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_estado)
-	col.add_child(_texto("X / Enter: instalar ou fabricar   ·   O / Esc: sair", 15, APAGADO))
+	col.add_child(_texto("X  instalar ou fabricar      L1 / R1  trocar de aba      O  sair", 13, APAGADO))
 
 
-func _botao_lista(nome: String, texto: String, cor: Color) -> Button:
+## Uma linha da lista: ícone de traço, nome, custo no meio e estado à direita. A linha em foco ganha um
+## contorno laranja (sem bloco cheio).
+func _linha(nome: String, icone: String, titulo: String, custo: String, estado: String, cor: Color, cor_estado: Color) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 35)
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", 17)
-	b.text = texto
-	b.add_theme_color_override("font_color", cor)
-	b.add_theme_color_override("font_hover_color", cor)
-	b.add_theme_color_override("font_focus_color", Color(0.05, 0.09, 0.09))
-	b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19), 10, 10))
-	b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 10, 10))
-	b.add_theme_stylebox_override("pressed", _caixa(LARANJA.darkened(0.2), 10, 10))
-	b.add_theme_stylebox_override("focus", _caixa(LARANJA, 10, 10))
+	b.custom_minimum_size = Vector2(0, 44)
+	b.add_theme_stylebox_override("normal", _caixa(Color(0.085, 0.13, 0.14), 4, 0))
+	b.add_theme_stylebox_override("hover", _caixa(Color(0.1, 0.155, 0.165), 4, 0))
+	b.add_theme_stylebox_override("pressed", _caixa(Color(0.16, 0.13, 0.09), 4, 0))
+	var foco := _caixa(Color(0.16, 0.13, 0.09, 0.0), 4, 0)
+	foco.border_color = LARANJA
+	foco.set_border_width_all(1)
+	b.add_theme_stylebox_override("focus", foco)
+	var linha := HBoxContainer.new()
+	linha.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	linha.offset_left = 12.0
+	linha.offset_right = -14.0
+	linha.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	linha.add_theme_constant_override("separation", 12)
+	b.add_child(linha)
+	var ic := Icones.no(icone, 30.0, cor)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	linha.add_child(ic)
+	var l1 := _texto(titulo, 17, cor)
+	l1.custom_minimum_size = Vector2(180, 0)
+	l1.clip_text = true
+	linha.add_child(l1)
+	var l2 := _texto(custo, 13, APAGADO)
+	l2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l2.clip_text = true
+	linha.add_child(l2)
+	var l3 := _texto(estado, 13, cor_estado)
+	linha.add_child(l3)
+	for l: Control in [l1, l2, l3]:
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func() -> void: instalar(nome))
-	b.focus_entered.connect(func() -> void: _escolher(nome))
+	b.focus_entered.connect(func() -> void:
+		l1.add_theme_color_override("font_color", LARANJA)
+		ic.set_meta("cor", LARANJA)
+		ic.queue_redraw()
+		_escolher(nome))
+	b.focus_exited.connect(func() -> void:
+		l1.add_theme_color_override("font_color", cor)
+		ic.set_meta("cor", cor)
+		ic.queue_redraw())
 	b.mouse_entered.connect(b.grab_focus)
 	b.set_meta("nome", nome)
 	_lista.add_child(b)
@@ -261,36 +311,61 @@ func _botao_lista(nome: String, texto: String, cor: Color) -> Button:
 	return b
 
 
-## A lista: primeiro as peças achadas na ilha (instaladas com a energia da base), depois o que se fabrica
-## com os materiais da Fundição (o Arsenal).
+func _mudar_aba(passo: int) -> void:
+	aba = wrapi(aba + passo, 0, ABAS.size())
+	_escolhida = ""
+	_refazer_lista()
+	if sons:
+		sons._toque("roda_troca", -8.0, 0.0)
+
+
+## A lista da aba em uso: as peças achadas na ilha, as armas ou a defesa (as duas últimas se fabricam com
+## os materiais da Fundição).
 func _refazer_lista() -> void:
 	for f in _lista.get_children():
 		f.queue_free()
 	_botoes.clear()
-	var primeiro: Button = null
-	for nome: String in Melhorias.NOMES:
-		var b: Button
-		if Melhorias.instaladas.has(nome):
-			b = _botao_lista(nome, "✓  " + Melhorias.TITULOS[nome], AGUA)
-		elif Melhorias.achadas.has(nome):
-			b = _botao_lista(nome, "●  " + Melhorias.TITULOS[nome] + "   —   pronta para instalar", LARANJA)
-			if primeiro == null or not Melhorias.achadas.has(String(primeiro.get_meta("nome"))):
-				primeiro = b
-		else:
-			b = _botao_lista(nome, "?  peça ainda não encontrada", APAGADO)
-		if primeiro == null:
-			primeiro = b
+	for i in _abas_txt.size():
+		_abas_txt[i].add_theme_color_override("font_color", LARANJA if i == aba else APAGADO)
 	var bx := Arsenal.barra()
-	var titulo := _texto("Fabricar   ·   nível %d (%d de %d)   ·   sucata %d   ·   núcleos %d   ·   chips %d" % [Arsenal.nivel(), bx.x, bx.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips], 14, AGUA)
-	_lista.add_child(titulo)
-	for nome: String in Arsenal.RECEITAS:
-		var r: Dictionary = Arsenal.RECEITAS[nome]
-		if Arsenal.fabricados.has(nome):
-			_botao_lista(nome, "✓  " + String(r["titulo"]), AGUA)
-		elif Arsenal.falta(nome) == "":
-			_botao_lista(nome, "●  " + String(r["titulo"]) + "   —   fabricar", LARANJA)
-		else:
-			_botao_lista(nome, "○  " + String(r["titulo"]) + "   —   " + Arsenal.custo(nome), APAGADO)
+	_energia_txt.text = "nível %d (%d de %d)   ·   sucata %d   ·   núcleos %d   ·   chips %d" % [Arsenal.nivel(), bx.x, bx.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips]
+	var primeiro: Button = null
+	var bom: Button = null
+	if aba == 0:
+		for nome: String in Melhorias.NOMES:
+			var b: Button
+			if Melhorias.instaladas.has(nome):
+				b = _linha(nome, nome, Melhorias.TITULOS[nome], "", "instalada", TINTA, AGUA)
+			elif Melhorias.achadas.has(nome):
+				b = _linha(nome, nome, Melhorias.TITULOS[nome], "achada na ilha", "instalar", TINTA, LARANJA)
+				if bom == null:
+					bom = b
+			else:
+				b = _linha(nome, "cadeado", "Peça não encontrada", "em algum lugar da ilha", "", Color(0.3, 0.37, 0.36), APAGADO)
+			if primeiro == null:
+				primeiro = b
+	else:
+		var nomes := ["rajada", "canhao", "precisao", "duplo", "misseis", "granadas"] if aba == 1 else ["mira", "escudo", "vida"]
+		if aba == 1:
+			primeiro = _linha("pistola", "pistola", "Pistola", "de fábrica", "instalada", TINTA, AGUA)
+		for nome: String in nomes:
+			var rc: Dictionary = Arsenal.RECEITAS[nome]
+			var custo := Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "")
+			var b: Button
+			if Arsenal.fabricados.has(nome):
+				b = _linha(nome, nome, rc["titulo"], "", "instalada", TINTA, AGUA)
+			elif Arsenal.nivel() < int(rc["nivel"]):
+				b = _linha(nome, nome, rc["titulo"], custo, "nível %d" % int(rc["nivel"]), Color(0.3, 0.37, 0.36), Color(0.3, 0.37, 0.36))
+			elif Arsenal.falta(nome) == "":
+				b = _linha(nome, nome, rc["titulo"], custo, "fabricar", TINTA, LARANJA)
+				if bom == null:
+					bom = b
+			else:
+				b = _linha(nome, nome, rc["titulo"], custo, "falta material", TINTA, APAGADO)
+			if primeiro == null:
+				primeiro = b
+	if bom:
+		primeiro = bom
 	if _escolhida != "" and _botoes.has(_escolhida):
 		primeiro = _botoes[_escolhida]
 	if primeiro:
@@ -300,6 +375,13 @@ func _refazer_lista() -> void:
 ## A peça em foco aparece no corpo do robô (se ele já achou ou já tem), virado para o lado em que ela se vê.
 func _escolher(nome: String) -> void:
 	_escolhida = nome
+	if nome == "pistola":
+		_titulo.text = "Pistola"
+		_efeito.text = "A arma de fábrica: um tiro por aperto."
+		_estado.text = ""
+		armadura.visual.vestir_melhorias()
+		_virar("antena")
+		return
 	if Arsenal.RECEITAS.has(nome):
 		var rc: Dictionary = Arsenal.RECEITAS[nome]
 		_titulo.text = rc["titulo"]
@@ -372,6 +454,8 @@ func entrar() -> void:
 func instalar(nome: String) -> void:
 	if fase != Fase.ABERTA:
 		return
+	if nome == "pistola":
+		return
 	if Arsenal.RECEITAS.has(nome):
 		if Arsenal.fabricados.has(nome):
 			return
@@ -411,9 +495,17 @@ func sair() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if fase == Fase.ABERTA and event.is_action_pressed("ui_cancel"):
+	if fase != Fase.ABERTA:
+		return
+	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		sair()
+	elif event.is_action_pressed("roda"):
+		get_viewport().set_input_as_handled()
+		_mudar_aba(-1)
+	elif event.is_action_pressed("granada"):
+		get_viewport().set_input_as_handled()
+		_mudar_aba(1)
 
 
 func _physics_process(delta: float) -> void:
@@ -501,6 +593,7 @@ func _physics_process(delta: float) -> void:
 func _abrir() -> void:
 	fase = Fase.ABERTA
 	_escolhida = ""
+	aba = 0
 	_tela.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refazer_lista()

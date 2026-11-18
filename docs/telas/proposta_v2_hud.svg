@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+<rect width="1600" height="900" fill="#31584a"/>
+<rect y="500" width="1600" height="400" fill="#356b40"/>
+<rect width="1600" height="104" fill="#0e1517"/>
+<text x="48" y="50" font-size="30" fill="#e6e9e2" text-anchor="start" font-weight="500" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">Tela do jogo · segunda proposta</text>
+<text x="48" y="80" font-size="16" fill="#8fa39e" text-anchor="start" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">A mira e o arco de calor em volta dela ficam exatamente como estão. O resto só é alinhado e enxugado; nada de corações nem bonecos.</text>
+<rect x="540" y="124" width="520" height="40" fill="#000" opacity="0.28"/>
+<rect x="560" y="140" width="1.5" height="10" fill="#fff" opacity="0.8"/>
+<rect x="608" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="656" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="704" y="140" width="1.5" height="10" fill="#fff" opacity="0.8"/>
+<rect x="752" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="800" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="848" y="140" width="1.5" height="10" fill="#fff" opacity="0.8"/>
+<rect x="896" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="944" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<rect x="992" y="140" width="1.5" height="10" fill="#fff" opacity="0.8"/>
+<rect x="1040" y="140" width="1.5" height="5" fill="#fff" opacity="0.8"/>
+<text x="800" y="138" font-size="15" fill="#fff" text-anchor="middle" font-weight="500" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">N</text>
+<path d="M 800 150 l -6 9 h 12 Z" fill="#fff"/>
+<path d="M 968 136 l 8 7 h -3 v 8 h -10 v -8 h -3 Z" fill="#ffd27f"/><circle cx="632" cy="144" r="6" fill="#ffdcd2"/>
+<text x="800" y="186" font-size="13" fill="#8fa39e" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">bússola: sem mudança</text>
+<circle cx="800" cy="440" r="2.5" fill="#fff"/><circle cx="800" cy="440" r="9" fill="none" stroke="#fff" stroke-opacity="0.25" stroke-width="1.5"/>
+<path d="M 819.9 423.3 A 26 26 0 0 1 819.9 456.7" fill="none" stroke="#ff9e4d" stroke-width="3"/>
+<line x1="780.9" y1="451.0" x2="773.2" y2="455.5" stroke="#ff5a3a" stroke-width="3"/>
+<line x1="778.0" y1="440.0" x2="769.0" y2="440.0" stroke="#fff" stroke-width="3"/>
+<line x1="780.9" y1="429.0" x2="773.2" y2="424.5" stroke="#fff" stroke-width="3"/>
+<text x="800" y="502" font-size="13" fill="#fff" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">mira, arco de calor e marcas de dano: como hoje</text>
+<rect x="620" y="812" width="360" height="6" rx="3" fill="#000" opacity="0.4"/><rect x="620" y="812" width="250" height="6" rx="3" fill="#ff9e4d"/>
+<text x="800" y="800" font-size="12" fill="#fff" text-anchor="middle" font-weight="500" letter-spacing="2" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">MOTOR  69%</text>
+<text x="800" y="846" font-size="13" fill="#fff" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">barra de calor maior: só aparece acima de 40% e some ao esfriar</text>
+<rect x="1300" y="786" width="260" height="68" fill="#000" opacity="0.4"/>
+<rect x="1556" y="786" width="2" height="68" fill="#ff9e4d"/>
+<g transform="translate(1330,820) scale(1.3)"><path d="M -14 -6 H 6 V 6 H -14 Z M 6 -9 H 14 V 9 H 6" fill="none" stroke="#fff" stroke-width="1.38" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1360" y="814" font-size="20" fill="#fff" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">Canhão</text>
+<g transform="translate(1368,838) scale(0.7)"><circle cx="0" cy="3" r="8" fill="none" stroke="#59f2d9" stroke-width="3.14" stroke-linecap="round" stroke-linejoin="round"/><path d="M -3 -5 V -9 H 3 V -5" fill="none" stroke="#59f2d9" stroke-width="3.14" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1382" y="843" font-size="14" fill="#59f2d9" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">2</text>
+<g transform="translate(1420,838) scale(0.7)"><path d="M -12 8 L 6 -10 L 12 -12 L 10 -6 L -8 12 Z M -12 8 L -14 14 L -8 12" fill="none" stroke="#59f2d9" stroke-width="3.14" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1436" y="843" font-size="14" fill="#59f2d9" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">5</text>
+<text x="1430" y="774" font-size="13" fill="#fff" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">arma: um ícone e o nome; munição em dois números</text>
+<rect x="40" y="786" width="300" height="68" fill="#000" opacity="0.4"/>
+<rect x="40" y="786" width="2" height="68" fill="#ff9e4d"/>
+<text x="58" y="814" font-size="20" fill="#fff" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">Onda 7</text>
+<text x="140" y="814" font-size="20" fill="#fff" text-anchor="start" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">·  4 robôs</text>
+<text x="58" y="842" font-size="14" fill="#59f2d9" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">nível 3    sucata 34    núcleos 2</text>
+<text x="190" y="774" font-size="13" fill="#fff" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">placar da Fundição: como hoje, mais enxuto</text>
+<rect x="660" y="700" width="280" height="38" fill="#000" opacity="0.45"/>
+<rect x="676" y="709" width="20" height="20" rx="3" fill="none" stroke="#fff" stroke-width="1.5"/>
+<text x="708" y="725" font-size="17" fill="#fff" text-anchor="start" font-weight="400" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">entrar na oficina</text>
+<text x="800" y="690" font-size="13" fill="#fff" text-anchor="middle" font-weight="300" letter-spacing="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">convite: o símbolo do botão no lugar de "Quadrado / E:"</text>
+</svg>
