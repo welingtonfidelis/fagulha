@@ -17,6 +17,11 @@ void vertex() {
 void fragment() {
 	float r = texture(ruido, wpos.xz * 0.08).r;
 	vec3 c = cor_capim(ruido, wpos.xz) * 0.92;
+	// longe da câmera, onde as touceiras já não existem, o chão é pintado como capim
+	float longe = smoothstep(38.0, 84.0, distance(wpos, CAMERA_POSITION_WORLD));
+	if (longe > 0.001) {
+		c = mix(c, capim_de_longe(ruido, wpos.xz, TIME), longe);
+	}
 	vec3 terra = mix(vec3(0.20, 0.145, 0.09), vec3(0.27, 0.21, 0.13), r);
 	c = mix(c, terra, smoothstep(0.35, 0.6, COLOR.r + (r - 0.5) * 0.3));
 	c = mix(c, vec3(0.20, 0.17, 0.12), COLOR.g * 0.8);

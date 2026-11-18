@@ -202,6 +202,30 @@ func rodar(main: Node) -> void:
 			print("sumidouro: centro %s piso %.1f" % [Sumidouro.centro, Sumidouro.piso])
 		get_tree().quit()
 		return
+	if "--capim" in args:
+		# o campo de capim visto de perto ao longe: a borda onde as touceiras acabam (`--capim --hora 12`)
+		await _esperar(2.5)
+		a.recomecar()
+		m.hud.visible = false
+		var livre := Camera3D.new()
+		m.add_child(livre)
+		livre.fov = 70.0
+		livre.far = 4000.0
+		livre.make_current()
+		var vistas := [["a_sul_chao", Vector3(-100, 2.2, 500), Vector3(100, -6, 700)], ["b_sul_12m", Vector3(-100, 12, 500), Vector3(100, -30, 700)],
+			["c_sul_40m", Vector3(-100, 40, 500), Vector3(100, -60, 700)], ["d_base_campo", Vector3(2, 2.5, 46), Vector3(120, 0, 260)],
+			["e_plato", Vector3(640, 2.2, 120), Vector3(700, 0, 60)], ["f_sul_100m", Vector3(-100, 100, 500), Vector3(100, -40, 700)]]
+		for vista: Array in vistas:
+			var de: Vector3 = vista[1]
+			var chao := c.altura(de.x, de.z)
+			a.teleportar(Vector3(de.x, chao + 0.3, de.z), Armadura.Estado.CHAO)
+			a.visual.visible = false
+			livre.global_position = Vector3(de.x, chao + de.y, de.z)
+			livre.look_at(Vector3(vista[2].x, chao + vista[2].y, vista[2].z))
+			await _esperar(4.0)
+			await _foto(vista[0])
+		get_tree().quit()
+		return
 	if "--terreno" in args:
 		# alturas em volta de pontos candidatos (para escolher o lugar de uma obra grande)
 		await _esperar(2.0)

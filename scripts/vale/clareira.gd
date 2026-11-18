@@ -735,9 +735,8 @@ func _capim() -> void:
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
 			mmi.position = centro
-			mmi.visibility_range_end = 95.0
-			mmi.visibility_range_end_margin = 20.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			mmi.visibility_range_end = Qualidade.CAPIM_ATE + Qualidade.RAIO_BLOCO + 2.0
+			mmi.visibility_range_end_margin = 4.0
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			if perto:
 				mmi.add_to_group("capim_perto")

@@ -1792,3 +1792,29 @@ Fotos: `--vale-captura --hud`. Menus (roda de armas, oficina, pausa) ainda por r
   só quando o jogador tenta usar e por 2,5 s. **Onda:** sem caixa, no alto à esquerda, com um tracinho por
   robô que falta; os materiais só no respiro. **Resumo de rodada:** painel de canto reto, rótulo à esquerda
   e valor à direita. **Ícones:** tiro duplo são duas pistolas; precisão é um retículo de luneta.
+
+## 73. Capim que vai até longe (2026-11-17)
+
+O capim de verdade acabava a uns 95 m num quadrado (o bloco de 32 m aparecia e sumia inteiro) e dali em
+diante o chão era liso. Três coisas baratas, juntas (antes e depois em `docs/capim/antes_depois.png`):
+
+- **A borda encolhe em roda.** Toda touceira encolhe até o chão entre 70 e 88 m da câmera e toma a cor do
+  chão (`some_ate` no `vale_capim.gdshader`, `Qualidade.CAPIM_ATE`). Os blocos existem até 118 m
+  (`CapimVivo.RAIO`) e ficam à vista até a última touceira sumir; o quadrado não aparece mais.
+- **Tufos de longe.** De 62 a 220 m, tufos largos de 6 triângulos, um a cada 1,8 m, em blocos de 64 m
+  (`CapimVivo._criar_longe`, `_fazer_tufo`). Crescem onde o capim de verdade vai acabando (`nasce_de`,
+  `nasce_ate`) e encolhem no fim. São eles que dão o pontilhado escuro e o contorno do campo ao longe.
+- **Chão pintado.** A partir de 38 m o chão troca para `capim_de_longe` (em `vale_comum.gdshaderinc`): as
+  cores do capim em grão miúdo, um pouco mais escuras, com a rajada de vento passando por cima.
+
+Custo medido no Mac (`--vale-captura --perf`): igual ou melhor que antes (campos do sul 52 → 62 qps, base
+olhando o campo 32 → 38), porque os blocos de capim cheio deixaram de ser desenhados além de 113 m.
+Acima de 70 m do chão não nasce capim nem tufo novo, como antes. Fotos: `--vale-captura --capim`.
+
+### Fila depois do capim distante (pedido do usuário em 2026-11-17)
+
+1. **Cache da montagem do mundo:** guardar em disco o que hoje é calculado a cada abertura (grade de
+   alturas, malhas do chão, posições de árvores, pedras e plantas) e só refazer quando o código que gera
+   mudar, para o jogo abrir mais rápido. Pré-requisito natural da ilha de 3 km.
+2. **Tela de carregamento temática**, no lugar da tela parada da abertura.
+3. Ampliação da ilha para 3 km (para onde crescer e os lugares novos: decisão do usuário).

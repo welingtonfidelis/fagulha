@@ -6,13 +6,18 @@ extends Node3D
 ## flores (só no platô), e é solto quando fica longe do alvo. A clareira do meio tem o seu próprio capim.
 
 const BLOCO := 32.0  # lado do bloco, em metros
-const RAIO := 104.0  # blocos cujo centro está a menos disso do alvo existem
+const RAIO := 118.0  # blocos cujo centro está a menos disso do alvo existem (cobre os 88 m do capim à vista)
 const PASSO := 0.42  # metros entre touceiras no campo
 const POR_QUADRO := 1  # blocos novos criados por quadro, no máximo
 const MAX_BLOCOS := 60
 const ALTURA_VOO := 70.0  # acima disso do chão não nasce capim novo
 const GRADE_CAPIM := 76  # 32 / 76 = 0,42 m
 const GRADE_FLOR := 42  # 32 / 29 = 1,10 m
+const BLOCO_L := 64.0  # os tufos de longe: blocos maiores, tufos grandes e raros
+const RAIO_L := 220.0
+const GRADE_L := 36  # 64 / 36 = 1,8 m entre tufos
+const NASCE_DE := 62.0  # crescem onde o capim de verdade vai acabando
+const NASCE_ATE := 88.0
 const AMOSTRA := 2.0  # metros entre as amostras de cobertura e normal (o bloco inteiro usa 17 x 17)
 const PALETA: Array[Color] = [Color(0.93, 0.30, 0.52), Color(0.98, 0.78, 0.12), Color(0.58, 0.36, 0.90), Color(0.97, 0.96, 0.88)]
 
@@ -31,6 +36,10 @@ var _alvo := Vector3.ZERO
 var _voando := false
 var _malha_flor: ArrayMesh
 var _ruido: FastNoiseLite
+var tufos := 0
+var _longe := {}  # Vector2i -> MultiMeshInstance3D dos tufos de longe (ou null)
+var _fila_l: Array = []
+var _malha_tufo: ArrayMesh
 
 
 func _ready() -> void:
@@ -66,9 +75,26 @@ func _atualizar(p: Vector3) -> void:
 	for chave in _blocos.keys():
 		if _centro(chave).distance_to(xz) > RAIO + 24.0:
 			_soltar(chave)
+	for chave in _longe.keys():
+		if _centro_l(chave).distance_to(xz) > RAIO_L + 48.0:
+			var velho: MultiMeshInstance3D = _longe[chave]
+			if velho != null:
+				tufos -= velho.multimesh.instance_count
+				velho.queue_free()
+			_longe.erase(chave)
 	_fila = []
+	_fila_l = []
 	if _voando:
 		return
+	var lista_l := []
+	for bx in range(floori((p.x - RAIO_L) / BLOCO_L), floori((p.x + RAIO_L) / BLOCO_L) + 1):
+		for bz in range(floori((p.z - RAIO_L) / BLOCO_L), floori((p.z + RAIO_L) / BLOCO_L) + 1):
+			var chave := Vector2i(bx, bz)
+			var d := _centro_l(chave).distance_to(xz)
+			if d < RAIO_L and not _longe.has(chave):
+				lista_l.append([d, chave])
+	lista_l.sort_custom(func(a, b): return a[0] < b[0])
+	_fila_l = lista_l
 	var lista := []
 	for bx in range(floori((p.x - RAIO) / BLOCO), floori((p.x + RAIO) / BLOCO) + 1):
 		for bz in range(floori((p.z - RAIO) / BLOCO), floori((p.z + RAIO) / BLOCO) + 1):
@@ -93,6 +119,77 @@ func _criar_pendentes() -> void:
 			continue
 		_criar(chave)
 		feitos += 1
+	# os tufos de longe só quando o capim de perto está em dia
+	if feitos == 0 and not _fila_l.is_empty():
+		var chave_l: Vector2i = (_fila_l.pop_front() as Array)[1]
+		if not _longe.has(chave_l):
+			_criar_longe(chave_l)
+
+
+func _centro_l(chave: Vector2i) -> Vector2:
+	return Vector2((chave.x + 0.5) * BLOCO_L, (chave.y + 0.5) * BLOCO_L)
+
+
+## Um bloco de tufos de longe: poucos, largos e altos, só para o campo distante ter relevo e contorno.
+func _criar_longe(chave: Vector2i) -> void:
+	var x0 := chave.x * BLOCO_L
+	var z0 := chave.y * BLOCO_L
+	var cc := _centro_l(chave)
+	var cy := mapa.altura(cc.x, cc.y)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _semente(chave, 7)
+	var passo := BLOCO_L / GRADE_L
+	var ts: Array = []
+	for j in GRADE_L:
+		for i in GRADE_L:
+			var px := x0 + (i + rng.randf()) * passo
+			var pz := z0 + (j + rng.randf()) * passo
+			var sorte := rng.randf()
+			var s := rng.randf_range(1.5, 2.6)
+			var hy := rng.randf_range(0.75, 1.2)
+			var giro := rng.randf() * TAU
+			if sorte >= _chance(mapa.cobertura(px, pz)):
+				continue
+			var ny := 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
+			var h := _chao(px, pz, ny, rng)
+			if h == -INF:
+				continue
+			ts.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * hy, s)), Vector3(px - cc.x, h - 0.05 - cy, pz - cc.y)))
+	var m: MultiMeshInstance3D = null
+	if not ts.is_empty():
+		if _malha_tufo == null:
+			_malha_tufo = _fazer_tufo()
+		m = _mmi(_malha_tufo, ts, [], Vector3(cc.x, cy, cc.y))
+		m.visibility_range_end = RAIO_L + 50.0
+		tufos += ts.size()
+	_longe[chave] = m
+
+
+## O tufo de longe: 6 folhas largas de um triângulo só (de longe é o contorno que conta).
+func _fazer_tufo() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var r := RandomNumberGenerator.new()
+	r.seed = 4
+	for f in 6:
+		var ang := f * TAU / 6.0 + r.randf_range(-0.3, 0.3)
+		var dir := Vector3(cos(ang), 0, sin(ang))
+		var lado := Vector3(-dir.z, 0, dir.x)
+		var base := dir * r.randf_range(0.02, 0.16)
+		var alt := r.randf_range(0.26, 0.42)
+		var larg := r.randf_range(0.07, 0.10)
+		for v in [base - lado * larg, base + lado * larg, base + dir * r.randf_range(0.06, 0.16) + Vector3(0, alt, 0)]:
+			st.set_normal(Vector3.UP)
+			st.add_vertex(v)
+	var malha := st.commit()
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/vale_capim.gdshader")
+	mat.set_shader_parameter("ruido", (mapa.capim_malha.surface_get_material(0) as ShaderMaterial).get_shader_parameter("ruido"))
+	mat.set_shader_parameter("some_ate", RAIO_L)
+	mat.set_shader_parameter("nasce_de", NASCE_DE)
+	mat.set_shader_parameter("nasce_ate", NASCE_ATE)
+	malha.surface_set_material(0, mat)
+	return malha
 
 
 func _soltar(chave: Vector2i) -> void:
@@ -250,9 +347,8 @@ func _mmi(malha: Mesh, ts: Array, cores: Array, centro: Vector3, perto := false)
 	var m := MultiMeshInstance3D.new()
 	m.multimesh = mm
 	m.position = centro
-	m.visibility_range_end = 95.0
-	m.visibility_range_end_margin = 20.0
-	m.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	m.visibility_range_end = Qualidade.CAPIM_ATE + Qualidade.RAIO_BLOCO + 2.0
+	m.visibility_range_end_margin = 4.0
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if perto:
 		m.add_to_group("capim_perto")

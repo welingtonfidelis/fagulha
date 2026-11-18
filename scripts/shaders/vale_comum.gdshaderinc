@@ -53,6 +53,19 @@ vec3 cor_capim(sampler2D r, vec2 p) {
 	return c;
 }
 
+// O campo de capim visto de longe, pintado no chão: as mesmas cores das folhas (da raiz à ponta) em
+// tufos miúdos e moitas largas, e a rajada de vento passando por cima, igual à que balança o capim.
+vec3 capim_de_longe(sampler2D r, vec2 p, float tempo) {
+	vec3 base = cor_capim(r, p);
+	vec2 q = vec2(p.x * 0.8 + p.y * 0.6, p.y * 0.8 - p.x * 0.6);
+	float n = texture(r, q * vec2(1.1, 0.5)).r * 0.5 + texture(r, q.yx * 0.19 + vec2(0.7, 0.2)).r * 0.5;
+	n = smoothstep(0.34, 0.66, n);
+	vec3 c = mix(base * vec3(0.60, 0.63, 0.63), base * vec3(0.99, 1.03, 1.03) + vec3(0.006, 0.010, 0.0), n);
+	float fase = dot(p, vec2(0.085, 0.05)) - tempo * 1.25;
+	float rajada = smoothstep(0.2, 1.0, sin(fase) * 0.5 + 0.5 + 0.25 * sin(fase * 2.7 + p.x * 0.2));
+	return c + vec3(0.022, 0.028, 0.004) * rajada * 0.5;
+}
+
 // Pedra das encostas e dos paredões, pintada: cinza claro em manchas largas e macias que escorrem
 // na altura da parede, sem linha dura. O volume vem da luz em faixas sobre formas grandes e lisas.
 vec3 cor_rocha(sampler2D r, vec3 p, vec3 n) {

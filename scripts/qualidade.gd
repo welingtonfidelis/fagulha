@@ -13,6 +13,7 @@ const NIVEIS := [
 ]
 const PARTE_LONGE := 0.3  # fração das touceiras que fica até 95 m
 const ESCALA_LONGE := 1.45  # e quanto elas crescem, para o campo não rarear à vista
+const CAPIM_ATE := 88.0  # onde a última touceira some (o shader encolhe até lá)
 const RAIO_BLOCO := 23.0  # meio bloco de capim na diagonal
 
 static var nivel := 1
@@ -52,6 +53,7 @@ static func registrar_material(mat: ShaderMaterial) -> void:
 	if not _mats_capim.has(mat):
 		_mats_capim.append(mat)
 	mat.set_shader_parameter("perto_ate", capim_perto())
+	mat.set_shader_parameter("some_ate", CAPIM_ATE)
 
 
 ## Um bloco de capim cheio: some inteiro quando nenhuma touceira dele pode aparecer.
