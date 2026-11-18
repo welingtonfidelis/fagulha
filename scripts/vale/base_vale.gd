@@ -18,6 +18,7 @@ static var posto_drone := Vector3.INF  # no mundo: onde o drone fica parado
 static var cilindro_t := Transform3D()  # no mundo: o centro do cilindro, com o X apontando para a boca
 static var boca_cilindro := Vector3.INF  # no mundo: o meio da boca do cilindro
 static var faisca_em := Vector3.INF  # no mundo: onde o Faísca caído está sentado
+static var faisca_pecas := 0  # peças do Faísca caído com colisão própria (casco convexo)
 static var pecas_kit := 0
 
 static var _mats := {}
@@ -420,7 +421,30 @@ static func _faisca(o: Ruinas.Obra, pe: Vector3, giro: float) -> void:
 				for k in 8:
 					menor = minf(menor, (mi2.global_transform * cx.get_endpoint(k)).y)
 			if menor != INF:
-				f.global_position.y += piso + 0.01 - menor, CONNECT_ONE_SHOT)
+				f.global_position.y += piso + 0.01 - menor
+			# com ele no lugar, a colisão: a malha do próprio corpo (MalhaCorpo)
+			# O modelo dele é detalhado demais para virar colisão triângulo a triângulo (139 mil): cada peça
+			# do corpo entra como o casco convexo dela, já no lugar.
+			var corpo_f := StaticBody3D.new()
+			corpo_f.name = "FaiscaCaidoCorpo"
+			corpo_f.collision_layer = 1
+			corpo_f.collision_mask = 0
+			o.v.add_child(corpo_f)
+			for mi3: MeshInstance3D in f.find_children("*", "MeshInstance3D", true, false):
+				if not mi3.visible or mi3.mesh == null:
+					continue
+				var casco := mi3.mesh.create_convex_shape(true, true) as ConvexPolygonShape3D
+				if casco == null or casco.points.size() < 4:
+					continue
+				var pts := PackedVector3Array()
+				for vtx: Vector3 in casco.points:
+					pts.append(mi3.global_transform * vtx)
+				var no_mundo := ConvexPolygonShape3D.new()
+				no_mundo.points = pts
+				var cs_f := CollisionShape3D.new()
+				cs_f.shape = no_mundo
+				corpo_f.add_child(cs_f)
+				faisca_pecas += 1, CONNECT_ONE_SHOT)
 	var tex: Texture2D = o.v._tex
 	for mi: MeshInstance3D in f.find_children("*", "MeshInstance3D", true, false):
 		var nome := String(mi.name)
@@ -438,9 +462,8 @@ static func _faisca(o: Ruinas.Obra, pe: Vector3, giro: float) -> void:
 		mi.material_override = _mat_cor(cor, 0.65 if nome != "rosto" else 0.0, 0.85 if nome != "rosto" else 0.4, tex)
 	faisca_em = f.global_transform.origin if f.is_inside_tree() else (o.t * pe)
 	# encosto: o resto de parede atrás dele, e o corpo segura o robô do jogador
-	var caixa := BoxShape3D.new()
-	caixa.size = Vector3(0.6, 0.6, 0.9)
-	o.forma(caixa, Transform3D(Basis(Vector3.UP, giro), pe + Vector3(0, 0.3, 0) + Basis(Vector3.UP, giro) * Vector3(0, 0, 0.2)))
+	var no_caminho := o.t * pe
+	Obstaculos.registrar(no_caminho.x, no_caminho.z, 0.6)
 	# o mato em cima dele: no colo, nos ombros, na cabeça e em volta
 	var mundo_de := func(osso: String, extra: Vector3) -> Vector3:
 		var bi := sk.find_bone(osso)

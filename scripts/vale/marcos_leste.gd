@@ -25,7 +25,7 @@ static var farol_topo := Vector3.INF
 static var represa_meio := Vector3.INF
 static var gigantes: Array[Node3D] = []
 static var pedras_cabo := 0
-static var partes_colisao := 0
+static var triangulos := 0  # da colisão dos gigantes
 
 
 ## O eixo da parede da represa (x do mundo) na posição `dz` ao longo dela: em arco, bojuda para a lagoa.
@@ -52,7 +52,7 @@ static func livre(x: float, z: float) -> bool:
 static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
 	gigantes.clear()
-	partes_colisao = 0
+	triangulos = 0
 	var blocos: Array[PackedVector3Array] = []
 	for k in 6:
 		blocos.append(Ruinas._cubo_talhado(211 + k * 7, 2 + k % 3))
@@ -85,7 +85,7 @@ static func montar(v: Vale) -> void:
 	Marcos.lugares.append(["A Represa Rachada", REPRESA, 70.0])
 	Marcos.lugares.append(["O Farol Apagado", FAROL, 60.0])
 	Marcos.lugares.append(["O Sono dos Gigantes", GIGANTES, 90.0])
-	print("marcos do leste: %d peças na represa e no farol, %d gigantes (%d partes de colisão), %d ms" % [pecas, gigantes.size(), partes_colisao, Time.get_ticks_msec() - t0])
+	print("marcos do leste: %d peças na represa e no farol, %d gigantes (%d triângulos de colisão), %d ms" % [pecas, gigantes.size(), triangulos, Time.get_ticks_msec() - t0])
 
 
 # ---------------------------------------------------------------- A Represa Rachada
@@ -379,40 +379,27 @@ static func _gigantes(v: Vale) -> void:
 		if not deitado:
 			gigante.rotation.x = 0.07 * (1.0 if k % 2 == 0 else -1.0)  # um pouco tombado
 		esq.force_update_all_bone_transforms()
-		# a colisão acompanha o corpo: uma cápsula por osso, do pai ao filho (era uma caixa larga em volta de
-		# tudo, que barrava como parede invisível e deixava pousar no ar)
-		var partes: Array = []  # [meio, raio]
-		for i in esq.get_bone_count():
-			var pai := esq.get_bone_parent(i)
-			var nome_o := esq.get_bone_name(i).to_lower()
-			if pai < 0 or nome_o.contains("ik") or nome_o.contains("pole") or nome_o.contains("finger") or nome_o.contains("thumb") or nome_o.contains("attach") or nome_o.contains("dummy"):
-				continue
-			var a_o := esq.global_transform * esq.get_bone_global_pose(pai).origin
-			var b_o := esq.global_transform * esq.get_bone_global_pose(i).origin
-			var comp := a_o.distance_to(b_o)
-			if comp < alt * 0.035 or comp > alt * 0.6:
-				continue
-			var tronco := nome_o.contains("spine") or nome_o.contains("chest") or nome_o.contains("torso") or nome_o.contains("pelvis") or nome_o.contains("hips") or nome_o.contains("root")
-			var raio_o := alt * (0.12 if tronco else clampf(comp / alt * 0.45, 0.035, 0.07))
-			var f := CapsuleShape3D.new()
-			f.radius = raio_o
-			f.height = comp + raio_o * 2.0
-			var cs := CollisionShape3D.new()
-			cs.shape = f
-			var eixo_o := (b_o - a_o) / comp
-			var lado_o := eixo_o.cross(Vector3.UP if absf(eixo_o.y) < 0.95 else Vector3.RIGHT).normalized()
-			cs.transform = Transform3D(Basis(lado_o, eixo_o, lado_o.cross(eixo_o)), (a_o + b_o) * 0.5)
-			corpo.add_child(cs)
-			partes.append([(a_o + b_o) * 0.5, raio_o])
+		# A colisão é a própria malha do corpo, calculada na pose em que ele dorme: o que se vê é o que barra
+		# e o que sustenta. (Antes foram duas caixas largas, que faziam parede invisível, e depois cápsulas
+		# por osso, que deixavam atravessar chapas e barravam em vãos: o usuário pediu a física real.)
+		var faces := MalhaCorpo.faces(gigante, esq)
+		corpo.add_child(MalhaCorpo.forma(faces))
+		triangulos += faces.size() / 3
 		Obstaculos.registrar(c.x, c.y, alt * 0.2)
-		# árvores e mato crescendo em cima deles: no alto de algumas partes do corpo
+		# árvores e mato crescendo em cima deles: em faces largas viradas para cima
+		var pousos: Array[Vector3] = []
+		var f := 0
+		while f + 2 < faces.size():
+			var n := (faces[f + 1] - faces[f]).cross(faces[f + 2] - faces[f])
+			if absf(n.normalized().y) > 0.8 and n.length() > alt * alt * 0.004:
+				var meio_f := (faces[f] + faces[f + 1] + faces[f + 2]) / 3.0
+				if meio_f.y > v._fora(meio_f.x, meio_f.z) + 2.0:
+					pousos.append(meio_f)
+			f += 3
 		for i in 9:
-			if partes.is_empty():
+			if pousos.is_empty():
 				break
-			var parte: Array = partes[rng.randi() % partes.size()]
-			var pt: Vector3 = (parte[0] as Vector3) + Vector3(0, float(parte[1]) * 0.8, 0)
-			if pt.y < v._fora(pt.x, pt.z) + 1.0:
-				continue
+			var pt: Vector3 = pousos[rng.randi() % pousos.size()]
 			var planta: String = ["betula", "arbusto", "carvalho_a", "arbusto", "pinheiro", "arbusto", "q_samambaia"][i % 7]
 			if v._malhas.has(planta):
 				var es := rng.randf_range(0.7, 1.2) * (1.6 if planta == "arbusto" else 1.0)
@@ -425,7 +412,6 @@ static func _gigantes(v: Vale) -> void:
 			var nome: String = ["arbusto", "q_samambaia", "q_moita_flor", "q_pedra_a", "q_pedra_b"][i % 5]
 			if v._malhas.has(nome):
 				v._por(nome, Transform3D(Basis(Vector3.UP, a).scaled(Vector3.ONE * rng.randf_range(1.6, 3.4)), Vector3(p2.x, v._fora(p2.x, p2.y) - 0.1, p2.y)))
-		partes_colisao += partes.size()
 		k += 1
 
 

@@ -40,6 +40,7 @@ var _t := 0.0
 var _solta_t := 0.0
 var _portao := 0
 var _caidos: Array[Dictionary] = []
+static var caidos_pecas := 0  # peças com casco de colisão nos robôs velhos caídos
 var _espolios: Array[Dictionary] = []
 var _painel_luz: OmniLight3D
 var chefe_vivo: Vigia
@@ -891,17 +892,19 @@ static func montar(v: Vale) -> void:
 		raiz.add_child(velho)
 		velho.position = aqui(dados[0], 0.0, dados[1])
 		velho.rotation.y = dados[2]
-		velho.tocar("Death", 6.0, 0.0)
+		velho.tocar("Death", 1.0, 0.0)
+		velho.anim.advance(30.0)  # a pose final já, parada: a colisão é feita em cima dela
+		velho.anim.pause()
 		velho.apagar(1.0)
 		velho.olho(0.0)
 		_tufo(raiz, aqui(float(dados[0]) + 0.5, 0.2, float(dados[1]) - 0.4), 1.3)
-		var cv := CollisionShape3D.new()
-		var fv := BoxShape3D.new()
-		fv.size = Vector3(1.5, 0.9, 2.4)
-		cv.shape = fv
-		cv.transform = Transform3D(Basis(Vector3.UP, dados[2]), aqui(dados[0], 0.45, dados[1]))
-		corpo.add_child(cv)
-		Obstaculos.registrar_forma(fv, cv.transform, PISO)
+		# a colisão segue o corpo caído, peça por peça, em cascos simples (são pequenos e não se mexem: o
+		# usuário dispensou o detalhe; a malha inteira dava 24 mil triângulos para seis robôs de 1,9 m)
+		velho.esqueleto.force_update_all_bone_transforms()
+		for casco_v in MalhaCorpo.cascos(velho, velho.esqueleto):
+			corpo.add_child(casco_v)
+			caidos_pecas += 1
+		Obstaculos.registrar(aqui(dados[0], 0.0, dados[1]).x, aqui(dados[0], 0.0, dados[1]).z, 1.3)
 		k += 1
 	# fios pendurados: uns de treliça a treliça, outros arrebentados
 	for i in 16:

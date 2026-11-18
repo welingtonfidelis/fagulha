@@ -2119,3 +2119,14 @@ Cinco pontos que o usuário trouxe depois de jogar a build.
 
 - **Testes:** `--teste-vale` 75 pontos (a pane no mar agora a 596 m no teste; o gigante de pé a 33 m; o radiador duplo a 33 m do chão), `--teste` 95.
 - **Não conferido:** o afundamento na ladeira não tem teste próprio e não foi visto rodando: a correção vem da leitura do código. As cápsulas ficam um pouco para dentro das chapas do modelo, então o robô pode afundar um palmo no desenho ao pousar em algumas partes.
+
+**Colisão real dos gigantes (mesmo dia, pedido do usuário):** as cápsulas por osso ainda falhavam: ele atravessava algumas chapas e era barrado em vãos. A colisão passou a ser a própria malha do corpo (`MarcosLeste._malha_do_corpo`): cada vértice das peças presas ao esqueleto é levado pelos ossos que o puxam, na pose em que o gigante dorme, e os extras vão com o osso de encaixe. Vira uma `ConcavePolygonShape3D` por gigante, com colisão dos dois lados: 15.798 triângulos nos quatro. As árvores de cima nascem em faces largas viradas para cima, e a peça do radiador duplo pousa numa chapa de verdade (a 31 m do chão). Fotos com `--debug-collisions` mostram a malha azul em cima das chapas. Baterias: vale 75, voo 95. Não conferido jogando; o custo da física com a malha não foi medido.
+
+**A mesma solução nos outros robôs parados (mesmo dia):** a conta virou um utilitário, `MalhaCorpo` (`scripts/vale/malha_corpo.gd`), com duas saídas: `faces` (a malha inteira, para `ConcavePolygonShape3D`) e `cascos` (um casco convexo por peça do corpo, com até 64 pontos).
+- **Gigantes:** continuam com a malha inteira (15.798 triângulos), que o usuário aprovou.
+- **Os seis robôs velhos caídos da Fundição:** eram uma caixa de 1,5 x 0,9 x 2,4 m cada. Com a malha inteira dariam 24.706 triângulos para robôs de 1,9 m; o usuário disse que podia simplificar, e ficaram com cascos por peça (150 no total).
+- **O Faísca caído, na base:** era uma caixa pequena. O modelo dele tem 139 mil triângulos, então também ficou com cascos por peça (69), montados no quadro seguinte, depois que o corpo assenta no chão.
+- **Os mechas e as máquinas que andam** não mudaram: malha de colisão não serve para corpo em movimento.
+- **Bala e o corpo do alvo:** o raio que para a bala em paredes não conta mais o corpo do próprio robô alvo.
+- **Teste dos projéteis:** falhava de vez em quando. A conferência do rumo livre mirava 40 cm acima da linha real da bala e não via uma pedra baixa; agora mira o mesmo ponto, confere as duas camadas de colisão e as lombadas do terreno, e a bala tem três tentativas. O resultado dependia de onde a ronda deixava o mecha.
+- **Baterias:** `--teste-vale` 76 pontos, `--teste` 95.

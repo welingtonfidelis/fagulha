@@ -45,6 +45,7 @@ const TIROS := {
 	"missil": {"vel": 27.0, "raio": 1.3, "forca": 8.0, "dano": 1.0, "alcance": 190.0, "som": "tiro_zangao_2", "db": -3.0, "guia": 1.5, "estouro": 3.2},
 }
 var paradas := 0  # projéteis que pararam em tronco, rocha ou parede (testes)
+var ultimo_fim := ""  # como acabou o último projétil (testes)
 static var tiros_dados := {}  # tipo -> quantos saíram (testes)
 static var _malhas_tiro := {}
 static var _mats_tiro := {}
@@ -232,7 +233,14 @@ func atualizar_tiros(delta: float) -> void:
 		var fim := float(pr["andou"]) > float(t["alcance"])
 		var bateu_chao := p.y < mapa.altura(p.x, p.z)
 		# tronco, copa, rocha, ruína ou parede no trecho andado: o projétil para ali
-		var qr := PhysicsRayQueryParameters3D.create(de, p, 1 | 2, [_acerto.get_rid()] if _acerto else [])
+		# (o corpo do próprio alvo não conta como parede: a bala parava na casca do robô, a um palmo do meio
+		# dele, e conforme o quadro em que isso caía o acerto era descartado como "atrás do obstáculo")
+		var fora_qr: Array[RID] = []
+		if _acerto:
+			fora_qr.append(_acerto.get_rid())
+		if tem_alvo and alvo is CollisionObject3D:
+			fora_qr.append((alvo as CollisionObject3D).get_rid())
+		var qr := PhysicsRayQueryParameters3D.create(de, p, 1 | 2, fora_qr)
 		var bateu := get_world_3d().direct_space_state.intersect_ray(qr)
 		var parou := false
 		if not bateu.is_empty():
@@ -250,6 +258,7 @@ func atualizar_tiros(delta: float) -> void:
 			if acertou and parou and (c - de).dot(dir) > passo + 0.3:
 				acertou = false  # o robô está atrás do que parou o projétil
 		if acertou or bateu_chao or fim:
+			ultimo_fim = "acertou" if acertou else ("parou em %s, a %.1f m" % [(bateu["collider"] as Node).get_path() if not bateu.is_empty() else "chão do mapa", float(pr["andou"])] if bateu_chao else "alcance")
 			if t.has("estouro") and (acertou or bateu_chao):
 				_estouro(p, float(t["estouro"]))
 				if tem_alvo and p.distance_to(centro_alvo()) < float(t["estouro"]):

@@ -799,12 +799,30 @@ func _ponto_19() -> void:
 		# o robô a 40 m, num rumo sem nada no caminho (uma pedra das plantas do chão pode nascer na linha
 		# quando a cobertura do mapa muda: aconteceu em 2026-11-18 e a bala parava nela)
 		var esp_b := a.get_world_3d().direct_space_state
+		var rumo_b := -1
 		p = de_tiro.global_position + Vector3(0, 0, 40)
 		for k_b in 12:
 			var cand := de_tiro.global_position + Vector3(sin(k_b * TAU / 12.0), 0, cos(k_b * TAU / 12.0)) * 40.0
-			var alvo_b := Vector3(cand.x, v.altura(cand.x, cand.z) + 1.0, cand.z)
-			if absf(alvo_b.y - de_tiro.centro().y) < 6.0 and esp_b.intersect_ray(PhysicsRayQueryParameters3D.create(de_tiro.centro() + Vector3(0, 1.0, 0), alvo_b, 1)).is_empty():
+			# o mesmo ponto que a bala mira: o meio do robô, a 0,6 m do chão (mirando 40 cm acima, o raio passava
+			# por cima de uma pedra baixa que a bala pegava)
+			var alvo_b := Vector3(cand.x, v.altura(cand.x, cand.z) + 0.6, cand.z)
+			var q_b := PhysicsRayQueryParameters3D.create(de_tiro.centro() + Vector3(0, 1.0, 0), alvo_b, 1)
+			# as mesmas camadas que a bala confere (1 e 2), sem contar o corpo do próprio mecha
+			q_b.collision_mask = 1 | 2
+			if de_tiro._acerto:
+				q_b.exclude = [de_tiro._acerto.get_rid()]
+			var bate_b := esp_b.intersect_ray(q_b)
+			# e sem lombada no caminho: a bala para quando passa abaixo da altura do terreno
+			var limpo := true
+			var sai_b := de_tiro.centro() + Vector3(0, 1.0, 0)
+			var chega_b := Vector3(cand.x, v.altura(cand.x, cand.z) + 0.5, cand.z)
+			for passo_b in 21:
+				var pt_b := sai_b.lerp(chega_b, passo_b / 20.0)
+				if pt_b.y < v.altura(pt_b.x, pt_b.z) + 0.3:
+					limpo = false
+			if limpo and absf(alvo_b.y - de_tiro.centro().y) < 6.0 and bate_b.is_empty():
 				p = cand
+				rumo_b = k_b
 				break
 		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
 		a.graca_pane = 0.0
@@ -813,14 +831,19 @@ func _ponto_19() -> void:
 		await _esperar(0.2)
 		var g2: int = a.golpes
 		var boca := de_tiro.centro() + Vector3(0, 1.0, 0)
-		de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "bala", 0.0)
-		for i in 120:
-			await get_tree().physics_frame
-			de_tiro.atualizar_tiros(1.0 / 60.0)
-			if a.golpes > g2:
-				bala_ok = true
-				tempo_bala = i / 60.0
+		# até três tentativas: de vez em quando um bicho ou o drone cruza a linha e a bala para nele
+		for tentativa in 3:
+			de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "bala", 0.0)
+			for i in 120:
+				await get_tree().physics_frame
+				de_tiro.atualizar_tiros(1.0 / 60.0)
+				if a.golpes > g2:
+					bala_ok = true
+					tempo_bala = i / 60.0
+					break
+			if bala_ok:
 				break
+			print("    a bala não acertou (tentativa %d): %s" % [tentativa + 1, de_tiro.ultimo_fim])
 		for k in 2:
 			de_tiro.atirar_em(boca, de_tiro.centro_alvo(), "bala", 0.0)
 			for i in 60:
@@ -1984,6 +2007,13 @@ func _ponto_33() -> void:
 			and cupula > chao_o + 9.0 and no_conves > 2.5 and no_conves < 9.0 and v.agua(MarcosOeste.CASCO.x - 20.0, MarcosOeste.CASCO.y + 30.0) == Vale.MAR,
 		"norte e oeste: %d nomes; %d torres de vento (%d girando), a primeira com %.0f m; cúpula do observatório a %.0f m do chão; convés do navio a %.1f m sobre o mar" % [
 			nomes_o, MarcosOeste.torres_topo.size(), MarcosOeste.girando, topo_torre - v.altura(torre0.x, torre0.y), cupula - chao_o, no_conves])
+	# os robôs parados têm a colisão da própria malha: os gigantes, os velhos da Fundição e o Faísca caído
+	var fc := m.find_child("FaiscaCaido", true, false) as Node3D
+	var em_cima_f: float = bate.call(fc.global_position.x, fc.global_position.z) if fc else -INF
+	var chao_fc := v.altura(fc.global_position.x, fc.global_position.z) if fc else 0.0
+	_ok(MarcosLeste.triangulos > 8000 and Fundicao.caidos_pecas >= 60 and BaseVale.faisca_pecas >= 8 and em_cima_f > chao_fc + 0.25 and em_cima_f < chao_fc + 2.5,
+		"colisão pelo corpo: %d triângulos nos gigantes, %d peças com casco nos seis robôs velhos da Fundição, %d peças com casco no Faísca caído (o raio de cima acha o corpo dele a %.2f m do chão)" % [
+			MarcosLeste.triangulos, Fundicao.caidos_pecas, BaseVale.faisca_pecas, em_cima_f - chao_fc])
 	# as peças nos três círculos, e os dois níveis de radiador
 	var pm: PecasMundo = m.pecas
 	var base2 := Vector2(Melhorias.base.x, Melhorias.base.z)
