@@ -155,6 +155,16 @@ func _solido(cor: Color, musgo := 0.0) -> ShaderMaterial:
 	return m
 
 
+## Concreto velho: juntas das fôrmas, escorridos e limo escuro (vale_concreto.gdshader).
+func _concreto(cor: Color, limo: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://scripts/shaders/vale_concreto.gdshader")
+	m.set_shader_parameter("cor", cor)
+	m.set_shader_parameter("limo", limo)
+	m.set_shader_parameter("ruido", _tex)
+	return m
+
+
 func _folha(fundo: Color, meio: Color, topo: Color) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://scripts/shaders/vale_folha.gdshader")
@@ -183,7 +193,8 @@ func _materiais() -> void:
 		"junta": _solido(Color(0.05, 0.055, 0.06)),
 		"musgo": _solido(Color(0.13, 0.26, 0.08)),
 		# as construções de concreto e metal da ilha de 3 km: concreto gasto, tinta desbotada e vidro sujo
-		"concreto": _solido(Color(0.44, 0.44, 0.41), 0.4),  # com 0,85 de musgo as lajes pareciam gramado
+		"concreto": _concreto(Color(0.47, 0.46, 0.43), 0.6),
+		"concreto_pintado": _concreto(Color(0.40, 0.21, 0.17), 0.3),  # a faixa vermelha do farol, desbotada
 		"tinta_velha": _solido(Color(0.30, 0.165, 0.13), 0.9),
 		"vidro_velho": _solido(Color(0.30, 0.46, 0.44)),
 		# a lata dos contêineres, desbotada

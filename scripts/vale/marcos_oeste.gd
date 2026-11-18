@@ -8,7 +8,7 @@ const TORRES := [Vector2(-10, -1172), Vector2(128, -1186), Vector2(262, -1168), 
 const TORRE_ALT := 48.0
 const PA := 21.0  # comprimento de cada pá
 const OBSERVATORIO := Vector2(-700.0, -1088.0)
-const CUPULA := 12.0  # raio da cúpula
+const CUPULA := 20.0  # raio da cúpula (eram 12 m, e de longe sumia no morro)
 const CASCO := Vector2(-1206.0, 322.0)  # o meio do navio
 const CASCO_COMP := 76.0
 
@@ -28,7 +28,7 @@ class Rotor extends Node3D:
 static func livre(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
 	for t: Vector2 in TORRES:
-		if p.distance_to(t) < 9.0:
+		if p.distance_to(t) < 28.0:  # uma clareira ao pé de cada torre, para ela aparecer do chão
 			return false
 	if p.distance_to(OBSERVATORIO) < CUPULA + 12.0:
 		return false
@@ -168,13 +168,14 @@ static func _observatorio(o: Ruinas.Obra) -> void:
 	var v := o.v
 	var chao := v._fora(OBSERVATORIO.x, OBSERVATORIO.y)
 	var pe := Vector3(0, chao - 1.0, 0)
-	var por_volta := 18
+	var por_volta := 26
+	var k := CUPULA / 12.0  # as medidas de dentro acompanham o raio
 	# o tambor: parede redonda de 7 m, com a porta virada para o sul
-	var tambor_alt := 7.5
-	o.anel(pe, Basis.IDENTITY, CUPULA, 1.3, 2.5, por_volta, 3, func(_i: int, jf: int, phi: float) -> bool:
+	var tambor_alt := 12.0
+	o.anel(pe, Basis.IDENTITY, CUPULA, 1.6, 3.0, por_volta, 4, func(_i: int, jf: int, phi: float) -> bool:
 		return not (jf < 2 and absf(angle_difference(phi, PI * 0.5)) < 0.22), )
 	# a cúpula: sete fiadas que se inclinam para dentro; fica aberta a fenda (para o norte) e um rombo a oeste
-	var fiadas := 7
+	var fiadas := 9
 	for jf in fiadas:
 		var e0 := (jf + 0.5) / fiadas * PI * 0.5 * 0.92
 		var raio := CUPULA * cos(e0)
@@ -187,22 +188,22 @@ static func _observatorio(o: Ruinas.Obra) -> void:
 				continue  # a fenda do telescópio
 			if jf >= 2 and jf <= 4 and absf(angle_difference(phi, PI + 0.3)) < 0.5:
 				continue  # o pedaço que caiu
-			o.bloco(pe + Vector3(cos(phi) * raio, y, sin(phi) * raio), Vector3(arco * 1.08, CUPULA * PI * 0.5 * 0.92 / fiadas * 1.06, 0.9),
-				Basis(Vector3.UP, PI * 0.5 - phi + o.j(0.01)) * Basis(Vector3.RIGHT, -e0), "casco_claro" if (jf + i) % 5 != 0 else "concreto")
+			o.bloco(pe + Vector3(cos(phi) * raio, y, sin(phi) * raio), Vector3(arco * 1.08, CUPULA * PI * 0.5 * 0.92 / fiadas * 1.06, 1.2),
+				Basis(Vector3.UP, PI * 0.5 - phi + o.j(0.01)) * Basis(Vector3.RIGHT, -e0), "concreto" if (jf + i) % 5 != 0 else "casco_claro")
 	# o piso, o pedestal e o telescópio apontado pela fenda
 	o.bloco(pe + Vector3(0, 0.6, 0), Vector3(CUPULA * 1.7, 1.2, CUPULA * 1.7), Basis.IDENTITY, "concreto")
-	_cilindro(o, Transform3D(Basis.IDENTITY, pe + Vector3(0, 3.2, 0)), 1.8, 1.4, 4.0, "concreto")
+	_cilindro(o, Transform3D(Basis.IDENTITY, pe + Vector3(0, 1.2 + 3.0 * k, 0)), 1.8 * k, 1.4 * k, 6.0 * k, "concreto")
 	var mira := Basis(Vector3.RIGHT, 0.75)  # inclinado para o norte, pela fenda
-	_cilindro(o, Transform3D(mira, pe + Vector3(0, 7.2, 0) + mira * Vector3(0, 3.0, 0)), 1.5, 1.2, 15.0, "ferrugem")
-	_cilindro(o, Transform3D(mira, pe + Vector3(0, 7.2, 0) + mira * Vector3(0, 10.8, 0)), 1.7, 1.7, 0.8, "casco", false)
-	_cilindro(o, Transform3D(Basis(Vector3.BACK, PI * 0.5), pe + Vector3(0, 6.6, 0)), 0.9, 0.9, 5.4, "ferrugem", false)
+	_cilindro(o, Transform3D(mira, pe + Vector3(0, 7.2 * k, 0) + mira * Vector3(0, 3.0 * k, 0)), 1.5 * k, 1.2 * k, 15.0 * k, "ferrugem")
+	_cilindro(o, Transform3D(mira, pe + Vector3(0, 7.2 * k, 0) + mira * Vector3(0, 10.8 * k, 0)), 1.7 * k, 1.7 * k, 0.8 * k, "casco", false)
+	_cilindro(o, Transform3D(Basis(Vector3.BACK, PI * 0.5), pe + Vector3(0, 6.6 * k, 0)), 0.9 * k, 0.9 * k, 5.4 * k, "ferrugem", false)
 	# a casca que caiu, do lado de fora, e mato tomando a entrada
-	for k in 7:
+	for n_casca in 7:
 		var p := Vector2(-CUPULA - 3.0 - o.rng.randf() * 8.0, o.j(7.0) - 3.0)
 		var tam := Vector3(o.rng.randf_range(1.6, 3.6), 0.9, o.rng.randf_range(1.6, 3.2))
 		o.bloco(Vector3(p.x, v._fora(OBSERVATORIO.x + p.x, OBSERVATORIO.y + p.y) + 0.4, p.y), tam, Basis.from_euler(Vector3(o.j(0.5), o.rng.randf() * TAU, o.j(0.4))), "casco_claro")
 	BaseVale._peca(o, "Prop_SatelliteDish", Vector3(CUPULA + 6.0, v._fora(OBSERVATORIO.x + CUPULA + 6.0, OBSERVATORIO.y + 5.0), 5.0), 0.8, 3.4, 0.7, 0.6)
-	for k in 12:
+	for n_mato in 12:
 		var a := o.rng.randf() * TAU
 		var r := CUPULA + o.rng.randf_range(1.5, 6.0)
 		o.arbusto(Vector3(cos(a) * r, v._fora(OBSERVATORIO.x + cos(a) * r, OBSERVATORIO.y + sin(a) * r), sin(a) * r), o.rng.randf_range(0.8, 1.4))

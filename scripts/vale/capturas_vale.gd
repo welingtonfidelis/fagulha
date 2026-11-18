@@ -1602,11 +1602,22 @@ func _largo() -> void:
 		var ob := MarcosOeste.OBSERVATORIO
 		var cs := MarcosOeste.CASCO
 		vistas = [["o01_torres_da_mata", Vector3(200, 60, -980), Vector3(260, 50, -1180)], ["o02_torres_do_mar", Vector3(260, 30, -1380), Vector3(260, 50, -1180)],
-			["o03_torre_de_perto", Vector3(-70, 70, -1110), Vector3(-10, 66, -1172)], ["o04_torre_quebrada", Vector3(340, 60, -1120), Vector3(410, 30, -1185)],
-			["o05_observatorio_longe", Vector3(ob.x + 90, 0, ob.y + 120), Vector3(ob.x, 92, ob.y)], ["o06_observatorio_perto", Vector3(ob.x + 26, 0, ob.y + 30), Vector3(ob.x, 92, ob.y)],
+			["o03_torre_do_chao", Vector3(-60, 0, -1120), Vector3(-10, 60, -1172)], ["o04_torre_quebrada", Vector3(340, 60, -1120), Vector3(410, 30, -1185)],
+			["o05_observatorio_longe", Vector3(ob.x + 200, 0, ob.y + 260), Vector3(ob.x, 95, ob.y)], ["o06_observatorio_perto", Vector3(ob.x + 44, 0, ob.y + 50), Vector3(ob.x, 96, ob.y)],
 			["o07_observatorio_fenda", Vector3(ob.x - 6, 112, ob.y - 40), Vector3(ob.x, 90, ob.y)], ["o08_observatorio_dentro", Vector3(ob.x + 3, 81.5, ob.y + 7.5), Vector3(ob.x, 92, ob.y - 6)],
 			["o09_casco_da_praia", Vector3(cs.x + 110, 14, cs.y + 50), Vector3(cs.x, 6, cs.y)], ["o10_casco_do_alto", Vector3(cs.x + 30, 80, cs.y + 90), Vector3(cs.x, 0, cs.y)],
 			["o11_casco_do_mar", Vector3(cs.x - 110, 12, cs.y - 40), Vector3(cs.x, 8, cs.y)], ["o12_casco_conves", Vector3(cs.x + 30, 13, cs.y + 9), Vector3(cs.x - 24, 10, cs.y)]]
+	if "--gigantes" in OS.get_cmdline_user_args():
+		# cada gigante de dois lados, rente ao chão, para ver se algum fica no ar
+		vistas = []
+		for gi in MarcosLeste.DORMINDO.size():
+			var gd2: Array = MarcosLeste.DORMINDO[gi]
+			var cg := MarcosLeste.GIGANTES + Vector2(gd2[0], gd2[1])
+			var dist_g: float = float(gd2[3]) * 1.5
+			for lado_g in 2:
+				var ang_g := 0.7 + lado_g * PI * 0.5 + gi
+				var de_g := cg + Vector2(cos(ang_g), sin(ang_g)) * dist_g
+				vistas.append(["g%d_%d" % [gi, lado_g], Vector3(de_g.x, c.altura(de_g.x, de_g.y) + 6.0, de_g.y), Vector3(cg.x, c.altura(cg.x, cg.y) + 12.0, cg.y)])
 	if "--fenda" in OS.get_cmdline_user_args():
 		# a Fenda Escura: de cima, as bocas e por dentro (sem a luz do peito; `--farol` acende)
 		var fq := func(sv: float, lado: float, y: float) -> Vector3:

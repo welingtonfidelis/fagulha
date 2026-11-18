@@ -12,6 +12,7 @@ uniform float alto_vento = 0.12;  // a que altura da peça o balanço chega inte
 uniform float borda = 0.18;
 uniform float clarao = 0.0;  // pisca claro (máquina levando tiro)
 uniform float apagado = 0.0;  // escurece (máquina desligada)
+uniform float desbotado = 0.0;  // tira a cor e puxa para a ferrugem (os gigantes que dormem)
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
@@ -44,6 +45,10 @@ void fragment() {
 	float r = texture(ruido, wpos.xz * 0.05 + vec2(wpos.y * 0.07)).r;
 	vec3 c = t.rgb * tinta * (0.82 + 0.36 * smoothstep(0.3, 0.7, r));
 	c *= 1.0 - 0.6 * apagado;
+	if (desbotado > 0.0) {
+		float cinza = dot(c, vec3(0.3, 0.55, 0.15));
+		c = mix(c, mix(vec3(cinza), vec3(0.30, 0.21, 0.15) * (0.6 + cinza * 2.0), 0.55), desbotado);
+	}
 	ALBEDO = c;
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;

@@ -202,7 +202,7 @@ parede = FUNDO + (alto - FUNDO) * suave(-10, 16, s)
 novo = np.where(s < 0, np.maximum(FUNDO, s * 0.12), dentro)
 novo = novo * (1 - penhasco) + np.where(s < -10, np.maximum(FUNDO, s * 0.12), parede) * penhasco
 # piscinas naturais na Costa Quebrada: bacias rasas logo atrás da linha da costa
-pocas = quebrada * suave(0.60, 0.68, fbm(70, 97, 3)) * suave(8, 30, s) * (1 - suave(70, 110, s))
+pocas = quebrada * suave(0.52, 0.60, fbm(70, 97, 3)) * suave(8, 30, s) * (1 - suave(110, 170, s))  # eram poucas: só uma aparecia
 novo = novo * (1 - pocas) + (-0.7) * pocas
 # o fundo raso entre as ilhotas e a costa (bancos de areia)
 for cx, cz, raio in ILHOTAS:
@@ -232,7 +232,12 @@ cob = np.zeros((N, N), dtype=np.uint8)
 cob[arv] = 1
 cob[arv & (fechada > 0.3)] = 2
 cob[velho_vale] = vcob_e[velho_vale]
-cob[(cob == 4) & (h > 3.4)] = 0  # areia antiga que ficou longe do mar vira campo
+# a mata de hoje continua pela terra nova ao lado dela (senão acabava numa linha reta, onde era a costa)
+vizinha = borrar(borrar(((vcob_e == 1) | (vcob_e == 2)).astype(float) * (fora <= 0), 22), 10)
+antiga_areia = (cob == 4) & (h > 3.4)
+cob[antiga_areia] = 0  # areia antiga que ficou longe do mar vira campo
+# (a faixa de areia antiga conta como terra nova: era ela que deixava a linha reta)
+cob[(vizinha * (0.4 + 1.5 * fbm(110, 47)) > 0.2) & (~velho_vale | antiga_areia) & (s > 50) & (cob == 0)] = 1
 cob[(h < 2.6) & (h > FUNDO + 0.05)] = 4
 cob[(h <= FUNDO + 0.05)] = 4  # o fundo do mar é areia (com campo, o mar mudava de cor na borda dos dados)
 inclin = np.hypot(np.gradient(h, axis=0), np.gradient(h, axis=1)) / P

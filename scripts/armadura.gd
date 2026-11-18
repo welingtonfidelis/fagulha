@@ -269,7 +269,13 @@ func _subir_degrau(delta: float) -> void:
 		return
 	var frente := h.normalized() * maxf(h.length() * delta, 0.16)
 	var t0 := global_transform
-	if not test_move(t0, frente):
+	var bate := KinematicCollision3D.new()
+	if not test_move(t0, frente, bate):
+		return
+	# uma ladeira não é degrau: correndo depressa morro acima (logo depois de pousar do voo) cada quadro
+	# contava como um degrau, o desconto do desenho acumulava e o robô afundava no chão por uns segundos,
+	# subindo devagar depois (visto pelo usuário em 2026-11-18). Degrau é só o que barra de frente.
+	if bate.get_normal().y > 0.45:
 		return
 	if test_move(t0, Vector3(0, Ajustes.DEGRAU, 0)):
 		return
@@ -286,7 +292,7 @@ func _subir_degrau(delta: float) -> void:
 	if sobe < 0.06:
 		return
 	global_position = la.origin + col.get_travel()
-	_degrau_y -= sobe
+	_degrau_y = maxf(_degrau_y - sobe, -Ajustes.DEGRAU * 1.5)  # nunca mais que um degrau e meio de atraso
 	degraus += 1
 
 

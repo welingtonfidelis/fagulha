@@ -796,7 +796,16 @@ func _ponto_19() -> void:
 		# ninguém luta sozinho nesta parte (um vizinho atirando estragava a medida): os tiros do teste saem à mão
 		m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED  # o gerente parado: senão ele reacorda os mechas
 		v._corpo_arvores.collision_layer = 0  # sem árvores no caminho: aqui se mede o projétil (o ponto 29 mede o obstáculo)
+		# o robô a 40 m, num rumo sem nada no caminho (uma pedra das plantas do chão pode nascer na linha
+		# quando a cobertura do mapa muda: aconteceu em 2026-11-18 e a bala parava nela)
+		var esp_b := a.get_world_3d().direct_space_state
 		p = de_tiro.global_position + Vector3(0, 0, 40)
+		for k_b in 12:
+			var cand := de_tiro.global_position + Vector3(sin(k_b * TAU / 12.0), 0, cos(k_b * TAU / 12.0)) * 40.0
+			var alvo_b := Vector3(cand.x, v.altura(cand.x, cand.z) + 1.0, cand.z)
+			if absf(alvo_b.y - de_tiro.centro().y) < 6.0 and esp_b.intersect_ray(PhysicsRayQueryParameters3D.create(de_tiro.centro() + Vector3(0, 1.0, 0), alvo_b, 1)).is_empty():
+				p = cand
+				break
 		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
 		a.graca_pane = 0.0
 		a.avaria = 0

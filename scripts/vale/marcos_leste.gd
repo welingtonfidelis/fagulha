@@ -24,6 +24,8 @@ const DORMINDO := [[-70.0, -40.0, 0.6, 62.0, "deitado", 4.0], [44.0, 6.0, 2.5, 7
 static var farol_topo := Vector3.INF
 static var represa_meio := Vector3.INF
 static var gigantes: Array[Node3D] = []
+static var pedras_cabo := 0
+static var partes_colisao := 0
 
 
 ## O eixo da parede da represa (x do mundo) na posição `dz` ao longo dela: em arco, bojuda para a lagoa.
@@ -50,6 +52,7 @@ static func livre(x: float, z: float) -> bool:
 static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
 	gigantes.clear()
+	partes_colisao = 0
 	var blocos: Array[PackedVector3Array] = []
 	for k in 6:
 		blocos.append(Ruinas._cubo_talhado(211 + k * 7, 2 + k % 3))
@@ -78,10 +81,11 @@ static func montar(v: Vale) -> void:
 		o.fechar()
 		pecas += o.pecas
 	_gigantes(v)
+	_pedras_do_cabo(v)
 	Marcos.lugares.append(["A Represa Rachada", REPRESA, 70.0])
 	Marcos.lugares.append(["O Farol Apagado", FAROL, 60.0])
 	Marcos.lugares.append(["O Sono dos Gigantes", GIGANTES, 90.0])
-	print("marcos do leste: %d peças na represa e no farol, %d gigantes, %d ms" % [pecas, gigantes.size(), Time.get_ticks_msec() - t0])
+	print("marcos do leste: %d peças na represa e no farol, %d gigantes (%d partes de colisão), %d ms" % [pecas, gigantes.size(), partes_colisao, Time.get_ticks_msec() - t0])
 
 
 # ---------------------------------------------------------------- A Represa Rachada
@@ -240,8 +244,8 @@ static func _agua_da_represa(v: Vale) -> void:
 static func _farol(o: Ruinas.Obra) -> void:
 	var v := o.v
 	var chao := v._fora(FAROL.x, FAROL.y)
-	# pende para o mar (nordeste): o eixo sai do prumo uns 6 graus
-	var eixo := Basis(Vector3(1, 0, 1).normalized(), -0.105)
+	# pende para o mar (nordeste): o eixo sai do prumo uns 11 graus
+	var eixo := Basis(Vector3(1, 0, 1).normalized(), -0.19)  # eram 6 graus e de longe não se notava
 	var pe := Vector3(0, chao - 1.5, 0)
 	var fiada := 2.4
 	var fiadas := int(FAROL_ALTURA / fiada)
@@ -250,7 +254,7 @@ static func _farol(o: Ruinas.Obra) -> void:
 		var alto := float(jf) / fiadas
 		var raio := lerpf(FAROL_PE, FAROL_ALTO, alto)
 		var arco := TAU * raio / por_volta
-		var mat := "tinta_velha" if (jf / 4) % 2 == 1 else "concreto"
+		var mat := "concreto_pintado" if (jf / 4) % 2 == 1 else "concreto"
 		for i in por_volta:
 			var phi := (i + 0.5 * (jf % 2)) * TAU / por_volta
 			# a porta, no pé, virada para a terra (sudoeste)
@@ -306,6 +310,12 @@ static func _farol(o: Ruinas.Obra) -> void:
 		var a := o.rng.randf() * TAU
 		var r := o.rng.randf_range(8.5, 12.0)
 		o.arbusto(Vector3(cos(a) * r, v._fora(FAROL.x + cos(a) * r, FAROL.y + sin(a) * r), sin(a) * r), o.rng.randf_range(0.8, 1.4))
+	# mato subindo pela parede do lado da terra: touceiras presas à pedra, mais ralas para cima
+	for k in 34:
+		var alto_m := pow(o.rng.randf(), 1.7)
+		var phi_m := PI * 0.75 + o.j(1.5)
+		var raio_m := lerpf(FAROL_PE, FAROL_ALTO, alto_m * 0.6) + 0.5
+		o.arbusto(pe + eixo * Vector3(cos(phi_m) * raio_m, alto_m * 0.6 * FAROL_ALTURA + 0.6, sin(phi_m) * raio_m), o.rng.randf_range(0.9, 1.7) * (1.0 - alto_m * 0.5))
 	farol_topo = o.t * laje
 
 
@@ -325,43 +335,158 @@ static func _gigantes(v: Vale) -> void:
 	for g: Array in DORMINDO:
 		var c := GIGANTES + Vector2(g[0], g[1])
 		var alt: float = g[3]
-		var chao := v._fora(c.x, c.y)
 		var deitado: bool = g[4] == "deitado"
 		var gigante := Mech00Visual.montar(9100 + k * 17, alt, v._tex)
 		v.add_child(gigante)
-		gigante.position = Vector3(c.x, chao - float(g[5]), c.y)
+		gigante.position = Vector3(c.x, v._fora(c.x, c.y), c.y)
 		gigante.rotation.y = g[2]
-		if deitado:
-			gigante.tocar("Death", 8.0, 0.0)
-		else:
-			gigante.tocar("Idle", 0.0, 0.0)
-			gigante.rotation.x = 0.07 * (1.0 if k % 2 == 0 else -1.0)  # um pouco tombado
-		gigante.apagar(1.0)
+		gigante.tocar("Death" if deitado else "Idle", 1.0, 0.0)
+		# a pose final já, e parada: os ossos dão o lugar de cada parte do corpo
+		gigante.anim.advance(30.0 if deitado else 0.0)
+		gigante.anim.pause()
 		gigante.olho(0.0)
 		# a tinta de fábrica já se foi: ferrugem e pó, com as cores quase apagadas
-		gigante.mat.set_shader_parameter("tinta", Color(0.46, 0.36, 0.30))
+		gigante.mat.set_shader_parameter("tinta", Color(0.8, 0.76, 0.72))
+		gigante.mat.set_shader_parameter("desbotado", 0.85)
+		gigante.apagar(0.35)
 		gigantes.append(gigante)
-		# colisão por caixas, do tamanho do corpo em cada postura
-		var caixas: Array = []
+		var esq := gigante.esqueleto
+		esq.force_update_all_bone_transforms()
 		if deitado:
-			caixas = [[Vector3(0, alt * 0.09, 0), Vector3(alt * 0.42, alt * 0.2, alt * 0.9)]]
-		else:
-			var fora := alt - float(g[5])
-			caixas = [[Vector3(0, fora * 0.42, 0), Vector3(alt * 0.4, fora * 0.84, alt * 0.3)], [Vector3(0, fora * 0.62, 0), Vector3(alt * 0.78, alt * 0.14, alt * 0.26)]]
-		for cx: Array in caixas:
-			var f := BoxShape3D.new()
-			f.size = cx[1]
+			# O corpo cai para um lado a partir dos pés, e o chão ali é ladeira: apoiado só na altura dos pés,
+			# o resto ficava no ar (o usuário viu um com "a bunda flutuando"). Aqui o corpo se inclina com o
+			# chão que tem debaixo dele e desce até encostar.
+			var pts := _ossos(esq)
+			var meio := Vector2.ZERO
+			for q: Vector3 in pts:
+				meio += Vector2(q.x, q.z)
+			meio /= pts.size()
+			var r := alt * 0.3
+			var nrm := Vector3(-(v._fora(meio.x + r, meio.y) - v._fora(meio.x - r, meio.y)) / (2.0 * r), 1.0,
+				-(v._fora(meio.x, meio.y + r) - v._fora(meio.x, meio.y - r)) / (2.0 * r)).normalized()
+			# gira em volta do meio do corpo, para o chão debaixo dele continuar sendo o mesmo
+			var eixo_g := Vector3(meio.x, v._fora(meio.x, meio.y), meio.y)
+			var inclina := Transform3D(Basis(Quaternion(Vector3.UP, nrm)), Vector3.ZERO)
+			gigante.global_transform = Transform3D(Basis.IDENTITY, eixo_g) * inclina * Transform3D(Basis.IDENTITY, -eixo_g) * gigante.global_transform
+			esq.force_update_all_bone_transforms()
+		# desce até um quarto dos ossos ficar abaixo do chão (os de pé: enterrados até a cintura)
+		var folgas: Array[float] = []
+		for q: Vector3 in _ossos(esq):
+			folgas.append(q.y - v._fora(q.x, q.z))
+		folgas.sort()
+		var desce := folgas[int(folgas.size() * 0.25)] + alt * 0.035 if deitado else float(g[5])
+		gigante.global_position.y -= desce
+		if not deitado:
+			gigante.rotation.x = 0.07 * (1.0 if k % 2 == 0 else -1.0)  # um pouco tombado
+		esq.force_update_all_bone_transforms()
+		# a colisão acompanha o corpo: uma cápsula por osso, do pai ao filho (era uma caixa larga em volta de
+		# tudo, que barrava como parede invisível e deixava pousar no ar)
+		var partes: Array = []  # [meio, raio]
+		for i in esq.get_bone_count():
+			var pai := esq.get_bone_parent(i)
+			var nome_o := esq.get_bone_name(i).to_lower()
+			if pai < 0 or nome_o.contains("ik") or nome_o.contains("pole") or nome_o.contains("finger") or nome_o.contains("thumb") or nome_o.contains("attach") or nome_o.contains("dummy"):
+				continue
+			var a_o := esq.global_transform * esq.get_bone_global_pose(pai).origin
+			var b_o := esq.global_transform * esq.get_bone_global_pose(i).origin
+			var comp := a_o.distance_to(b_o)
+			if comp < alt * 0.035 or comp > alt * 0.6:
+				continue
+			var tronco := nome_o.contains("spine") or nome_o.contains("chest") or nome_o.contains("torso") or nome_o.contains("pelvis") or nome_o.contains("hips") or nome_o.contains("root")
+			var raio_o := alt * (0.12 if tronco else clampf(comp / alt * 0.45, 0.035, 0.07))
+			var f := CapsuleShape3D.new()
+			f.radius = raio_o
+			f.height = comp + raio_o * 2.0
 			var cs := CollisionShape3D.new()
 			cs.shape = f
-			cs.transform = Transform3D(Basis(Vector3.UP, g[2]), Vector3(c.x, chao, c.y) + Basis(Vector3.UP, g[2]) * (cx[0] as Vector3))
+			var eixo_o := (b_o - a_o) / comp
+			var lado_o := eixo_o.cross(Vector3.UP if absf(eixo_o.y) < 0.95 else Vector3.RIGHT).normalized()
+			cs.transform = Transform3D(Basis(lado_o, eixo_o, lado_o.cross(eixo_o)), (a_o + b_o) * 0.5)
 			corpo.add_child(cs)
-			Obstaculos.registrar_forma(f, cs.transform, chao)
-		# mato e pedras encostados neles, e uma árvore crescendo ao lado de cada um
+			partes.append([(a_o + b_o) * 0.5, raio_o])
+		Obstaculos.registrar(c.x, c.y, alt * 0.2)
+		# árvores e mato crescendo em cima deles: no alto de algumas partes do corpo
+		for i in 9:
+			if partes.is_empty():
+				break
+			var parte: Array = partes[rng.randi() % partes.size()]
+			var pt: Vector3 = (parte[0] as Vector3) + Vector3(0, float(parte[1]) * 0.8, 0)
+			if pt.y < v._fora(pt.x, pt.z) + 1.0:
+				continue
+			var planta: String = ["betula", "arbusto", "carvalho_a", "arbusto", "pinheiro", "arbusto", "q_samambaia"][i % 7]
+			if v._malhas.has(planta):
+				var es := rng.randf_range(0.7, 1.2) * (1.6 if planta == "arbusto" else 1.0)
+				v._por(planta, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * es), pt - Vector3(0, 0.3, 0)))
+		# mato e pedras encostados neles
 		for i in 12:
 			var a := rng.randf() * TAU
-			var r := alt * rng.randf_range(0.18, 0.45)
-			var p := c + Vector2(cos(a), sin(a)) * r
+			var r2 := alt * rng.randf_range(0.18, 0.45)
+			var p2 := c + Vector2(cos(a), sin(a)) * r2
 			var nome: String = ["arbusto", "q_samambaia", "q_moita_flor", "q_pedra_a", "q_pedra_b"][i % 5]
 			if v._malhas.has(nome):
-				v._por(nome, Transform3D(Basis(Vector3.UP, a).scaled(Vector3.ONE * rng.randf_range(1.6, 3.4)), Vector3(p.x, v._fora(p.x, p.y) - 0.1, p.y)))
+				v._por(nome, Transform3D(Basis(Vector3.UP, a).scaled(Vector3.ONE * rng.randf_range(1.6, 3.4)), Vector3(p2.x, v._fora(p2.x, p2.y) - 0.1, p2.y)))
+		partes_colisao += partes.size()
 		k += 1
+
+
+## Onde está cada osso do corpo, no mundo (sem os de controle, que ficam longe do corpo).
+static func _ossos(esq: Skeleton3D) -> Array[Vector3]:
+	var pts: Array[Vector3] = []
+	for i in esq.get_bone_count():
+		var nome_o := esq.get_bone_name(i).to_lower()
+		if nome_o.contains("ik") or nome_o.contains("pole") or nome_o.contains("dummy") or nome_o.contains("attach"):
+			continue
+		pts.append(esq.global_transform * esq.get_bone_global_pose(i).origin)
+	return pts
+
+
+# ---------------------------------------------------------------- o campo pedregoso do Cabo do Vento
+
+## O Cabo era capim liso: aqui entram as pedras espalhadas, mais juntas perto da ponta e do penhasco.
+static func _pedras_do_cabo(v: Vale) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2718
+	var postas := 0
+	var tentativas := 0
+	var por_tipo := {}
+	var corpo := StaticBody3D.new()
+	corpo.name = "PedrasDoCabo"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	v.add_child(corpo)
+	while postas < 230 and tentativas < 4000:
+		tentativas += 1
+		var p := Vector2(rng.randf_range(820.0, 1420.0), rng.randf_range(-1420.0, -880.0))
+		# só no cabo: a nordeste da linha que vai de (820, -1180) a (1180, -880)
+		if p.x - 820.0 + (p.y + 1180.0) * 1.2 < 0.0:
+			continue
+		var h := v._fora(p.x, p.y)
+		if h < 6.0 or v.normal_em(p.x, p.y).y < 0.9 or p.distance_to(FAROL) < 26.0 or v.agua(p.x, p.y) > -INF:
+			continue
+		var sorte := rng.randf()
+		var nome: String = "q_pedra_a" if sorte < 0.35 else ("q_pedra_b" if sorte < 0.7 else ("q_pedra_c" if sorte < 0.9 else "pedra_alta"))
+		if not v._malhas.has(nome):
+			nome = "pedra_a"
+		if not v._malhas.has(nome):
+			return
+		var es := rng.randf_range(1.2, 3.2) if sorte < 0.9 else rng.randf_range(1.5, 2.6)
+		var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.2, 0.2), rng.randf() * TAU, rng.randf_range(-0.2, 0.2))).scaled(Vector3.ONE * es),
+			Vector3(p.x, h - 0.25 * es, p.y))
+		if not por_tipo.has(nome):
+			por_tipo[nome] = []
+		(por_tipo[nome] as Array).append(xf)
+		if es > 2.2:
+			# as grandes barram o caminho: uma esfera do tamanho delas
+			var f := SphereShape3D.new()
+			f.radius = es * 0.55
+			var cs := CollisionShape3D.new()
+			cs.shape = f
+			cs.position = Vector3(p.x, h + es * 0.2, p.y)
+			corpo.add_child(cs)
+			Obstaculos.registrar(p.x, p.y, es * 0.55)
+		postas += 1
+	# desenhadas em lote, um por tipo, e só até 900 m (soltas, uma a uma, pesavam na vista do cume)
+	for nome_t: String in por_tipo:
+		var xfs: Array = por_tipo[nome_t]
+		v._multi(nome_t, xfs, v._centro(xfs), 0.0, 900.0, true)
+	pedras_cabo = postas

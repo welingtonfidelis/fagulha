@@ -2071,3 +2071,51 @@ As faixas novas do norte e do oeste tinham ganhado só terra. Agora têm três l
 - O oeste é o lado hostil, e três mechas moram perto do navio e do observatório: não conferi se atrapalham a visita.
 - Nenhum destes três tem peça nem outra recompensa.
 - Ninguém jogou. Desempenho e abertura não foram medidos de novo desde a etapa 1.
+
+## 85. Acertos depois das seis etapas (2026-11-18)
+
+O usuário pediu para corrigir o aviso de "sinal fraco" e acertar os pontos fracos anotados em cada etapa, na ordem que fosse melhor.
+
+![Depois dos acertos](vale/acertos_3km.jpg)
+
+**Feito:**
+- **"Sinal fraco":** `LimiteMar` passou a olhar se o robô está voltando (a distância até a costa caindo pelo menos 1 m/s). Voltando, não há aviso nem pane. Antes só contava a distância, e o aviso aparecia mesmo no voo de volta.
+- **Concreto:** material novo (`vale_concreto.gdshader`, `Clareira._concreto`): cinza claro com as juntas das fôrmas, escorridos escuros, ferrugem em alguns pontos e limo escuro (não capim) nas faces de cima. Vale para a represa, o cais, os pilares da ponte, o farol e o observatório.
+- **Farol:** inclinação de 6 para 11 graus, as faixas vermelhas pintadas no próprio concreto (desbotadas) e mato subindo pela parede do lado da terra.
+- **Gigantes:** desbotados para ferrugem (`desbotado` no `vale_tex.gdshader`), com árvores e mato crescendo em cima deles.
+- **Gigante flutuando** (visto pelo usuário): cada gigante agora se apoia no ponto mais baixo do chão debaixo do corpo inteiro. O terreno ali desce até 15 m de uma ponta à outra, e apoiado na altura do meio um deitado ficava com a ponta no ar.
+- **Observatório:** cúpula de 12 para 20 m de raio, tambor de 12 m de altura, telescópio na mesma proporção.
+- **Torres do Vento:** clareira de 28 m ao pé de cada uma, para aparecerem do chão.
+- **Cabo do Vento:** 230 pedras espalhadas, desenhadas em lote por tipo; as grandes têm colisão.
+- **Costa Quebrada:** mais piscinas naturais (o limiar no gerador era alto e só uma aparecia).
+- **Chapada:** a mata da Torre Caída continua pela terra nova em vez de acabar em linha reta. A causa era a faixa de areia da costa antiga, que virava campo.
+- **Teste dos projéteis:** passou a escolher um rumo livre para o tiro. Com a cobertura nova, uma pedra nasceu na linha e a bala parava nela.
+
+**Não feito:**
+- **Colisão dos gigantes por partes** (pousar num braço): continua em caixas largas.
+- **Contêineres do fundo** pouco visíveis de cima, e a **água turquesa** da Costa Quebrada.
+- **Lugares sem recompensa:** dez lugares não dão nada a quem visita. É decisão do usuário.
+- **Barbatanas no contêiner do fundo:** depende de saber se o robô mergulha sem elas.
+- **Terrain3D com a ilha de 3 km** e o **desempenho no PC**.
+
+**Medições:**
+- Abertura no Mac: mundo pronto em 5,2 a 5,5 s com o cache (eram 4,4 s na etapa 1), primeiro quadro aos 6,8 s. Os paredões seguem sendo o maior custo (1,8 s de formas de colisão).
+- Desempenho no Mac: não comparável hoje. A máquina estava com carga 50 a 90 (um build do Xcode e o emulador do Android), e os tempos de processador dobraram em tudo, inclusive na física. Medido assim: de 34 a 56 qps, com o cume a 43 e o alto a 45 (eram 53 e 55). Repetir com a máquina livre.
+- Baterias: `--teste-vale` 75 pontos, `--teste` 95.
+
+**Ainda para conversar com o usuário:** nadar e sair da água, manobras no ar, e o que cada lugar sem peça dá de recompensa.
+
+## 86. Do teste do usuário no PC: mar, ladeira e gigantes (2026-11-18)
+
+Cinco pontos que o usuário trouxe depois de jogar a build.
+
+- **Aviso e pane no mar mais longe:** `LimiteMar.AVISO` de 150 para 350 m e `PANE` de 260 para 550 m. A distância já era até a terra mais perto (qualquer praia ou ilhota, pela grade de `Vale.distancia_da_costa`), não até o meio da ilha; o que faltava era folga.
+- **Barbatanas:** o usuário confirmou que dá para mergulhar sem elas, mas prefere a peça no cais. Fica onde está, na ponta do Cais Submerso.
+- **Robô afundando no morro ao pousar correndo:** correndo depressa ladeira acima, `_subir_degrau` tratava a própria ladeira como degrau a cada quadro. O desconto do desenho (`_degrau_y`) acumulava, o boneco entrava no chão e subia devagar depois. Agora só conta como degrau o que barra de frente (normal com menos de 0,45 para cima), e o desconto nunca passa de um degrau e meio.
+- **Gigante com "a bunda flutuando"** (em 459, 520): o corpo deitado cai para um lado a partir dos pés, e eu apoiava pela altura dos pés. Agora cada deitado se inclina com o chão que tem debaixo do corpo (pelos ossos) e desce até um quarto dos ossos ficar abaixo do chão.
+- **Parede invisível no gigante da peça:** a colisão eram duas caixas largas em volta do corpo. Agora é uma cápsula por osso, do pai ao filho (162 no total nos quatro), mais grossa no tronco. Resolve também o ponto que tinha ficado sem fazer (pousar num braço).
+
+![Gigantes e a colisão deles](vale/gigantes_colisao.jpg)
+
+- **Testes:** `--teste-vale` 75 pontos (a pane no mar agora a 596 m no teste; o gigante de pé a 33 m; o radiador duplo a 33 m do chão), `--teste` 95.
+- **Não conferido:** o afundamento na ladeira não tem teste próprio e não foi visto rodando: a correção vem da leitura do código. As cápsulas ficam um pouco para dentro das chapas do modelo, então o robô pode afundar um palmo no desenho ao pousar em algumas partes.
