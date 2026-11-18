@@ -8,12 +8,13 @@ extends Node
 const PERTO := 240.0
 const LONGE := 320.0
 const CLAREIRA_FORA := 130.0  # a clareira já tem os seus bichos
-const MEIO := 930.0  # os lugares são sorteados dentro deste quadrado
-const MANADAS := 14
-const TOCAS := 34
-const BANDOS := 18
-const RAPOSAS := 12
-const ALCATEIAS := 5
+const MEIO := 1400.0  # os lugares são sorteados dentro deste quadrado (a ilha de 3 km)
+# a ilha de 3 km tem 1,7 vez a terra da de 2 km: os bichos cresceram na mesma medida
+const MANADAS := 24
+const TOCAS := 56
+const BANDOS := 30
+const RAPOSAS := 20
+const ALCATEIAS := 8
 
 var mapa: Vale
 var alvo: Node3D

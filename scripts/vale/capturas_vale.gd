@@ -202,6 +202,9 @@ func rodar(main: Node) -> void:
 			print("sumidouro: centro %s piso %.1f" % [Sumidouro.centro, Sumidouro.piso])
 		get_tree().quit()
 		return
+	if "--mapa" in args:
+		await _mapa()
+		return
 	if "--capa" in args:
 		await _capa()
 		return
@@ -1560,14 +1563,65 @@ func _largo() -> void:
 		vistas = [["m1_arvore_mae", am + Vector3(70, 14, 90), am + Vector3(0, 30, 0)], ["m2_arvore_de_baixo", am + Vector3(16, 2.5, 14), am + Vector3(0, 28, 0)],
 			["m3_anel", an + Vector3(60, 0, 80), an + Vector3(0, 6, 0)], ["m4_anel_de_dentro", an + Vector3(-30, 8, -40), an + Vector3(30, 0, 40)],
 			["m5_colunas", co + Vector3(80, 20, 90), co + Vector3(0, 30, 0)], ["m6_do_alto", Vector3(100, 320, 200), Vector3(300, 0, -100)]]
+	if "--novas" in OS.get_cmdline_user_args():
+		# as regiões da ilha de 3 km: do alto e do chão
+		vistas = [["n01_ilha_do_alto", Vector3(0, 900, 1500), Vector3(0, 0, 100)], ["n02_cabo_do_alto", Vector3(700, 220, -700), Vector3(1250, 40, -1250)],
+			["n03_cabo_do_mar", Vector3(1460, 30, -1100), Vector3(1250, 50, -1260)], ["n04_cabo_no_chao", Vector3(1100, 0, -1100), Vector3(1290, 70, -1280)],
+			["n05_encostas_do_alto", Vector3(1300, 200, -100), Vector3(950, 30, -380)], ["n06_lagoa_da_represa", Vector3(800, 70, -420), Vector3(960, 30, -320)],
+			["n07_corrego_de_baixo", Vector3(1230, 0, -260), Vector3(980, 40, -330)], ["n08_costa_quebrada_do_alto", Vector3(500, 220, 1150), Vector3(950, 0, 850)],
+			["n09_baia_do_cais", Vector3(820, 0, 880), Vector3(960, 0, 1010)], ["n10_arquipelago", Vector3(1050, 60, 700), Vector3(1270, 5, 640)],
+			["n11_ilhotas_do_alto", Vector3(1000, 260, 1300), Vector3(1280, 0, 900)], ["n12_chapada_do_alto", Vector3(-400, 240, 1350), Vector3(-830, 40, 1080)],
+			["n13_fenda_de_cima", Vector3(-860, 110, 1010), Vector3(-830, 5, 1110)], ["n14_fenda_por_dentro", Vector3(-930, 0, 1030), Vector3(-800, 12, 1112)],
+			["n15_saida_da_fenda", Vector3(-470, 14, 1360), Vector3(-640, 20, 1190)], ["n16_enseada_do_oeste", Vector3(-1050, 90, 250), Vector3(-1300, 0, 330)],
+			["n17_costa_norte", Vector3(-100, 120, -1050), Vector3(-250, 0, -1350)], ["n18_foz_e_baia", Vector3(250, 90, 430), Vector3(360, 0, 900)],
+			["n19_costa_antiga_leste", Vector3(760, 0, -600), Vector3(1000, 50, -600)], ["n20_costa_antiga_sul", Vector3(-800, 0, 820), Vector3(-800, 60, 1000)]]
+	if "--marcos-leste" in OS.get_cmdline_user_args():
+		# a represa, o farol e os gigantes: de longe, de perto e de cima
+		var f := MarcosLeste.FAROL
+		var g := MarcosLeste.GIGANTES
+		vistas = [["m01_represa_da_lagoa", Vector3(1010, 40, -335), Vector3(1100, 26, -335)], ["m02_represa_de_baixo", Vector3(1170, 22, -300), Vector3(1100, 24, -332)],
+			["m03_represa_do_alto", Vector3(1160, 90, -430), Vector3(1090, 20, -335)], ["m04_represa_no_passadico", Vector3(1101, 44.0, -378), Vector3(1096, 38, -330)],
+			["m05_corrego_e_mar", Vector3(1110, 40, -335), Vector3(1260, 0, -300)], ["m06_farol_de_longe", Vector3(1150, 0, -1150), Vector3(f.x, 95, f.y)],
+			["m07_farol_do_pe", Vector3(f.x - 22, 0, f.y + 22), Vector3(f.x, 95, f.y)], ["m08_farol_do_mar", Vector3(1470, 30, -1420), Vector3(f.x, 85, f.y)],
+			["m09_farol_lanterna", Vector3(f.x - 14, 140, f.y + 16), Vector3(f.x + 3, 131, f.y - 3)], ["m10_farol_do_alto", Vector3(f.x - 60, 160, f.y + 80), Vector3(f.x, 80, f.y)],
+			["m11_gigantes_de_longe", Vector3(g.x - 260, 80, g.y + 240), Vector3(g.x, 40, g.y)], ["m12_gigantes_do_chao", Vector3(g.x - 150, 0, g.y + 150), Vector3(g.x + 10, 50, g.y)],
+			["m13_gigante_de_pe", Vector3(g.x + 120, 60, g.y + 70), Vector3(g.x + 44, 55, g.y + 6)], ["m14_gigante_deitado", Vector3(g.x - 130, 50, g.y - 110), Vector3(g.x - 70, 30, g.y - 40)],
+			["m15_gigantes_de_cima", Vector3(g.x - 20, 260, g.y + 90), Vector3(g.x - 20, 30, g.y + 30)], ["m16_do_plato", Vector3(640, 60, 180), Vector3(g.x, 40, g.y)]]
+	if "--marcos-mar" in OS.get_cmdline_user_args():
+		# o cais, a ilha do relé e a ponte antiga
+		var cc := MarcosMar.CAIS
+		var rr := MarcosMar.RELE
+		vistas = [["a01_cais_da_praia", Vector3(cc.x - 60, 14, cc.y - 30), Vector3(cc.x + 50, 6, cc.y + 20)], ["a02_cais_do_alto", Vector3(cc.x + 20, 90, cc.y - 110), Vector3(cc.x + 60, 0, cc.y + 25)],
+			["a03_guindaste", Vector3(cc.x + 2, 9, cc.y + 34), Vector3(cc.x + 34, 16, cc.y + 12)], ["a04_cais_do_mar", Vector3(cc.x + 190, 16, cc.y + 90), Vector3(cc.x + 80, 6, cc.y + 30)],
+			["a05_trechos_afundados", Vector3(cc.x + 60, 12, cc.y + 62), Vector3(cc.x + 82, 0, cc.y + 30)], ["a06_debaixo_dagua", Vector3(cc.x + 52, -3.5, cc.y + 44), Vector3(cc.x + 70, -6, cc.y + 30)],
+			["a07_patio", Vector3(cc.x - 46, 9, cc.y + 16), Vector3(cc.x - 18, 4, cc.y + 6)], ["a08_rele_da_costa", Vector3(1040, 12, 640), Vector3(rr.x, 30, rr.y)],
+			["a09_ponte_antiga", Vector3(1090, 16, 590), Vector3(1150, 4, 640)], ["a10_rele_de_perto", Vector3(rr.x - 44, 24, rr.y + 40), Vector3(rr.x, 32, rr.y)],
+			["a11_rele_do_alto", Vector3(rr.x + 70, 100, rr.y + 90), Vector3(rr.x, 20, rr.y)], ["a12_rele_plataforma", Vector3(rr.x - 10, 52, rr.y - 12), Vector3(rr.x + 2, 44, rr.y + 6)],
+			["a13_arquipelago_do_alto", Vector3(1150, 200, 1000), Vector3(1290, 0, 760)], ["a14_ponte_sul", Vector3(1250, 14, 800), Vector3(1320, 4, 800)]]
+	if "--fenda" in OS.get_cmdline_user_args():
+		# a Fenda Escura: de cima, as bocas e por dentro (sem a luz do peito; `--farol` acende)
+		var fq := func(sv: float, lado: float, y: float) -> Vector3:
+			var p2 := FendaEscura.ponto(sv) + Vector2(-FendaEscura.rumo(sv).y, FendaEscura.rumo(sv).x) * lado
+			return Vector3(p2.x, y, p2.y)
+		vistas = [["e01_de_cima", Vector3(-860, 190, 1260), Vector3(-860, 40, 1090)], ["e02_teto_de_perto", fq.call(250.0, -46.0, 78.0), fq.call(290.0, 0.0, 52.0)],
+			["e03_boca_leste", fq.call(545.0, 4.0, 9.0), fq.call(470.0, 0.0, 14.0)], ["e04_boca_oeste", fq.call(4.0, 0.0, 12.0), fq.call(70.0, 0.0, 14.0)],
+			["e05_dentro_claraboia", fq.call(60.0, 3.0, 7.0), fq.call(110.0, 0.0, 12.0)], ["e06_dentro_fundo", fq.call(200.0, -3.0, 6.0), fq.call(250.0, 2.0, 8.0)],
+			["e07_dentro_cogumelos", fq.call(300.0, 4.0, 5.0), fq.call(330.0, -6.0, 5.0)], ["e08_dentro_para_cima", fq.call(360.0, 0.0, 6.0), fq.call(395.0, 0.0, 40.0)],
+			["e09_saida_para_o_mar", fq.call(455.0, 0.0, 7.0), fq.call(540.0, 0.0, 6.0)]]
+		Melhorias.tudo = true
+		a.luz_ligada = "--farol" in OS.get_cmdline_user_args()
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
 	for v: Array in vistas:
 		var de: Vector3 = v[1]
 		if de.y == 0.0:
 			de.y = c.altura(de.x, de.z) + 3.0
-		# o robô vai junto, para as árvores perto dele aparecerem completas
-		a.teleportar(Vector3(de.x, c.altura(de.x, de.z) + 0.3, de.z), Armadura.Estado.CHAO)
+		# o robô vai junto, para as árvores perto dele aparecerem completas (no mar ele fica na praia mais
+		# perto, senão entra em pane e a tela escurece)
+		var pe := Vector3(de.x, c.altura(de.x, de.z) + 0.3, de.z)
+		if pe.y < 1.5 and c is Vale:
+			pe = (c as Vale).praia_perto(de.x, de.z) + Vector3(0, 0.3, 0)
+		a.teleportar(pe, Armadura.Estado.CHAO)
 		livre.global_position = de
 		livre.look_at(v[2])
 		await _esperar(2.2)
@@ -2290,4 +2344,87 @@ func _capa() -> void:
 			livre.look_at(p + rumo * ang[4] + Vector3.UP * ang[5])
 			await _foto("%s_%s" % [voo[0], ang[0]])
 			Input.action_release("frente")
+	get_tree().quit()
+
+
+## O mapa visto de cima, com o nome de cada lugar (`--mapa --hora 12`): docs/mapa/mapa_lugares.png.
+## Norte (-Z) para cima. Também imprime a lista dos lugares com posição e raio.
+func _mapa() -> void:
+	await _esperar(3.0)
+	m.hud.visible = false
+	a.visual.visible = false
+	var lado := 2400
+	var meio := 1580.0  # metade do lado fotografado, em metros
+	if "--meio" in OS.get_cmdline_user_args():
+		meio = float(OS.get_cmdline_user_args()[OS.get_cmdline_user_args().find("--meio") + 1])
+	var vp := SubViewport.new()
+	vp.size = Vector2i(lado, lado)
+	vp.msaa_3d = Viewport.MSAA_4X
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var de_cima := Camera3D.new()
+	de_cima.projection = Camera3D.PROJECTION_ORTHOGONAL
+	de_cima.size = meio * 2.0
+	de_cima.far = 3000.0
+	vp.add_child(de_cima)
+	de_cima.look_at_from_position(Vector3(0, 900, 0), Vector3.ZERO, Vector3(0, 0, -1))
+	de_cima.current = true
+	var folha := Control.new()
+	folha.size = Vector2(lado, lado)
+	vp.add_child(folha)
+	var px := func(x: float, z: float) -> Vector2:
+		return Vector2((x + meio) / (meio * 2.0) * lado, (z + meio) / (meio * 2.0) * lado)
+	var pontos: Array = []
+	for it: Dictionary in m.locais.lista:
+		pontos.append([it["nome"], it["pos"].x, it["pos"].z, it["raio"]])
+	pontos.append(["Base", Melhorias.base.x, Melhorias.base.z, 0.0])
+	var saida_nome := "mapa_lugares"
+	if "--so-pecas" in OS.get_cmdline_user_args():
+		# o mapa das peças: só elas e a base (`--mapa --so-pecas`)
+		saida_nome = "mapa_pecas"
+		pontos = [["Base", Melhorias.base.x, Melhorias.base.z, 0.0]]
+		for nome_p: String in Melhorias.NOMES:
+			var pp: Vector3 = m.pecas.onde[nome_p]
+			pontos.append([Melhorias.TITULOS[nome_p], pp.x, pp.z, 0.0])
+	var fora_n := 0
+	for ap: Vector3 in c.arv_pos:
+		if maxf(absf(ap.x), absf(ap.z)) > 1000.0:
+			fora_n += 1
+	print("ARVORES %d no total, %d fora dos 2 km antigos" % [c.arv_pos.size(), fora_n])
+	for pt: Array in pontos:
+		print("LUGAR %s x %.0f z %.0f raio %.0f" % pt)
+		var onde: Vector2 = px.call(pt[1], pt[2])
+		var marca := ColorRect.new()
+		marca.color = Color(1.0, 0.62, 0.25)
+		marca.size = Vector2(12, 12)
+		marca.position = onde - Vector2(6, 6)
+		marca.rotation = PI / 4.0
+		marca.pivot_offset = Vector2(6, 6)
+		folha.add_child(marca)
+		var nome := Label.new()
+		nome.text = pt[0]
+		var regiao: bool = float(pt[3]) >= 95.0  # região larga: letra maior, em cima do ponto; lugar: embaixo
+		nome.add_theme_font_size_override("font_size", 40 if regiao else 30)
+		nome.add_theme_color_override("font_color", Color.WHITE)
+		nome.add_theme_color_override("font_outline_color", Color(0.04, 0.05, 0.1))
+		nome.add_theme_constant_override("outline_size", 10)
+		folha.add_child(nome)
+		nome.position = onde + Vector2(-nome.get_minimum_size().x * 0.5, -nome.get_minimum_size().y - 10.0 if regiao else 10.0)
+	# norte e escala
+	var rodape := Label.new()
+	rodape.text = "500 m          norte para cima"
+	rodape.add_theme_font_size_override("font_size", 30)
+	rodape.add_theme_color_override("font_outline_color", Color(0.04, 0.05, 0.1))
+	rodape.add_theme_constant_override("outline_size", 10)
+	rodape.position = Vector2(40, lado - 70)
+	folha.add_child(rodape)
+	var regua := ColorRect.new()
+	regua.size = Vector2(500.0 / (meio * 2.0) * lado, 6)
+	regua.position = Vector2(40, lado - 86)
+	folha.add_child(regua)
+	for i in 6:
+		await RenderingServer.frame_post_draw
+	var saida := ProjectSettings.globalize_path("res://docs/mapa/%s.png" % saida_nome)
+	vp.get_texture().get_image().save_png(saida)
+	print("MAPA em ", saida)
 	get_tree().quit()

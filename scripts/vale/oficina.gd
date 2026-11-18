@@ -18,7 +18,7 @@ const APAGADO := Color(0.62, 0.68, 0.66)
 const LARANJA := Color(1.0, 0.62, 0.3)
 const AGUA := Color(0.35, 0.95, 0.85)
 # de que lado cada peça aparece melhor: de costas ou de frente
-const DE_COSTAS := ["radiador", "asas", "amortecedores", "celulas", "bocais"]
+const DE_COSTAS := ["radiador", "radiador2", "asas", "amortecedores", "celulas", "bocais"]
 
 var armadura: Armadura
 var camera: CameraVoo

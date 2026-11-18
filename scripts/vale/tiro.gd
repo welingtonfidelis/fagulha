@@ -27,6 +27,7 @@ var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela d
 var _espera := 0.0
 var _pedido := 0.0  # tempo que um aperto do gatilho ainda vale
 var carga := 0.0  # 0 a 1: o canhão carregando (a tela desenha)
+var _som_carga: AudioStreamPlayer3D  # o som de carregar, para cortar quando solta o gatilho
 var travas: Array = []  # as máquinas travadas pelos mísseis (a tela desenha um losango em cada uma)
 var arco := PackedVector3Array()  # o caminho da granada enquanto o botão está segurado
 var misseis_lancados := 0  # testes
@@ -110,10 +111,14 @@ func _physics_process(delta: float) -> void:
 		"carga":
 			if Input.is_action_pressed("atirar") and _pode_atirar():
 				if carga <= 0.0:
-					Som.toque3d(self, "canhao_carga", armadura.global_position, -6.0)
+					_som_carga = Som.toque3d(self, "canhao_carga", armadura.global_position, -6.0)
 				carga = minf(1.0, carga + delta / float(modo["carga"]))
 				armadura.atirando = 0.6
 			elif carga > 0.0:
+				# soltou: o som de carregar para ali (antes seguia até o fim mesmo sem tiro)
+				if is_instance_valid(_som_carga):
+					_som_carga.queue_free()
+				_som_carga = null
 				quer = carga > 0.25
 				forca = carga
 				carga = 0.0

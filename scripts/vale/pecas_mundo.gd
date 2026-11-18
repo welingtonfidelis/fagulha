@@ -27,17 +27,23 @@ var bipes := 0  # quantas vezes uma peça entrou no radar (testes)
 
 
 func _ready() -> void:
-	# cada peça num lugar que combina com ela; a antena fica a poucos passos da base
+	# As peças em três círculos em volta da base (ilha de 3 km, doc §83):
+	#  perto: antena (ao lado da base), luz do peito (entrada do Sumidouro, perto da cachoeira), células (O Anel);
+	#  meio:  molas (Torre Caída), scanner (na frente da Fundição, sem lutar), radiador de aletas (As Colunas),
+	#         barbatanas (na ponta do Cais Submerso);
+	#  longe: asas (Árvore-Mãe), radiador duplo (nas costas do maior gigante), bocais (no alto do Farol).
 	var alvos := {
 		"antena": Vector2(-52, 44),
-		"radiador": Vector2(-100, 540),
-		"bocais": Vector2(Marcos.anel.x, Marcos.anel.z) if Marcos.anel.is_finite() else Vector2(-190, 600),
-		"asas": Vector2(mapa.cume.x, mapa.cume.z),
-		"barbatanas": Vector2(Vale.POCO.x + Vale.POCO.z + 6.0, Vale.POCO.y + 8.0),
-		"amortecedores": Vector2(Marcos.colunas.x, Marcos.colunas.z) + Vector2(0, 16) if Marcos.colunas.is_finite() else Vector2(420, -584),
-		"farol": Sumidouro.centro + Vector2(Sumidouro.POCO_RAIO + 9.0, 4.0) if Sumidouro.existe else Vector2(-290, -600),
-		"scanner": Vector2(Ruinas.TORRE.x + 14.0, Ruinas.TORRE.y + 10.0),
-		"celulas": Vector2(Marcos.arvore_mae.x, Marcos.arvore_mae.z) + Vector2(-17, 9) if Marcos.arvore_mae.is_finite() else Vector2(640, 120),
+		# na boca do Sumidouro que dá para a cachoeira, do lado de fora: quem vai entrar no escuro acha a luz antes
+		"farol": Sumidouro.saida + Sumidouro.dir * 7.0 if Sumidouro.existe else Vector2(-290, -560),
+		"celulas": Vector2(Marcos.anel.x, Marcos.anel.z) if Marcos.anel.is_finite() else Vector2(-190, 600),
+		"amortecedores": Vector2(Ruinas.TORRE.x + 14.0, Ruinas.TORRE.y + 10.0),
+		"scanner": Vector2(Fundicao.aqui(26.0, 0.0, Fundicao.MZ + 16.0).x, Fundicao.aqui(26.0, 0.0, Fundicao.MZ + 16.0).z),
+		"radiador": Vector2(Marcos.colunas.x, Marcos.colunas.z) + Vector2(0, 16) if Marcos.colunas.is_finite() else Vector2(420, -584),
+		"barbatanas": Vector2(MarcosMar.cais_ponta.x, MarcosMar.cais_ponta.z),
+		"asas": Vector2(Marcos.arvore_mae.x, Marcos.arvore_mae.z) + Vector2(-17, 9) if Marcos.arvore_mae.is_finite() else Vector2(640, 120),
+		"radiador2": MarcosLeste.GIGANTES,
+		"bocais": MarcosLeste.FAROL,
 	}
 	Melhorias.base = BaseVale.boca_cilindro
 	# as colisões do mundo só respondem depois de um passo da física (o Sumidouro é conferido por raio)
@@ -45,10 +51,15 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	for nome: String in Melhorias.NOMES:
 		onde[nome] = _assentar(alvos[nome])
-	# a luz do peito fica lá embaixo, no salão do Sumidouro: quem desce no escuro sai com a luz
-	var salao := _no_salao()
-	if salao.is_finite():
-		onde["farol"] = salao
+	# três ficam em cima de construções, onde o raio vindo de cima acha o piso: a ponta do cais, as costas
+	# do maior gigante (o de pé) e o balcão do farol
+	var gd: Array = MarcosLeste.DORMINDO[1]
+	for alto: Array in [["barbatanas", Vector2(MarcosMar.cais_ponta.x, MarcosMar.cais_ponta.z)],
+			["radiador2", MarcosLeste.GIGANTES + Vector2(gd[0], gd[1])],
+			["bocais", Vector2(MarcosLeste.farol_topo.x - 4.0, MarcosLeste.farol_topo.z + 4.0)]]:
+		var p := _de_cima(alto[1])
+		if p.is_finite():
+			onde[alto[0]] = p
 	repor()
 	_efeito = MeshInstance3D.new()
 	var aro := CylinderMesh.new()
@@ -81,6 +92,13 @@ func repor() -> void:
 		no.position = onde[nome]
 		add_child(no)
 		_nos[nome] = no
+
+
+## O primeiro piso que um raio vindo de cima acha em (x, z): o alto de uma construção (INF se não achar).
+func _de_cima(xz: Vector2) -> Vector3:
+	var esp := get_world_3d().direct_space_state
+	var r := esp.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(xz.x, 400.0, xz.y), Vector3(xz.x, -5.0, xz.y), 1))
+	return r["position"] if not r.is_empty() else Vector3.INF
 
 
 ## Um ponto do piso do salão do Sumidouro, fora da lagoa do meio e com vão livre por cima (INF: não achou).

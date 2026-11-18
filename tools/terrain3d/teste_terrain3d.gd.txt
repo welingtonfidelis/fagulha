@@ -1,0 +1,79 @@
+class_name TesteTerrain3D
+extends RefCounted
+## Teste do Terrain3D (2026-11-18, `-- --terrain3d`): o chão do vale desenhado pela extensão, com o mesmo
+## relevo (`Vale.altura`), para comparar quadros, triângulos e aparência com a malha própria.
+## Só o desenho muda: a colisão, as plantas, a água e as pedras continuam as do jogo.
+## A cor vem de um mapa de cor pintado aqui (capim, areia, pedra nas encostas); não é o shader do vale.
+
+const PASSO := 2.0  # metros entre vértices
+const N := 1024  # pontos de lado: cobre 2048 m, de -1024 a 1024
+
+static var terreno: Node3D
+static var escondidas := 0
+
+
+static func montar(v: Vale, camera: Camera3D) -> void:
+	var t0 := Time.get_ticks_msec()
+	# as malhas do chão do jogo saem de cena (as que usam o shader do chão)
+	for no in v.get_children():
+		var mi := no as MeshInstance3D
+		if mi and mi.mesh and mi.mesh.get_surface_count() > 0:
+			var mat := mi.mesh.surface_get_material(0) as ShaderMaterial
+			if mat and mat.shader and mat.shader.resource_path.ends_with("vale_chao.gdshader"):
+				mi.visible = false
+				escondidas += 1
+	var alt := Image.create_empty(N, N, false, Image.FORMAT_RF)
+	var cor := Image.create_empty(N, N, false, Image.FORMAT_RGBA8)
+	var hs := PackedFloat32Array()
+	hs.resize(N * N)
+	for j in N:
+		for i in N:
+			hs[j * N + i] = v.altura(-1024.0 + i * PASSO, -1024.0 + j * PASSO)
+	for j in N:
+		for i in N:
+			var h := hs[j * N + i]
+			alt.set_pixel(i, j, Color(h, 0, 0, 1))
+			var e := hs[j * N + mini(i + 1, N - 1)] - hs[j * N + maxi(i - 1, 0)]
+			var s := hs[mini(j + 1, N - 1) * N + i] - hs[maxi(j - 1, 0) * N + i]
+			var ny := 1.0 / sqrt(1.0 + (e * e + s * s) / (4.0 * PASSO * PASSO))
+			var c := Color(0.13, 0.26, 0.07)
+			c = c.lerp(Color(0.33, 0.27, 0.17), 1.0 - smoothstep(1.5, 4.5, h))  # areia perto do mar
+			c = c.lerp(Color(0.23, 0.23, 0.235), smoothstep(0.80, 0.68, ny))  # pedra nas encostas
+			cor.set_pixel(i, j, Color(c.r, c.g, c.b, 0.9))
+	var t1 := Time.get_ticks_msec()
+	var t := ClassDB.instantiate("Terrain3D") as Node3D
+	t.name = "Terrain3D"
+	t.set("free_editor_textures", false)
+	t.set("vertex_spacing", PASSO)
+	v.add_child(t)
+	t.set("region_size", 512)
+	t.set("collision_mode", 0)  # sem colisão: a do jogo continua valendo
+	var mat3: Object = t.get("material")
+	mat3.set("world_background", 0)
+	mat3.set("auto_shader_enabled", false)
+	var branco := Image.create_empty(64, 64, true, Image.FORMAT_RGBA8)
+	branco.fill(Color(1, 1, 1, 0.5))
+	branco.generate_mipmaps()
+	var liso := Image.create_empty(64, 64, true, Image.FORMAT_RGBA8)
+	liso.fill(Color(0.5, 0.5, 1.0, 0.95))
+	liso.generate_mipmaps()
+	var ta: Object = ClassDB.instantiate("Terrain3DTextureAsset")
+	ta.set("name", "Chao")
+	ta.set("albedo_texture", ImageTexture.create_from_image(branco))
+	ta.set("normal_texture", ImageTexture.create_from_image(liso))
+	t.get("assets").call("set_texture_asset", 0, ta)
+	t.get("data").call("import_images", [alt, null, cor], Vector3(-1024, 0, -1024), 0.0, 1.0)
+	t.call("set_camera", camera)
+	terreno = t
+	var d: Object = t.get("data")
+	var erro := 0.0
+	for p: Vector2 in [Vector2(0, 0), Vector2(-564, -628), Vector2(640, 120), Vector2(-100, 540), Vector2(300, -300)]:
+		erro = maxf(erro, absf(float(d.call("get_height", Vector3(p.x, 0, p.y))) - v.altura(p.x, p.y)))
+	print("TERRAIN3D: %d malhas do jogo escondidas; amostra %d ms, montagem %d ms; maior diferença de altura em 5 pontos: %.2f m" % [
+		escondidas, t1 - t0, Time.get_ticks_msec() - t1, erro])
+
+
+## A cada quadro: o terreno acompanha a câmera que estiver valendo (as fotos e medições usam câmeras próprias).
+static func seguir(vp: Viewport) -> void:
+	if terreno and is_instance_valid(terreno) and vp.get_camera_3d():
+		terreno.call("set_camera", vp.get_camera_3d())

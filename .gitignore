@@ -14,3 +14,6 @@ vendor/polyhaven/
 # downloads de som (OpenGameArt); o jogo usa os WAV montados em assets/sons/
 tools/sons_brutos/
 __pycache__/
+# o mapa de cima sai em PNG de 8 MB (--vale-captura --mapa); no git vai a versão JPEG
+docs/mapa/mapa_lugares.png
+docs/mapa/mapa_pecas.png

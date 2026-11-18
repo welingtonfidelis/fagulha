@@ -25,6 +25,8 @@ const BASE := Vector3(2.0, 44.0, -0.233)
 
 static func livre(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
+	if not MarcosLeste.livre(x, z):
+		return false
 	if p.distance_to(Fundicao.CENTRO) < Fundicao.RAIO + 22.0:
 		return false
 	var eixo := Vector2(cos(ARCOS.z), -sin(ARCOS.z))

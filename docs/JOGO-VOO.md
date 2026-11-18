@@ -1843,3 +1843,211 @@ Acima de 70 m do chão não nasce capim nem tufo novo, como antes. Fotos: `--val
 - As peças ficam em `docs/steam/`. As fotos de base saem de `godot --path . --resolution 2560x1440 -- --vale-captura --capa --hora 6.5` (o robô voando rumo à serra ao amanhecer; com `--pairando`, ele parado no ar de frente para a câmera, usado na capa em pé porque de costas ele não se reconhecia) e vão para `docs/steam/fotos/`.
 - `godot --path . -s tools/arte_steam.gd` recorta as fotos e escreve o título, no estilo da tela de carregamento.
 - No PC, nome e arte entram com a Steam aberta, pela porta de depuração dela (`~/Games/JogoVoo/arte-steam/steam_js.py aplicar.js`), sem reiniciar a Steam.
+
+## 76. Som de carga do canhão e mapa dos lugares (2026-11-18)
+
+- **Canhão:** o som de carregar para quando o gatilho é solto (antes tocava até o fim, mesmo sem tiro). `Som.toque3d` passou a devolver o tocador, e o `Tiro` guarda o da carga em `_som_carga`.
+- **Mapa dos lugares:** `godot --path . -- --vale-captura --mapa --hora 12` fotografa a ilha de cima (norte para cima) com o nome de cada lugar e grava `docs/mapa/mapa_lugares.png`; também imprime a lista com posição e raio. Regiões largas (raio de 95 m ou mais) saem em letra maior.
+
+![Mapa dos lugares](mapa/mapa_lugares.jpg)
+
+## 77. Teste do Terrain3D (2026-11-18)
+
+O usuário achou três projetos para avaliar: Terrain3D (terreno), ProtonScatter (espalhar vegetação) e Cyclops Level Builder (construções em blocos). Os dois últimos são ferramentas de editor para montar à mão, e o jogo já faz por código o que eles fazem; só o Terrain3D foi testado.
+
+- **Instalação:** Terrain3D 1.1.0 (MIT, Godot 4.5 a 4.8), baixado com permissão para `Projects/others/terrain3d/` (hash conferido) e copiado para `addons/terrain_3d/`. É uma extensão compilada (47 MB de bibliotecas, uma por sistema).
+- **O teste** (`-- --terrain3d`, `TesteTerrain3D`): as malhas do chão do jogo saem de cena e o Terrain3D desenha o mesmo relevo, amostrado de `Vale.altura` a cada 2 m (1024 x 1024 pontos) e carregado por código. A colisão, as plantas, a água e as pedras continuam as do jogo. A cor é um mapa pintado simples (capim, areia, pedra nas encostas), não o shader do vale.
+- **Encaixe:** as alturas batem (0,00 m de diferença em cinco pontos). Amostrar o relevo leva 0,6 s e montar o terreno menos de 0,1 s.
+- **Desempenho no Mac (1600 x 900, meio-dia, `--perf`):** empate. Quadros por segundo, atual → Terrain3D: base 34 → 38; clareira 42 → 45; mata no chão 49 → 51; sobre a mata 54 → 59; platô 54 → 58; cachoeira 58 → 62; cume 57 → 61; campos do sul 61 → 60; do alto 55 → 55. A diferença fica dentro da variação entre uma rodada e outra. Os triângulos também ficam parecidos (o chão atual tem cerca de 0,7 milhão no mapa todo; o custo está nas árvores e no capim).
+- **Aparência:** pior, como esperado sem o nosso shader: chão escuro e chapado, sem a pedra pintada nas encostas, sem o capim pintado ao longe e sem a luz em faixas. Para igualar seria preciso reescrever o shader do chão dentro do shader do Terrain3D.
+
+![Atual à esquerda, Terrain3D à direita](terrain3d/comparacao.jpg)
+
+- **Conclusão:** na ilha de 2 km o Terrain3D não dá ganho de desempenho, porque o chão não é o que pesa. O que ele traria é chão com detalhe de 1 a 2 m em toda a ilha (hoje 4 m fora da clareira), uma malha só no lugar de duas, e esculpir e pintar no editor. O custo é reescrever o shader do chão, a colisão para bichos e mechas longe da câmera, e carregar a extensão em todas as builds.
+- **Não medido:** o PC (Linux, NVIDIA), a ilha de 3 km e a colisão do Terrain3D.
+- **Depois do teste:** a pedido do usuário, a extensão saiu do projeto (`addons/terrain_3d/` e a ligação no `main.gd`). O download continua em `Projects/others/terrain3d/`, e o script do teste ficou guardado em `tools/terrain3d/teste_terrain3d.gd.txt` para repetir na ilha de 3 km: copiar a extensão de volta para `addons/`, pôr o script em `scripts/vale/` e chamar `TesteTerrain3D.montar(ilha, camera.cam)` no `main.gd` depois de criar a câmera, ligando `TesteTerrain3D.seguir` ao `process_frame`.
+
+## 78. Plano da ilha de 3 km (2026-11-18)
+
+O usuário trouxe uma proposta completa para a ampliação (regiões, lugares e distribuição das peças). Foi avaliada contra o jogo e ajustada; o que ficou combinado:
+
+**Regiões novas:** Costa Quebrada (sudeste: falésias baixas, baías, piscinas naturais), Encostas do Dique (faixa leste, pedra e um segundo riacho), Cabo do Vento (ponta nordeste, campo pedregoso e penhasco) e Arquipélago Raso (ilhotas no mar do sudeste).
+
+**Lugares novos:** O Cais Submerso (Costa Quebrada), A Ilha do Relé (ilhota com torre de transmissão), A Represa Rachada (Encostas do Dique, com lagoa alta e córrego), O Farol Apagado (Cabo do Vento), O Sono dos Gigantes (robôs colossais desligados e tomados pelo mato, entre O Anel e A Árvore-Mãe) e A Fenda Escura (cânion fundo no sudoeste).
+
+**Decisões do usuário:**
+1. **Dois níveis de radiador:** um na fase 2, que ajuda a chegar à fase 3, onde fica o radiador melhor.
+2. **Construções novas de metal e concreto**, mas velhas: ferrugem e vegetação tomando conta.
+3. **Leste seguro:** sem máquinas hostis no leste e no sudeste (as quatro sentinelas de lá saem ou mudam de lado). O oeste continua o lado hostil.
+4. **Scanner** vira um achado sem combate (não é prêmio da arena).
+5. **Gigantes desligados**, não carcaças (a regra de que ninguém é destruído vale).
+
+**Correções à proposta:** o robô não escala, ele voa, e o limite é o calor; por isso os desafios de altura são de tempo de voo. A Antena continua perto da base. Os efeitos reais das peças são os da seção 64 (Bocais: arrancada; Barbatanas: nado rápido).
+
+**Regras de desenho:** costa orgânica com mar em toda a volta (sai a falésia artificial das bordas); de qualquer ponto do leste se vê um marco alto (Árvore-Mãe, Farol, Represa ou a Serra); leste de travessia, água e altura, oeste de combate.
+
+**Etapas** (cada uma termina jogável e com fotos):
+1. Relevo de 3 km: costa, as quatro regiões só no terreno e o mar em volta. Maquete antes, para aprovar. Repetir aqui o teste do Terrain3D.
+2. Marcos altos: Farol, Represa com o segundo riacho, e os gigantes.
+3. Água: Cais, ilhotas e a Ilha do Relé.
+4. A Fenda Escura.
+5. Redistribuir as peças (com os dois radiadores), já com os lugares prontos.
+6. **Norte e oeste** (pedido do usuário em 2026-11-18, ao aprovar a maquete): as faixas novas do norte e do oeste ganharam só terra, sem nenhum lugar. Acrescentar ali alguns lugares ou marcos para não ficarem vazias. Entra depois das etapas acima, ou junto de uma delas se couber.
+
+**Para rever depois das etapas prontas** (pedido do usuário em 2026-11-18, depois de ver a etapa 1):
+- **Os pontos fracos da etapa 1** (lista no fim da seção 79): o Cabo do Vento sem as pedras, a Costa Quebrada pouco recortada e com uma piscina só, a mata da Torre Caída cortada em linha reta na chapada, a abertura mais lenta, o PC sem medir e o Terrain3D a repetir.
+- **"Sinal fraco" longe da ilha:** conferir o controle do jogador muito longe da costa. Relato do usuário: mesmo voando de volta, em direção à ilha, a mensagem "sinal fraco" aparecia. (Hoje o aviso sai a 150 m da costa e a pane a 260 m, só pela distância, sem olhar para onde o robô vai: `LimiteMar`.)
+- **Nadar e sair da água:** discutir uma melhoria na ação de nadar e numa saída rápida da água. É para conversar antes de mexer.
+- **Manobras no ar:** discutir manobras durante o voo (pedido do usuário em 2026-11-18). Também é para conversar antes de mexer.
+
+**Maquete da etapa 1 (2026-11-18, aprovada pelo usuário no mesmo dia):** `/usr/bin/python3 tools/vale/mapa_3km.py` lê o relevo de hoje e grava o de 3 km em `docs/mapa/3km/` (751 x 751 pontos, 4 m; o jogo ainda não usa) e a maquete `docs/mapa/maquete_3km_v1.png`.
+
+![Maquete de 3 km](mapa/maquete_3km_v1.png)
+
+- A ilha de hoje fica no meio sem mudar: só 3,3% da terra atual muda mais de 1 m, tudo nas faixas de praia do sul e do leste, que deixam de ser costa. A Foz do Riacho continua no mar, no fundo de uma baía.
+- A terra passa de 3,3 para 5,6 km², com mar em toda a volta e enseadas no norte, no noroeste, no oeste e no sul.
+- Dentro dos 2 km a terra nova só levanta (nunca cava), e sobe aos poucos a partir da costa antiga para não formar paredão.
+- A lagoa da represa fica a 41 m, com o córrego descendo até o mar do leste; a chapada do sudoeste tem 58 m e a Fenda corta até 3 m do nível do mar, com 16 m de largura no fundo.
+
+## 79. Etapa 1 da ilha de 3 km: o relevo no jogo (2026-11-18)
+
+O relevo aprovado na maquete entrou no jogo. Só terreno, costa, mata e bichos; os lugares novos (Farol, Represa, Cais, gigantes, Fenda com escuro) são das etapas seguintes.
+
+- **Dados:** `assets/vale/mapa/alturas.bin` e `cobertura.bin` passaram a 751 x 751 pontos (4 m), de -1500 a 1500 m. O relevo de 2 km, que o gerador lê, foi guardado em `docs/mapa/2km/`. `Vale.F_N` 751, `F_META` 1500, grade da costa `C_N2` 189.
+- **Costa:** vem pronta no arquivo. Saiu o `_borda_ilha`, que afundava as quatro bordas no carregamento; a falésia artificial da borda não gera mais nenhuma rocha.
+- **Mata:** 16.381 árvores fora da clareira, umas 3.600 delas na terra nova. O vulto distante das árvores era desenhado só até 1.300 m; passou a 2.300 m (`Vale.VULTO_ATE`), senão do alto a terra do outro lado parecia pelada.
+- **Bichos:** sorteados na ilha inteira e na mesma proporção da terra (24 manadas, 56 tocas, 30 bandos, 20 raposas, 8 alcateias).
+- **Leste seguro:** as quatro máquinas hostis que moravam no leste foram para as faixas novas do oeste, do noroeste e do sudoeste (`InimigosVale.LUGARES`).
+- **Nomes na tela:** Costa Quebrada, Encostas do Dique, Cabo do Vento, Arquipélago Raso e Chapada do Sudoeste.
+- **Fundo do mar:** o plano além dos dados usa o shader do chão com a cor da areia, para o quadrado dos dados não aparecer do alto.
+- **Fotos:** `-- --vale-captura --largo --novas` (20 vistas das regiões novas) e `--mapa` (o mapa de cima, agora com 3 km).
+
+![Mapa de cima](mapa/mapa_lugares.jpg)
+
+![Regiões novas](vale/ilha_3km_etapa1.jpg)
+
+**Medido no Mac (1600 x 900, meio-dia):**
+
+| Ponto | Ilha de 2 km | Ilha de 3 km |
+|---|---|---|
+| Base, olhando o campo | 34 qps | 38 |
+| Campo da clareira | 42 | 43 |
+| Mata fechada, no chão | 49 | 47 |
+| Sobre a mata, a 60 m | 54 | 51 |
+| Platô das Flores | 54 | 55 |
+| Cachoeira | 58 | 70 |
+| Do cume, vista inteira | 57 | 53 |
+| Campos do Sul | 61 | 59 |
+| Do alto, mapa inteiro | 55 | 55 |
+
+O desempenho ficou igual, dentro da variação de uma rodada para outra. A abertura ficou mais lenta: o mundo fica pronto em 8,7 s na primeira vez (eram 6,1 s) e em 4,4 s com o cache (eram 3,2 s). O que mais cresceu foram os paredões de pedra (a Fenda e os penhascos têm muitos): 1,7 s só criando as formas de colisão.
+
+**Testes:** três conferências estavam presas ao mapa antigo e foram ajustadas (o mar medido em z = 980, a manada escolhida já nascida perto do robô, e o cervo do teste de desvio, que agora o teste cria).
+
+**O que falta nesta etapa ou ficou para as próximas:**
+- A lagoa da represa é uma bacia seca e o córrego não tem água (etapa 2).
+- O Cabo do Vento é capim liso; faltam as pedras do "campo pedregoso".
+- A Costa Quebrada ainda é pouco recortada de perto: há uma piscina natural, não várias.
+- A Fenda tem as paredes e o chão, mas não o escuro.
+- Não medido: o PC (Linux, NVIDIA) e o teste do Terrain3D com a ilha de 3 km.
+- Ninguém jogou ainda: tudo foi visto em fotos.
+- Na chapada, a mata antiga da Torre Caída acaba numa linha reta, onde era a costa de hoje; pede um retoque na cobertura.
+- Baterias com os dados finais: `--teste-vale` 67 pontos e `--teste` 95.
+
+## 80. Etapa 2 da ilha de 3 km: os marcos altos do leste (2026-11-18)
+
+Os três marcos ficam em `scripts/vale/marcos_leste.gd` (`MarcosLeste`), chamados no fim de `Marcos.montar`. A represa e o farol são montados bloco a bloco com a `Obra` das ruínas; os gigantes são mechas do pacote ampliados. Tudo tem colisão, nome na tela, e fica livre de árvores e de rochedos (`MarcosLeste.livre`, consultado por `Ruinas.livre` e pelos `Paredoes`).
+
+![Marcos do leste](vale/marcos_leste.jpg)
+
+- **A Represa Rachada** (1102, -335): parede de concreto em arco, de 96 m, com o alto a 40 m, que fecha a garganta da lagoa. Tem um rombo em V no meio, até a linha d'água (26 m), com ferragem aparecendo, passadiço com corrimão de ferro, quatro escoras do lado de baixo e pedaços caídos no leito. A água sai pelo rombo numa queda de 14 m.
+  - **A lagoa** mudou de lugar no relevo: na maquete encostava na costa antiga, que é mais baixa, e a água vazaria para o oeste. Agora fica toda em terra nova (centro em 1010, -335), cercada por terra de 42 m ou mais, com uma garganta só.
+  - **O córrego** é um terceiro `Vale.Curso` (`RIO_REPRESA`): nasce ao pé da represa, a 12 m, e desce até o mar do leste. A água da lagoa é um disco mais uma lâmina que acompanha o arco da parede; `Vale.agua` responde pelos dois.
+- **O Farol Apagado** (1338, -1338, na ponta do Cabo do Vento): torre de 62 m, com 7,6 m de raio no pé e 4,5 m no alto, pendendo 6 graus para o mar. Faixas de concreto e de tinta vermelha desbotada, porta no pé, uma racha em espiral, o alto quebrado do lado do mar, balcão com corrimão, gaiola de ferro com o chapéu torto e o que sobrou da lente. É oco e aberto em cima.
+- **O Sono dos Gigantes** (470, 400): quatro robôs colossais desligados, de 50 a 74 m: dois deitados e dois de pé, enterrados até a cintura. A tinta virou ferrugem e pó, com pedras e mato encostados.
+  - Na primeira versão tinham 22 a 34 m e sumiam entre as árvores; não eram marcos.
+- **Materiais novos:** `concreto`, `tinta_velha` e `vidro_velho` (em `Clareira._materiais`).
+- **Testes:** `--teste-vale` ganhou um ponto com três conferências (mar nas quatro bordas e terra nas regiões novas; lagoa, córrego e leste sem hostis; nomes e colisão dos três marcos) e passou a 70 pontos. `--teste` segue com 95.
+- **Fotos:** `-- --vale-captura --largo --marcos-leste`.
+
+**O que não está bom ou não foi conferido:**
+- A represa lê como um muro de pedra escura, não como concreto: falta um material com cara de concreto (juntas, manchas de escorrido).
+- A inclinação do farol quase não se nota de longe, e ele não tem trepadeira nenhuma.
+- Os gigantes ainda têm cor demais (vermelho e verde) para quem dormiu tanto tempo, e nenhuma árvore cresce em cima deles.
+- A colisão dos gigantes é por caixas largas: não dá para pousar num braço ou passar por baixo dele.
+- Não medi o desempenho de novo nem a abertura; a montagem dos três marcos leva 0,1 s.
+- Ninguém jogou: tudo foi visto em fotos. Som da queda da represa não conferido.
+
+## 81. Etapa 3 da ilha de 3 km: os lugares de água (2026-11-18)
+
+Ficam em `scripts/vale/marcos_mar.gd` (`MarcosMar`), chamados depois de `MarcosLeste.montar`. Tudo é montado com a `Obra` das ruínas mais algumas peças do kit da base, com colisão e nome na tela.
+
+![Lugares de água](vale/marcos_mar.jpg)
+
+- **O Cais Submerso** (sai da praia em 806, 902 e avança 132 m baía adentro, na Costa Quebrada):
+  - a laje do pátio na praia, com contêineres empilhados, caixas e tambores;
+  - o cais em onze trechos de 12 m: os quatro primeiros de pé, a 2,3 m da água, depois tortos, afundados ou faltando (só os pilares quebrados);
+  - um guindaste de pé no terceiro trecho, com a lança de treliça sobre a água, o cabo e o gancho; outro tombado no fim do cais, com a lança saindo da água; e a ponta de uma terceira lança furando a água;
+  - 18 contêineres, 12 deles no fundo da baía (de 6 a 12 m de fundura). Um está aberto, de pé no fundo raso: a etapa das peças põe uma ali dentro (`MarcosMar.conteiner_aberto`).
+- **A Ilha do Relé** (1282, 648, a uns 250 m da costa): torre de treliça de 46 m com o terço de cima dobrado, plataforma de serviço a 32 m, três antenas (uma presa, uma pendurada, uma no chão), estais (um arrebentado) e a casinha de concreto do relé.
+- **A ponte antiga:** 12 pilares de concreto nos bancos de areia, da costa à Ilha do Relé e dela à ilhota do sul. Uns inteiros, com capitel e um resto de tabuleiro; outros quebrados na linha d'água; alguns tombados.
+- **Modelos:** `Prop_SatelliteDish` e `Prop_Crate_Large`, do Sci-Fi Essentials Kit que já estava na máquina, copiados para `assets/vale/base/` sem as texturas próprias (usam as do kit que o jogo já tem). As treliças e os contêineres são feitos por código (`_trelica`, `_conteiner`).
+- **Materiais novos:** `lata_azul`, `lata_verde` e `lata_ocre`. O `concreto` perdeu musgo (de 0,85 para 0,4): as lajes do pátio pareciam gramado.
+- **Testes:** mais uma conferência em `--teste-vale` (tabuleiro do cais, trecho afundado, plataforma da torre, contêiner aberto no fundo, contagens): 71 pontos. `--teste` segue com 95.
+- **Fotos:** `-- --vale-captura --largo --marcos-mar`.
+
+**O que não está bom ou não foi conferido:**
+- Os guindastes do cais e a torre do relé leem bem; os contêineres do fundo quase não aparecem de cima, só as sombras deles.
+- O concreto dos pilares e do cais ainda ganha musgo verde vivo nas faces de cima.
+- A água do mar aqui é a mesma do resto: a proposta falava em água turquesa e piscinas rasas na Costa Quebrada, que não existem.
+- Não testei nadar entre os contêineres nem entrar no aberto: só a posição e a colisão por raio.
+- Ninguém jogou: tudo foi visto em fotos. Desempenho e abertura não foram medidos de novo.
+
+## 82. Etapa 4 da ilha de 3 km: A Fenda Escura (2026-11-18)
+
+O cânion que corta a Chapada do Sudoeste. Fica em `scripts/vale/fenda_escura.gd` (`FendaEscura`), montada depois de `MarcosMar`.
+
+![A Fenda Escura](vale/fenda_escura.jpg)
+
+- **O corte** vem do relevo: uns 470 m de comprimento, 50 m de fundura e 24 m de chão, com uma boca no oeste e a saída para a praia no leste. Fica aberto para o céu.
+- **O que a etapa acrescentou:** 19 tufos de cogumelos que brilham (verde-água e azul) junto das paredes, pedras soltas pelo chão, três bandos de morcegos no alto (a mesma classe do Sumidouro) e o nome na tela.
+- **Tentativa descartada:** um teto de 106 lajes de pedra avançando das duas beiras, com claraboias, e a luz ambiente caindo a 5% no fundo (`CicloDia.sombra_local`). O usuário viu e rejeitou: "esses quadros formando o teto não estão bons, remove; estava bom antes, pode deixar sem a sombra". Saíram o teto e o escuro, e as árvores do fundo voltaram. Não refazer um teto de blocos.
+- **Consequência:** a fenda não é escura. Ela é funda e as paredes fazem sombra em parte do dia, mas a luz do peito não é necessária ali. Isso pesa na etapa 5: a peça da luz do peito continua tendo só o Sumidouro como lugar de uso.
+- **Testes:** uma conferência em `--teste-vale` (aberta para o céu, mais de 35 m de fundura, cogumelos, morcegos): 72 pontos. `--teste` com 95.
+- **Fotos:** `-- --vale-captura --largo --fenda`.
+- **Não conferido:** o scanner com os morcegos; ninguém jogou.
+
+## 83. Etapa 5 da ilha de 3 km: as peças em três círculos e os dois radiadores (2026-11-18)
+
+![Onde fica cada peça](mapa/mapa_pecas.jpg)
+
+![As peças nos lugares](vale/pecas_3km.jpg)
+
+São dez peças agora (`Melhorias.NOMES`), distribuídas em `PecasMundo._ready`:
+
+| Círculo | Peça | Onde fica | Distância da base |
+|---|---|---|---|
+| Perto | Antena de busca | ao lado da base | 48 m |
+| Perto | Células de reserva | O Anel | 586 m |
+| Perto | Luz do peito | na entrada do Sumidouro que dá para a cachoeira, do lado de fora | ~570 m |
+| Meio | Scanner | no patamar em frente à Fundição, do lado de fora (sem lutar) | ~560 m |
+| Meio | Molas | A Torre Caída | ~740 m |
+| Meio | Radiador de aletas | As Colunas | 758 m |
+| Meio | Barbatanas | na ponta do Cais Submerso, 1,4 m sobre a água | ~1.300 m |
+| Longe | Asas de planar | ao pé da Árvore-Mãe | ~650 m |
+| Longe | Radiador duplo | nas costas do maior gigante, a 36 m do chão | 631 m |
+| Longe | Bocais largos | no balcão do Farol Apagado, a 59 m do chão | 1.927 m |
+
+- **Dois radiadores** (decisão do usuário): o de aletas leva o voo de 61 s para 100 s (1,0 %/s; pairando 1,5 %/s); o duplo leva a 182 s (0,55 %/s; pairando 0,8 %/s). O duplo vale sozinho, sem o primeiro. No corpo, o duplo acrescenta duas aletas, uma de cada lado das quatro.
+- **Três peças ficam em cima de construções:** a posição vem de um raio lançado de cima (`PecasMundo._de_cima`), não do relevo.
+- **A luz do peito** fica na entrada do Sumidouro, ao lado do poço da cachoeira (pedido do usuário, que não quis o Pátio das Máquinas da proposta: "faz mais sentido lá"). Antes ficava dentro do salão; agora quem vai entrar no escuro acha a luz antes.
+- **Sem peça:** a Cachoeira, a Serra do Mirante, o Sumidouro, Os Arcos, a Represa Rachada, a Ilha do Relé e a Fenda Escura. A proposta guarda esses lugares para outras recompensas, que ainda não existem.
+- **Ferramenta:** `-- --vale-captura --mapa --so-pecas` grava o mapa das peças; `--pecas` fotografa cada uma no lugar.
+- **Testes:** `--teste-vale` com 74 pontos (distâncias dos três círculos, as três peças no alto, os tempos dos dois radiadores, a luz na entrada do Sumidouro); `--teste` com 95.
+
+**O que não está bom ou não foi conferido:**
+- As distâncias não formam três círculos limpos: o radiador duplo (631 m) e as asas (650 m) ficam mais perto da base do que as barbatanas (1.300 m). Os lugares é que mandam; a ordem vem mais do que cada peça exige do que da distância.
+- As barbatanas ficaram em cima do cais, e não dentro do contêiner aberto no fundo, como na proposta: não confirmei que o robô consegue mergulhar até 6 m sem elas.
+- O radiador duplo, no alto do gigante, pede uns 36 m de subida; com o robô básico (61 s de voo) dá, mas não foi jogado.
+- Um save antigo com o radiador instalado passa a ter o de aletas (100 s), não os 3 minutos de antes.
+- Ninguém jogou: tudo foi visto em fotos e testes.

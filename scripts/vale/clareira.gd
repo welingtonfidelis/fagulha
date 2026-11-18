@@ -182,6 +182,14 @@ func _materiais() -> void:
 		"ferrugem": _solido(Color(0.28, 0.13, 0.07)),
 		"junta": _solido(Color(0.05, 0.055, 0.06)),
 		"musgo": _solido(Color(0.13, 0.26, 0.08)),
+		# as construções de concreto e metal da ilha de 3 km: concreto gasto, tinta desbotada e vidro sujo
+		"concreto": _solido(Color(0.44, 0.44, 0.41), 0.4),  # com 0,85 de musgo as lajes pareciam gramado
+		"tinta_velha": _solido(Color(0.30, 0.165, 0.13), 0.9),
+		"vidro_velho": _solido(Color(0.30, 0.46, 0.44)),
+		# a lata dos contêineres, desbotada
+		"lata_azul": _solido(Color(0.15, 0.24, 0.31), 0.5),
+		"lata_verde": _solido(Color(0.18, 0.27, 0.19), 0.5),
+		"lata_ocre": _solido(Color(0.42, 0.31, 0.13), 0.5),
 		"pelo_coelho": _solido(Color(0.40, 0.34, 0.27)),
 		"pena": _solido(Color(0.15, 0.18, 0.24)),
 		"pena_clara": _solido(Color(0.66, 0.40, 0.24)),

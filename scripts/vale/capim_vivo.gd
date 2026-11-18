@@ -218,7 +218,7 @@ func _semente(chave: Vector2i, extra: int) -> int:
 ## Altura do chão no ponto se ele aceita capim (água, areia, mar, encosta, fora do mapa, a menos de 115 m
 ## da origem); -INF se não. Entre 115 e 121 m, metade dos pontos nasce, para emendar com a clareira.
 func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float:
-	if absf(px) > 990.0 or absf(pz) > 990.0:
+	if absf(px) > Vale.F_META - 10.0 or absf(pz) > Vale.F_META - 10.0:
 		return -INF
 	var r := Vector2(px, pz).length()
 	if r < 115.0:

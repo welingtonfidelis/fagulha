@@ -29,6 +29,9 @@ static func montar(v: Vale) -> void:
 	_anel(v, corpo)
 	_colunas(v)
 	print("marcos: Árvore-Mãe em %s, Anel em %s, Colunas em %s" % [arvore_mae, anel, colunas])
+	MarcosLeste.montar(v)
+	MarcosMar.montar(v)
+	FendaEscura.montar(v)
 
 
 ## Uma árvore de 70 m sozinha no meio das flores. Entra na lista de árvores do mapa (colisão do tronco e da

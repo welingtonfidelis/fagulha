@@ -4,7 +4,7 @@ extends RefCounted
 ## y para cima, z para trás (a frente é -z), tudo em alturas do robô (1.0 = 2,6 m de porte; a cabeça acaba em 0,92).
 ## Feitas para o robô do vale (`assets/vale/robo_v1.glb`): cada grupo fica preso a uma junta dele.
 
-const NOMES := ["radiador", "bocais", "asas", "barbatanas", "amortecedores", "antena", "farol", "celulas", "scanner", "mira"]
+const NOMES := ["radiador", "radiador2", "bocais", "asas", "barbatanas", "amortecedores", "antena", "farol", "celulas", "scanner", "mira"]
 
 static var minimo := true  # versão discreta: peças pequenas, rentes ao corpo
 static var asas_fator := 0.0  # 0 recolhidas dentro da mochila, 1 abertas (só planando)
@@ -415,6 +415,13 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 				_caixa(g, Vector3(0.008, 0.096, 0.02), Vector3(x, 0, 0.01), _mat(CLARO))
 				_caixa(g, Vector3(0.009, 0.096, 0.005), Vector3(x, 0, 0.022), v.mat_calor)
 			nos.append(g)
+		"radiador2":
+			# o radiador duplo: mais duas aletas, uma de cada lado das quatro (ou seis sozinhas, sem o primeiro)
+			var g2 := _grupo(_ancora(v, "costas"), Vector3(0, 0.569, 0.141))
+			for x2: float in [-0.06, 0.06]:
+				_caixa(g2, Vector3(0.008, 0.11, 0.024), Vector3(x2, 0, 0.012), _mat(CLARO))
+				_caixa(g2, Vector3(0.009, 0.11, 0.005), Vector3(x2, 0, 0.026), v.mat_calor)
+			nos.append(g2)
 		"bocais":
 			# embaixo de cada pé, no lugar da brasa antiga: um bocal mais largo, de luz e chama azuladas
 			for n in v.modelo.find_children("brasa_pe*", "MeshInstance3D", true, false):

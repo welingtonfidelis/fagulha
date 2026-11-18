@@ -53,6 +53,7 @@ func rodar(main: Node) -> void:
 	await _ponto_30()
 	await _ponto_31()
 	await _ponto_32()
+	await _ponto_33()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -564,10 +565,10 @@ func _ponto_15() -> void:
 	await _esperar(1.5)
 	var no_chao := a.is_on_floor() and absf(a.global_position.y - v.altura(a.global_position.x, a.global_position.z)) < 0.6
 	# mar: bem ao sul há água no nível zero, e na terra não
-	var mar := v.agua(0.0, 980.0)
+	var mar := v.agua(0.0, Vale.F_META - 20.0)  # perto da borda sul do mapa
 	var seco := v.agua(p.x, p.z)
 	_ok(pior < 0.12 and no_chao and is_equal_approx(mar, Vale.MAR) and seco == -INF and v.arvores_fora > 5000,
-		"vale: maior degrau na borda da clareira %.3f m; pisa no campo do sul (%s, a %.2f m do chão); mar em z=980: %.1f; %d árvores fora"
+		"vale: maior degrau na borda da clareira %.3f m; pisa no campo do sul (%s, a %.2f m do chão); mar na borda sul: %.1f; %d árvores fora"
 			% [pior, no_chao, a.global_position.y - v.altura(a.global_position.x, a.global_position.z), mar, v.arvores_fora])
 	a.recomecar()
 	await _esperar(0.5)
@@ -685,7 +686,8 @@ func _ponto_18() -> void:
 		quadrantes[Vector2i(int(signf(p.x)), int(signf(p.z)))] = true
 	var manada: Dictionary = {}
 	for l: Dictionary in vida.lugares:
-		if l["tipo"] == "cervo":
+		# uma manada que ainda não nasceu (longe de onde o robô está agora)
+		if l["tipo"] == "cervo" and (l["nos"] as Array).is_empty() and (l["pos"] as Vector3).distance_to(a.global_position) > VidaVale.LONGE + 60.0:
 			manada = l
 			break
 	var mp: Vector3 = manada["pos"]
@@ -1340,9 +1342,20 @@ func _ponto_27() -> void:
 	# um cervo fugindo na direção da fila
 	var cv: Cervo = null
 	for n in m.vida.get_children():
-		if n is Cervo:
+		if n is Cervo and n.get_script() == Cervo:  # cervo mesmo: raposa e lobo herdam dele e andam de outro jeito
 			cv = n
 			break
+	if cv == null:
+		# nenhum cervo nascido por perto (os lugares são sorteados): o teste cria o dele
+		cv = Cervo.new()
+		cv.mapa = v
+		cv.ameaca = a
+		cv.casa = Vector3(a0.x, v.altura(a0.x, a0.z), a0.z)
+		cv.raio_casa = 34.0
+		cv.semente = 4242
+		cv.position = cv.casa
+		m.vida.add_child(cv)
+		await _esperar(0.3)
 	var cervo_passou := false
 	var cervo_atravessou := false
 	if cv:
@@ -1470,8 +1483,10 @@ func _ponto_29() -> void:
 	var pf: Vector3 = pm.onde["farol"]
 	var esp_t := a.get_world_3d().direct_space_state
 	var teto_t := esp_t.intersect_ray(PhysicsRayQueryParameters3D.create(pf + Vector3(0, 0.4, 0), pf + Vector3(0, 4.0, 0), 1))
-	_ok(Sumidouro.existe and absf(pf.y - Sumidouro.piso) < 1.5 and Sumidouro.no_vazio(pf + Vector3(0, 1.0, 0)) and teto_t.is_empty(),
-		"a peça da luz fica no piso do salão do Sumidouro, com vão livre por cima (%.1f m; piso a %.1f)" % [pf.y, Sumidouro.piso])
+	var da_boca := Vector2(pf.x, pf.z).distance_to(Sumidouro.saida)
+	var da_queda := Vector2(pf.x, pf.z).distance_to(Vector2(Vale.POCO.x, Vale.POCO.y))
+	_ok(Sumidouro.existe and da_boca < 45.0 and teto_t.is_empty() and not Sumidouro.no_vazio(pf + Vector3(0, 1.0, 0)),
+		"a peça da luz fica na entrada do Sumidouro, do lado de fora (a %.0f m da boca e a %.0f m da cachoeira), com vão livre por cima" % [da_boca, da_queda])
 	a.teleportar(pa + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
 	await _esperar(0.4)
 	_ok(Melhorias.achadas.has("antena") and not Melhorias.tem("antena"), "chegou perto: pegou a antena (ainda não vale)")
@@ -1877,3 +1892,104 @@ func _ponto_32() -> void:
 		"um toque no L1 passa para a próxima arma; segurando abre a roda em câmera lenta e soltar troca (%s)" % Arsenal.modo)
 	Arsenal.modo = "pistola"
 	_zerar()
+
+
+## A ilha de 3 km (doc §79–80): o mar em toda a volta, as regiões novas e os marcos do leste.
+func _ponto_33() -> void:
+	print("ilha de 3 km e marcos do leste")
+	_soltar_tudo()
+	_zerar()
+	var v: Vale = m.ilha
+	# mar nas quatro bordas do mapa e terra nas regiões novas
+	var bordas := true
+	for p: Vector2 in [Vector2(0, -1480), Vector2(0, 1480), Vector2(-1480, 0), Vector2(1480, 0)]:
+		if not is_equal_approx(v.agua(p.x, p.y), Vale.MAR):
+			bordas = false
+	var terras := true
+	for p: Vector2 in [Vector2(1150, -1120), Vector2(1180, -480), Vector2(850, 800), Vector2(-830, 980), Vector2(-1150, -300), Vector2(0, -1150)]:
+		if v.altura(p.x, p.y) < 3.0:
+			terras = false
+	_ok(bordas and terras, "ilha de 3 km: mar nas quatro bordas (%s) e terra nas regiões novas (%s)" % [bordas, terras])
+	# a lagoa segura a água, o córrego corre do pé da represa ao mar e o leste não tem máquina hostil
+	var lagoa := v.agua(Vale.REPRESA_LAGOA.x, Vale.REPRESA_LAGOA.y)
+	var junto := v.agua(MarcosLeste.represa_x(-20.0) - 4.0, MarcosLeste.REPRESA.y - 20.0)
+	var depois := v.agua(Vale.REPRESA_X + 2.0, MarcosLeste.REPRESA.y + 18.0)  # atrás da parede, fora do córrego: seco
+	var corrego := v.agua(Vale.RIO_REPRESA[1].x, Vale.RIO_REPRESA[1].y)
+	var hostis_leste := 0
+	for mc: Node3D in m.inimigos.todas:
+		if mc.global_position.x > 250.0:
+			hostis_leste += 1
+	_ok(is_equal_approx(lagoa, Vale.REPRESA_NIVEL) and is_equal_approx(junto, Vale.REPRESA_NIVEL) and depois == -INF and corrego > Vale.MAR and corrego < 14.0 and hostis_leste == 0,
+		"represa: lagoa a %.1f m, água até a parede (%.1f), seco atrás dela (%s), córrego a %.1f m; %d máquinas hostis no leste" % [lagoa, junto, depois == -INF, corrego, hostis_leste])
+	# os marcos existem, têm nome e são sólidos: um raio de cima acha a parede, o balcão do farol e um gigante
+	var nomes := 0
+	for l: Dictionary in m.locais.lista:
+		if l["nome"] in ["A Represa Rachada", "O Farol Apagado", "O Sono dos Gigantes", "O Cais Submerso", "A Ilha do Relé", "A Fenda Escura", "Costa Quebrada", "Encostas do Dique", "Cabo do Vento", "Arquipélago Raso", "Chapada do Sudoeste"]:
+			nomes += 1
+	var espaco := a.get_world_3d().direct_space_state
+	var bate := func(x: float, z: float) -> float:
+		var r := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 400.0, z), Vector3(x, -20.0, z), 1))
+		return (r["position"] as Vector3).y if not r.is_empty() else -INF
+	var parede: float = bate.call(MarcosLeste.represa_x(-22.0), MarcosLeste.REPRESA.y - 22.0)
+	# o alto do farol não fica em cima do pé: a torre pende para o mar
+	var balcao: float = bate.call(MarcosLeste.farol_topo.x - 4.0, MarcosLeste.farol_topo.z + 4.0)
+	var gd: Array = MarcosLeste.DORMINDO[1]
+	var gigante: float = bate.call(MarcosLeste.GIGANTES.x + float(gd[0]), MarcosLeste.GIGANTES.y + float(gd[1]))
+	var chao_g := v.altura(MarcosLeste.GIGANTES.x + float(gd[0]), MarcosLeste.GIGANTES.y + float(gd[1]))
+	var chao_f := v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y)
+	_ok(nomes == 11 and parede > MarcosLeste.REPRESA_TOPO - 1.0 and balcao > chao_f + MarcosLeste.FAROL_ALTURA - 8.0 and gigante > chao_g + 25.0 and MarcosLeste.gigantes.size() == 4,
+		"marcos do leste: %d nomes novos na lista; a parede da represa chega a %.0f m, o farol a %.0f m do chão, o gigante de pé a %.0f m; %d gigantes" % [
+			nomes, parede, balcao - chao_f, gigante - chao_g, MarcosLeste.gigantes.size()])
+	# os lugares de água: dá para pousar no começo do cais e na plataforma da torre; o contêiner aberto está no fundo
+	var rumo := Vector2(cos(MarcosMar.CAIS_RUMO), sin(MarcosMar.CAIS_RUMO))
+	var comeco := MarcosMar.CAIS + rumo * 8.0
+	var tabuleiro: float = bate.call(comeco.x, comeco.y)
+	var afundado := MarcosMar.CAIS + rumo * 78.0
+	var trecho_fundo: float = bate.call(afundado.x, afundado.y)
+	var plataforma: float = bate.call(MarcosMar.rele_topo.x + 1.5, MarcosMar.rele_topo.z + 1.5)
+	var chao_r := v.altura(MarcosMar.RELE.x, MarcosMar.RELE.y)
+	var ca := MarcosMar.conteiner_aberto
+	_ok(tabuleiro > 1.8 and tabuleiro < 3.2 and trecho_fundo < 0.6 and plataforma > chao_r + 18.0 and ca.y < -2.0 and v.agua(ca.x, ca.z) == Vale.MAR
+			and MarcosMar.conteineres >= 15 and MarcosMar.pilares == 12,
+		"cais e relé: tabuleiro a %.1f m, trecho afundado a %.1f m, plataforma da torre a %.0f m do chão, contêiner aberto a %.1f m de fundura; %d contêineres, %d pilares" % [
+			tabuleiro, trecho_fundo, plataforma - chao_r, -ca.y, MarcosMar.conteineres, MarcosMar.pilares])
+	# a Fenda Escura: aberta (sem teto), funda, com os cogumelos e os morcegos
+	var meio_f := FendaEscura.ponto(250.0)
+	var chao_fe := v.altura(meio_f.x, meio_f.y)
+	var beira_f := FendaEscura.ponto(250.0) + Vector2(-FendaEscura.rumo(250.0).y, FendaEscura.rumo(250.0).x) * 40.0
+	var ceu_aberto: float = bate.call(meio_f.x, meio_f.y)
+	_ok(absf(ceu_aberto - chao_fe) < 3.5 and v.altura(beira_f.x, beira_f.y) > chao_fe + 35.0 and FendaEscura.cogumelos.size() >= 12 and FendaEscura.bandos.size() == 3,
+		"fenda escura: aberta para o céu, %.0f m de fundura, %d cogumelos, %d bandos de morcegos" % [v.altura(beira_f.x, beira_f.y) - chao_fe, FendaEscura.cogumelos.size(), FendaEscura.bandos.size()])
+	_zerar()
+	# as peças nos três círculos, e os dois níveis de radiador
+	var pm: PecasMundo = m.pecas
+	var base2 := Vector2(Melhorias.base.x, Melhorias.base.z)
+	var dist := {}
+	for nome: String in Melhorias.NOMES:
+		var pp: Vector3 = pm.onde[nome]
+		dist[nome] = Vector2(pp.x, pp.z).distance_to(base2)
+	var perto_ok: bool = dist["antena"] < 90.0 and dist["farol"] < 800.0 and dist["celulas"] < 760.0
+	var longe_ok: bool = dist["bocais"] > 1700.0 and dist["radiador2"] > 550.0 and dist["radiador"] < dist["bocais"]
+	var altos: bool = pm.onde["bocais"].y > v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y) + 50.0 \
+		and pm.onde["radiador2"].y > v.altura(pm.onde["radiador2"].x, pm.onde["radiador2"].z) + 25.0 \
+		and pm.onde["barbatanas"].y > 0.8 and pm.onde["barbatanas"].y < 3.0 and v.agua(pm.onde["barbatanas"].x, pm.onde["barbatanas"].z) == Vale.MAR
+	_ok(Melhorias.NOMES.size() == 10 and perto_ok and longe_ok and altos,
+		"peças: %d; antena a %.0f m da base, luz a %.0f, células a %.0f; radiador a %.0f, duplo a %.0f (a %.0f m do chão), bocais a %.0f (a %.0f m do chão); barbatanas na ponta do cais (%.1f m sobre a água)" % [
+			Melhorias.NOMES.size(), dist["antena"], dist["farol"], dist["celulas"], dist["radiador"], dist["radiador2"],
+			pm.onde["radiador2"].y - v.altura(pm.onde["radiador2"].x, pm.onde["radiador2"].z), dist["bocais"],
+			pm.onde["bocais"].y - v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y), pm.onde["barbatanas"].y])
+	var tudo_antes := Melhorias.tudo
+	var inst_antes := Melhorias.instaladas.duplicate()
+	Melhorias.tudo = false
+	Melhorias.instaladas = []
+	var t0 := 100.0 / Melhorias.calor_voo()
+	Melhorias.instaladas = ["radiador"]
+	var t1 := 100.0 / Melhorias.calor_voo()
+	Melhorias.instaladas = ["radiador2"]
+	var t2 := 100.0 / Melhorias.calor_voo()
+	Melhorias.instaladas = ["radiador", "radiador2"]
+	var t3 := 100.0 / Melhorias.calor_voo()
+	Melhorias.tudo = tudo_antes
+	Melhorias.instaladas = inst_antes
+	_ok(t0 < 65.0 and t1 > 90.0 and t1 < 110.0 and t2 > 170.0 and is_equal_approx(t2, t3),
+		"radiadores: básico voa %.0f s, com o de aletas %.0f s, com o duplo %.0f s (os dois juntos, %.0f s)" % [t0, t1, t2, t3])

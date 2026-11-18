@@ -4,17 +4,18 @@ extends RefCounted
 ## da base alarga uma coisa. Aqui ficam o que foi achado, o que está instalado e os números que mudam.
 ## Nenhuma melhoria mexe em arma.
 
-const NOMES := ["antena", "radiador", "bocais", "asas", "barbatanas", "amortecedores", "farol", "celulas", "scanner"]
+const NOMES := ["antena", "radiador", "radiador2", "bocais", "asas", "barbatanas", "amortecedores", "farol", "celulas", "scanner"]
 const CUSTO := 100.0  # energia da base que uma instalação gasta: a carga inteira
 const RECARGA := 100.0 / 300.0  # energia por segundo: a base recarrega em 5 minutos de jogo
 const TITULOS := {
-	"antena": "Antena de busca", "radiador": "Radiador de aletas", "bocais": "Bocais largos",
+	"antena": "Antena de busca", "radiador": "Radiador de aletas", "radiador2": "Radiador duplo", "bocais": "Bocais largos",
 	"asas": "Asas de planar", "barbatanas": "Barbatanas", "amortecedores": "Molas",
 	"farol": "Luz do peito", "celulas": "Células de reserva", "scanner": "Scanner", "mira": "Mira assistida",
 }
 const EFEITOS := {
 	"antena": "a bússola mostra peças que estiverem por perto",
-	"radiador": "voa três vezes mais tempo",
+	"radiador": "voa mais tempo: uns 100 segundos",
+	"radiador2": "voa três vezes mais tempo que o básico",
 	"bocais": "arrancada mais rápida",
 	"asas": "no voo, segure L3 ou X para trocar o jato pelo planador",
 	"barbatanas": "nado rápido liberado",
@@ -95,12 +96,18 @@ static func vestidas() -> Array:
 # --- os números que as peças mudam (o básico vem primeiro) ---
 
 ## Calor por segundo no voo reto: básico enche em ~60 s; com o radiador, em ~3 min.
+## São dois radiadores (decisão do usuário, 2026-11-18): o de aletas, achado no meio do caminho, leva a
+## ~100 s; o duplo, num dos lugares mais distantes, aos 3 minutos. O duplo vale sozinho, sem o primeiro.
 static func calor_voo() -> float:
-	return Ajustes.CALOR_VOO if tem("radiador") else 1.65
+	if tem("radiador2"):
+		return Ajustes.CALOR_VOO
+	return 1.0 if tem("radiador") else 1.65
 
 
 static func calor_pairar() -> float:
-	return Ajustes.CALOR_PAIRAR if tem("radiador") else 2.4
+	if tem("radiador2"):
+		return Ajustes.CALOR_PAIRAR
+	return 1.5 if tem("radiador") else 2.4
 
 
 static func voo_alvo() -> float:

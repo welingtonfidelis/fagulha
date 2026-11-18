@@ -165,7 +165,11 @@ func _ready() -> void:
 					["Mata Fechada", Vector2(140, -600), 190.0], ["Serra do Mirante", Vector2(mapa_vale.cume.x, mapa_vale.cume.z), 120.0],
 					["Platô das Flores", Vector2(640, 120), 210.0], ["Campos do Sul", Vector2(-100, 540), 190.0],
 					["Foz do Riacho", foz, 60.0], ["Os Arcos", Vector2(Ruinas.ARCOS.x, Ruinas.ARCOS.y), 60.0],
-					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0]]:
+					["A Torre Caída", Vector2(Ruinas.TORRE.x, Ruinas.TORRE.y), 50.0], ["O Pátio das Máquinas", Vector2(Ruinas.PATIO.x, Ruinas.PATIO.y), 45.0],
+					# as regiões da ilha de 3 km (2026-11-18); os lugares delas entram nas etapas seguintes
+					["Costa Quebrada", Vector2(850, 800), 230.0], ["Encostas do Dique", Vector2(1000, -420), 200.0],
+					["Cabo do Vento", Vector2(1150, -1120), 230.0], ["Arquipélago Raso", Vector2(1280, 900), 210.0],
+					["Chapada do Sudoeste", Vector2(-830, 1040), 200.0]]:
 				var lp: Vector2 = l[1]
 				locais.adicionar(l[0], Vector3(lp.x, mapa_vale.altura(lp.x, lp.y), lp.y), l[2])
 			for mc: Array in Marcos.lugares:
@@ -176,6 +180,7 @@ func _ready() -> void:
 					Sumidouro.morcegos.alvo = armadura
 				locais.adicionar(Sumidouro.NOME, Vector3(Sumidouro.centro.x, Sumidouro.piso + 14.0, Sumidouro.centro.y), 46.0)
 			hud.ligar_locais(locais)
+			FendaEscura.ligar(mapa_vale, armadura)
 			var capim := CapimVivo.new()
 			capim.mapa = ilha
 			capim.alvo = armadura

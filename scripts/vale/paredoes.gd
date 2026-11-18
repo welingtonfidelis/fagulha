@@ -120,7 +120,7 @@ static func montar(v: Vale) -> void:
 			for gx in range(2, Vale.F_N - 2):
 				var x := -Vale.F_META + gx * Vale.F_PASSO
 				var z := -Vale.F_META + gz * Vale.F_PASSO
-				if maxf(absf(x), absf(z)) < Clareira.C_META + 6.0 or Cavernas.dentro(x, z, 2.0):
+				if maxf(absf(x), absf(z)) < Clareira.C_META + 6.0 or Cavernas.dentro(x, z, 2.0) or not MarcosLeste.livre(x, z):
 					continue
 				var nrm := v.normal_em_fora(gx, gz)
 				if nrm.y > INGREME:

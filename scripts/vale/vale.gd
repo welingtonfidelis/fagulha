@@ -6,9 +6,9 @@ extends Clareira
 ## e na linha dos 160 m os dois são iguais, sem degrau.
 ## Primeira etapa: só a base (chão, mar e mata de longe). Cada canto ganha capricho depois.
 
-const F_N := 501
+const F_N := 751
 const F_PASSO := 4.0
-const F_META := 1000.0
+const F_META := 1500.0
 const MAR := 0.0
 const DADOS := "res://assets/vale/mapa/"
 const BORDA_DE := 108.0
@@ -31,6 +31,12 @@ const RIO_BAIXO: Array[Vector2] = [Vector2(-290, -485), Vector2(-276, -430), Vec
 const POCO := Vector3(-290, -485, 17)  # x, z, raio
 const POCO_NIVEL := 108.0
 const POCO_FUNDO := 10.0  # metros a mais de fundura no meio do poço
+# A represa das Encostas do Dique (ilha de 3 km): a lagoa que ela segura e o córrego que sai do pé dela
+# até o mar do leste. O relevo (bacia, garganta e vale do córrego) vem pronto de tools/vale/mapa_3km.py.
+const REPRESA_LAGOA := Vector3(1010, -335, 84)  # x, z, raio do espelho (na garganta a água segue até a parede: MarcosLeste)
+const REPRESA_NIVEL := 26.0
+const REPRESA_X := 1102.0  # o eixo da represa, que fecha a garganta
+const RIO_REPRESA: Array[Vector2] = [Vector2(1107, -333), Vector2(1150, -318), Vector2(1200, -338), Vector2(1250, -300), Vector2(1300, -285)]
 
 var _cursos: Array = []  # de Curso: [0] sul, [1] norte (do poço até a clareira)
 var _rio_s_borda := 0.0  # onde o rio do sul sai da lâmina da clareira
@@ -43,8 +49,11 @@ var _cob := PackedByteArray()
 var arvores_fora := 0
 
 # distância até a terra, numa grade de 16 m (para o limite do mar)
+## Até onde o vulto das árvores de fora é desenhado. Eram 1.300 m na ilha de 2 km; na de 3 km, do alto da
+## serra a mata do outro lado sumia e a terra parecia pelada.
+const VULTO_ATE := 2300.0
 const C_PASSO := 16.0
-const C_N2 := 126
+const C_N2 := 189
 var _costa_dist := PackedFloat32Array()
 var _costa_terra := PackedInt32Array()  # índice da célula de terra mais perto
 
@@ -113,40 +122,9 @@ func _carregar() -> void:
 		_fora_h.resize(F_N * F_N)
 		_fora_h.fill(22.0)
 		_cob.resize(F_N * F_N)
-	_borda_ilha()
 
 
-## O vale é uma ilha: perto das quatro bordas do mapa a terra desce até o fundo do mar. No arquivo de
-## alturas o norte e o oeste chegavam ao fim do mapa a até 88 m de altura (era um corte reto, disfarçado por
-## uma falésia). A faixa de descida tem de 105 a 345 m (mais comprida onde a terra é alta), variando ao longo
-## da costa para ela não sair reta, e o
-## que fica perto do nível do mar vira areia.
-const BORDA_ILHA := 150.0
-
-func _borda_ilha() -> void:
-	for gz in F_N:
-		for gx in F_N:
-			var x := -F_META + gx * F_PASSO
-			var z := -F_META + gz * F_PASSO
-			var d := minf(F_META - absf(x), F_META - absf(z))
-			if d > BORDA_ILHA + 200.0:
-				continue
-			var i := gz * F_N + gx
-			var h := _fora_h[i]
-			if h <= -13.9:
-				continue
-			# a largura da faixa ondula ao longo da costa (pela coordenada que corre junto da borda)
-			var ao_longo := z if (F_META - absf(x)) < (F_META - absf(z)) else x
-			# terra alta desce por uma faixa mais comprida, para a encosta não virar um paredão de pedra
-			var faixa := BORDA_ILHA + 28.0 * sin(ao_longo * 0.011 + 1.3) + 17.0 * sin(ao_longo * 0.031 + 4.1) + clampf(h * 1.5, 0.0, 150.0)
-			var fica := smoothstep(0.08, 1.0, d / faixa)
-			if fica >= 1.0:
-				continue
-			var novo := lerpf(-14.0, h, fica)
-			if novo < h:
-				_fora_h[i] = novo
-				if novo < 2.6:
-					_cob[i] = 4  # areia
+## A costa da ilha vem pronta no arquivo de alturas (tools/vale/mapa_3km.py): mar em toda a volta.
 
 ## Altura do terreno de fora (a grade de 4 m), em qualquer ponto.
 func _fora(x: float, z: float) -> float:
@@ -345,6 +323,25 @@ func _preparar_rio() -> void:
 	baixo.fita_de = 0.0
 	baixo.fita_ate = fim_fita
 	_cursos.append(baixo)
+	# o córrego da represa: nasce ao pé dela e desce até o mar do leste; o nível acompanha o chão
+	var dique := Curso.new()
+	dique.pts = _linha_curva(RIO_REPRESA, 6.0, 5.0, 90.0, 0.7, 30.0, 30.0)
+	dique.fechar()
+	dique.niv.resize(dique.pts.size())
+	var nd := _fora(dique.pts[0].x, dique.pts[0].y) - 0.5
+	var foz_d := dique.total()
+	var achou3 := false
+	for i in dique.pts.size():
+		var q := dique.pts[i]
+		nd = maxf(MAR + 0.05, minf(nd - 0.01, _fora(q.x, q.y) - 0.6)) if i > 0 else nd
+		dique.niv[i] = nd
+		if not achou3 and _fora(q.x, q.y) < MAR + 0.3:
+			foz_d = dique.s[i]
+			achou3 = true
+	dique.fita_de = 0.0
+	dique.fita_ate = minf(foz_d + 14.0, dique.total())
+	dique.cava_ate = foz_d
+	_cursos.append(dique)
 	# 3. a nascente: a água brota no alto do paredão e já cai (um rio descendo a serra íngreme ficava
 	# parecendo uma rampa; a queda saindo da pedra é mais simples e mais bonita)
 	queda_topo = Vector3(NASCENTE.x, _fora(NASCENTE.x, NASCENTE.y) - 0.6, NASCENTE.y)
@@ -496,6 +493,18 @@ func _fita_rio() -> void:
 	disco.position = Vector3(POCO.x, POCO_NIVEL - 0.01, POCO.y)
 	disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(disco)
+	# o espelho da lagoa da represa (a terra em volta e a própria represa escondem a borda do disco)
+	var lagoa_r := MeshInstance3D.new()
+	var cl := CylinderMesh.new()
+	cl.top_radius = REPRESA_LAGOA.z
+	cl.bottom_radius = REPRESA_LAGOA.z
+	cl.height = 0.02
+	cl.radial_segments = 48
+	lagoa_r.mesh = cl
+	lagoa_r.material_override = _mat_rio(66, 0.08)
+	lagoa_r.position = Vector3(REPRESA_LAGOA.x, REPRESA_NIVEL - 0.01, REPRESA_LAGOA.y)
+	lagoa_r.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(lagoa_r)
 	# o espelho da nascente
 	var olho := MeshInstance3D.new()
 	var co := CylinderMesh.new()
@@ -624,6 +633,12 @@ func agua(x: float, z: float) -> float:
 				return n
 	if Sumidouro.agua(x, z) > -INF:
 		return Sumidouro.agua(x, z)
+	if h < REPRESA_NIVEL and x > REPRESA_LAGOA.x - REPRESA_LAGOA.z and x < REPRESA_X:
+		# o disco da lagoa, e a garganta entre ele e a parede da represa
+		var dz := z - REPRESA_LAGOA.y
+		if Vector2(x, z).distance_to(Vector2(REPRESA_LAGOA.x, REPRESA_LAGOA.y)) < REPRESA_LAGOA.z \
+				or (x > REPRESA_X - 46.0 and absf(dz) < MarcosLeste.REPRESA_MEIA and x < MarcosLeste.represa_x(dz) - 1.5):
+			return REPRESA_NIVEL
 	if Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.15 and h < POCO_NIVEL:
 		return POCO_NIVEL
 	if Vector2(x, z).distance_to(NASCENTE) < 5.0 and h < queda_topo.y:
@@ -934,13 +949,21 @@ func _mar() -> void:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	# fundo escuro além do mapa, na mesma profundidade, para a cor do mar não mudar na borda dos dados
+	# com o mesmo shader e a mesma cor de areia do chão: com outro material, do alto se via o quadrado dos dados
 	var fundo := MeshInstance3D.new()
-	var pf := PlaneMesh.new()
-	pf.size = Vector2(40000, 40000)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	var m := 20000.0
+	arr[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3(-m, 0, -m), Vector3(m, 0, -m), Vector3(m, 0, m), Vector3(-m, 0, m)])
+	arr[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
+	arr[Mesh.ARRAY_COLOR] = PackedColorArray([Color(0, 0, 1, 1), Color(0, 0, 1, 1), Color(0, 0, 1, 1), Color(0, 0, 1, 1)])
+	arr[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var pf := ArrayMesh.new()
+	pf.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	fundo.mesh = pf
-	var mf := StandardMaterial3D.new()
-	mf.albedo_color = Color(0.30, 0.25, 0.16)
-	mf.roughness = 1.0
+	var mf := ShaderMaterial.new()
+	mf.shader = load("res://scripts/shaders/vale_chao.gdshader")
+	mf.set_shader_parameter("ruido", _tex)
 	fundo.material_override = mf
 	fundo.position = Vector3(0, -14.05, 0)
 	fundo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1153,7 +1176,7 @@ func _mata_fora() -> void:
 		l.append(i)
 		_grade_arv[cel] = l
 	# desenho: por tipo e por bloco (100 m perto, 160 m longe); completo perto, leve de longe, e nada além
-	# de 1.300 m. A troca é árvore a árvore (Clareira._multi)
+	# de VULTO_ATE. A troca é árvore a árvore (Clareira._multi)
 	var grupos := {}
 	for item in fila:
 		var xf: Transform3D = item[1]
@@ -1174,4 +1197,4 @@ func _mata_fora() -> void:
 		_multi(g[0], xfs2, _centro(xfs2), TROCA_ARVORE, TROCA_VULTO, false)
 	for g2 in _por_bloco(fila, 400.0, true, true):
 		var xfs3: Array = g2[1]
-		_multi(g2[0], xfs3, _centro(xfs3), TROCA_VULTO, 1300.0, false)
+		_multi(g2[0], xfs3, _centro(xfs3), TROCA_VULTO, VULTO_ATE, false)
