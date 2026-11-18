@@ -11,6 +11,7 @@ const NOMES := ["chão", "no ar", "decolagem", "voo", "planando", "pouso", "pair
 
 signal estado_mudou(novo: int)
 signal superaqueceu
+signal banho  # atravessou uma cachoeira
 signal religou
 signal entrou_pane
 signal saiu_pane
@@ -34,6 +35,23 @@ var giro_lateral := 0.0  # rad/s do nariz no plano (para inclinar o corpo e a c�
 var mirando := false  # L2 no chão ou pairando
 var esquivando := 0.0  # tempo que falta da esquiva (o visual e a câmera leem)
 var esquiva_dir := Vector3.ZERO
+## Manobras no ar com o círculo (2026-11-18): no voo, um giro de caça (com direção, desloca para aquele
+## lado); pairando, um tranco lateral. O visual lê `manobra` (tempo que falta) e `manobra_lado`.
+const MANOBRA_TEMPO := 0.6
+var manobra := 0.0
+var manobra_lado := 1.0
+var manobras := 0  # quantas fez (testes)
+var saidas_da_agua := 0  # impulsos para fora d'água que já saem voando (testes)
+var boiando := false  # na superfície, parado ou devagar: de pé, com os ombros fora d'água
+var resfriado := 0.0  # segundos que faltam do aviso de "resfriado" no medidor (mergulho, cachoeira)
+var mergulhos_frios := 0  # mergulhos que zeraram o calor (testes)
+var _nado_solto := 0.0
+var _x_agua := 0.0  # há quanto tempo o X está segurado dentro d'água
+var cachoeiras := 0  # quantas vezes atravessou uma queda d'água e zerou o calor (testes)
+var _na_queda := false
+var _manobra_espera := 0.0
+var _manobra_vel := Vector3.ZERO  # empurrão de lado, somado só na hora de andar
+var _fora_dagua := 0.0  # acabou de disparar para fora d'água: por um instante sobe reto e não volta a nadar
 var impulso := 0.0  # brilho rápido dos propulsores (pulo duplo, esquiva)
 var tem_marcador := false
 var marcador := Vector3.ZERO
@@ -298,6 +316,9 @@ func _subir_degrau(delta: float) -> void:
 
 func teleportar(pos: Vector3, novo: int, vel := Vector3.ZERO) -> void:
 	global_position = pos
+	_fora_dagua = 0.0
+	manobra = 0.0
+	_manobra_vel = Vector3.ZERO
 	_corte = true
 	_pulo_seg = -1.0
 	velocity = vel
@@ -372,6 +393,11 @@ func _passo(delta: float) -> void:
 	# no tiro duplo o L2 é o gatilho do braço esquerdo: não mira
 	mirando = Input.is_action_pressed("mirar") and not (Arsenal.modo == "duplo" and Arsenal.tem_arma("duplo"))
 	_esquiva_espera = maxf(0.0, _esquiva_espera - delta)
+	_manobra_espera = maxf(0.0, _manobra_espera - delta)
+	_fora_dagua = maxf(0.0, _fora_dagua - delta)
+	resfriado = maxf(0.0, resfriado - delta)
+	manobra = maxf(0.0, manobra - delta)
+	_manobra_vel = _manobra_vel * exp(-5.0 * delta) if manobra > 0.0 or _manobra_vel.length() > 0.5 else Vector3.ZERO
 	impulso = maxf(0.0, impulso - delta * 3.0)
 	atirando = maxf(0.0, atirando - delta)
 	atirando_e = maxf(0.0, atirando_e - delta)
@@ -395,11 +421,15 @@ func _passo(delta: float) -> void:
 			_frear(delta, mira)
 		Estado.NADO:
 			_nado(delta, mov)
+	if _fora_dagua > 0.35 and estado == Estado.VOO:
+		velocity.y = maxf(velocity.y, 10.0)  # o impulso da saída da água leva o robô para cima da superfície
 	_esquiva_aplicar(delta)
 	_subir_degrau(delta)
 	_degrau_y = move_toward(_degrau_y, 0.0, delta * 2.6)
 	var antes := velocity
+	velocity += _manobra_vel
 	move_and_slide()
+	velocity -= _manobra_vel
 	_depois_de_mover(antes)
 	_agua_e_calor(delta)
 	tremor = maxf(0.0, tremor - delta * 1.5)
@@ -715,11 +745,8 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_cortar_jatos()
 		return
 	if Input.is_action_just_pressed("soltar"):
-		# antes de desligar, vira os jatos para a frente e freia
-		_pulo_vivo = false
-		_frear_tempo = lerpf(Ajustes.FREAR_TEMPO_MIN, Ajustes.FREAR_TEMPO, clampf(velocity.length() / Ajustes.VOO_ALVO, 0.0, 1.0))
-		tremor = maxf(tremor, 0.3)
-		_mudar(Estado.FREAR)
+		# o círculo no voo é a manobra (a freada ficou com o L3, que corta, e o L2/R3, que para no ar)
+		_manobrar(mov)
 	elif Input.is_action_just_pressed("golpe"):
 		_mergulhar()
 	elif (Input.is_action_just_pressed("mirar") or Input.is_action_just_pressed("pairar")) and not superaquecido:
@@ -760,6 +787,8 @@ func altura_corpo() -> float:
 
 ## Em água funda, com o corpo já debaixo da lâmina e sem estar subindo, o robô passa a nadar.
 func _entrar_no_nado() -> void:
+	if _fora_dagua > 0.0:
+		return  # disparou para fora com o L3: não volta a nadar no mesmo impulso
 	if ilha == null or estado == Estado.NADO or estado == Estado.DECOLAGEM or velocity.y > 1.5:
 		return
 	var nivel := ilha.agua(global_position.x, global_position.z)
@@ -767,8 +796,16 @@ func _entrar_no_nado() -> void:
 		return
 	if nivel - ilha.altura(global_position.x, global_position.z) < Ajustes.NADO_FUNDURA * altura_corpo():
 		return
+	# quem entra acelerado (voando, mergulhando de cabeça) segue no nado rápido; quem entra devagar, no normal
+	var rapido_na_entrada := velocity.length() > Ajustes.NADO_VEL + 3.0
 	velocity *= 0.45 if velocity.length() > Ajustes.NADO_RAPIDO else 1.0
-	nado_rapido = false
+	nado_rapido = rapido_na_entrada
+	_nado_solto = 0.0
+	_x_agua = 0.0
+	# mergulhar zera o calor na hora (e o medidor mostra "resfriado" por uns segundos)
+	calor = 0.0
+	resfriado = 3.0
+	mergulhos_frios += 1
 	nados += 1
 	_solto = false
 	caido = false
@@ -785,36 +822,51 @@ func _nado(delta: float, mov: Vector2) -> void:
 		_duplo_usado = false
 		_mudar(Estado.AR)  # raso: afunda até o chão e anda
 		return
-	if (Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr")) and Melhorias.nado_rapido():
+	# A água no jeito do voo (pedido do usuário, 2026-11-18): a câmera aponta, o analógico leva, e o L3 é o
+	# acelerador. O nado rápido vale para todos; as barbatanas o deixam mais veloz. Na superfície o robô boia
+	# de pé, com a cabeça e os ombros fora, e o X dá o impulso para fora e já engata o voo.
+	if Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr") or Input.is_action_just_pressed("voar"):
 		nado_rapido = not nado_rapido
-	if mov.length() < 0.15 and not Input.is_action_pressed("pular"):
+	# solto por mais de 0,8 s, volta ao nado normal (um instante sem direção não tira o embalo de quem mergulhou)
+	_nado_solto = _nado_solto + delta if (mov.length() < 0.15 and not Input.is_action_pressed("pular")) else 0.0
+	if _nado_solto > 0.8:
 		nado_rapido = false
 	var b := Basis.from_euler(Vector3(camera.pitch, camera.yaw, 0.0)) if camera else Basis.IDENTITY
 	var dir := (b * Vector3(mov.x, 0.0, mov.y)).limit_length(1.0)
-	var alvo := dir * (Ajustes.NADO_RAPIDO if nado_rapido else Ajustes.NADO_VEL)
+	var alvo := dir * ((Ajustes.NADO_RAPIDO if Melhorias.nado_rapido() else Ajustes.NADO_RAPIDO * 0.78) if nado_rapido else Ajustes.NADO_VEL)
 	var vert := (1.0 if Input.is_action_pressed("pular") else 0.0) - (1.0 if Input.is_action_pressed("soltar") else 0.0)
 	alvo.y += vert * Ajustes.NADO_SOBE
+	# perto da tona e sem mergulhar, o robô sobe sozinho até boiar (a menos de uma altura e meia da lâmina)
+	var tona := nivel - alt * 0.45
+	if vert == 0.0 and dir.y > -0.2 and global_position.y < tona - 0.05 and tona - global_position.y < alt * 1.5 and not nado_rapido:
+		alvo.y += 1.8
 	velocity = velocity.move_toward(alvo, Ajustes.NADO_ACEL * delta)
 	if velocity.length() > 1.0:
 		dir_voo = velocity.normalized()
 	impulso = maxf(impulso, 0.6 if nado_rapido else 0.0)
-	# a lâmina: a cabeça fica logo abaixo dela, a não ser que ele saia
-	var limite := nivel - alt * 0.8
+	# a lâmina: nadando, a cabeça fica logo abaixo dela; parado ou devagar, ele boia com os ombros de fora
+	var devagar := 1.0 - smoothstep(2.0, 6.0, Vector2(velocity.x, velocity.z).length())
+	var limite := nivel - alt * lerpf(0.8, 0.45, devagar)
+	boiando = global_position.y >= limite - 0.25 and devagar > 0.5
+	# segurar o X sai voando de pé, como a decolagem do chão: sobe reto uns 10 m e segue para a frente
+	_x_agua = _x_agua + delta if Input.is_action_pressed("pular") else 0.0
+	if global_position.y >= limite - 0.4 and _x_agua >= Ajustes.DECOLAR_SEGURAR and not superaquecido and not caido:
+		_x_agua = 0.0
+		boiando = false
+		saidas_da_agua += 1
+		_fora_dagua = 1.0
+		_decolar()
+		return
 	if global_position.y >= limite and velocity.y >= 0.0:
-		if velocity.y > Ajustes.NADO_SALTO and not superaquecido:
-			# chegou rápido de baixo: rompe a lâmina e sai voando
+		# acelerado e apontando 30 graus ou mais para cima: rompe a lâmina e sai voando nesse rumo
+		if nado_rapido and velocity.length() > Ajustes.NADO_VEL and velocity.normalized().y >= 0.5 and not superaquecido:
 			_graca = Ajustes.DECOLAGEM_GRACA
-			velocity.y = maxf(velocity.y, 9.0)
+			_fora_dagua = 1.0
+			saidas_da_agua += 1
+			velocity = velocity.normalized() * maxf(velocity.length(), 14.0)
+			dir_voo = velocity.normalized()
+			boiando = false
 			_mudar(Estado.VOO)
-			return
-		if Input.is_action_just_pressed("pular"):
-			# pulo para fora d'água (segurando, decola como de costume)
-			velocity.y = Ajustes.PULO * 1.25
-			_pulo_seg = 0.0
-			_pulo_vivo = false
-			_duplo_usado = false
-			impulso = 1.0
-			_mudar(Estado.AR)
 			return
 		velocity.y = minf(velocity.y, (limite - global_position.y) * 4.0)
 
@@ -838,11 +890,36 @@ func _pairar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_pairar_travado = mirando
 		_mudar(Estado.AR)
 	elif Input.is_action_just_pressed("soltar"):
-		_solto = true
-		_pulo_vivo = false
-		_pairar_travado = true
-		velocity.y = minf(velocity.y, 0.0) - 1.0
-		_mudar(Estado.AR)
+		# pairando, o círculo é um tranco de lado (ou para trás, sem direção); R3 é que cancela o voo parado
+		_manobrar(mov)
+
+
+## A manobra do círculo no ar. No voo: giro de caça; com o analógico para um lado, o robô gira e se desloca
+## para lá. Pairando: um tranco para onde o analógico aponta (para trás, sem direção).
+func _manobrar(mov: Vector2) -> void:
+	if _manobra_espera > 0.0 or superaquecido:
+		return
+	manobras += 1
+	_manobra_espera = 0.75
+	calor = minf(100.0, calor + 3.0)
+	tremor = maxf(tremor, 0.25)
+	impulso = 1.0
+	if estado == Estado.PAIRAR:
+		var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
+		if dir.length() < 0.2:
+			dir = _plano_camera() * Vector3(0.0, 0.0, 1.0)
+		esquiva_dir = dir.normalized()
+		esquivando = Ajustes.ESQUIVA_TEMPO
+		_manobra_vel = esquiva_dir * 22.0
+		manobra = 0.3
+		manobra_lado = 0.0
+		return
+	var lado := signf(mov.x) if absf(mov.x) > 0.3 else 0.0
+	manobra = MANOBRA_TEMPO
+	manobra_lado = lado if lado != 0.0 else 1.0
+	if lado != 0.0:
+		var direita := Vector3(dir_voo.x, 0.0, dir_voo.z).normalized().cross(Vector3.UP)
+		_manobra_vel = direita * lado * 20.0
 
 
 func _tentar_esquiva(mov: Vector2) -> void:
@@ -991,6 +1068,15 @@ func _agua_e_calor(delta: float) -> void:
 			taxa = Melhorias.calor_pairar()
 		Estado.NADO:
 			taxa = -Ajustes.NADO_ESFRIA
+	# atravessar uma queda d'água zera o calor na hora (e levanta quem caiu superaquecido)
+	var na_queda := ilha != null and ilha.na_cachoeira(global_position + Vector3(0, altura_corpo() * 0.5, 0))
+	if na_queda and not _na_queda:
+		cachoeiras += 1
+		calor = 0.0
+		resfriado = 3.0
+		tremor = maxf(tremor, 0.2)
+		banho.emit()
+	_na_queda = na_queda
 	if na_agua:
 		taxa = minf(taxa, 0.0) - Ajustes.ESFRIA_AGUA
 	if chuva > 0.3:
@@ -1027,5 +1113,5 @@ func _agua_e_calor(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	if visual:
-		visual.position = pos_suave() - global_position
+		visual.position = pos_suave() - global_position + visual.desvio_giro
 		visual.atualizar(delta, self)

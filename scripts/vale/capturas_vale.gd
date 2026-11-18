@@ -205,6 +205,26 @@ func rodar(main: Node) -> void:
 	if "--mapa" in args:
 		await _mapa()
 		return
+	if "--municao" in args:
+		# o contador curvo ao lado da mira: mísseis mirando, e granadas com o botão segurado
+		await _esperar(2.5)
+		a.recomecar()
+		await _esperar(0.8)
+		Arsenal.fabricados = ["misseis", "rajada"]
+		Arsenal.modo = "misseis"
+		Arsenal.misseis = Arsenal.misseis_max() - 2
+		Input.action_press("mirar")
+		await _esperar(0.8)
+		await _foto("municao_misseis")
+		Input.action_release("mirar")
+		Arsenal.modo = "pistola"
+		Arsenal.granadas = maxi(0, Arsenal.granadas_max() - 1)
+		Input.action_press("granada")
+		await _esperar(0.8)
+		await _foto("municao_granadas")
+		Input.action_release("granada")
+		get_tree().quit()
+		return
 	if "--capa" in args:
 		await _capa()
 		return
@@ -1630,6 +1650,30 @@ func _largo() -> void:
 				var ang_g := 0.7 + lado_g * PI * 0.5 + gi
 				var de_g := cg + Vector2(cos(ang_g), sin(ang_g)) * dist_g
 				vistas.append(["g%d_%d" % [gi, lado_g], Vector3(de_g.x, c.altura(de_g.x, de_g.y) + 6.0, de_g.y), Vector3(cg.x, c.altura(cg.x, cg.y) + 12.0, cg.y)])
+	if "--memoria" in OS.get_cmdline_user_args():
+		# um cristal de memória no lugar e a tela de leitura aberta
+		await _esperar(1.0)
+		var mm2: Memorias = m.memorias
+		var pc: Vector3 = mm2.onde["casco"]
+		livre.global_position = pc + Vector3(7, 3.0, 6)
+		livre.look_at(pc + Vector3(0, 1.0, 0))
+		a.teleportar(pc + Vector3(3, 0.3, 0), Armadura.Estado.CHAO)
+		await _esperar(1.5)
+		await _foto("memoria_cristal")
+		mm2.abrir("casco")
+		for q2 in 20:
+			await get_tree().process_frame
+		await _foto("memoria_texto")
+		mm2.fechar()
+		get_tree().quit()
+		return
+	if "--agua" in OS.get_cmdline_user_args():
+		# debaixo d'água: o cais, uma piscina natural, as ilhotas, a lagoa da represa e o navio
+		var ca := MarcosMar.CAIS
+		vistas = [["u01_cais_fundo", Vector3(ca.x + 44, -4.0, ca.y + 40), Vector3(ca.x + 66, -6.0, ca.y + 26)], ["u02_cais_conteiner", Vector3(ca.x + 78, -3.5, ca.y + 14), Vector3(ca.x + 64, -6.5, ca.y + 28)],
+			["u03_banco_do_rele", Vector3(1180, -2.5, 650), Vector3(1215, -3.5, 640)], ["u04_lagoa_represa", Vector3(1000, 22.5, -345), Vector3(1030, 21.0, -330)],
+			["u05_navio", Vector3(MarcosOeste.CASCO.x - 40, -4.0, MarcosOeste.CASCO.y + 34), Vector3(MarcosOeste.CASCO.x - 16, -5.0, MarcosOeste.CASCO.y + 8)],
+			["u06_de_cima_cais", Vector3(ca.x + 70, 26, ca.y + 80), Vector3(ca.x + 70, -4, ca.y + 30)]]
 	if "--fenda" in OS.get_cmdline_user_args():
 		# a Fenda Escura: de cima, as bocas e por dentro (sem a luz do peito; `--farol` acende)
 		var fq := func(sv: float, lado: float, y: float) -> Vector3:

@@ -190,12 +190,12 @@ func _desenhar_lugar() -> void:
 var _dano_visto := 0.0
 var _mira_vista := 0.0
 var _calor_visto := 0.0
+var _frio_visto := 0.0
+var _missil_visto := 0.0
+var _granada_vista := 0.0
 var _voo_visto := 0.0
 var _arma_vista := 0.0
 var _arma_antes := ""
-var _muni_vista := 0.0
-var _gran_antes := 0
-var _miss_antes := 0
 
 
 var dica := ""  # convite de botão embaixo, no meio (ex.: entrar na oficina)
@@ -369,10 +369,38 @@ func _draw() -> void:
 			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 				draw_line(c + d * 7.0, c + d * 16.0, cm, 2.0, true)
 			var txt_d := "%d m" % roundi(alvo.global_position.distance_to(alvo.alvo_mira)) if alvo.alvo_mira_ok else ""
-			draw_string(_fonte, c + Vector2(22, 5), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.6 * am))
+			# a distância fica embaixo da mira (ao lado ficam os arcos da munição)
+			var wd := _fonte.get_string_size(txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+			draw_string(_fonte, c + Vector2(-wd * 0.5, 36), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.6 * am))
 		else:
 			draw_circle(c, 2.0, Color(1, 1, 1, 0.9 * am))
 			draw_arc(c, 11.0, 0.0, TAU, 32, Color(1, 1, 1, 0.55 * am), 1.5, true)
+	# A munição fica ao lado da mira, em arco (pedido do usuário, 2026-11-18; antes eram marcas embaixo, perto
+	# do calor): os mísseis à direita, com os mísseis escolhidos e mirando; as granadas à esquerda, enquanto
+	# se segura o botão da granada. Um traço curvo por unidade: cheio o que resta, apagado o que foi gasto.
+	var quer_missil: bool = Arsenal.modo == "misseis" and (alvo.mirando_agora() or (tiro_no != null and not (tiro_no.get("travas") as Array).is_empty()))
+	var quer_granada: bool = Arsenal.granadas_max() > 0 and (Input.is_action_pressed("granada") or (tiro_no != null and (tiro_no.get("arco") as PackedVector3Array).size() > 0))
+	_missil_visto = move_toward(_missil_visto, 1.0 if quer_missil else 0.0, dt * (9.0 if quer_missil else 3.0))
+	_granada_vista = move_toward(_granada_vista, 1.0 if quer_granada else 0.0, dt * (9.0 if quer_granada else 3.0))
+	for lado_m: Array in [[_missil_visto, Arsenal.misseis, Arsenal.misseis_max(), 0.0], [_granada_vista, Arsenal.granadas, Arsenal.granadas_max(), PI]]:
+		var vis: float = lado_m[0]
+		var total: int = lado_m[2]
+		if vis < 0.01 or total <= 0:
+			continue
+		var raio_m := 40.0
+		var abre_m := deg_to_rad(minf(100.0, 14.0 * total))  # o arco inteiro
+		var passo_m := abre_m / total
+		for i_m in total:
+			# de baixo para cima; os gastos somem a partir de cima
+			var a0 := float(lado_m[3]) + abre_m * 0.5 - (i_m + 1) * passo_m + deg_to_rad(1.6)
+			var a1 := float(lado_m[3]) + abre_m * 0.5 - i_m * passo_m - deg_to_rad(1.6)
+			var tem: bool = i_m < int(lado_m[1])
+			draw_arc(c, raio_m, a0, a1, 6, Color(0, 0, 0, 0.45 * vis), 7.0, true)  # sombra, para ler sobre o capim claro
+			draw_arc(c, raio_m, a0, a1, 6, Color(1, 1, 1, (0.95 if tem else 0.3) * vis), 4.0 if tem else 2.5, true)
+		var num := str(int(lado_m[1]))
+		var wn := _fonte.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var onde_n := c + Vector2(cos(float(lado_m[3])), 0.0) * (raio_m + 16.0) + Vector2(-wn * 0.5, 5.0)
+		draw_string(_fonte, onde_n, num, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, (0.75 if int(lado_m[1]) > 0 else 0.45) * vis))
 	# máquina travada pela mira assistida: quatro cantos em volta dela
 	if alvo.mirando_agora() and tiro and tiro.travado and is_instance_valid(tiro.travado) and cam:
 		var pt: Vector3 = tiro.travado.call("ponto_de_trava")
@@ -394,7 +422,11 @@ func _draw() -> void:
 	var abre := deg_to_rad(15.0)
 	var q := alvo.calor / 100.0
 	var pisca := fmod(Time.get_ticks_msec() * 0.001, 0.4) < 0.2
-	_calor_visto = move_toward(_calor_visto, 1.0 if (q > 0.06 or alvo.superaquecido) else 0.0, dt * (5.0 if q > 0.06 else 0.9))
+	# "resfriado": a água, a chuva ou uma cachoeira está tirando calor (ou acabou de zerar). O arco aparece
+	# mesmo vazio, em azul claro, com a palavra embaixo.
+	var esfriando: bool = alvo.resfriado > 0.0 or (alvo.na_agua and alvo.em_voo()) or (alvo.chuva > 0.3 and alvo.em_voo())
+	_frio_visto = move_toward(_frio_visto, 1.0 if esfriando else 0.0, dt * (5.0 if esfriando else 1.2))
+	_calor_visto = move_toward(_calor_visto, 1.0 if (q > 0.06 or alvo.superaquecido or esfriando) else 0.0, dt * (5.0 if (q > 0.06 or esfriando) else 0.9))
 	if _calor_visto > 0.01:
 		var ac := _calor_visto
 		var cor := Color(0.4, 0.9, 0.95).lerp(Color(1.0, 0.62, 0.15), smoothstep(0.45, 0.75, q))
@@ -402,16 +434,19 @@ func _draw() -> void:
 		if alvo.superaquecido:
 			cor = Color(1.0, 0.15, 0.1) if pisca else Color(0.5, 0.08, 0.05)
 		draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0, 0, 0, 0.35 * ac), 4.0, true)
+		if _frio_visto > 0.01:
+			# o trilho inteiro em azul claro, por baixo do calor que ainda houver
+			draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0.55, 0.88, 1.0, 0.55 * _frio_visto * ac), 4.0, true)
 		# enche do meio para as pontas
 		if q > 0.01:
 			draw_arc(centro, raio, meio - abre * q, meio + abre * q, 40, Color(cor, 0.95 * ac), 4.0, true)
 		for sx: float in [-1.0, 1.0]:
 			var am := meio + sx * (abre + deg_to_rad(1.2))
 			draw_line(centro + Vector2.from_angle(am) * (raio - 7.0), centro + Vector2.from_angle(am) * (raio + 7.0), Color(1.0, 0.25, 0.18, (0.9 if q > 0.8 else 0.45) * ac), 3.0, true)
-	if alvo.na_agua and alvo.calor > 1.0:
-		var txt2 := "esfriando na água"
+	if _frio_visto > 0.01:
+		var txt2 := "resfriado"
 		var w2 := _fonte.get_string_size(txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-		draw_string(_fonte, Vector2(size.x * 0.5 - w2 * 0.5, size.y - 54.0), txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.6, 0.9, 1.0, 0.85))
+		draw_string(_fonte, Vector2(size.x * 0.5 - w2 * 0.5, size.y - 54.0), txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.6, 0.9, 1.0, 0.85 * _frio_visto))
 	# a vida: um pedaço de arco por acerto que o robô aguenta, acompanhando a curva por cima dela. Só
 	# aparece com dano, e some depois de sarar
 	var dano := float(alvo.avaria) + float(alvo.get("_dano_frac"))
@@ -433,28 +468,6 @@ func _draw() -> void:
 		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
 		draw_arc(centro, raio + 9.0, meio - abre, meio + abre, 30, Color(0, 0, 0, 0.3), 2.0, true)
 		draw_arc(centro, raio + 9.0, meio + abre - abre * 2.0 * pronto, meio + abre, 30, Color(0.35, 0.95, 0.85, 0.85), 2.0, true)
-	# a munição: marcas pequenas ao lado da curva, só quando o jogador tenta usar (granada ou mísseis) e por
-	# uns segundos depois
-	var tentando := Input.is_action_pressed("granada") or (Arsenal.modo == "misseis" and Input.is_action_pressed("atirar"))
-	if Arsenal.granadas != _gran_antes or Arsenal.misseis != _miss_antes or tentando:
-		_muni_vista = 2.5
-	_gran_antes = Arsenal.granadas
-	_miss_antes = Arsenal.misseis
-	_muni_vista = maxf(0.0, _muni_vista - dt)
-	var amu := clampf(_muni_vista * 2.0, 0.0, 1.0)
-	if amu > 0.01:
-		var py := size.y - 84.0
-		# granadas à direita: bolinhas (cheias as que restam)
-		for i in Arsenal.granadas_max():
-			var pg := Vector2(size.x * 0.5 + 112.0 + i * 13.0, py)
-			if i < Arsenal.granadas:
-				draw_circle(pg, 4.0, Color(1, 1, 1, 0.9 * amu))
-			else:
-				draw_arc(pg, 4.0, 0.0, TAU, 12, Color(1, 1, 1, 0.35 * amu), 1.2, true)
-		# mísseis à esquerda: tracinhos em pé
-		for i in Arsenal.misseis_max():
-			var pm := Vector2(size.x * 0.5 - 112.0 - i * 8.0, py)
-			draw_line(pm + Vector2(0, -6.0), pm + Vector2(0, 6.0), Color(1, 1, 1, (0.9 if i < Arsenal.misseis else 0.25) * amu), 2.5, true)
 	# velocidade e altura: só enquanto voa (no chão a tela fica limpa)
 	var voando: bool = alvo.em_voo() or alvo.estado == Armadura.Estado.PAIRAR
 	_voo_visto = move_toward(_voo_visto, 1.0 if voando else 0.0, dt * (4.0 if voando else 1.2))

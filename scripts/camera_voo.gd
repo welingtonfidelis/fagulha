@@ -11,6 +11,8 @@ var yaw := 0.0
 var pitch := -0.12
 
 var _pivo := Vector3.ZERO
+var _atraso := Vector3.ZERO  # quanto a câmera fica para trás do robô, pela velocidade dele
+var _pivo_ant := Vector3.ZERO
 var _dist := Ajustes.CAM_DIST_CHAO
 var _mistura := 0.0
 var _mira := 0.0
@@ -96,8 +98,16 @@ func _process(delta: float) -> void:
 		_pivo = alvo_pivo
 		_iniciado = true
 	# seguir com atraso: na decolagem a câmera fica para trás e depois alcança
+	# O atraso é o que a velocidade pede (velocidade / taxa), alisado. Antes a câmera perseguia a posição com
+	# `lerp`, e a distância de atraso mudava com o tempo de cada quadro: a 28 m/s, um quadro de 33 ms no meio
+	# dos de 16 ms deslocava o robô uns 20 cm na tela, para a frente e para trás (os "flicks" que o usuário viu
+	# no PC e no Mac em 2026-11-18, mais frequentes com a cena mais pesada).
 	var taxa := lerpf(16.0, 14.0, m)
-	_pivo = _pivo.lerp(alvo_pivo, 1.0 - exp(-taxa * delta))
+	_atraso = _atraso.lerp(alvo.velocity / taxa, 1.0 - exp(-taxa * delta))
+	if alvo_pivo.distance_to(_pivo_ant) > 12.0:
+		_atraso = Vector3.ZERO  # teleporte: corta
+	_pivo_ant = alvo_pivo
+	_pivo = alvo_pivo - _atraso
 	var dist_alvo := lerpf(Ajustes.CAM_DIST_CHAO, Ajustes.CAM_DIST_VOO, m) + clampf(v - Ajustes.VOO_ALVO, 0.0, 30.0) * 0.03 * m
 	dist_alvo = (lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) + _afasta * 3.4) * kp
 	_dist = lerpf(_dist, dist_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))

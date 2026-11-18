@@ -2132,3 +2132,70 @@ Cinco pontos que o usuário trouxe depois de jogar a build.
 - **Baterias:** `--teste-vale` 76 pontos, `--teste` 95.
 
 **Colisão dos gigantes deitados fora do lugar (visto pelo usuário, mesmo dia):** a do gigante de pé estava perfeita, a dos deitados não. Medido: o corpo desenhado estava 1,8 m e 4,0 m acima da colisão. A causa é o ajuste de `MechVisual._process`, que a cada quadro ergue um mecha caído até o osso mais baixo encostar no chão: ele seguia agindo depois de a colisão estar calculada. Nos gigantes o ajuste foi desligado (`set_process(false)`; eles já são assentados à mão), e nos robôs velhos da Fundição ele roda até assentar e só então é desligado, antes dos cascos. A pose da queda passou a ser posta com `seek(fim, true)`. A bateria ganhou a conferência (a malha de agora contra a da montagem: diferença zero) e foi a 77 pontos. `--vale-captura --largo --gigantes` imprime a diferença de cada um.
+
+## 87. Oito ideias do usuário e a história da ilha (2026-11-18)
+
+Depois de jogar a ilha de 3 km o usuário trouxe oito ideias. Todas aprovadas para fazer, nesta ordem: tiro sem calor, vento no chão no voo rasante, só árvores do pacote Nature; depois sair da água e manobras no ar; o drone instalando a peça; vida na água; e as memórias nos lugares sem peça.
+
+**Decisões dele:**
+- **Manobras:** o círculo fica livre para as manobras no voo; parar o voo é com L3 (corta os jatos) e L2/R3 (freia e paira).
+- **Peças:** o drone instala a peça no robô, sem voltar à base, e só com o robô no chão. A base fica para armas e melhorias de luta.
+- **Recompensa dos lugares sem peça:** uma memória que, tocada, abre um texto curto sobre o lugar, com uma música leve.
+
+**A história da ilha (palavras do usuário, 2026-11-18):** "após anos tentando trazer paz pro mundo buscando novas fontes de energia limpa, robôs pra ajudar e outras coisas boas pro mundo, os humanos falharam e se extinguiram. Faísca era dessa época e tentou ajudar, depois que os humanos se foram ele tentou achar propósito e paz, mas seu corpo não pôde mais seguir e ele passou sua consciência pro robô novo (o nosso que jogamos). Depois de muitos anos, a natureza tomou seu lugar e ficaram apenas lembranças de boas pessoas tentando ajudar a melhorar o mundo."
+
+O tom das memórias sai daí: gente boa tentando, sem vilão; tristeza leve, sem culpa; a natureza no fim. O robô que jogamos carrega a consciência do Faísca.
+
+## 88. As oito ideias, feitas (2026-11-18)
+
+![As ideias no jogo](vale/ideias_2026_11_18.jpg)
+
+1. **Tiro sem calor.** Atirar não esquenta mais o robô (`Tiro._disparar` e os mísseis); o calor é só do voo. O campo `calor` de cada arma em `Arsenal.MODOS` ficou sem uso.
+2. **Vento no voo rasante.** `EfeitosMato._rasante`: um emissor só, ligado enquanto o robô voa a menos de 4,5 m do chão e a mais de 8 m/s, fora d'água. Poeira clara e verde de capim saindo para os lados, mais forte quanto mais rápido e mais baixo. Sobre a água já existia o respingo (`EfeitosAgua`).
+3. **Só árvores do pacote Nature.** `Clareira.tipo_variado` não devolve mais as três árvores feitas por código; todas viram as do pacote. As antigas só aparecem como vulto, além de 450 m, onde a forma não se nota e elas custam menos.
+4. **Sair da água.** L3 dentro d'água dispara o robô para onde a câmera aponta, com um empurrão para cima: ele rompe a superfície e já sai voando, de qualquer fundura (`saidas_da_agua`; por 1 s não volta a nadar). O X na superfície virou um salto mais alto e para a frente.
+5. **Manobras no ar com o círculo.** No voo: giro de caça (uma volta em torno do nariz, 0,55 s); com o analógico para um lado, desloca uns 5 m para lá. Pairando: um tranco de uns 4 m para onde o analógico aponta (para trás, sem direção). Espera de 0,75 s e 3% de calor por manobra. A freada com o círculo saiu: parar é com L3 (corta os jatos) ou L2/R3 (freia e paira; R3 de novo solta). O estado `FREAR` ficou sem botão.
+6. **O drone instala a peça.** Com peça na mão e o robô no chão, o drone vem (`DroneColega.instalar`, modo `INSTALA`), dá a volta nele com o facho aceso e instala ali mesmo; o robô fica parado uns 3 s. Não é mais preciso voltar à base. A oficina continua sabendo instalar (os testes dela desligam o drone com `PecasMundo.auto`).
+7. **Vida na água** (`VidaAgua`): 16.759 plantas e pedras de fundo (algas, plantas baixas, corais e seixos) no mar raso, nas piscinas e na lagoa da represa, em lotes desenhados só até 130 m; e 70 lugares de cardume, com 18 peixes coloridos cada, que nadam a meia água, fogem do robô e só existem a menos de 150 m dele.
+8. **Memórias** (`Memorias`): dez cristais âmbar, um em cada lugar sem peça (Cachoeira, Serra, Sumidouro, Arcos, Represa, Ilha do Relé, Fenda, Torres do Vento, Observatório, Casco). Tocar para o jogo, escurece a tela e mostra um texto curto, com a música `memoria_loop.wav` (síntese, `tools/musica_memoria.py`). Fecha com X, círculo ou Esc; dá para reler. Os textos foram escritos por mim a partir da história que o usuário contou (seção 87) e esperam a revisão dele. O que foi lido fica no progresso (`memorias`).
+
+**Testes:** `--teste-vale` 83 pontos (o drone instalando, tiro sem calor, rastro do rasante, saída da água, vida na água, memórias), `--teste` 95 (o tranco pairando e o giro no voo). Quatro testes antigos que usavam o círculo para parar o voo foram atualizados.
+
+**O que não está bom ou não foi conferido:**
+- Nada disto foi jogado. Controles (itens 4 e 5) só se julgam na mão.
+- O giro de caça é uma volta do corpo inteiro; não vi se a câmera e as asas ficam bem durante ele.
+- O nado rápido rente à superfície continua preso logo abaixo dela (a ideia de deslizar por cima não foi feita).
+- A animação do drone instalando foi conferida só por teste, sem foto.
+- As algas são samambaias do pacote, e os corais, cogumelos grandes: servem, mas não são modelos de fundo de mar.
+- Com o tiro sem calor, as ondas da Fundição ficaram mais fáceis; o equilíbrio não foi refeito.
+- Desempenho não medido de novo (a máquina seguia ocupada).
+
+## 89. Água no jeito do voo, cachoeira, giro e as máquinas da forja (2026-11-18)
+
+O usuário trouxe como referência a água de um jogo de armadura voadora (só a mecânica) e pediu a movimentação igual, para testar. Também pediu a cachoeira esfriando, o giro refeito e apontou um defeito na forja.
+
+- **Água:** a câmera aponta e o analógico leva, como já era. O **L3 é o acelerador do nado**, para todos (as barbatanas deixam o nado rápido mais veloz: 13 m/s contra 10). Na superfície, parado ou devagar, o robô **boia de pé**, com a cabeça e os ombros fora (`boiando`). O **X na superfície dá o impulso para fora e já engata o voo**, para onde a câmera aponta. Para mergulhar de novo, câmera para baixo e analógico. Saiu o L3 que decolava do fundo, feito na seção 88: a referência não tem, e o L3 ficou sendo o acelerador.
+- **Cachoeira:** atravessar uma queda d'água zera o calor na hora (`Vale.cortinas`, `Ilha.na_cachoeira`, sinal `Armadura.banho`). São duas: a da Cachoeira e a do rombo da Represa.
+- **Não entrou** (propus e o usuário não pediu): zerar o calor ao mergulhar (a água já tira 30% por segundo) e um sinal de "resfriado" no medidor.
+- **Giro no voo:** a volta agora é em torno do meio do corpo. Antes era em torno dos pés, e o robô varria um arco largo (`ArmaduraVisual.desvio_giro`). O deslocamento de lado continua.
+- **Máquinas rodando em volta de obstáculo:** na forja, uma máquina com o robô do outro lado de uma planta ou esteira ficava dando voltas. `Vigia` agora confere, a cada 2 s, onde estava 4 s antes: desviando o tempo todo e ainda a menos de 3 m dali, troca o lado da volta; se continuar, atravessa o obstáculo por 1,6 s (`furou`). Contornar uma parede comprida não dispara isso.
+- **Testes:** `--teste-vale` 84 pontos (água: L3 acelera, boia, X sai voando; cachoeira zera de 80% a 0), `--teste` 95.
+- **Não conferido:** nada jogado. O caso da forja não tem teste próprio: a correção vem da leitura do código e não reproduzi o defeito. O giro não foi visto em movimento.
+
+## 90. Nado ajustado, resfriado, munição na mira e os trancos da câmera (2026-11-18)
+
+Depois de testar a seção 89 no PC, o usuário pediu:
+
+- **Mergulhar zera o calor** na hora (`mergulhos_frios`), como a cachoeira.
+- **"Resfriado" no medidor:** o arco do calor aparece em azul claro, com a palavra embaixo, por 3 s depois de um mergulho ou de uma cachoeira, e enquanto o rasante sobre a água ou a chuva esfriam o robô em voo (`Armadura.resfriado`, `Hud._frio_visto`). Saiu o texto antigo "esfriando na água".
+- **Nado:**
+  - quem entra na água acelerado (a mais de 9,5 m/s) segue no nado rápido; quem entra devagar, no normal;
+  - acelerado e apontando 30 graus ou mais para cima, rompe a superfície e sai voando nesse rumo;
+  - **segurar o X** (0,4 s) na superfície decola de pé, como no chão: sobe reto uns 10 m e segue para a frente. Um toque só faz subir;
+  - saiu o salto para fora d'água com um toque no X;
+  - perto da superfície e sem mergulhar, o robô sobe sozinho até boiar;
+  - solto por mais de 0,8 s, o nado rápido volta ao normal (antes voltava no mesmo instante).
+- **Munição ao lado da mira:** os contadores de baixo saíram. Com os mísseis escolhidos e mirando (ou travando), aparece um arco à direita da mira, um traço curvo por míssil, com o número ao lado. Segurando o botão da granada, o mesmo à esquerda. O que foi gasto fica apagado. A distância do alvo desceu para baixo da mira.
+- **Trancos para a frente e para trás no voo** (vistos no PC e no Mac): a câmera perseguia a posição do robô com `lerp`, e a distância de atraso dependia do tempo de cada quadro. A 28 m/s, um quadro de 33 ms entre os de 16 ms deslocava o robô uns 20 cm na tela. Com a cena mais pesada (árvores do pacote, mais objetos) os quadros variam mais e isso voltou a aparecer. Agora o atraso é calculado pela velocidade (`CameraVoo._atraso`), sem depender do tempo do quadro. Também `Engine.physics_jitter_fix = 0`, porque o robô é desenhado entre dois passos da física.
+- **Testes:** `--teste-vale` 84 pontos (o teste da água cobre as regras novas), `--teste` 95.
+- **Não conferido:** os trancos não têm como ser medidos em teste; a causa vem da conta e da leitura do código. O contador da mira foi visto em foto, com pouco contraste sobre capim claro (ganhou sombra depois). Nada jogado.

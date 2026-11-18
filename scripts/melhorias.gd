@@ -18,7 +18,7 @@ const EFEITOS := {
 	"radiador2": "voa três vezes mais tempo que o básico",
 	"bocais": "arrancada mais rápida",
 	"asas": "no voo, segure L3 ou X para trocar o jato pelo planador",
-	"barbatanas": "nado rápido liberado",
+	"barbatanas": "nado rápido mais veloz",
 	"amortecedores": "pula mais alto e pousa sem tranco",
 	"farol": "luz para a noite (seta para cima / L)",
 	"celulas": "esfria mais depressa no chão",

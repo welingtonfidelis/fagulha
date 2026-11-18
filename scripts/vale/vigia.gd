@@ -109,6 +109,13 @@ func _ponto_ronda() -> Vector3:
 
 var desvios := 0  # quadros em que andou por um rumo diferente do que queria, por obstáculo (testes)
 var destravou := 0  # vezes em que ficou preso e mudou de plano (testes)
+var furou := 0  # vezes em que desistiu de dar a volta e atravessou o obstáculo (testes)
+var _prog_t := 0.0
+var _prog_desvio := 0.0
+var _prog_p1 := Vector3.INF  # onde estava há 2 s
+var _prog_p2 := Vector3.INF  # e há 4 s
+var _sem_avanco := 0
+var _atravessa_t := 0.0
 var _lado_desvio := 1.0
 var _trava_t := 0.0
 var _trava_p := Vector3.ZERO
@@ -224,7 +231,12 @@ func _process(delta: float) -> void:
 		var quer := _rumo * signf(vel)
 		var raio := altura_m * 0.3
 		var anda := Obstaculos.rumo_livre(mapa, global_position, quer, maxf(absf(vel) * 0.35, raio * 1.6), raio, _lado_desvio, _pisavel)
+		if _atravessa_t > 0.0:
+			# já rodou demais em volta da mesma coisa sem chegar: segue reto por um instante, por cima dela
+			_atravessa_t -= delta
+			anda = quer
 		if anda != Vector3.ZERO and anda.dot(quer) < 0.99:
+			_prog_desvio += delta
 			desvios += 1
 			_lado_desvio = 1.0 if quer.cross(anda).y > 0.0 else -1.0  # segue a volta pelo lado em que começou
 		if anda == Vector3.ZERO:
@@ -233,6 +245,25 @@ func _process(delta: float) -> void:
 			global_position += anda * absf(vel) * delta
 			if vel > 0.0 and estado != Estado.CACA:
 				_rumo = anda  # na caça ele continua de frente para o robô, andando de lado se for preciso
+		# rodando em volta da mesma coisa: a cada 2 s confere onde estava 4 s atrás. Desviando o tempo todo e
+		# ainda a menos de 3 m daquele ponto, está dando voltas (na forja as máquinas ficavam rodando numa planta
+		# ou numa esteira com o robô do outro lado, visto pelo usuário em 2026-11-18). Primeiro troca o lado da
+		# volta; se continuar, atravessa. Contornar uma parede comprida não conta: aí ele se afasta do ponto.
+		_prog_t += delta
+		if _prog_t >= 2.0:
+			if _prog_desvio > 1.1 and global_position.distance_to(_prog_p2) < 3.0:
+				_sem_avanco += 1
+				_lado_desvio = -_lado_desvio
+				if _sem_avanco >= 2:
+					_atravessa_t = 1.6
+					_sem_avanco = 0
+					furou += 1
+			else:
+				_sem_avanco = 0
+			_prog_t = 0.0
+			_prog_desvio = 0.0
+			_prog_p2 = _prog_p1
+			_prog_p1 = global_position
 		# destravar: quer andar e não sai do lugar
 		_trava_t += delta
 		if _trava_t >= 1.2:

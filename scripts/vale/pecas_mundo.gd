@@ -24,6 +24,12 @@ var _efeito: MeshInstance3D
 var _efeito_t := -1.0
 var _no_radar := []  # nomes das peças no alcance da antena
 var bipes := 0  # quantas vezes uma peça entrou no radar (testes)
+## O drone instala a peça no próprio robô, onde ele estiver, desde que no chão (decisão do usuário,
+## 2026-11-18: sem voltar à base). `auto` desliga isso nos testes da oficina.
+var auto := true
+var instalacoes := 0  # quantas instalações o drone fez (testes)
+var _inst_fase := 0  # 0 nada, 1 o drone vem, 2 instalando
+var _inst_t := 0.0
 
 
 func _ready() -> void:
@@ -241,6 +247,49 @@ func _process(delta: float) -> void:
 	if _busca_t <= 0.0:
 		_busca_t = 0.5
 		_apontar()
+	_instalar_no_lugar(delta)
+
+
+## Com peça na mão e o robô parado no chão, o drone vem e instala. O robô fica quieto enquanto isso.
+func _instalar_no_lugar(delta: float) -> void:
+	match _inst_fase:
+		0:
+			if not auto or Melhorias.tudo or Melhorias.achadas.is_empty() or armadura.travado or armadura.em_pane:
+				return
+			if armadura.estado != Armadura.Estado.CHAO or not armadura.is_on_floor():
+				return
+			_inst_fase = 1
+			_inst_t = 0.0
+			armadura.travado = true
+			armadura.velocity = Vector3.ZERO
+			if drone:
+				drone.instalar()
+		1:
+			_inst_t += delta
+			if (drone and drone.chegou_para_instalar()) or _inst_t > (4.0 if drone else 0.5):
+				_inst_fase = 2
+				_inst_t = 0.0
+				_efeito_t = 0.0
+				if sons:
+					sons._toque("religar", -6.0)
+		2:
+			_inst_t += delta
+			if _inst_t >= 1.5:
+				var novas := Melhorias.instalar_achadas()
+				if armadura.visual:
+					armadura.visual.vestir_melhorias()
+				instalacoes += 1
+				armadura.travado = false
+				_inst_fase = 0
+				if drone:
+					drone._soltar()
+				if hud and not novas.is_empty():
+					var nomes_t := PackedStringArray()
+					for n: String in novas:
+						nomes_t.append(Melhorias.TITULOS[n])
+					hud.avisar("Instalada: " + ", ".join(nomes_t), Melhorias.EFEITOS[novas[0]])
+				instalou.emit(novas)
+				repor()
 
 
 func _pegar(nome: String) -> void:
@@ -249,7 +298,7 @@ func _pegar(nome: String) -> void:
 	Melhorias.achar(nome)
 	if hud:
 		hud.avisar("Peça encontrada: " + Melhorias.TITULOS[nome],
-			"instale na oficina da base · %d de %d" % [Melhorias.achadas.size() + Melhorias.instaladas.size(), Melhorias.NOMES.size()])
+			"pouse: o drone vem instalar · %d de %d" % [Melhorias.achadas.size() + Melhorias.instaladas.size(), Melhorias.NOMES.size()])
 	if sons:
 		sons._toque("marcar")
 	achou.emit(nome)

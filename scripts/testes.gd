@@ -222,10 +222,15 @@ func _pairar_e_mirar() -> void:
 	Input.action_release("mirar")
 	await _esperar(0.4)
 	_ok(a.estado == Armadura.Estado.PAIRAR, "soltar o L2 continua no voo parado (%s)" % a.nome_estado())
+	var m0: int = a.manobras
+	var onde0 := a.global_position
 	await _apertar("soltar")
 	Input.action_release("soltar")
+	await _esperar(0.35)
+	var tranco := Vector2(a.global_position.x - onde0.x, a.global_position.z - onde0.z).length()
+	_ok(a.estado == Armadura.Estado.PAIRAR and a.manobras == m0 + 1 and tranco > 1.5, "O no voo parado dá um tranco de lado e segue pairando (%s, %.1f m)" % [a.nome_estado(), tranco])
+	await _apertar("pairar")
 	await _esperar(0.1)
-	_ok(a.estado == Armadura.Estado.AR, "O no voo parado desliga o propulsor e cai (%s)" % a.nome_estado())
 	Input.action_press("mirar")
 	await _esperar(0.1)
 	a.calor = 99.8
@@ -446,14 +451,14 @@ func _superaquecer() -> void:
 	a.teleportar(il.spawn + Vector3(0, 7.0, 0), Armadura.Estado.VOO, Vector3.ZERO)
 	cam.pitch = 0.0
 	await _esperar(0.1)
-	await _apertar("soltar")
+	await _apertar("voar")  # o L3 corta os jatos (o círculo agora é a manobra)
 	var leve := false
 	for i in 200:
 		await get_tree().physics_frame
 		if a.estado == Armadura.Estado.POUSO or a.estado == Armadura.Estado.CHAO:
 			leve = a.pouso_forca > 0.4 and a.pouso_forca < 0.6
 			break
-	_ok(leve, "soltar o voo perto do chão cai com estilo leve (força %.1f, queda de %.1f m)" % [a.pouso_forca, a.queda_altura])
+	_ok(leve, "cortar os jatos perto do chão cai com estilo leve (força %.1f, queda de %.1f m)" % [a.pouso_forca, a.queda_altura])
 	await _esperar(1.0)
 
 
@@ -488,10 +493,21 @@ func _pouso_e_batida() -> void:
 	# soltar do voo
 	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 30.0)
 	await _esperar(0.2)
+	# o círculo no voo, com o analógico para a direita: giro de caça que desloca para aquele lado
+	var m1: int = a.manobras
+	var p1 := a.global_position
+	var frente1 := Vector3(a.velocity.x, 0, a.velocity.z).normalized()
+	Input.action_press("direita")
 	await _apertar("soltar")
-	_ok(a.estado == Armadura.Estado.FREAR, "O / C no voo vira os jatos para a frente e freia (%s)" % a.nome_estado())
-	await _esperar(0.7)
-	_ok(a.estado == Armadura.Estado.AR and _hv() < 12.0, "depois da freada os jatos desligam e ele cai (%s, %.1f m/s)" % [a.nome_estado(), _hv()])
+	var girando: bool = a.manobra > 0.0 and a.manobra_lado > 0.0
+	await _esperar(0.6)
+	Input.action_release("direita")
+	var andou := a.global_position - p1
+	var de_lado := absf(Vector3(andou.x, 0, andou.z).dot(frente1.cross(Vector3.UP)))
+	_ok(a.estado == Armadura.Estado.VOO and a.manobras == m1 + 1 and girando and de_lado > 2.0, "O / C no voo com direção faz o giro e desloca de lado, sem sair do voo (%s, %.1f m de lado)" % [a.nome_estado(), de_lado])
+	await _apertar("voar")
+	await _esperar(0.2)
+	_ok(a.estado == Armadura.Estado.AR, "parar o voo é com o L3: corta os jatos e ele cai (%s)" % a.nome_estado())
 	# sair da pausa com a bolinha não desliga o voo
 	_voo_reto(600.0, 0.0, Armadura.Estado.VOO, 30.0)
 	await _esperar(0.3)

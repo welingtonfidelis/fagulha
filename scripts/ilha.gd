@@ -177,6 +177,11 @@ func agua(x: float, z: float) -> float:
 
 
 ## A armadura está rente à água ou dentro dela (esfria o motor e anda devagar)?
+## O ponto está dentro de uma queda d'água? (só o Vale tem cachoeiras)
+func na_cachoeira(_p: Vector3) -> bool:
+	return false
+
+
 func agua_perto(p: Vector3) -> bool:
 	var nivel := agua(p.x, p.z)
 	var acima := p.y - nivel

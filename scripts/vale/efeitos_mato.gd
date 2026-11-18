@@ -17,6 +17,8 @@ var armadura: Armadura
 var mapa: Ilha
 var copas_atravessadas := 0
 var poeiras := 0
+var rasante_seg := 0.0  # quanto tempo o rastro do voo rasante ficou ligado (testes)
+var _rasante: GPUParticles3D
 
 var _tempo := 0.0
 var _dentro := {}  # índices das árvores cuja copa contém o robô neste quadro
@@ -131,6 +133,16 @@ func _physics_process(delta: float) -> void:
 	if emitir:
 		_mat_continuas.direction = vel.normalized()
 	_continuas.emitting = emitir
+	# voo rasante: o sopro dos jatos deita o capim e levanta poeira e folha debaixo do robô
+	if _rasante == null:
+		_criar_rasante()
+	var alt_r := armadura.altura_do_chao()
+	var raso := armadura.em_voo() and alt_r < 4.5 and v > 8.0 and mapa.agua(p.x, p.z) == -INF
+	if raso:
+		_rasante.global_position = _ponto_chao(armadura.global_position) + Vector3(0, 0.15, 0) - Vector3(vel.x, 0, vel.z).normalized() * 1.2
+		_rasante.amount_ratio = clampf((v - 8.0) / 14.0, 0.25, 1.0) * (1.0 - alt_r / 6.0)
+		rasante_seg += delta
+	_rasante.emitting = raso
 	# esquiva no chão: risco de poeira no começo
 	var esquivando_agora := armadura.esquivando > 0.0
 	if esquivando_agora and not _esquivando_ant and armadura.is_on_floor():
@@ -139,6 +151,38 @@ func _physics_process(delta: float) -> void:
 			dir = Vector3.BACK
 		_risco_esquiva(_ponto_chao(armadura.global_position), dir.normalized())
 	_esquivando_ant = esquivando_agora
+
+
+## O rastro do voo rasante: um emissor só, ligado enquanto o robô voa rente ao chão. As partículas saem
+## para os dois lados, rentes ao chão, e ficam para trás (coordenadas do mundo).
+func _criar_rasante() -> void:
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(0.9, 0.05, 0.9)
+	mat.direction = Vector3(1, 0.25, 0)
+	mat.spread = 180.0
+	mat.flatness = 0.85
+	mat.initial_velocity_min = 3.0
+	mat.initial_velocity_max = 7.0
+	mat.damping_min = 5.0
+	mat.damping_max = 8.0
+	mat.gravity = Vector3(0, 0.5, 0)
+	mat.scale_min = 0.5
+	mat.scale_max = 1.3
+	mat.scale_curve = _cresce
+	# poeira clara misturada com o verde do capim que o sopro arranca
+	mat.color_initial_ramp = _gradiente(PackedColorArray([COR_POEIRA_A, COR_POEIRA_B, COR_FOLHA_CLARA]), PackedFloat32Array([0.0, 0.6, 1.0]))
+	mat.color_ramp = _tex_fade
+	_rasante = GPUParticles3D.new()
+	_rasante.amount = 46
+	_rasante.lifetime = 0.9
+	_rasante.local_coords = false
+	_rasante.process_material = mat
+	_rasante.draw_pass_1 = _malha_poeira
+	_rasante.visibility_aabb = AABB(Vector3(-14, -4, -14), Vector3(28, 10, 28))
+	_rasante.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_rasante.emitting = false
+	add_child(_rasante)
 
 
 ## Árvores (índice -> true) cuja copa contém o ponto, olhando as 9 células em volta.

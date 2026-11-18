@@ -280,7 +280,7 @@ func _ponto_7() -> void:
 	a.teleportar(Vector3(sx.x, ch + 7.0, sx.y), Armadura.Estado.VOO)
 	await get_tree().physics_frame
 	var alt_soltar := a.altura_do_chao()
-	await _apertar("soltar")
+	await _apertar("voar")  # o L3 corta os jatos (o círculo virou a manobra)
 	var forca := -1.0
 	var queda := -1.0
 	for i in 4 * 60:
@@ -290,7 +290,7 @@ func _ponto_7() -> void:
 			queda = a.queda_altura
 			break
 	_ok(forca == 0.5,
-		"soltar o voo a %.1f m do chão: pousou com queda de %.1f m e pouso_forca %.2f (esperado 0,5)" % [alt_soltar, queda, forca])
+		"cortar os jatos a %.1f m do chão: pousou com queda de %.1f m e pouso_forca %.2f (esperado 0,5)" % [alt_soltar, queda, forca])
 	_soltar_tudo()
 
 
@@ -495,16 +495,18 @@ func _ponto_14() -> void:
 	a.teleportar(Vector3(xz.x, chao + 60.0, xz.y), Armadura.Estado.VOO, frente * 28.0)
 	await _esperar(0.4)
 	var v_antes := _hv()
-	await _apertar("soltar")
-	Input.action_release("soltar")
-	await _esperar(1.5)  # meio segundo de freada com os jatos à frente, depois 1 s de queda
+	# parar o voo: o R3 freia e paira; outro R3 cancela e ele cai (o círculo virou a manobra, 2026-11-18)
+	await _apertar("pairar")
+	await _esperar(1.0)
 	var v_depois := _hv()
-	var vy := a.velocity.y
 	var est := a.nome_estado()
-	await _esperar(3.5)
+	await _apertar("pairar")
+	await _esperar(1.0)
+	var vy := a.velocity.y
+	await _esperar(4.5)
 	var pousou := a.estado == Armadura.Estado.CHAO or a.estado == Armadura.Estado.POUSO
-	_ok(v_antes > 20.0 and v_depois < v_antes * 0.45 and vy < -18.0 and pousou,
-		"soltar o voo: de %.0f m/s de lado para %.0f em 1,5 s, caindo a %.0f m/s (%s); pousou: %s" % [v_antes, v_depois, vy, est, pousou])
+	_ok(v_antes > 20.0 and v_depois < v_antes * 0.45 and vy < -6.0 and pousou,
+		"parar o voo: o R3 freia de %.0f para %.0f m/s em 1 s (%s); outro R3 solta e ele cai a %.0f m/s; pousou: %s" % [v_antes, v_depois, est, vy, pousou])
 	await _esperar(1.5)
 	_zerar()
 	var t: Node = m.get("tiro")
@@ -1159,15 +1161,20 @@ func _ponto_25() -> void:
 	Input.action_release("frente")
 	var desceu := y0 - a.global_position.y
 	var esfriou := 60.0 - a.calor
-	# sobe devagar até a tona e pula para fora
-	Input.action_press("pular")
-	await _esperar(2.5)
-	Input.action_release("pular")
+	# sobe devagar até a tona, nadando para cima (segurar o X decolaria): fica na lâmina, sem sair
+	cam.pitch = 1.2
+	Input.action_press("frente")
+	await _esperar(3.0)
+	Input.action_release("frente")
+	cam.pitch = 0.0
+	await _esperar(0.4)
 	var na_tona := a.estado == Armadura.Estado.NADO and Vale.POCO_NIVEL - a.global_position.y < a.altura_corpo()
 	await _esperar(0.2)
-	await _apertar("pular")
-	await _esperar(0.25)
-	var pulou := a.estado == Armadura.Estado.AR and a.global_position.y > Vale.POCO_NIVEL - 0.3
+	# segurando o X na tona ele decola de pé, como no chão (um toque só sobe)
+	Input.action_press("pular")
+	await _esperar(0.9)
+	Input.action_release("pular")
+	var pulou := (a.estado == Armadura.Estado.DECOLAGEM or a.estado == Armadura.Estado.VOO) and a.global_position.y > Vale.POCO_NIVEL - 0.3
 	# de baixo para cima com os jatos abertos: sai voando
 	a.teleportar(poco + Vector3(0, -fundura + 1.5, 0), Armadura.Estado.AR, Vector3.ZERO)
 	await _esperar(0.3)
@@ -1192,7 +1199,7 @@ func _ponto_25() -> void:
 			sv += 10.0
 	(il as Vale)._corpo_arvores.collision_layer = 2
 	_ok(rio_desce and alvo_m != null and travou and acertou and sem_trava and fundura > 9.0 and nadando and desceu > 1.5 and esfriou > 15.0 and na_tona and pulou and saiu_voando,
-		"os rios só descem no sentido da correnteza (%s); mira: travou a 3° do centro (%s), o tiro travado acertou (%s), a 16° não trava (%s); poço com %.1f m de fundura: nada (%s), desceu %.1f m em 0,8 s, esfriou %.0f, parou na tona (%s), pulou para fora (%s), saiu voando de baixo (%s)"
+		"os rios só descem no sentido da correnteza (%s); mira: travou a 3° do centro (%s), o tiro travado acertou (%s), a 16° não trava (%s); poço com %.1f m de fundura: nada (%s), desceu %.1f m em 0,8 s, esfriou %.0f, parou na tona (%s), segurando o X decolou (%s), saiu voando de baixo (%s)"
 		% [rio_desce, travou, acertou, sem_trava, fundura, nadando, desceu, esfriou, na_tona, pulou, saiu_voando])
 	_soltar_tudo()
 	a.recomecar()
@@ -1522,6 +1529,20 @@ func _ponto_29() -> void:
 	a.teleportar(pa + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
 	await _esperar(0.4)
 	_ok(Melhorias.achadas.has("antena") and not Melhorias.tem("antena"), "chegou perto: pegou a antena (ainda não vale)")
+	# no chão, o drone vem e instala ali mesmo, sem voltar à base; o robô fica parado enquanto isso
+	var travou_i: bool = a.travado
+	var inst0: int = m.drone.instalacoes if m.drone else 0
+	for i in 60 * 7:
+		await get_tree().physics_frame
+		if Melhorias.tem("antena"):
+			break
+	await _esperar(0.3)
+	_ok(travou_i and Melhorias.tem("antena") and a.visual.pecas.has("antena") and not a.travado and pm.instalacoes == 1 and (m.drone == null or m.drone.instalacoes == inst0 + 1),
+		"o drone vem e instala a antena no lugar (o robô parado: %s; no corpo: %s; solto depois: %s)" % [travou_i, a.visual.pecas.has("antena"), not a.travado])
+	# a oficina da base continua sabendo instalar (os testes dela desligam o drone)
+	pm.auto = false
+	Melhorias.instaladas.erase("antena")
+	Melhorias.achar("antena")
 	# a oficina: convite na boca, entra, instala gastando energia, recusa sem energia e sai
 	var of: Oficina = m.oficina
 	var b := BaseVale.boca_cilindro
@@ -1543,6 +1564,7 @@ func _ponto_29() -> void:
 	await _esperar(1.8)
 	_ok(of.fase == Oficina.Fase.FORA and not a.travado and m.hud.visible, "saiu da oficina e o robô voltou ao jogador")
 	Melhorias.instaladas.erase("farol")
+	pm.auto = true
 	await _esperar(0.7)
 	var longe := Melhorias.sinais.is_empty()
 	var pr: Vector3 = pm.onde["radiador"]
@@ -2059,3 +2081,106 @@ func _ponto_33() -> void:
 	Melhorias.instaladas = inst_antes
 	_ok(t0 < 65.0 and t1 > 90.0 and t1 < 110.0 and t2 > 170.0 and is_equal_approx(t2, t3),
 		"radiadores: básico voa %.0f s, com o de aletas %.0f s, com o duplo %.0f s (os dois juntos, %.0f s)" % [t0, t1, t2, t3])
+	# as ideias de 2026-11-18: tiro sem calor, rastro no rasante, sair da água com o L3, vida na água e memórias
+	_soltar_tudo()
+	_zerar()
+	a.recomecar()
+	await _esperar(0.6)
+	a.calor = 0.0
+	var disp0: int = m.tiro.disparos
+	for k_t in 6:
+		await _apertar("atirar")
+		await _esperar(0.25)
+	_ok(m.tiro.disparos > disp0 and a.calor < 0.5, "atirar não esquenta: %d tiros e o calor em %.1f%%" % [m.tiro.disparos - disp0, a.calor])
+	# voo rasante sobre o campo do sul: o rastro liga
+	var ras0: float = m.mato.rasante_seg
+	a.teleportar(Vector3(-100.0, v.altura(-100.0, 520.0) + 2.5, 520.0), Armadura.Estado.VOO, Vector3(16, 0, 0))
+	cam.yaw = -PI * 0.5
+	cam.pitch = 0.0
+	await _esperar(1.2)
+	var rastro: float = m.mato.rasante_seg - ras0
+	_ok(rastro > 0.3, "voo rasante: o sopro levanta poeira e capim debaixo do robô (%.1f s de rastro em 1,2 s)" % rastro)
+	# a água no jeito do voo: mergulhar zera o calor; entrar devagar nada devagar e entrar acelerado segue
+	# acelerado; acelerado e apontando para cima sai voando; segurar o X na tona decola de pé
+	var mergulho := MarcosMar.CAIS + Vector2(cos(MarcosMar.CAIS_RUMO), sin(MarcosMar.CAIS_RUMO)) * 70.0 + Vector2(0, 40)
+	a.calor = 70.0
+	var frios0: int = a.mergulhos_frios
+	a.teleportar(Vector3(mergulho.x, -4.0, mergulho.y), Armadura.Estado.AR, Vector3(0, -2.0, 0))
+	cam.pitch = 0.0
+	await _esperar(0.5)
+	var lento: bool = a.estado == Armadura.Estado.NADO and not a.nado_rapido
+	var zerou: bool = a.calor < 1.0 and a.mergulhos_frios == frios0 + 1 and a.resfriado > 0.0
+	# entrando acelerado, de cabeça
+	a.teleportar(Vector3(mergulho.x, 6.0, mergulho.y), Armadura.Estado.VOO, Vector3(0, -22.0, 4.0))
+	cam.pitch = -1.1
+	Input.action_press("frente")
+	await _esperar(0.7)
+	var rapido: bool = a.estado == Armadura.Estado.NADO and a.nado_rapido
+	# acelerado, vira para cima (mais de 30 graus): rompe a lâmina e sai voando
+	cam.pitch = 0.9
+	var saidas0: int = a.saidas_da_agua
+	var saiu_rumo := false
+	for i_s in 60 * 4:
+		await get_tree().physics_frame
+		if a.estado == Armadura.Estado.VOO and a.global_position.y > 0.5:
+			saiu_rumo = true
+			break
+	Input.action_release("frente")
+	saiu_rumo = saiu_rumo and a.saidas_da_agua == saidas0 + 1
+	# na tona, parado: boia de pé; um toque no X não sai; segurando, decola
+	cam.pitch = 0.0
+	a.teleportar(Vector3(mergulho.x, -0.6, mergulho.y), Armadura.Estado.AR, Vector3.ZERO)
+	await _esperar(1.5)
+	var boiou: bool = a.boiando and a.estado == Armadura.Estado.NADO
+	await _apertar("pular")
+	await _esperar(0.3)
+	var toque_fica: bool = a.estado == Armadura.Estado.NADO
+	Input.action_press("pular")
+	await _esperar(0.9)
+	var decolou: bool = a.estado == Armadura.Estado.DECOLAGEM or a.estado == Armadura.Estado.VOO
+	await _esperar(1.2)
+	Input.action_release("pular")
+	_ok(lento and zerou and rapido and saiu_rumo and boiou and toque_fica and decolou and a.global_position.y > 3.0,
+		"água: entrou devagar e nadou devagar (%s), o mergulho zerou o calor (%s); entrou acelerado e seguiu acelerado (%s); apontando para cima saiu voando (%s); na tona boia (%s), um toque no X não sai (%s) e segurando decola (%s, a %.1f m da água)" % [
+			lento, zerou, rapido, saiu_rumo, boiou, toque_fica, decolou, a.global_position.y])
+	# atravessar a cachoeira zera o calor
+	var cort: Array = v.cortinas[0]
+	var meio_q: Vector3 = ((cort[0] as Vector3) + (cort[1] as Vector3)) * 0.5
+	a.teleportar(meio_q + Vector3(0, 0, 14.0), Armadura.Estado.PAIRAR)
+	await _esperar(0.2)
+	a.calor = 80.0
+	var cach0: int = a.cachoeiras
+	a.teleportar(meio_q, Armadura.Estado.PAIRAR)
+	await _esperar(0.3)
+	_ok(v.cortinas.size() == 2 and a.cachoeiras == cach0 + 1 and a.calor < 5.0,
+		"cachoeira: %d quedas no vale; atravessar uma zera o calor (de 80%% para %.0f%%)" % [v.cortinas.size(), a.calor])
+	# a vida na água: fundo plantado, e um cardume nasce quando o robô chega perto e some quando ele vai embora
+	var va: VidaAgua = m.vida_agua
+	var lugar_c: Dictionary = va.lugares[0]
+	var pc2: Vector3 = lugar_c["pos"]
+	a.teleportar(Vector3(pc2.x + 20.0, 30.0, pc2.z), Armadura.Estado.PAIRAR)
+	Input.action_press("mirar")
+	await _esperar(1.5)
+	var nasceu: bool = lugar_c["no"] != null and (lugar_c["peixes"] as Array).size() == VidaAgua.PEIXES_POR_CARDUME
+	a.teleportar(Vector3(0, 300.0, 0), Armadura.Estado.PAIRAR)
+	await _esperar(1.5)
+	Input.action_release("mirar")
+	_ok(va.plantas > 5000 and va.lugares.size() >= 40 and nasceu and lugar_c["no"] == null,
+		"vida na água: %d plantas e pedras no fundo, %d lugares de cardume; o cardume nasce de perto (%s) e some de longe (%s)" % [va.plantas, va.lugares.size(), nasceu, lugar_c["no"] == null])
+	# as memórias: dez cristais, nenhum no lugar de uma peça; tocar abre o texto e para o jogo; fechar devolve
+	var me: Memorias = m.memorias
+	var longe_das_pecas := true
+	for chave_m: String in me.onde:
+		for nome_p: String in pm.onde:
+			if (me.onde[chave_m] as Vector3).distance_to(pm.onde[nome_p]) < 6.0:
+				longe_das_pecas = false
+	var pt_m: Vector3 = me.onde["torres"]
+	a.teleportar(pt_m + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	for q_m in 40:
+		await get_tree().process_frame
+	var abriu_m: bool = me.aberta == "torres" and get_tree().paused and me._camada.visible
+	me.fechar()
+	await _esperar(0.3)
+	_ok(me.onde.size() == 10 and Memorias.TEXTOS.size() == 10 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
+		"memórias: %d cristais e %d textos, nenhum em cima de uma peça (%s); tocar abre o texto e para o jogo (%s); fechar devolve o controle" % [me.onde.size(), Memorias.TEXTOS.size(), longe_das_pecas, abriu_m])
+	_zerar()

@@ -44,6 +44,18 @@ var _rio_s_foz := 0.0  # onde chega ao mar
 var cume := Vector3.ZERO  # o ponto mais alto do vale (Serra do Mirante)
 var queda_topo := Vector3.ZERO
 var quedas: Array[Vector3] = []  # o meio de cada cachoeira (para o som)
+var cortinas: Array = []  # [topo, pé, raio] de cada queda d'água: atravessá-la zera o calor do robô
+
+
+func na_cachoeira(p: Vector3) -> bool:
+	for c: Array in cortinas:
+		var a: Vector3 = c[0]
+		var ab: Vector3 = (c[1] as Vector3) - a
+		var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		if p.distance_to(a + ab * t) < float(c[2]):
+			return true
+	return false
+
 var _fora_h := PackedFloat32Array()
 var _cob := PackedByteArray()
 var arvores_fora := 0
@@ -575,6 +587,7 @@ func _cachoeira() -> void:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	quedas.append((topo + pe) * 0.5)
+	cortinas.append([topo, pe, largura * 1.1])
 	# névoa de respingo no pé da queda
 	var mp := StandardMaterial3D.new()
 	mp.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED

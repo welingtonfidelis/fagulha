@@ -230,7 +230,7 @@ func _travar_misseis(delta: float, modo: Dictionary) -> void:
 		Arsenal.misseis -= 1
 		misseis_lancados += 1
 		disparos += 1
-		armadura.calor = minf(100.0, armadura.calor + float(modo["calor"]))
+		# (atirar não esquenta mais o robô: pedido do usuário em 2026-11-18; o calor é só do voo)
 		armadura.tremor = maxf(armadura.tremor, 0.25)
 		var origem := _ombro(-1.0) + Vector3(0, 0.1 + k * 0.05, 0)
 		var destino: Vector3 = (alvo_m as Node3D).call("ponto_de_trava") if alvo_m else _ponto_de_impacto()
@@ -607,7 +607,6 @@ func _estouro(ponto: Vector3, dano: float, area: float) -> void:
 
 func _disparar(modo: Dictionary = Arsenal.MODOS["pistola"], forca := 1.0, esquerdo := false) -> void:
 	disparos += 1
-	armadura.calor = minf(100.0, armadura.calor + float(modo["calor"]) * lerpf(0.5, 1.0, forca))
 	if not esquerdo:
 		armadura.clarao_tiro = 1.0  # só o jato da mão direita acende, e só quando é ela que dispara
 	armadura.tremor = maxf(armadura.tremor, 0.12 + 0.1 * float(modo["dano"]) * forca)

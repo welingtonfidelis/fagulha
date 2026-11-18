@@ -237,6 +237,7 @@ static func _agua_da_represa(v: Vale) -> void:
 	queda.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	v.add_child(queda)
 	v.quedas.append((topo + pe) * 0.5)
+	v.cortinas.append([topo, pe, 3.2])
 
 
 # ---------------------------------------------------------------- O Farol Apagado
@@ -407,7 +408,7 @@ static func _gigantes(v: Vale) -> void:
 			if pousos.is_empty():
 				break
 			var pt: Vector3 = pousos[rng.randi() % pousos.size()]
-			var planta: String = ["betula", "arbusto", "carvalho_a", "arbusto", "pinheiro", "arbusto", "q_samambaia"][i % 7]
+			var planta: String = ["q_betula_a", "arbusto", "q_arvore_a", "arbusto", "q_pinheiro_b", "arbusto", "q_samambaia"][i % 7]
 			if v._malhas.has(planta):
 				var es := rng.randf_range(0.7, 1.2) * (1.6 if planta == "arbusto" else 1.0)
 				v._por(planta, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * es), pt - Vector3(0, 0.3, 0)))

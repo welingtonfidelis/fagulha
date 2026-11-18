@@ -6,7 +6,7 @@ extends Node3D
 ## tela escurece, os dois reaparecem na base e ele volta ao posto.
 ## Quem cria passa `armadura` e `posto` (no mundo).
 
-enum Modo { POSTO, BUSCA, SOBRE, VOLTA }
+enum Modo { POSTO, BUSCA, SOBRE, VOLTA, INSTALA }
 
 const ALTURA_SOBRE := 2.3  # a que altura fica sobre o robô caído
 const CHEGADA := 2.0  # segundos da descida até o robô
@@ -16,6 +16,7 @@ var posto := Vector3.ZERO
 var ruido: Texture2D
 var modo := Modo.POSTO
 var resgates := 0  # quantas vezes chegou sobre o robô caído (testes)
+var instalacoes := 0  # quantas vezes veio instalar uma peça (testes)
 var chegou_a := INF  # a menor distância a que chegou do ponto sobre o robô, no último resgate (testes)
 
 var _corpo: Node3D
@@ -98,6 +99,23 @@ func _buscar() -> void:
 		global_position = alvo + lado * 16.0 + Vector3(0, 13.0, 0)
 	_de = global_position
 	_tocar("Look")
+
+
+## O robô achou uma peça e está no chão: o drone vem até ele e instala ali mesmo (2026-11-18: antes era
+## preciso voltar ao cilindro da base). `chegou_para_instalar` diz quando ele já está em cima do robô.
+func instalar() -> void:
+	modo = Modo.INSTALA
+	_t = 0.0
+	var alvo := armadura.global_position
+	var lado := Vector3(sin(_fase * 7.0 + alvo.x), 0, cos(_fase * 7.0 + alvo.z)).normalized()
+	if global_position.distance_to(alvo) > 45.0:
+		global_position = alvo + lado * 14.0 + Vector3(0, 11.0, 0)  # de longe ele chega voando de perto, já no quadro
+	_de = global_position
+	_tocar("Look")
+
+
+func chegou_para_instalar() -> bool:
+	return modo == Modo.INSTALA and _t >= CHEGADA * 0.8
 
 
 ## Com a tela escura o robô reapareceu na base: o drone vai junto, por cima dele.
@@ -197,6 +215,27 @@ func _process(delta: float) -> void:
 			if k >= 1.0 and not _facho.visible:
 				_facho.visible = true
 				resgates += 1
+				_tocar("Charging")
+				falar()
+		Modo.INSTALA:
+			# desce até a frente do robô, na altura do peito, e trabalha nele com o facho aceso
+			_t += delta
+			var frente_r := -armadura.global_basis.z
+			if armadura.visual:
+				frente_r = Vector3(sin(armadura.visual.rotation.y), 0, cos(armadura.visual.rotation.y))
+			var junto_i := armadura.global_position + frente_r * 1.5 + Vector3(0, armadura.altura_corpo() * 1.25, 0)
+			var ki := clampf(_t / (CHEGADA * 0.8), 0.0, 1.0)
+			ki = 1.0 - pow(1.0 - ki, 3.0)
+			# trabalhando, ele dá a volta devagar em torno do robô
+			var roda := Vector3.ZERO
+			if ki >= 1.0:
+				var ang_i := (_t - CHEGADA * 0.8) * 2.6
+				roda = (frente_r.rotated(Vector3.UP, ang_i) - frente_r) * 1.5
+			global_position = _de.lerp(junto_i, ki) + roda + balanco * ki
+			_olhar(armadura.global_position + Vector3(0, armadura.altura_corpo() * 0.7, 0), delta, 8.0)
+			if ki >= 1.0 and not _facho.visible:
+				_facho.visible = true
+				instalacoes += 1
 				_tocar("Charging")
 				falar()
 		Modo.SOBRE:

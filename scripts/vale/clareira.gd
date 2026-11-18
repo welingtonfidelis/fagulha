@@ -399,24 +399,20 @@ static func tipo_variado(tipo: String, u: float) -> String:
 		return tipo  # para comparar o desempenho com e sem os modelos dos pacotes
 	var v := fposmod(u * 7.31, 1.0)
 	match tipo:
+		# (até 2026-11-18 uma parte das árvores continuava sendo a nossa, feita por código; o usuário pediu um
+		# padrão só, o do pacote Nature. As antigas ficam só como vulto, além de 450 m.)
 		"pinheiro":
-			if u < 0.4:
-				return tipo
 			return ["q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c"][int(v * 3.0) % 3]
 		"betula":
-			if u < 0.25:
-				return tipo
-			if u < 0.5:
+			if u < 0.3:
 				return "q_betula_a_amarela" if v < 0.5 else "q_betula_c_amarela"
 			return ["q_betula_a", "q_betula_b", "q_betula_c"][int(v * 3.0) % 3]
 		_:
-			if u < 0.4:
-				return tipo
-			if u < 0.44:
+			if u < 0.05:
 				return ["q_morta_a", "q_morta_b", "q_morta_c"][int(v * 3.0) % 3]
-			if u < 0.47:
+			if u < 0.09:
 				return "q_arvore_b_vinho"
-			if u < 0.5:
+			if u < 0.13:
 				return "q_arvore_d_laranja"
 			return ["q_arvore_a", "q_arvore_b", "q_arvore_c", "q_arvore_d"][int(v * 4.0) % 4]
 

@@ -23,6 +23,9 @@ var som_lugar: SomAmbiente
 var sons: Sons
 var vibra: Vibra
 var locais: Locais
+var vida_agua: VidaAgua
+var memorias: Memorias
+var mato: EfeitosMato
 var ciclo: CicloDia
 var tiro: Tiro
 var sol: DirectionalLight3D
@@ -31,6 +34,9 @@ var sol: DirectionalLight3D
 func _ready() -> void:
 	Controles.configurar()
 	var args := OS.get_cmdline_user_args()
+	# o robô é desenhado entre dois passos da física (Armadura.pos_suave); o ajuste de tremor do motor mexe no
+	# ritmo desses passos e a fração de interpolação deixa de bater com o que foi andado
+	Engine.physics_jitter_fix = 0.0
 	Tempos.ligado = "--tempos" in args
 	Cache.ligado = not ("--sem-cache" in args)
 	Tempos.marca("início")
@@ -142,7 +148,7 @@ func _ready() -> void:
 		add_child(roda)
 		tiro.disparou.connect(sons.ao_atirar)
 		tiro.disparou.connect(vibra.ao_atirar)
-		var mato := EfeitosMato.new()
+		mato = EfeitosMato.new()
 		mato.armadura = armadura
 		mato.mapa = ilha
 		add_child(mato)
@@ -181,6 +187,12 @@ func _ready() -> void:
 				locais.adicionar(Sumidouro.NOME, Vector3(Sumidouro.centro.x, Sumidouro.piso + 14.0, Sumidouro.centro.y), 46.0)
 			hud.ligar_locais(locais)
 			FendaEscura.ligar(mapa_vale, armadura)
+			if not ("--sem-pacotes" in args):
+				vida_agua = VidaAgua.new()
+				vida_agua.name = "VidaAgua"
+				vida_agua.mapa = mapa_vale
+				vida_agua.alvo = armadura
+				add_child(vida_agua)
 			var capim := CapimVivo.new()
 			capim.mapa = ilha
 			capim.alvo = armadura
@@ -206,6 +218,13 @@ func _ready() -> void:
 			pecas.drone = drone
 			pecas.sons = sons
 			add_child(pecas)
+			memorias = Memorias.new()
+			memorias.name = "Memorias"
+			memorias.armadura = armadura
+			memorias.mapa = ilha as Vale
+			memorias.hud = hud
+			memorias.pecas = pecas
+			add_child(memorias)
 			if BaseVale.boca_cilindro.is_finite():
 				oficina = Oficina.new()
 				oficina.name = "Oficina"

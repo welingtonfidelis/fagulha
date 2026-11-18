@@ -33,6 +33,8 @@ var _torcao := 0.0  # giro do tronco em relação às pernas (mirar andando de l
 var _re := false  # andando de costas: a passada roda ao contrário
 var _passada := 0.0  # 0 parado, 1 andando (as juntas seguem mais rápido andando)
 var _acel := 0.0  # aceleração de lado, suavizada (inclina o tronco ao arrancar e ao frear)
+var _rolagem := 0.0  # a inclinação de lado do corpo, sem a volta da manobra
+var desvio_giro := Vector3.ZERO  # quanto o corpo anda para a volta sair em torno do meio dele (a Armadura soma)
 var _hv_ant := 0.0
 var _raiz_y := 0.0
 var _alvos := {}
@@ -379,7 +381,17 @@ func atualizar(delta: float, a: Armadura) -> void:
 	if not is_nan(yaw_forcado):
 		yaw_alvo = yaw_forcado
 	_yaw = lerp_angle(_yaw, yaw_alvo, tc)
-	rotation = Vector3(lerpf(rotation.x, pitch_alvo, tc), _yaw, lerpf(rotation.z, roll_alvo, tc))
+	_rolagem = lerpf(_rolagem, roll_alvo, tc)
+	# a manobra do círculo no voo: uma volta inteira em torno do nariz, para o lado pedido
+	var volta := 0.0
+	if a.manobra > 0.0 and a.manobra_lado != 0.0:
+		var k_m := 1.0 - a.manobra / Armadura.MANOBRA_TEMPO
+		volta = -a.manobra_lado * TAU * (k_m * k_m * (3.0 - 2.0 * k_m))
+	rotation = Vector3(lerpf(rotation.x, pitch_alvo, tc), _yaw, _rolagem + volta)
+	# a volta é em torno do meio do corpo, não dos pés: sem isto o robô varria um arco largo em vez de girar no
+	# próprio eixo (o usuário achou o giro ruim, 2026-11-18)
+	var meio_corpo := Vector3(0, a.altura_corpo() * 0.5, 0)
+	desvio_giro = Basis.from_euler(Vector3(rotation.x, _yaw, _rolagem)) * meio_corpo - Basis.from_euler(rotation) * meio_corpo if volta != 0.0 else Vector3.ZERO
 	var aletas := 0.0
 	var bob := 0.0
 	var chama := 0.0
