@@ -32,6 +32,7 @@ static func montar(v: Vale) -> void:
 	MarcosLeste.montar(v)
 	MarcosMar.montar(v)
 	FendaEscura.montar(v)
+	MarcosOeste.montar(v)
 
 
 ## Uma árvore de 70 m sozinha no meio das flores. Entra na lista de árvores do mapa (colisão do tronco e da

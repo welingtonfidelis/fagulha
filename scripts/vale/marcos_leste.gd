@@ -35,7 +35,7 @@ static func represa_x(dz: float) -> float:
 ## Árvore, planta ou bicho pode ficar aqui? (não dentro das obras)
 static func livre(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
-	if not MarcosMar.livre(x, z) or not FendaEscura.livre(x, z):
+	if not MarcosMar.livre(x, z) or not FendaEscura.livre(x, z) or not MarcosOeste.livre(x, z):
 		return false
 	if absf(z - REPRESA.y) < REPRESA_MEIA + 10.0 and absf(x - REPRESA.x) < 30.0:
 		return false

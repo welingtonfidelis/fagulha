@@ -1598,6 +1598,15 @@ func _largo() -> void:
 			["a09_ponte_antiga", Vector3(1090, 16, 590), Vector3(1150, 4, 640)], ["a10_rele_de_perto", Vector3(rr.x - 44, 24, rr.y + 40), Vector3(rr.x, 32, rr.y)],
 			["a11_rele_do_alto", Vector3(rr.x + 70, 100, rr.y + 90), Vector3(rr.x, 20, rr.y)], ["a12_rele_plataforma", Vector3(rr.x - 10, 52, rr.y - 12), Vector3(rr.x + 2, 44, rr.y + 6)],
 			["a13_arquipelago_do_alto", Vector3(1150, 200, 1000), Vector3(1290, 0, 760)], ["a14_ponte_sul", Vector3(1250, 14, 800), Vector3(1320, 4, 800)]]
+	if "--marcos-oeste" in OS.get_cmdline_user_args():
+		var ob := MarcosOeste.OBSERVATORIO
+		var cs := MarcosOeste.CASCO
+		vistas = [["o01_torres_da_mata", Vector3(200, 60, -980), Vector3(260, 50, -1180)], ["o02_torres_do_mar", Vector3(260, 30, -1380), Vector3(260, 50, -1180)],
+			["o03_torre_de_perto", Vector3(-70, 70, -1110), Vector3(-10, 66, -1172)], ["o04_torre_quebrada", Vector3(340, 60, -1120), Vector3(410, 30, -1185)],
+			["o05_observatorio_longe", Vector3(ob.x + 90, 0, ob.y + 120), Vector3(ob.x, 92, ob.y)], ["o06_observatorio_perto", Vector3(ob.x + 26, 0, ob.y + 30), Vector3(ob.x, 92, ob.y)],
+			["o07_observatorio_fenda", Vector3(ob.x - 6, 112, ob.y - 40), Vector3(ob.x, 90, ob.y)], ["o08_observatorio_dentro", Vector3(ob.x + 3, 81.5, ob.y + 7.5), Vector3(ob.x, 92, ob.y - 6)],
+			["o09_casco_da_praia", Vector3(cs.x + 110, 14, cs.y + 50), Vector3(cs.x, 6, cs.y)], ["o10_casco_do_alto", Vector3(cs.x + 30, 80, cs.y + 90), Vector3(cs.x, 0, cs.y)],
+			["o11_casco_do_mar", Vector3(cs.x - 110, 12, cs.y - 40), Vector3(cs.x, 8, cs.y)], ["o12_casco_conves", Vector3(cs.x + 30, 13, cs.y + 9), Vector3(cs.x - 24, 10, cs.y)]]
 	if "--fenda" in OS.get_cmdline_user_args():
 		# a Fenda Escura: de cima, as bocas e por dentro (sem a luz do peito; `--farol` acende)
 		var fq := func(sv: float, lado: float, y: float) -> Vector3:

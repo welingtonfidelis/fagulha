@@ -1961,6 +1961,20 @@ func _ponto_33() -> void:
 	_ok(absf(ceu_aberto - chao_fe) < 3.5 and v.altura(beira_f.x, beira_f.y) > chao_fe + 35.0 and FendaEscura.cogumelos.size() >= 12 and FendaEscura.bandos.size() == 3,
 		"fenda escura: aberta para o céu, %.0f m de fundura, %d cogumelos, %d bandos de morcegos" % [v.altura(beira_f.x, beira_f.y) - chao_fe, FendaEscura.cogumelos.size(), FendaEscura.bandos.size()])
 	_zerar()
+	# o norte e o oeste: as torres de vento, o observatório e o navio encalhado
+	var torre0 := MarcosOeste.TORRES[0]
+	var topo_torre: float = bate.call(torre0.x, torre0.y)
+	var cupula: float = bate.call(MarcosOeste.OBSERVATORIO.x + 7.0, MarcosOeste.OBSERVATORIO.y + 5.0)
+	var chao_o := v.altura(MarcosOeste.OBSERVATORIO.x, MarcosOeste.OBSERVATORIO.y)
+	var no_conves: float = bate.call(MarcosOeste.conves.x, MarcosOeste.conves.z)
+	var nomes_o := 0
+	for l: Dictionary in m.locais.lista:
+		if l["nome"] in ["As Torres do Vento", "O Observatório", "O Casco Encalhado"]:
+			nomes_o += 1
+	_ok(nomes_o == 3 and MarcosOeste.torres_topo.size() == 5 and MarcosOeste.girando == 2 and topo_torre > v.altura(torre0.x, torre0.y) + 40.0
+			and cupula > chao_o + 9.0 and no_conves > 2.5 and no_conves < 9.0 and v.agua(MarcosOeste.CASCO.x - 20.0, MarcosOeste.CASCO.y + 30.0) == Vale.MAR,
+		"norte e oeste: %d nomes; %d torres de vento (%d girando), a primeira com %.0f m; cúpula do observatório a %.0f m do chão; convés do navio a %.1f m sobre o mar" % [
+			nomes_o, MarcosOeste.torres_topo.size(), MarcosOeste.girando, topo_torre - v.altura(torre0.x, torre0.y), cupula - chao_o, no_conves])
 	# as peças nos três círculos, e os dois níveis de radiador
 	var pm: PecasMundo = m.pecas
 	var base2 := Vector2(Melhorias.base.x, Melhorias.base.z)

@@ -2051,3 +2051,23 @@ São dez peças agora (`Melhorias.NOMES`), distribuídas em `PecasMundo._ready`:
 - O radiador duplo, no alto do gigante, pede uns 36 m de subida; com o robô básico (61 s de voo) dá, mas não foi jogado.
 - Um save antigo com o radiador instalado passa a ter o de aletas (100 s), não os 3 minutos de antes.
 - Ninguém jogou: tudo foi visto em fotos e testes.
+
+## 84. Etapa 6 da ilha de 3 km: o norte e o oeste (2026-11-18)
+
+As faixas novas do norte e do oeste tinham ganhado só terra. Agora têm três lugares, em `scripts/vale/marcos_oeste.gd` (`MarcosOeste`), montados depois da `FendaEscura`. A escolha dos três foi minha (o usuário pediu "algumas coisas" para preencher o vazio).
+
+![Norte e oeste](vale/marcos_oeste.jpg)
+
+- **As Torres do Vento** (costa norte, de x = -10 a 534, z ≈ -1175): cinco torres de 48 m com pás de 21 m, acima das copas da Mata Fechada. Duas ainda giram devagar (`MarcosOeste.Rotor`), uma parou, uma perdeu uma pá (espetada no chão) e uma quebrou ao meio, com a metade de cima tombada.
+- **O Observatório** (-700, -1088, num morro de 79 m no noroeste): tambor redondo de concreto com a porta para o sul, cúpula de 12 m de raio em sete fiadas, a fenda aberta para o norte com o telescópio ainda apontado, um rombo a oeste com a casca caída do lado de fora, e uma antena ao lado. Dá para entrar.
+- **O Casco Encalhado** (-1206, 322, na enseada do oeste): um cargueiro de 76 m adernado, com a proa na areia e a popa na água. Costados com chapas faltando (dá para entrar no porão), convés com as bocas dos porões abertas, casa do leme de três andares, chaminé torta, dois mastros de carga e dois contêineres no convés.
+  - Na primeira versão o navio estava fundo e longe demais: só a casa do leme saía da água.
+- **Testes:** `--teste-vale` com 75 pontos (nomes, torres e as que giram, cúpula, convés do navio); `--teste` com 95.
+- **Fotos:** `-- --vale-captura --largo --marcos-oeste`.
+
+**O que não está bom ou não foi conferido:**
+- O Observatório é pequeno para o morro em que está: de longe quase some. A antena ao lado ficou maior que ele em proporção.
+- As torres nascem no meio da mata; do chão, entre as árvores, quase não se veem (do ar leem muito bem).
+- O oeste é o lado hostil, e três mechas moram perto do navio e do observatório: não conferi se atrapalham a visita.
+- Nenhum destes três tem peça nem outra recompensa.
+- Ninguém jogou. Desempenho e abertura não foram medidos de novo desde a etapa 1.
