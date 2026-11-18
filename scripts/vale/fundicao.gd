@@ -893,14 +893,20 @@ static func montar(v: Vale) -> void:
 		velho.position = aqui(dados[0], 0.0, dados[1])
 		velho.rotation.y = dados[2]
 		velho.tocar("Death", 1.0, 0.0)
-		velho.anim.advance(30.0)  # a pose final já, parada: a colisão é feita em cima dela
+		velho.anim.seek(velho.anim.current_animation_length, true)  # a pose final já, parada: a colisão é feita em cima dela
 		velho.anim.pause()
 		velho.apagar(1.0)
 		velho.olho(0.0)
 		_tufo(raiz, aqui(float(dados[0]) + 0.5, 0.2, float(dados[1]) - 0.4), 1.3)
 		# a colisão segue o corpo caído, peça por peça, em cascos simples (são pequenos e não se mexem: o
 		# usuário dispensou o detalhe; a malha inteira dava 24 mil triângulos para seis robôs de 1,9 m)
+		# antes, o ajuste que ergue o mecha caído até encostar no piso (MechVisual._process) roda aqui até
+		# assentar, e é desligado: depois da colisão pronta o corpo não pode mais se mexer
 		velho.esqueleto.force_update_all_bone_transforms()
+		for volta in 4:
+			velho._process(10.0)
+			velho.esqueleto.force_update_all_bone_transforms()
+		velho.set_process(false)
 		for casco_v in MalhaCorpo.cascos(velho, velho.esqueleto):
 			corpo.add_child(casco_v)
 			caidos_pecas += 1

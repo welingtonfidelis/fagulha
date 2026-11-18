@@ -1608,6 +1608,18 @@ func _largo() -> void:
 			["o09_casco_da_praia", Vector3(cs.x + 110, 14, cs.y + 50), Vector3(cs.x, 6, cs.y)], ["o10_casco_do_alto", Vector3(cs.x + 30, 80, cs.y + 90), Vector3(cs.x, 0, cs.y)],
 			["o11_casco_do_mar", Vector3(cs.x - 110, 12, cs.y - 40), Vector3(cs.x, 8, cs.y)], ["o12_casco_conves", Vector3(cs.x + 30, 13, cs.y + 9), Vector3(cs.x - 24, 10, cs.y)]]
 	if "--gigantes" in OS.get_cmdline_user_args():
+		# quanto o corpo desenhado agora difere da colisão calculada na montagem
+		for gi2 in MarcosLeste.gigantes.size():
+			var gg := MarcosLeste.gigantes[gi2] as Mech00Visual
+			var agora := MalhaCorpo.faces(gg, gg.esqueleto)
+			var antes: PackedVector3Array = MarcosLeste.malhas[gi2]
+			var pior := 0.0
+			var soma_d := Vector3.ZERO
+			for vi in range(0, mini(agora.size(), antes.size()), 7):
+				pior = maxf(pior, agora[vi].distance_to(antes[vi]))
+				soma_d += agora[vi] - antes[vi]
+			print("GIGANTE %d (%s): %d e %d vértices, maior diferença %.2f m, desvio médio %s, animação %s tocando %s em %.2f s" % [gi2, MarcosLeste.DORMINDO[gi2][4], agora.size(), antes.size(),
+				pior, soma_d / maxf(1.0, agora.size() / 7.0), gg.anim.current_animation, gg.anim.is_playing(), gg.anim.current_animation_position])
 		# cada gigante de dois lados, rente ao chão, para ver se algum fica no ar
 		vistas = []
 		for gi in MarcosLeste.DORMINDO.size():

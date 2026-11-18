@@ -2011,6 +2011,19 @@ func _ponto_33() -> void:
 	var fc := m.find_child("FaiscaCaido", true, false) as Node3D
 	var em_cima_f: float = bate.call(fc.global_position.x, fc.global_position.z) if fc else -INF
 	var chao_fc := v.altura(fc.global_position.x, fc.global_position.z) if fc else 0.0
+	# a colisão dos gigantes continua em cima do corpo desenhado: a malha de agora contra a da montagem
+	# (o ajuste que ergue mecha caído chegou a levantar os deitados até 4 m depois da colisão pronta)
+	var desvio_g := 0.0
+	for gi in MarcosLeste.gigantes.size():
+		var gg := MarcosLeste.gigantes[gi] as Mech00Visual
+		var agora_g := MalhaCorpo.faces(gg, gg.esqueleto)
+		var antes_g: PackedVector3Array = MarcosLeste.malhas[gi]
+		if agora_g.size() != antes_g.size():
+			desvio_g = INF
+			continue
+		for vi in range(0, agora_g.size(), 11):
+			desvio_g = maxf(desvio_g, agora_g[vi].distance_to(antes_g[vi]))
+	_ok(desvio_g < 0.02, "gigantes: o corpo desenhado e a colisão coincidem (maior diferença %.3f m nos quatro)" % desvio_g)
 	_ok(MarcosLeste.triangulos > 8000 and Fundicao.caidos_pecas >= 60 and BaseVale.faisca_pecas >= 8 and em_cima_f > chao_fc + 0.25 and em_cima_f < chao_fc + 2.5,
 		"colisão pelo corpo: %d triângulos nos gigantes, %d peças com casco nos seis robôs velhos da Fundição, %d peças com casco no Faísca caído (o raio de cima acha o corpo dele a %.2f m do chão)" % [
 			MarcosLeste.triangulos, Fundicao.caidos_pecas, BaseVale.faisca_pecas, em_cima_f - chao_fc])

@@ -26,6 +26,7 @@ static var represa_meio := Vector3.INF
 static var gigantes: Array[Node3D] = []
 static var pedras_cabo := 0
 static var triangulos := 0  # da colisão dos gigantes
+static var malhas: Array[PackedVector3Array] = []  # a colisão de cada gigante, como foi calculada (testes)
 
 
 ## O eixo da parede da represa (x do mundo) na posição `dz` ao longo dela: em arco, bojuda para a lagoa.
@@ -52,6 +53,7 @@ static func livre(x: float, z: float) -> bool:
 static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
 	gigantes.clear()
+	malhas.clear()
 	triangulos = 0
 	var blocos: Array[PackedVector3Array] = []
 	for k in 6:
@@ -342,8 +344,12 @@ static func _gigantes(v: Vale) -> void:
 		gigante.rotation.y = g[2]
 		gigante.tocar("Death" if deitado else "Idle", 1.0, 0.0)
 		# a pose final já, e parada: os ossos dão o lugar de cada parte do corpo
-		gigante.anim.advance(30.0 if deitado else 0.0)
+		gigante.anim.seek(gigante.anim.current_animation_length if deitado else 0.0, true)
 		gigante.anim.pause()
+		# O mecha caído se ergue sozinho a cada quadro até o osso mais baixo encostar no chão
+		# (MechVisual._process). Aqui o corpo é assentado à mão, logo abaixo; com o ajuste ligado ele subia até
+		# 4 m depois de a colisão estar calculada, e o usuário atravessava o que via.
+		gigante.set_process(false)
 		gigante.olho(0.0)
 		# a tinta de fábrica já se foi: ferrugem e pó, com as cores quase apagadas
 		gigante.mat.set_shader_parameter("tinta", Color(0.8, 0.76, 0.72))
@@ -383,6 +389,7 @@ static func _gigantes(v: Vale) -> void:
 		# e o que sustenta. (Antes foram duas caixas largas, que faziam parede invisível, e depois cápsulas
 		# por osso, que deixavam atravessar chapas e barravam em vãos: o usuário pediu a física real.)
 		var faces := MalhaCorpo.faces(gigante, esq)
+		malhas.append(faces)
 		corpo.add_child(MalhaCorpo.forma(faces))
 		triangulos += faces.size() / 3
 		Obstaculos.registrar(c.x, c.y, alt * 0.2)
