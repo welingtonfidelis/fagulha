@@ -379,6 +379,7 @@ func _ready() -> void:
 	if simulacao:
 		(ilha as SimMapa).alvo = armadura
 		hud.simples = true
+		_ceu_da_simulacao()
 		# as armas, para a estação de combate (os alvos de treino estão no grupo "maquinas")
 		tiro = Tiro.new()
 		tiro.armadura = armadura
@@ -433,6 +434,26 @@ func _ready() -> void:
 		if OS.has_feature("linux"):
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## A simulação não tem céu de verdade: o ciclo do dia para (ele repintaria o céu do vale a cada quadro) e entra
+## um escuro fechado, com o horizonte da cor do chão. O sol fica, para o robô continuar bem iluminado.
+func _ceu_da_simulacao() -> void:
+	if ciclo == null or ciclo.env == null:
+		return
+	ciclo.set_process(false)
+	var env: Environment = ciclo.env
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/sim_ceu.gdshader")
+	env.sky.sky_material = mat
+	env.fog_enabled = false
+	env.ambient_light_color = Color(0.5, 0.68, 0.74)
+	env.ambient_light_energy = 0.95
+	env.adjustment_saturation = 1.0
+	if sol:
+		sol.light_color = Color(0.92, 0.98, 1.0)
+		sol.light_energy = 1.0
+		sol.rotation_degrees = Vector3(-52.0, 150.0, 0.0)
 
 
 ## Vai da simulação para o mundo ou do mundo para a simulação. A cena é recarregada; só montar o vale pela

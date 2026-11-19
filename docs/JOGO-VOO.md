@@ -2472,3 +2472,24 @@ O usuário aprovou os seis primeiros itens da lista da seção 104 ("faz os reco
 **Textos novos, escritos por mim e por revisar:** a última página do Farol ("Foi a última luz que eles apagaram...") e a dica do drone que aponta para ele. Entram na mesma revisão dos textos das memórias, que continua pendente.
 
 **Não conferido:** nada jogado com as mãos; o chão onde as máquinas movidas ficaram só foi conferido pelo teste (existem e estão longe do que deviam), não por foto; o sinal das memórias na bússola não tem teste próprio.
+
+## 106. A câmera no mergulho com impacto (2026-11-19)
+
+O usuário, jogando: "a câmera não acompanha bem o movimento do robô quando uso triângulo no ar, talvez a câmera deva inclinar pra observar o robô num ângulo mais acima pra ver o movimento de ataque até o solo".
+
+![A câmera antes, na descida, na batida e depois](visual/camera_do_mergulho.jpg)
+
+- No mergulho o robô desce a 42 m/s. A câmera ficava para trás na vertical (o atraso da velocidade) e mantinha o ângulo que o jogador tinha: o robô saía por baixo do quadro e a batida não se via.
+- Agora, enquanto `armadura.mergulhando` (`CameraVoo._mergulho`): o ângulo vai para 52° olhando de cima (ou fica como está, se o jogador já olhava mais de cima), a distância cresce 55% e o atraso vertical cai 85%. Fica assim 0,55 s depois da batida e volta ao ângulo do jogador em meio segundo.
+- O ângulo do jogador (`pitch`) não é mexido: a inclinação entra só no que a câmera mostra (`pitch_visto`), então a mira e o rumo do voo não mudam.
+- Coberto na bateria da simulação (26 pontos).
+- **Não conferido:** só vi em fotos paradas, na simulação; o movimento em si e o mergulho na mata (onde a câmera pode bater numa copa) ficam para o usuário sentir.
+
+## 107. O céu da simulação (2026-11-19)
+
+O usuário, vendo as fotos: "o céu não condiz com o cenário de simulação". A simulação usava o céu do vale ao meio-dia, com nuvens.
+
+- Agora o ciclo do dia para na simulação (`Main._ceu_da_simulacao`) e entra o `sim_ceu.gdshader`: um escuro fechado, da cor do chão no horizonte (o chão some nele, sem borda), com um brilho fino na linha do horizonte e uma grade de cúpula apagada. Sem nuvens, sem névoa.
+- O sol continua, mais frio e mais alto, só para o robô ficar bem iluminado.
+- A foto da seção 102 (`visual/simulacao.jpg`) foi refeita com o céu novo.
+- **Não conferido:** só em foto; a leitura do robô branco contra o escuro em movimento fica para o usuário.

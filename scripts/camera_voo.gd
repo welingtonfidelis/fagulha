@@ -20,6 +20,9 @@ var _roll := 0.0
 var _iniciado := false
 var _t := 0.0
 var _afasta := 0.0
+var _mergulho := 0.0  # 0 a 1: no mergulho com impacto a câmera sobe e olha o robô de cima, até depois da batida
+var _mergulho_fica := 0.0
+var pitch_visto := -0.12  # o ângulo usado no último quadro, com a inclinação do mergulho (testes)
 var primeira := false  # scanner: a câmera vai para os olhos do robô
 var zoom := 0.0  # 0 a 1, só em primeira pessoa
 
@@ -94,6 +97,15 @@ func _process(delta: float) -> void:
 	alvo_pivo.y -= [0.0, 0.45, 0.85][alvo.postura] * Armadura.porte  # abaixado e sentado, a câmera desce junto
 	_afasta = lerpf(_afasta, afasta, 1.0 - exp(-7.0 * delta))
 	alvo_pivo.y += _afasta * 1.7 * kp
+	# Mergulho com impacto (triângulo no ar): o robô desce a 42 m/s e saía por baixo do quadro, e a batida no
+	# chão não se via. A câmera inclina para olhar de cima, recua um pouco e deixa de ficar para trás na
+	# vertical; fica assim meio segundo depois da batida e então volta ao ângulo do jogador.
+	if alvo.mergulhando:
+		_mergulho_fica = 0.55
+	else:
+		_mergulho_fica = maxf(0.0, _mergulho_fica - delta)
+	_mergulho = move_toward(_mergulho, 1.0 if _mergulho_fica > 0.0 else 0.0, delta * (7.0 if _mergulho_fica > 0.0 else 2.2))
+	var mg := smoothstep(0.0, 1.0, _mergulho)
 	if not _iniciado:
 		_pivo = alvo_pivo
 		_iniciado = true
@@ -107,11 +119,12 @@ func _process(delta: float) -> void:
 	if alvo_pivo.distance_to(_pivo_ant) > 12.0:
 		_atraso = Vector3.ZERO  # teleporte: corta
 	_pivo_ant = alvo_pivo
-	_pivo = alvo_pivo - _atraso
+	_pivo = alvo_pivo - _atraso * Vector3(1.0, 1.0 - 0.85 * mg, 1.0)
 	var dist_alvo := lerpf(Ajustes.CAM_DIST_CHAO, Ajustes.CAM_DIST_VOO, m) + clampf(v - Ajustes.VOO_ALVO, 0.0, 30.0) * 0.03 * m
-	dist_alvo = (lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) + _afasta * 3.4) * kp
-	_dist = lerpf(_dist, dist_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))
-	var b := Basis.from_euler(Vector3(pitch, yaw, 0.0))
+	dist_alvo = (lerpf(dist_alvo, Ajustes.CAM_DIST_MIRA, mi) + _afasta * 3.4) * kp * (1.0 + 0.55 * mg)
+	_dist = lerpf(_dist, dist_alvo, 1.0 - exp(-(3.0 + 6.0 * mi + 5.0 * mg) * delta))
+	pitch_visto = lerpf(pitch, minf(pitch, deg_to_rad(-52.0)), mg)
+	var b := Basis.from_euler(Vector3(pitch_visto, yaw, 0.0))
 	var ombro := lerpf(lerpf(0.7, 0.35, m), 0.85, mi) * kp
 	var origem := _pivo + b * Vector3(ombro, 0.0, 0.0)
 	var desejado := origem + b * Vector3(0.0, 0.0, _dist)
@@ -129,7 +142,7 @@ func _process(delta: float) -> void:
 	# inclinar nas curvas do voo
 	var roll_alvo := clampf(alvo.giro_lateral * 0.08 - alvo.inclinar * 0.05, -0.17, 0.17) * m
 	_roll = lerpf(_roll, roll_alvo, 1.0 - exp(-4.0 * delta))
-	global_basis = Basis.from_euler(Vector3(pitch, yaw, _roll))
+	global_basis = Basis.from_euler(Vector3(pitch_visto, yaw, _roll))
 	# campo de visão pela velocidade
 	var fov_alvo := lerpf(Ajustes.FOV_CHAO, Ajustes.FOV_MAX, clampf((v - 6.0) / (Ajustes.VEL_TOPO - 6.0), 0.0, 1.0) * m)
 	if not voando and v > Ajustes.ANDAR + 1.0:

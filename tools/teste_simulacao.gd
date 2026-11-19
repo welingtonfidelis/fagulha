@@ -232,6 +232,19 @@ func _rodar() -> void:
 	a.teleportar(Vector3(5200.0, 30.0, -3100.0), Armadura.Estado.AR)
 	await _esperar(4.0)
 	_ok(a.is_on_floor() and absf(a.global_position.y) < 0.6, "a 6 km do começo ainda há chão (altura %.2f, %s)" % [a.global_position.y, a.nome_estado()])
+	# a câmera no mergulho com impacto: olha de cima enquanto o robô desce, e volta depois da batida
+	m.camera.pitch = -0.1
+	a.teleportar(Vector3(a.global_position.x, 45.0, a.global_position.z), Armadura.Estado.AR)
+	await _esperar(0.2)
+	Input.action_press("golpe")
+	await _esperar(0.08)
+	Input.action_release("golpe")
+	await _esperar(0.35)
+	var de_cima: bool = a.mergulhando and m.camera.pitch_visto < -0.75 and m.camera.global_position.y > a.global_position.y + 1.0
+	var visto_descendo: float = m.camera.pitch_visto
+	await _esperar(3.2)
+	_ok(de_cima and a.is_on_floor() and absf(m.camera.pitch_visto - m.camera.pitch) < 0.02 and absf(m.camera.pitch + 0.1) < 0.001,
+		"mergulho com impacto: a câmera olha de cima na descida (%.2f rad) e volta ao ângulo do jogador depois (%.2f)" % [visto_descendo, m.camera.pitch_visto])
 	# a pausa da simulação
 	m.pausa._abrir()
 	await _esperar(0.3)
