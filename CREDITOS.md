@@ -41,9 +41,12 @@ Parte das árvores, as plantas de chão, as flores, os cogumelos, as moitas e as
 *Stylized Nature MegaKit*. Foram convertidos por `tools/vale/pacotes.py` e ganharam a luz em faixas do vale.
 
 Do *Stylized Nature MegaKit* (versão Standard) vêm também o capim em tufos, as árvores de folha larga, os pinheiros,
-as árvores secas e de tronco torto, as pétalas, as lajes e os seixos da beira d'água, convertidos por
+as árvores secas e de tronco torto, as pétalas, os seixos da beira d'água, convertidos por
 `tools/vale/pacotes_mata.py`.
 
+
+Os peixes do mar, dos rios e das lagoas são do *Cute Fish Pack* (fevereiro de 2020), de
+[Quaternius](https://quaternius.com), em domínio público (CC0), com agradecimento.
 
 Os cervos, os veados de galhada, as raposas e os lobos são do *Ultimate Animated Animals*, também de
 [Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.

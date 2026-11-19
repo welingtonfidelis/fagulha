@@ -495,9 +495,9 @@ static func _decorar(v: Vale, raiz: Node3D, corpo: StaticBody3D, rng: RandomNumb
 			_mato(v, rng, aqui(rng.randf_range(-MX + 3.0, MX - 3.0), 0, s * (MZ - 2.4)), 1.4, 3)
 	_mato(v, rng, aqui(2.0, 0, -3.0), 11.0, 26)
 	for i in 5:
-		if v._malhas.has("q_morta_a"):
+		if v._malhas.has("q_seca_a"):
 			var pa := aqui(rng.randf_range(-12.0, 16.0), 0, rng.randf_range(-13.0, 8.0))
-			v._por(["q_morta_a", "q_morta_b", "q_morta_c"][i % 3], Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.9, 1.5)), pa))
+			v._por(["q_seca_a", "q_seca_b", "q_seca_c"][i % 3], Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.9, 1.5)), pa))
 			_cilindro(raiz, corpo, 0.45, 5.0, Transform3D(Basis.IDENTITY, pa + Vector3(0, 2.5, 0)), null)
 
 

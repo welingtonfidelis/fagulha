@@ -2294,3 +2294,26 @@ O usuário pediu todos os itens da lista do que ainda dava para usar do MegaKit,
 - **Capim que abre para o robô:** parâmetro global de shader `robo_capim` (onde o robô pisa e quanto amassa: 1 no chão, 0 a 2 m de altura), atualizado por `EfeitosMato._process`. No `vale_capim.gdshader`, as folhas a menos de 1,25 m deitam para fora e baixam 60%. Custo: uma conta por vértice. O capim não guarda rastro: fecha de novo quando o robô sai. As flores não reagem.
 - **Desempenho** (Mac, mesmas vistas): 34/29/82/30/32 fps nas vistas 1 a 5 (antes de tudo: 33/31/60/31/33).
 - **Não conferido:** nada medido no PC; nada jogado; o capim abrindo só foi visto em foto parada, não em movimento.
+
+## 97. Créditos dos peixes e limpeza (2026-11-19)
+
+O visual novo e a mata do pacote foram para a `main` (merge da branch `visual-luz-e-cor`, apagada). O projeto ganhou um `README.md`.
+
+- **Créditos:** o *Cute Fish Pack* (Quaternius, CC0) e o que entrou do MegaKit estão no `CREDITOS.md`.
+- **Saíram do repositório:** as árvores do Textured Stylized Trees que a mata não usa mais (`q_arvore_a/c/d`, `q_pinheiro_a/b/c`, `q_morta_a/b/c`, com as versões de longe), três texturas de folha e o `peixe.glb` antigo. Ficou `q_arvore_b`, que é a Árvore-Mãe.
+- **Saiu a chave `--mata-antiga`** (e `--sem-tortas`): `Clareira.mata_nova()` não existe mais, e a touceira feita por código também não. `--sem-pacotes` continua.
+- **Trocas pequenas:** as árvores secas da Fundição e as plantas do Sono dos Gigantes passaram para os modelos do MegaKit.
+- **Pendência riscada:** "preencher o norte e o oeste" já estava feito (Torres do Vento e Observatório).
+- **Pendências que continuam:** revisão dos textos das memórias; equilíbrio da Fundição com tiro sem calor; trancos da câmera e robôs da forja por confirmar jogando; desempenho no PC; chuva e noite com o visual novo; vultos de longe e moitas ainda de bloco; colisão da árvore torta; contêineres do fundo do cais pouco visíveis; água da Costa Quebrada; Terrain3D com 3 km.
+
+## 98. Lajes da margem trocadas por seixos (2026-11-19)
+
+O usuário notou na borda dos rios "blocos de pedras que parecem usados pra fazer estrada". Eram as dez lajes `RockPath` do MegaKit (seção 96): cada modelo é um conjunto de pedras chatas já unidas, feito para calçar caminho, e espalhadas na margem davam cara de estrada. O vale não tem estradas.
+
+![A margem com seixos](visual/margem_seixos.jpg)
+
+- **Saíram** os dez modelos `q_laje_a` a `j` (arquivos, lista `Q_PLANTAS` e a conversão em `tools/vale/pacotes_mata.py`). Não usar os `RockPath` do pacote no chão do vale.
+- **No lugar:** os seixos soltos (`q_seixo_a` a `k`), com tamanho de 1,3 a 2,2, na mesma faixa de 4 m da água (`Vale`, plantas do chão).
+- **Foto de conferência:** `plantas_amostra["margem"]` guarda um ponto de margem; a captura tira `v2NN_margem` e `v30_margem_aberta`.
+- **Como ficou:** a margem está quase limpa; os seixos são pequenos e escuros, pouco visíveis no meio do capim. Se a beira parecer vazia, o caminho é aumentar ou clarear os seixos, não voltar às lajes.
+- **Desempenho** (Mac): 34/28/82/29/31 fps nas vistas 1 a 5, igual a antes.

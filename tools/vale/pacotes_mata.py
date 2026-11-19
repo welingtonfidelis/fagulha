@@ -24,11 +24,6 @@ SECAS = {"q_seca_a": ("DeadTree_1", 8.5), "q_seca_b": ("DeadTree_2", 9.5), "q_se
          "q_seca_d": ("DeadTree_4", 9.0), "q_seca_e": ("DeadTree_5", 10.5)}
 # miúdos: (arquivo, altura alvo ou 0, triângulos no máximo ou 0)
 MIUDOS = {"q_capim_alto": ("Grass_Common_Tall", 0.85, 0), "q_trevo_b": ("Clover_2", 0, 0), "q_orelha": ("Mushroom_Laetiporus", 0, 500),
-          "q_laje_a": ("RockPath_Round_Small_1", 0, 160), "q_laje_b": ("RockPath_Round_Small_2", 0, 160),
-          "q_laje_c": ("RockPath_Round_Small_3", 0, 160), "q_laje_d": ("RockPath_Round_Thin", 0, 260),
-          "q_laje_e": ("RockPath_Round_Wide", 0, 320), "q_laje_f": ("RockPath_Square_Small_1", 0, 160),
-          "q_laje_g": ("RockPath_Square_Small_2", 0, 160), "q_laje_h": ("RockPath_Square_Small_3", 0, 160),
-          "q_laje_i": ("RockPath_Square_Thin", 0, 260), "q_laje_j": ("RockPath_Square_Wide", 0, 320),
           "q_seixo_c": ("Pebble_Round_2", 0, 0), "q_seixo_d": ("Pebble_Round_4", 0, 0), "q_seixo_e": ("Pebble_Round_5", 0, 0),
           "q_seixo_f": ("Pebble_Square_1", 0, 0), "q_seixo_g": ("Pebble_Square_2", 0, 0), "q_seixo_h": ("Pebble_Square_3", 0, 0),
           "q_seixo_i": ("Pebble_Square_4", 0, 0), "q_seixo_j": ("Pebble_Square_5", 0, 0), "q_seixo_k": ("Pebble_Square_6", 0, 0)}

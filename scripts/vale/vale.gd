@@ -1064,10 +1064,14 @@ func _plantas_do_chao() -> void:
 					elif sorte < 0.305:
 						tipo = "q_orelha"  # o cogumelo de tronco, em tufos no chão da mata
 						s = 0.55
-				# beira d'água (rio, lagoa, mar): cascalho de lajes soltas no lugar do que cresceria ali
+				# beira d'água (rio, lagoa, mar): seixos soltos no lugar do que cresceria ali. (As lajes RockPath do
+				# pacote saíram em 2026-11-19: cada uma é um trecho de calçamento e a margem ficava com cara de estrada.)
 				if sorte > 0.45 and (agua(px + 4.0, pz) > -INF or agua(px - 4.0, pz) > -INF or agua(px, pz + 4.0) > -INF or agua(px, pz - 4.0) > -INF):
-					tipo = "q_laje_" + "abcdefghij"[int(qual * 10.0) % 10]
-					s = 0.9
+					tipo = "q_seixo_" + "abcdefghijk"[int(qual * 11.0) % 11]
+					s = 1.3 + 0.9 * fposmod(qual * 7.0, 1.0)
+					var longe_m := Vector2(px, pz).length()
+					if not plantas_amostra.has("margem") and longe_m > 150.0 and longe_m < 500.0:
+						plantas_amostra["margem"] = Vector3(px, h, pz)
 				if tipo == "":
 					continue
 				if tipo == "q_pedra":

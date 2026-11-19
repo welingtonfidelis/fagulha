@@ -6,7 +6,6 @@ extends Node3D
 ## Um nó só, sem física nem colisão. Uso: Peixes.new(), defina mapa, ameaca, centro, raio, quantos,
 ## semente (e pintar, se houver), depois add_child. Peixe nenhum entra onde o fundo é raso.
 
-const CENA := "res://assets/vale/peixe.glb"
 const VEL_MIN := 0.4  # m/s
 const VEL_MAX := 0.9
 const PROF_MIN := 0.07  # m abaixo da superfície (rasos: a água do vale é pouco transparente)

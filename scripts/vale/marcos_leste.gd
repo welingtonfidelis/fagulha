@@ -408,7 +408,7 @@ static func _gigantes(v: Vale) -> void:
 			if pousos.is_empty():
 				break
 			var pt: Vector3 = pousos[rng.randi() % pousos.size()]
-			var planta: String = ["q_betula_a", "arbusto", "q_arvore_a", "arbusto", "q_pinheiro_b", "arbusto", "q_samambaia"][i % 7]
+			var planta: String = ["q_betula_a", "arbusto", "q_comum_a", "arbusto", "q_pinheiro_n_b", "arbusto", "q_samambaia"][i % 7]
 			if v._malhas.has(planta):
 				var es := rng.randf_range(0.7, 1.2) * (1.6 if planta == "arbusto" else 1.0)
 				v._por(planta, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * es), pt - Vector3(0, 0.3, 0)))

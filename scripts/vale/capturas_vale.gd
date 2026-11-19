@@ -1679,17 +1679,19 @@ func _largo() -> void:
 			["v9_capim_de_perto", Vector3(14, 1.5, 36), Vector3(-6, 0.5, 14)], ["v10_mata_por_dentro", Vector3(-150, 2.6, 60), Vector3(-200, 8, 20)]]
 		# teste da mata: as três árvores de tronco torto postas no campo aberto, só para a foto (na mata as
 		# outras árvores tapam a vista)
-		if Clareira.mata_nova():
+		if true:
 			var k_t := 0
 			for pt: Vector2 in [Vector2(20, 22), Vector2(8, 30), Vector2(27, 8)]:
 				c._por(["q_torta_a", "q_torta_b", "q_torta_c"][k_t], Transform3D(Basis(Vector3.UP, 1.3 + k_t * 2.0), Vector3(pt.x, c.altura(pt.x, pt.y) - 0.15, pt.y)), true)
 				k_t += 1
 			vistas.append(["v14_robo_no_capim", Vector3(36.6, 3.2, 37.6), Vector3(34, c.altura(34, 35) + 0.3, 35)])
 			if c is Vale:
-				for nome_p: String in ["q_laje_a", "q_orelha", "q_trevo_b", "q_seixo_f"]:
+				for nome_p: String in ["margem", "q_orelha", "q_trevo_b", "q_seixo_f"]:
 					if (c as Vale).plantas_amostra.has(nome_p):
 						var pp: Vector3 = (c as Vale).plantas_amostra[nome_p]
 						vistas.append(["v2%d_%s" % [vistas.size(), nome_p], Vector3(pp.x + 3.2, 1.3, pp.z + 2.4), pp + Vector3(0, 0.2, 0)])
+						if nome_p == "margem":
+							vistas.append(["v30_margem_aberta", Vector3(pp.x + 9.0, 3.6, pp.z + 7.0), pp + Vector3(-4.0, 0.0, -3.0)])
 			vistas.append(["v11_tortas_no_campo", Vector3(44, 3.0, 44), Vector3(14, c.altura(14, 18) + 5.5, 18)])
 			vistas.append(["v12_torta_de_perto", Vector3(31, 2.0, 33), Vector3(20, c.altura(20, 22) + 5.0, 22)])
 			vistas.append(["v13_petalas", Vector3(42, 1.8, 42), Vector3(12, c.altura(12, 22) + 3.5, 22)])

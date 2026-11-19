@@ -269,7 +269,7 @@ func _criar(chave: Vector2i) -> void:
 	var altos: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semente(chave, 1)
-	var grade := roundi(GRADE_CAPIM / Clareira.TUFO_PASSO) if Clareira.mata_nova() else GRADE_CAPIM
+	var grade := roundi(GRADE_CAPIM / Clareira.TUFO_PASSO)
 	var passo := BLOCO / grade
 	for j in grade:
 		for i in grade:

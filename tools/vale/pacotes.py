@@ -10,10 +10,9 @@ KIT = os.path.join(OUTROS, "Stylized Nature MegaKit[Standard]", "glTF")
 
 # nome no jogo: (arquivo, altura alvo em metros; 0 = como veio)
 ARVORES = {
-    "q_arvore_a": ("Tree_1", 9.5), "q_arvore_b": ("Tree_4", 10.5), "q_arvore_c": ("Tree_7", 11.0), "q_arvore_d": ("Tree_9", 9.0),
+    # (as outras árvores, pinheiros e secas vêm do MegaKit: tools/vale/pacotes_mata.py)
+    "q_arvore_b": ("Tree_4", 10.5),
     "q_betula_a": ("Birch_1", 11.5), "q_betula_b": ("Birch_4", 12.5), "q_betula_c": ("Birch_8", 10.5),
-    "q_pinheiro_a": ("Pine_1", 13.0), "q_pinheiro_b": ("Pine_3", 14.5), "q_pinheiro_c": ("Pine_5", 12.0),
-    "q_morta_a": ("DeadTree_3", 8.5), "q_morta_b": ("DeadTree_7", 9.5), "q_morta_c": ("DeadBirch_4", 10.0),
 }
 PLANTAS = {
     "q_samambaia": ("Fern_1", 0), "q_planta_a": ("Plant_1", 0), "q_planta_b": ("Plant_1_Big", 0), "q_planta_c": ("Plant_7", 0),

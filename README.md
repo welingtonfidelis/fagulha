@@ -57,7 +57,7 @@ As fotos de conferência precisam de janela e vão para `tools/capturas/`:
 godot --path . -- --vale-captura --largo --visual --hora 15 --pasta minha_pasta
 ```
 
-Chaves para comparar: `--visual-antigo` (luz e cor de antes), `--mata-antiga` (mata de antes), `--sem-cache` (remonta o mundo do zero).
+Chaves para comparar: `--visual-antigo` (luz e cor de antes), `--sem-pacotes` (só as árvores feitas por código), `--sem-cache` (remonta o mundo do zero).
 
 ## Pastas
 
