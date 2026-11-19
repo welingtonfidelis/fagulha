@@ -2493,3 +2493,20 @@ O usuário, vendo as fotos: "o céu não condiz com o cenário de simulação". 
 - O sol continua, mais frio e mais alto, só para o robô ficar bem iluminado.
 - A foto da seção 102 (`visual/simulacao.jpg`) foi refeita com o céu novo.
 - **Não conferido:** só em foto; a leitura do robô branco contra o escuro em movimento fica para o usuário.
+
+## 108. Relatórios: peças, chão, retomar e câmera nas copas (2026-11-19)
+
+O usuário mandou seguir com a lista da seção 104. Feitos os itens 7, 8, 9 (em parte) e 11 (em parte).
+
+![O chão antes e depois](visual/chao_antes_depois.jpg)
+
+- **Item 7, ordem das peças:** o radiador duplo e os bocais trocaram de lugar. O duplo (que triplica o tempo de voo) ficava nas costas do maior gigante, a 588 m da base, e acabava com o calor nos primeiros minutos; agora está no balcão do Farol, a 1,9 km, e é o prêmio mais distante. Os bocais foram para o gigante. O resto da proposta do designer (juntar molas e células, peças que abrem lugares) não foi feito.
+- **Item 8, o chão:** o capim baixa 80% num raio de uns 2 m da câmera quando ela está rente ao chão (`vale_capim.gdshader`), a câmera do chão subiu uns 20 cm e recuou de 3,8 para 4,3 (`Ajustes.CAM_DIST_CHAO`). As folhas do primeiro plano não cobrem mais o robô.
+- **Item 9, retomar de onde parou:** o jogo anota a cada segundo o último chão firme (`Main._anotar_firme`: no chão, fora de pane, sem estar preso e com a Fundição parada), guarda no save (`posicao`) e abre ali, com a câmera virada como estava. Antes abria sempre na base. A tela de "Continuar / Novo jogo" na abertura **não** foi feita; recomeçar continua em Ajustes.
+- **Item 11, câmera nas copas:** as copas de cada célula viraram um corpo à parte (`Ilha.rids_copas`) e o raio da câmera as ignora; o robô e os tiros continuam batendo nelas. A zona morta do analógico de andar caiu de 0,2 para 0,12. A interpolação de física do motor para telas de 120/144 Hz **não** foi feita.
+- **De passagem:** a dica "Esta é a base" só aparece perto da base, já que o jogo pode abrir longe dela.
+- **Teste:** dois pontos na bateria do vale (as peças nos lugares novos; o chão firme e as copas).
+
+**Não conferido:** nada jogado com as mãos. A câmera subir e recuar no chão e a zona morta menor são mudanças de sensação: só jogando se sabe se ficaram melhores. O retomar foi conferido uma vez à mão, abrindo o jogo com um save de teste numa pasta temporária: o robô apareceu no ponto guardado, de pé no chão, e um ponto enterrado subiu para o chão de agora. Não há teste automático disso (as baterias não usam o save).
+
+**Sobram da lista:** o item 10 (desempenho que muda o visual) e o 12 (conteúdo novo), mais os pedaços não feitos acima.

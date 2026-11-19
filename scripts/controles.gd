@@ -24,6 +24,9 @@ static func configurar() -> void:
 	_eixo("olhar_baixo", JOY_AXIS_RIGHT_Y, 1.0)
 	for a in ["olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo"]:
 		InputMap.action_set_deadzone(a, 0.12)
+	# o analógico de andar também (era 0,2: a passada lenta começava tarde)
+	for a in ["frente", "tras", "esquerda", "direita"]:
+		InputMap.action_set_deadzone(a, 0.12)
 
 	# Pular / decolar / ligar o voo. No voo, só o toque no L3 corta os jatos (o X deixou de cortar em 2026-11-19).
 	_tecla("pular", [KEY_SPACE])

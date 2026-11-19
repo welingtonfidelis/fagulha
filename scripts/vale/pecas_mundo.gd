@@ -38,7 +38,9 @@ func _ready() -> void:
 	#  perto: antena (ao lado da base), luz do peito (entrada do Sumidouro, perto da cachoeira), células (O Anel);
 	#  meio:  molas (Torre Caída), scanner (na frente da Fundição, sem lutar), radiador de aletas (As Colunas),
 	#         barbatanas (na ponta do Cais Submerso);
-	#  longe: asas (Árvore-Mãe), radiador duplo (nas costas do maior gigante), bocais (no alto do Farol).
+	#  longe: asas (Árvore-Mãe), bocais (nas costas do maior gigante), radiador duplo (no alto do Farol).
+	# O radiador duplo e os bocais trocaram de lugar em 2026-11-19: o duplo, que triplica o voo, ficava a 588 m
+	# da base e acabava com o calor nos primeiros minutos; agora é o prêmio mais distante.
 	var alvos := {
 		"antena": Vector2(-52, 44),
 		# na boca do Sumidouro que dá para a cachoeira, do lado de fora: quem vai entrar no escuro acha a luz antes
@@ -49,8 +51,8 @@ func _ready() -> void:
 		"radiador": Vector2(Marcos.colunas.x, Marcos.colunas.z) + Vector2(0, 16) if Marcos.colunas.is_finite() else Vector2(420, -584),
 		"barbatanas": Vector2(MarcosMar.cais_ponta.x, MarcosMar.cais_ponta.z),
 		"asas": Vector2(Marcos.arvore_mae.x, Marcos.arvore_mae.z) + Vector2(-17, 9) if Marcos.arvore_mae.is_finite() else Vector2(640, 120),
-		"radiador2": MarcosLeste.GIGANTES,
-		"bocais": MarcosLeste.FAROL,
+		"bocais": MarcosLeste.GIGANTES,
+		"radiador2": MarcosLeste.FAROL,
 	}
 	Melhorias.base = BaseVale.boca_cilindro
 	# as colisões do mundo só respondem depois de um passo da física (o Sumidouro é conferido por raio)
@@ -62,8 +64,8 @@ func _ready() -> void:
 	# do maior gigante (o de pé) e o balcão do farol
 	var gd: Array = MarcosLeste.DORMINDO[1]
 	for alto: Array in [["barbatanas", Vector2(MarcosMar.cais_ponta.x, MarcosMar.cais_ponta.z)],
-			["radiador2", MarcosLeste.GIGANTES + Vector2(gd[0], gd[1])],
-			["bocais", Vector2(MarcosLeste.farol_topo.x - 4.0, MarcosLeste.farol_topo.z + 4.0)]]:
+			["bocais", MarcosLeste.GIGANTES + Vector2(gd[0], gd[1])],
+			["radiador2", Vector2(MarcosLeste.farol_topo.x - 4.0, MarcosLeste.farol_topo.z + 4.0)]]:
 		var p := _de_cima(alto[1])
 		if p.is_finite():
 			onde[alto[0]] = p

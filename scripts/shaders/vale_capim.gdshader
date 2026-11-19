@@ -44,6 +44,11 @@ void vertex() {
 		VERTEX.xz += fora_l.xz * abre * alt * 0.34;
 		VERTEX.y *= 1.0 - 0.6 * abre * alt;
 	}
+	// e baixa em volta da câmera, quando ela está rente ao chão: as folhas do primeiro plano tapavam o robô,
+	// os bichos e a mira (relatório do jogador tester, 2026-11-19)
+	vec3 dcam = raiz - MAIN_CAM_INV_VIEW_MATRIX[3].xyz;
+	float perto_cam = (1.0 - smoothstep(0.9, 2.3, length(dcam.xz))) * (1.0 - smoothstep(1.2, 2.4, abs(dcam.y)));
+	VERTEX.y *= 1.0 - 0.8 * perto_cam;
 	NORMAL = normalize((inv * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
 	float d = distance(raiz, MAIN_CAM_INV_VIEW_MATRIX[3].xyz);
 	if (INSTANCE_CUSTOM.x > 0.5) {

@@ -2057,15 +2057,15 @@ func _ponto_33() -> void:
 		var pp: Vector3 = pm.onde[nome]
 		dist[nome] = Vector2(pp.x, pp.z).distance_to(base2)
 	var perto_ok: bool = dist["antena"] < 90.0 and dist["farol"] < 800.0 and dist["celulas"] < 760.0
-	var longe_ok: bool = dist["bocais"] > 1700.0 and dist["radiador2"] > 550.0 and dist["radiador"] < dist["bocais"]
-	var altos: bool = pm.onde["bocais"].y > v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y) + 50.0 \
-		and pm.onde["radiador2"].y > v.altura(pm.onde["radiador2"].x, pm.onde["radiador2"].z) + 25.0 \
+	var longe_ok: bool = dist["radiador2"] > 1700.0 and dist["bocais"] > 550.0 and dist["radiador"] < dist["radiador2"]
+	var altos: bool = pm.onde["radiador2"].y > v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y) + 50.0 \
+		and pm.onde["bocais"].y > v.altura(pm.onde["bocais"].x, pm.onde["bocais"].z) + 25.0 \
 		and pm.onde["barbatanas"].y > 0.8 and pm.onde["barbatanas"].y < 3.0 and v.agua(pm.onde["barbatanas"].x, pm.onde["barbatanas"].z) == Vale.MAR
 	_ok(Melhorias.NOMES.size() == 10 and perto_ok and longe_ok and altos,
-		"peças: %d; antena a %.0f m da base, luz a %.0f, células a %.0f; radiador a %.0f, duplo a %.0f (a %.0f m do chão), bocais a %.0f (a %.0f m do chão); barbatanas na ponta do cais (%.1f m sobre a água)" % [
-			Melhorias.NOMES.size(), dist["antena"], dist["farol"], dist["celulas"], dist["radiador"], dist["radiador2"],
-			pm.onde["radiador2"].y - v.altura(pm.onde["radiador2"].x, pm.onde["radiador2"].z), dist["bocais"],
-			pm.onde["bocais"].y - v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y), pm.onde["barbatanas"].y])
+		"peças: %d; antena a %.0f m da base, luz a %.0f, células a %.0f; radiador a %.0f, bocais a %.0f (a %.0f m do chão), duplo a %.0f (a %.0f m do chão); barbatanas na ponta do cais (%.1f m sobre a água)" % [
+			Melhorias.NOMES.size(), dist["antena"], dist["farol"], dist["celulas"], dist["radiador"], dist["bocais"],
+			pm.onde["bocais"].y - v.altura(pm.onde["bocais"].x, pm.onde["bocais"].z), dist["radiador2"],
+			pm.onde["radiador2"].y - v.altura(MarcosLeste.FAROL.x, MarcosLeste.FAROL.y), pm.onde["barbatanas"].y])
 	var tudo_antes := Melhorias.tudo
 	var inst_antes := Melhorias.instaladas.duplicate()
 	Melhorias.tudo = false
@@ -2429,6 +2429,19 @@ func _ponto_36() -> void:
 			and sem_convite and convite and pagina and fechou,
 		"relatórios: a Fundição só entra na bússola depois da visita (%s, %s); máquinas a menos de 150 m da base %d, perto da peça das molas %d, perto da memória dos Arcos %d, no Pátio %d; caderno com %d memórias (%s); farol sem convite antes (%s), com convite e rumo depois (%s), acende e para o jogo (%s), fecha e fica girando (%s)"
 			% [not antes_f, depois_f, perto_base, perto_molas, perto_arcos, no_patio, botoes_mem, contas, sem_convite, convite, pagina, fechou])
+	# o último chão firme é anotado no chão e não no ar; e as copas ficam fora do raio da câmera
+	a.recomecar()
+	await _esperar(0.8)
+	m.call("_anotar_firme")
+	var firme_chao: Vector3 = m.get("_ultimo_firme")
+	a.teleportar(a.global_position + Vector3(30, 40, 0), Armadura.Estado.AR)
+	await _esperar(0.1)
+	m.call("_anotar_firme")
+	var firme_ar: Vector3 = m.get("_ultimo_firme")
+	a.teleportar(Vector3(140, v.altura(140, -600) + 0.5, -600), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	_ok(firme_chao.is_finite() and firme_ar == firme_chao and v.rids_copas.size() > 0 and v.rids_copas.size() == (v.get("_celulas_colisao") as Dictionary).size(),
+		"retomar: o chão firme é anotado no chão (%s) e não muda no ar (%s); na mata, %d corpos de copa ficam fora do raio da câmera" % [firme_chao.is_finite(), firme_ar == firme_chao, v.rids_copas.size()])
 	# desfaz
 	farol.aceso = false
 	(farol.get("_gira") as Node3D).visible = false

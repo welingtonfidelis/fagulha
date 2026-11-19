@@ -73,7 +73,8 @@ func _process(delta: float) -> void:
 ## As situações que pedem dica, conferidas duas vezes por segundo.
 func _olhar() -> void:
 	var p := armadura.global_position
-	pedir("chegada")
+	if not Melhorias.base.is_finite() or p.distance_to(Melhorias.base) < 45.0:
+		pedir("chegada")  # só na base (o jogo pode retomar longe dela)
 	if BaseVale.boca_cilindro.is_finite() and p.distance_to(BaseVale.boca_cilindro) < 22.0 and vistas.has("chegada"):
 		pedir("oficina")
 	if armadura.estado == Armadura.Estado.NADO:

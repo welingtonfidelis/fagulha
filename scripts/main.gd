@@ -33,6 +33,10 @@ var ciclo: CicloDia
 var tiro: Tiro
 var sol: DirectionalLight3D
 var farol: FarolFinal
+var retomou_em := Vector3.INF  # onde o robô foi posto ao abrir, pelo save (testes)
+var _ultimo_firme := Vector3.INF
+var _ultimo_yaw := 0.0
+var _firme_t := 0.0
 var dicas_no: Dicas
 
 
@@ -615,6 +619,16 @@ func _retomar_progresso() -> void:
 		return
 	if ciclo:
 		ciclo.hora = float(Guardado.progresso("hora"))
+	# retoma onde o robô estava (o último chão firme), e não mais sempre na base
+	var pos_g = Guardado.progresso("posicao")
+	if pos_g is Array and (pos_g as Array).size() >= 4 and ilha is Vale:
+		var onde := Vector3(float(pos_g[0]), float(pos_g[1]), float(pos_g[2]))
+		if maxf(absf(onde.x), absf(onde.z)) < Vale.F_META - 20.0 and ilha.agua(onde.x, onde.z) == -INF:
+			# se o relevo mudou de uma versão para outra e o ponto ficou enterrado, sobe para o chão de agora
+			onde.y = maxf(onde.y, ilha.altura(onde.x, onde.z)) + 0.4
+			armadura.teleportar(onde, Armadura.Estado.AR)
+			camera.yaw = float(pos_g[3])
+			retomou_em = onde
 	if locais:
 		var vistos: Array = Guardado.progresso("lugares")
 		for it in locais.lista:
@@ -631,6 +645,8 @@ func guardar_progresso() -> void:
 	if ciclo:
 		Guardado.por_progresso("hora", ciclo.hora, false)
 	Guardado.por_progresso("energia_base", Melhorias.energia, false)
+	if _ultimo_firme.is_finite():
+		Guardado.por_progresso("posicao", [_ultimo_firme.x, _ultimo_firme.y, _ultimo_firme.z, _ultimo_yaw], false)
 	if locais:
 		var vistos: Array = []
 		for it in locais.lista:
@@ -640,7 +656,25 @@ func guardar_progresso() -> void:
 	Guardado.salvar()
 
 
+## O último chão firme em que o robô esteve: é onde o jogo retoma. Não vale no ar, na água, em pane, preso
+## (oficina, drone instalando) nem com a Fundição ligada (voltar para o meio de uma onda seria um castigo, e
+## sair e entrar seria um jeito de fugir dela).
+func _anotar_firme() -> void:
+	if armadura == null or simulacao or not (ilha is Vale):
+		return
+	if armadura.estado != Armadura.Estado.CHAO or not armadura.is_on_floor() or armadura.em_pane or armadura.travado:
+		return
+	if fundicao and fundicao.fase != Fundicao.Fase.PARADA:
+		return
+	_ultimo_firme = armadura.global_position
+	_ultimo_yaw = camera.yaw if camera else 0.0
+
+
 func _process(delta: float) -> void:
+	_firme_t += delta
+	if _firme_t >= 1.0:
+		_firme_t = 0.0
+		_anotar_firme()
 	# a hora do dia é guardada de minuto em minuto; os lugares, na hora em que são achados
 	_guardar_t += delta
 	if _guardar_t >= 60.0:

@@ -31,6 +31,7 @@ var _grade_arv := {}  # Vector2i -> PackedInt32Array
 var _corpo_arvores: Node3D  # o pai dos corpos de colisão das árvores, um por célula da grade
 var _celulas_colisao := {}  # Vector2i -> [StaticBody3D, quantas árvores tinha a célula quando foi feito]
 var _camada_arvores := 2
+var rids_copas: Array[RID] = []  # os corpos das copas das células vivas (a câmera os deixa de fora do raio dela)
 var _ultimo_centro := Vector3(INF, 0, INF)
 
 var _n_colina: FastNoiseLite
@@ -476,6 +477,7 @@ func colisao_arvores_ligada(sim: bool) -> void:
 	_camada_arvores = 2 if sim else 0
 	for cel in _celulas_colisao:
 		(_celulas_colisao[cel][0] as StaticBody3D).collision_layer = _camada_arvores
+		(_celulas_colisao[cel][2] as StaticBody3D).collision_layer = _camada_arvores
 
 
 ## O corpo de colisão de uma célula da grade de árvores (32 m): um tronco e uma copa por árvore. É feito uma
@@ -486,6 +488,11 @@ func _criar_celula_colisao(cel: Vector2i) -> void:
 	var corpo := StaticBody3D.new()
 	corpo.collision_layer = _camada_arvores
 	corpo.collision_mask = 0
+	# as copas num corpo à parte: a câmera as ignora (rids_copas), para não pular para perto do robô quando
+	# uma copa passa entre os dois; o robô e os tiros continuam batendo nelas
+	var copas := StaticBody3D.new()
+	copas.collision_layer = _camada_arvores
+	copas.collision_mask = 0
 	for i in lista:
 		var p := arv_pos[i]
 		var md := _medidas_colisao(i)  # [raio do tronco, altura do tronco, raio da copa, meio da copa, altura da copa]
@@ -503,9 +510,11 @@ func _criar_celula_colisao(cel: Vector2i) -> void:
 			cap.height = maxf(md[2] * 2.0 + 0.1, md[4])
 			copa.shape = cap
 			copa.position = p + Vector3(0, md[3], 0)
-			corpo.add_child(copa)
+			copas.add_child(copa)
 	_corpo_arvores.add_child(corpo)
-	_celulas_colisao[cel] = [corpo, lista.size()]
+	_corpo_arvores.add_child(copas)
+	_celulas_colisao[cel] = [corpo, lista.size(), copas]
+	rids_copas.append(copas.get_rid())
 
 
 ## As medidas da colisão da árvore `i`, no mundo: [raio do tronco, altura do tronco, raio da copa, altura do
@@ -537,9 +546,16 @@ func atualizar_colisao_arvores(centro: Vector3, forcar := false) -> void:
 				# árvore posta depois (um marco que plantou a sua): a célula é refeita
 				if int(_celulas_colisao[cel][1]) == (_grade_arv[cel] as PackedInt32Array).size():
 					continue
-				(_celulas_colisao[cel][0] as Node).queue_free()
+				_soltar_celula_colisao(cel)
 			_criar_celula_colisao(cel)
 	for cel: Vector2i in _celulas_colisao.keys():
 		if Vector2((cel.x + 0.5) * CELULA_ARVORE, (cel.y + 0.5) * CELULA_ARVORE).distance_to(xz) > alcance + 90.0:
-			(_celulas_colisao[cel][0] as Node).queue_free()
+			_soltar_celula_colisao(cel)
 			_celulas_colisao.erase(cel)
+
+
+func _soltar_celula_colisao(cel: Vector2i) -> void:
+	var par: Array = _celulas_colisao[cel]
+	rids_copas.erase((par[2] as StaticBody3D).get_rid())
+	(par[0] as Node).queue_free()
+	(par[2] as Node).queue_free()

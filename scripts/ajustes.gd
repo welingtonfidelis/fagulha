@@ -108,7 +108,7 @@ const MERGULHO_Y := -0.35  # nariz mais para baixo que isso conta como mergulho
 const RELIGA_EM := 0.5  # superaquecido, só religa depois de esfriar tudo
 
 # --- câmera ---
-const CAM_DIST_CHAO := 3.8
+const CAM_DIST_CHAO := 4.3  # era 3,8: um pouco mais longe, para o capim do primeiro plano não cobrir o robô
 const CAM_DIST_VOO := 5.2
 const FOV_CHAO := 70.0
 const FOV_MAX := 90.0

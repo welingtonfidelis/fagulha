@@ -93,7 +93,8 @@ func _process(delta: float) -> void:
 	var mi := smoothstep(0.0, 1.0, _mira)
 	var v := alvo.velocity.length()
 	var kp := pow(Armadura.porte, 0.75)  # robô pequeno: câmera mais perto e mais baixa
-	var alvo_pivo := alvo.pos_suave() + Vector3(0.0, lerpf(lerpf(2.15, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
+	# no chão a câmera fica um pouco acima do capim (2,15 → 2,55: uns 20 cm a mais no robô do vale)
+	var alvo_pivo := alvo.pos_suave() + Vector3(0.0, lerpf(lerpf(2.55, 1.5, m), 2.05, mi) * Armadura.porte * 1.12, 0.0)
 	alvo_pivo.y -= [0.0, 0.45, 0.85][alvo.postura] * Armadura.porte  # abaixado e sentado, a câmera desce junto
 	_afasta = lerpf(_afasta, afasta, 1.0 - exp(-7.0 * delta))
 	alvo_pivo.y += _afasta * 1.7 * kp
@@ -130,7 +131,11 @@ func _process(delta: float) -> void:
 	var desejado := origem + b * Vector3(0.0, 0.0, _dist)
 	# não atravessar o chão nem as árvores
 	var espaco := get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(origem, desejado, 1 | 2, [alvo.get_rid()])
+	# o chão, as construções e os troncos seguram a câmera; as copas não (ela atravessa a folhagem)
+	var fora: Array[RID] = [alvo.get_rid()]
+	if ilha:
+		fora.append_array(ilha.rids_copas)
+	var q := PhysicsRayQueryParameters3D.create(origem, desejado, 1 | 2, fora)
 	var hit := espaco.intersect_ray(q)
 	if not hit.is_empty():
 		var ponto: Vector3 = hit["position"]
