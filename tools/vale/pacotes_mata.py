@@ -1,7 +1,7 @@
 # Teste da mata (2026-11-18): os modelos do Stylized Nature MegaKit que o jogo ainda não usava. Tufos de capim
 # (folhas modeladas, sem textura: a cor vem do shader do capim), árvores de tronco torto (com a casca reduzida,
 # que no pacote passa de 7 mil triângulos, e a versão de longe) e pétalas soltas.
-# blender -b --factory-startup -P tools/vale/pacotes_mata.py -- <pasta others> <assets/vale/q>
+# blender -b --factory-startup -P tools/vale/pacotes_mata.py -- <Projects/others/bibliotecas> <assets/vale/q>
 import bpy, bmesh, random, sys, os
 from mathutils import Vector
 

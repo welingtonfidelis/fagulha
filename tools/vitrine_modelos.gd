@@ -2,7 +2,7 @@ extends SceneTree
 ## Fotos de modelos de fora do projeto, para escolher (os candidatos a minichefe e a inimigo novo).
 ## godot --path . -s tools/vitrine_modelos.gd
 
-const O := "/Users/welington/Documents/Projects/others/"
+const O := "/Users/welington/Documents/Projects/others/bibliotecas/"
 const MODELOS := [
 	["CombatMech (KayKit)", "kaykit-complete-v6-1-assets/KayKit Mystery Monthly Series 5 (1.1)/1 - July 2024 - Combat Mech/characters/CombatMech.glb"],
 	["Leela (Quaternius)", "Animated Mech Pack - March 2021/Textured/glTF/Leela.gltf"],

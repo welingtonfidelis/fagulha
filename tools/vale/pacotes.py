@@ -1,7 +1,7 @@
 # Árvores e plantas dos pacotes do Quaternius (CC0) para o vale: escolhe os modelos, acerta a escala, dá aos
 # materiais os nomes que o jogo conhece (as texturas ficam em assets/vale/q/ e os shaders são os do vale) e
 # grava um .glb por modelo, mais a versão de longe das árvores (malha reduzida).
-# blender -b --factory-startup -P tools/vale/pacotes.py -- <pasta others> <assets/vale/q>
+# blender -b --factory-startup -P tools/vale/pacotes.py -- <Projects/others/bibliotecas> <assets/vale/q>
 import bpy, sys, os
 
 OUTROS, SAIDA = sys.argv[sys.argv.index("--") + 1:][:2]
