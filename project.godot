@@ -39,6 +39,14 @@ troca_fator={
 "type": "float",
 "value": 1.0
 }
+estilo_novo={
+"type": "float",
+"value": 1.0
+}
+robo_capim={
+"type": "vec4",
+"value": Vector4(0, -1000, 0, 0)
+}
 fer_chapa={
 "type": "sampler2D",
 "value": "res://assets/vale/ferrugem/ferrugem_chapa.jpg"

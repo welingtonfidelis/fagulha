@@ -7,6 +7,8 @@ extends Node
 ## `-- --dia-rapido` faz o dia passar em 2 minutos.
 
 static var atual: CicloDia
+## Teste de luz e cor (branch visual-luz-e-cor): liga o visual novo. `-- --visual-antigo` desliga.
+static var estilo_novo := true
 
 var env: Environment
 var ceu: ShaderMaterial
@@ -54,6 +56,8 @@ func _ready() -> void:
 	if "--hora" in args and args.find("--hora") + 1 < args.size():
 		hora = float(args[args.find("--hora") + 1])
 		parado = true
+	estilo_novo = not ("--visual-antigo" in args)
+	RenderingServer.global_shader_parameter_set("estilo_novo", 1.0 if estilo_novo else 0.0)
 	if "--dia-rapido" in args:
 		minutos_por_dia = 2.0
 	_prox_chuva = _rng.randf_range(7.0, 14.0) * 60.0
@@ -177,6 +181,36 @@ func _aplicar() -> void:
 	sol.rotation_degrees = Vector3(-ang, az, 0.0)
 	sol.light_color = ((a[5] as Color).lerp(b[5], t)).lerp(Color(0.8, 0.84, 0.9), nublado * 0.8)
 	sol.light_energy = lerpf(a[6], b[6], t) * lerpf(1.0, 0.45, nublado)
+	if estilo_novo:
+		_estilo(luz_dia, nublado, topo, horiz)
+
+
+## O visual novo por cima das cores da hora: sombra azul-violeta, sol mais quente, a distância azulando,
+## céu mais saturado com nuvens de borda firme, mais brilho e mais cor.
+func _estilo(luz_dia: float, nublado: float, topo: Color, horiz: Color) -> void:
+	var dia := clampf(luz_dia, 0.0, 1.0) * (1.0 - nublado * 0.7)
+	# (com 0,6 e um violeta mais forte os paredões na sombra ficavam roxos)
+	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.42, 0.46, 0.80), 0.4 * dia)
+	env.ambient_light_energy *= lerpf(1.0, 1.12, dia)
+	sol.light_color = sol.light_color.lerp(Color(1.0, 0.86, 0.6), 0.45 * dia)
+	sol.light_energy *= lerpf(1.0, 1.04, dia)
+	# a distância azula mais cedo: a mata do fundo vira silhueta fria
+	env.fog_light_color = env.fog_light_color.lerp(Color(0.46, 0.58, 0.96), 0.55 * dia)
+	if nevoa_longe:
+		env.fog_depth_end *= lerpf(1.0, 0.62, dia)
+		env.fog_depth_curve = lerpf(0.3, 0.55, dia)
+	ceu.set_shader_parameter("topo", topo.lerp(Color(0.13, 0.24, 0.80), 0.55 * dia))
+	ceu.set_shader_parameter("horizonte", horiz.lerp(Color(0.70, 0.76, 0.98), 0.4 * dia))
+	ceu.set_shader_parameter("volume", 1.0)
+	ceu.set_shader_parameter("nuvem_de", lerpf(0.53, 0.28, nublado))
+	ceu.set_shader_parameter("nuvem_ate", lerpf(0.56, 0.5, nublado))
+	ceu.set_shader_parameter("escala", 0.075)
+	env.adjustment_saturation *= 1.1
+	env.adjustment_contrast = 1.07
+	env.glow_intensity = 0.6
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 1.0
+	env.tonemap_exposure *= 0.97
 	sol.shadow_opacity = lerpf(1.0, 0.5, nublado)
 
 

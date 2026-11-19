@@ -836,18 +836,14 @@ func _nado(delta: float, mov: Vector2) -> void:
 	var alvo := dir * ((Ajustes.NADO_RAPIDO if Melhorias.nado_rapido() else Ajustes.NADO_RAPIDO * 0.78) if nado_rapido else Ajustes.NADO_VEL)
 	var vert := (1.0 if Input.is_action_pressed("pular") else 0.0) - (1.0 if Input.is_action_pressed("soltar") else 0.0)
 	alvo.y += vert * Ajustes.NADO_SOBE
-	# perto da tona e sem mergulhar, o robô sobe sozinho até boiar (a menos de uma altura e meia da lâmina)
-	var tona := nivel - alt * 0.45
-	if vert == 0.0 and dir.y > -0.2 and global_position.y < tona - 0.05 and tona - global_position.y < alt * 1.5 and not nado_rapido:
-		alvo.y += 1.8
 	velocity = velocity.move_toward(alvo, Ajustes.NADO_ACEL * delta)
 	if velocity.length() > 1.0:
 		dir_voo = velocity.normalized()
 	impulso = maxf(impulso, 0.6 if nado_rapido else 0.0)
-	# a lâmina: nadando, a cabeça fica logo abaixo dela; parado ou devagar, ele boia com os ombros de fora
-	var devagar := 1.0 - smoothstep(2.0, 6.0, Vector2(velocity.x, velocity.z).length())
-	var limite := nivel - alt * lerpf(0.8, 0.45, devagar)
-	boiando = global_position.y >= limite - 0.25 and devagar > 0.5
+	# a lâmina: a cabeça fica logo abaixo dela. (O boiar de pé, com os ombros de fora, saiu: o usuário achou
+	# estranho, 2026-11-19.)
+	var limite := nivel - alt * 0.8
+	boiando = false
 	# segurar o X sai voando de pé, como a decolagem do chão: sobe reto uns 10 m e segue para a frente
 	_x_agua = _x_agua + delta if Input.is_action_pressed("pular") else 0.0
 	if global_position.y >= limite - 0.4 and _x_agua >= Ajustes.DECOLAR_SEGURAR and not superaquecido and not caido:
@@ -858,13 +854,16 @@ func _nado(delta: float, mov: Vector2) -> void:
 		_decolar()
 		return
 	if global_position.y >= limite and velocity.y >= 0.0:
-		# acelerado e apontando 30 graus ou mais para cima: rompe a lâmina e sai voando nesse rumo
-		if nado_rapido and velocity.length() > Ajustes.NADO_VEL and velocity.normalized().y >= 0.5 and not superaquecido:
+		# nadando (normal ou acelerado) e apontando 10 graus ou mais para cima: rompe a lâmina e sai voando
+		# nesse rumo. Eram 30 graus e só acelerado; o usuário pediu mais fácil (2026-11-19). Parado não sai.
+		if velocity.length() > Ajustes.NADO_VEL * 0.6 and dir.length() > 0.3 and dir.normalized().y >= 0.17 and not superaquecido:
 			_graca = Ajustes.DECOLAGEM_GRACA
 			_fora_dagua = 1.0
 			saidas_da_agua += 1
-			velocity = velocity.normalized() * maxf(velocity.length(), 14.0)
-			dir_voo = velocity.normalized()
+			# sai no rumo em que o jogador aponta, com um mínimo de subida para livrar a superfície
+			var sai_r := (dir.normalized() + Vector3.UP * 0.25).normalized()
+			velocity = sai_r * maxf(velocity.length(), 14.0)
+			dir_voo = sai_r
 			boiando = false
 			_mudar(Estado.VOO)
 			return

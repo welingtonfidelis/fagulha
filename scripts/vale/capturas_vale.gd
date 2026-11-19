@@ -1667,6 +1667,32 @@ func _largo() -> void:
 		mm2.fechar()
 		get_tree().quit()
 		return
+	if "--visual" in OS.get_cmdline_user_args():
+		# teste de luz e cor (2026-11-18): a clareira com a câmera baixa, como numa cena composta, e do voo
+		livre.fov = 55.0
+		a.visual.visible = false
+		livre.attributes = cam.cam.attributes  # o desfoque do fundo vale também para a câmera das fotos
+		vistas = [["v1_capim_e_mata", Vector3(10, 2.4, 30), Vector3(-60, 6, 20)], ["v2_para_o_norte", Vector3(-10, 2.6, 22), Vector3(-30, 8, -70)],
+			["v3_lagoa", Vector3(20, 2.0, 16), Vector3(40, 1, -8)], ["v4_campo_aberto", Vector3(40, 2.6, 40), Vector3(-40, 10, -30)],
+			["v5_beira_da_mata", Vector3(-30, 2.4, 45), Vector3(-80, 8, 0)], ["v6_voo_baixo", Vector3(60, 22, 110), Vector3(-20, 5, -10)],
+			["v7_voo_alto", Vector3(140, 90, 260), Vector3(-60, 20, -120)], ["v8_serra_ao_longe", Vector3(0, 3.2, 30), Vector3(-560, 200, -628)],
+			["v9_capim_de_perto", Vector3(14, 1.5, 36), Vector3(-6, 0.5, 14)], ["v10_mata_por_dentro", Vector3(-150, 2.6, 60), Vector3(-200, 8, 20)]]
+		# teste da mata: as três árvores de tronco torto postas no campo aberto, só para a foto (na mata as
+		# outras árvores tapam a vista)
+		if Clareira.mata_nova():
+			var k_t := 0
+			for pt: Vector2 in [Vector2(20, 22), Vector2(8, 30), Vector2(27, 8)]:
+				c._por(["q_torta_a", "q_torta_b", "q_torta_c"][k_t], Transform3D(Basis(Vector3.UP, 1.3 + k_t * 2.0), Vector3(pt.x, c.altura(pt.x, pt.y) - 0.15, pt.y)), true)
+				k_t += 1
+			vistas.append(["v14_robo_no_capim", Vector3(36.6, 3.2, 37.6), Vector3(34, c.altura(34, 35) + 0.3, 35)])
+			if c is Vale:
+				for nome_p: String in ["q_laje_a", "q_orelha", "q_trevo_b", "q_seixo_f"]:
+					if (c as Vale).plantas_amostra.has(nome_p):
+						var pp: Vector3 = (c as Vale).plantas_amostra[nome_p]
+						vistas.append(["v2%d_%s" % [vistas.size(), nome_p], Vector3(pp.x + 3.2, 1.3, pp.z + 2.4), pp + Vector3(0, 0.2, 0)])
+			vistas.append(["v11_tortas_no_campo", Vector3(44, 3.0, 44), Vector3(14, c.altura(14, 18) + 5.5, 18)])
+			vistas.append(["v12_torta_de_perto", Vector3(31, 2.0, 33), Vector3(20, c.altura(20, 22) + 5.0, 22)])
+			vistas.append(["v13_petalas", Vector3(42, 1.8, 42), Vector3(12, c.altura(12, 22) + 3.5, 22)])
 	if "--agua" in OS.get_cmdline_user_args():
 		# debaixo d'água: o cais, uma piscina natural, as ilhotas, a lagoa da represa e o navio
 		var ca := MarcosMar.CAIS
@@ -1703,12 +1729,21 @@ func _largo() -> void:
 		var de: Vector3 = v[1]
 		if de.y == 0.0:
 			de.y = c.altura(de.x, de.z) + 3.0
+		elif de.y < 4.0 and "--visual" in OS.get_cmdline_user_args():
+			de.y += c.altura(de.x, de.z)  # câmera baixa: a altura é acima do chão
 		# o robô vai junto, para as árvores perto dele aparecerem completas (no mar ele fica na praia mais
 		# perto, senão entra em pane e a tela escurece)
 		var pe := Vector3(de.x, c.altura(de.x, de.z) + 0.3, de.z)
 		if pe.y < 1.5 and c is Vale:
 			pe = (c as Vale).praia_perto(de.x, de.z) + Vector3(0, 0.3, 0)
 		a.teleportar(pe, Armadura.Estado.CHAO)
+		if String(v[0]).contains("robo"):
+			# o robô no capim, à vista (o capim abre em volta dele)
+			var alvo_r: Vector3 = v[2]
+			a.teleportar(Vector3(alvo_r.x, c.altura(alvo_r.x, alvo_r.z) + 0.3, alvo_r.z), Armadura.Estado.CHAO)
+			a.visual.visible = true
+		elif "--visual" in OS.get_cmdline_user_args():
+			a.visual.visible = false
 		livre.global_position = de
 		livre.look_at(v[2])
 		await _esperar(2.2)

@@ -44,6 +44,10 @@ void fragment() {
 	// manchas largas de claro e escuro, como nas copas do vale
 	float r = texture(ruido, wpos.xz * 0.05 + vec2(wpos.y * 0.07)).r;
 	vec3 c = t.rgb * tinta * (0.82 + 0.36 * smoothstep(0.3, 0.7, r));
+	if (corte > 0.0) {
+		// visual novo: folhagem mais viva, puxada para o amarelo nas manchas claras
+		c = mix(c, c * mix(vec3(0.82, 1.0, 0.95), vec3(1.28, 1.2, 0.72), smoothstep(0.3, 0.7, r)), estilo_novo);
+	}
 	c *= 1.0 - 0.6 * apagado;
 	if (desbotado > 0.0) {
 		float cinza = dot(c, vec3(0.3, 0.55, 0.15));
@@ -61,4 +65,8 @@ void fragment() {
 
 void light() {
 	DIFFUSE_LIGHT += luz_faixas(NORMAL, LIGHT, LIGHT_COLOR, ATTENUATION);
+	// visual novo: a luz atravessa as folhas (só o que tem recorte: copas, plantas, flores)
+	if (corte > 0.0) {
+		DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * clamp(-dot(NORMAL, LIGHT), 0.0, 1.0) * vec3(0.5, 0.62, 0.18) * 0.7 * estilo_novo;
+	}
 }

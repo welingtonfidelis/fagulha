@@ -2215,3 +2215,82 @@ O usuário pediu para trocar os peixes pelos do Cute Fish Pack do Quaternius (CC
 - **Cor:** as cores do pacote vêm em valores lineares e o jogo as lia como de tela; os peixes saíam quase pretos. São convertidas e ficam um pouco mais vivas. Cada cor vira um material do vale (`VidaAgua.malha_de`).
 - **Testes:** `--teste-vale` 84 pontos (120 cardumes, 28 espécies, 4 de água doce, 14 de peixes grandes), `--teste` 95.
 - **Não conferido:** nada jogado. Os tamanhos foram escolhidos por mim; o tubarão de 3 a 3,8 m é manso como os outros (foge do robô). O modelo antigo `assets/vale/peixe.glb` ficou sem uso.
+
+## 92. Teste de luz e cor (branch `visual-luz-e-cor`, 2026-11-18)
+
+O usuário mandou seis imagens de referência de um jogo de floresta estilizada e perguntou, pedindo sinceridade, se dava para chegar perto. Resposta dada: na luz, na cor e no clima, sim; na modelagem das árvores e plantas, não sem modelos de artista. Ele pediu um teste numa branch nova.
+
+![Antes à esquerda, depois à direita](visual/luz_e_cor_antes_depois.jpg)
+
+O visual novo tem uma chave: o parâmetro global de shader `estilo_novo` e `CicloDia.estilo_novo`. `-- --visual-antigo` mostra o de antes; `-- --vale-captura --largo --visual` tira as oito fotos do teste.
+
+- **Sombra colorida:** a luz ambiente do dia puxa para o azul-violeta; o sol fica mais quente.
+- **Capim:** verde-amarelado no sol, com a raiz mais funda e fria e a ponta clara.
+- **Folhagem:** mais viva, e a luz atravessa as folhas (só nos materiais com recorte).
+- **Distância:** a névoa azula mais cedo e o fundo desfoca de leve (`CameraAttributesPractical`).
+- **Céu:** azul mais saturado; as nuvens tapam o céu em vez de somar luz, com borda firme e a barriga lilás.
+- **Ar:** pólen flutuando em volta da câmera (`PoeiraLuz`), esverdeado à noite.
+- **Cor geral:** mais saturação e contraste, brilho um pouco maior.
+
+**O que não melhorou:** as árvores e o capim são os mesmos modelos. O capim continua em lâminas finas e escuras (as referências têm folhas largas, em tufos), e as copas continuam "de bloco". É aí que mora a maior diferença para as referências.
+**Não conferido:** o custo do desfoque e do brilho no desempenho; como fica de noite e com chuva; nada jogado.
+
+## 93. Visual novo aprovado, nado e o lago (2026-11-19)
+
+O usuário testou a branch no PC: "a mudança de iluminação e visual novo ficou ótimo, pode aplicar no resto do mapa".
+
+- **Resto do mapa:** a mudança já era global (shaders e ciclo do dia), então vale para a ilha toda. Conferido em fotos das regiões novas, dos marcos e da noite. Dois excessos corrigidos: a sombra dos paredões ficava roxa (a luz ambiente puxa menos para o violeta: 0,4 em vez de 0,6) e o chão visto do alto, limão (capim menos amarelo).
+
+![O visual novo em outras regiões](visual/luz_e_cor_resto_do_mapa.jpg)
+
+- **Nado** (ele achou que ainda não estava bom):
+  - nadando, em velocidade normal ou alta, e apontando **10 graus ou mais para cima**, o robô rompe a superfície e sai voando nesse rumo (eram 30 graus e só acelerado);
+  - **saiu o boiar de pé** na superfície, com os ombros de fora, e o subir sozinho até a tona: ele achou estranho. Parado, o robô fica logo abaixo da lâmina;
+  - segurar o X na superfície continua decolando de pé.
+- **Lago perto do cais** (a piscina natural grande da Costa Quebrada): tinha 0,7 m de fundura em toda a extensão. No gerador, o fundo passou a acompanhar o tamanho: piscina pequena continua rasa, e o meio de uma grande chega a uns 7 m.
+- **Pacote de vegetação que ele achou** (a origem das imagens de referência): Stylized Nature Bundle, da Two Theories, na loja da Unity, 20 dólares, 64,5 MB, versão de 2021. Avaliação na conversa: os modelos e as texturas devem servir (pacote de Unity traz FBX e imagens), mas os shaders de folhagem são da Unity e teriam de ser refeitos na Godot; a página não mostrou o conteúdo nem a licença para uso fora da Unity. Nada comprado.
+- **Testes:** `--teste-vale` 84 pontos, `--teste` 95.
+- **Não conferido:** o custo do visual novo no desempenho; chuva; nada jogado depois destas mudanças.
+
+## 94. Teste da mata: tufos, árvores tortas e pétalas (branch `visual-luz-e-cor`, 2026-11-18)
+
+O que faltava do visual de referência eram os modelos. Antes de comprar pacote, testamos o que já estava no Mac e o jogo não usava, do Stylized Nature MegaKit Standard. A chave do teste é `Clareira.mata_nova()`: `-- --mata-antiga` volta ao de antes (e `-- --sem-tortas` tira só as árvores). Conversão: `tools/vale/pacotes_mata.py` (Blender).
+
+![Antes e depois](visual/mata_antes_depois.jpg)
+
+![Árvores tortas e pétalas](visual/mata_tortas_petalas.jpg)
+
+- **Capim em tufos** (`Grass_Common_Short` → `q_capim_a`): os tufos do pacote são folhas modeladas, sem textura (155 triângulos, contra 33 da touceira feita por código), então só a forma entra; a cor e o vento continuam no `vale_capim.gdshader` (parâmetro novo `altura`). O tufo abre 1,7 vez para os lados (`TUFO_LARGO`) e fica 1,4 vez mais espaçado (`TUFO_PASSO`): metade das touceiras, folhas curvas e largas. Os outros três tufos do pacote (326 a 622 triângulos) ficaram de fora por peso.
+- **Árvores de tronco torto** (`TwistedTree_1/3/5` → `q_torta_a/b/c`): uma em cada sete árvores de folha larga (`tipo_variado`). No pacote cada uma tem 10 mil triângulos e mais de mil placas de folha sobrepostas; a primeira versão derrubou o fps em uns 20%. O conversor junta os vértices da casca e reduz a 20%, e fica com metade das placas de folha, maiores (2,6 a 3 mil triângulos de perto, 0,8 a 1 mil de longe). A textura das folhas é branca: a cor é a `tinta` do material `q_folha_torta`.
+- **Pétalas no ar** (`PetalasAr`, `vale_petala.gdshader`, `Petal_1/3/5`): 72 pétalas em volta da câmera, levadas pelo vento do capim, girando, só de dia e sobre terra. O pólen (`PoeiraLuz`) ficou só para a noite, como vaga-lumes.
+- **Desempenho** (Mac, fotos `--vale-captura --largo --visual`, mesmo momento): antes 33/31/31/32 fps nas vistas 1, 2, 4 e 5; depois 34/32/31/31. Os triângulos sobem de ~4 para ~6,7 milhões (o capim), sem custo medido.
+- **Limites:** a colisão da árvore torta é a mesma das outras (tronco reto no pé), e o tronco delas se afasta do pé; as copas "de bloco" das árvores antigas continuam lá, lado a lado com as novas; nada foi jogado nem medido no PC.
+
+## 95. Copas de bloco trocadas pelas do MegaKit, e a forma de sombra (2026-11-19)
+
+O usuário pediu para trocar as copas "de bloco" por modelos do pacote. Elas vinham de dois lugares: os carvalhos postos à mão na clareira (os nossos antigos) e as árvores de folha larga da mata (`q_arvore_a` a `d`, do Textured Stylized Trees).
+
+![Antes e depois da troca](visual/mata_folha_larga.jpg)
+
+- **Árvores de folha larga:** as cinco `CommonTree` do MegaKit (`q_comum_a` a `e`), com casca reduzida a 900 triângulos e 450 placas de folha de perto (220 e 170 de longe). As variações vinho e laranja continuam, agora pela `tinta` (a textura da folha é branca). Na clareira, os três carvalhos postos à mão viraram `q_comum`. Com `--mata-antiga` volta tudo.
+- **Ficam como estavam:** bétulas, pinheiros e árvores mortas; e os vultos de longe (além de 450 m), que ainda são as formas antigas.
+- **O custo era a sombra, não a folha.** A troca derrubou o fps de 33 para 25. Cortar placas pela metade quase não ajudou (27); sem a sombra das árvores novas subiu para 37. Copa em placas com recorte é cara no mapa de sombra (quatro cascatas, cada placa pintada inteira).
+- **Forma de sombra** (`Clareira.Q_SOMBRA`, `sombra_de`, modelos `_sombra`): as árvores do MegaKit não projetam sombra; quem projeta é um casco fechado da copa mais um tronco de 60 triângulos (150 no total), opaco, desenhado só no mapa de sombra (`SHADOWS_ONLY`). O conversor gera a forma de cada árvore.
+- **Desempenho** (Mac, mesmas vistas): antes de tudo 33/31/60/31/33 fps nas vistas 1 a 5; com capim, árvores tortas, árvores comuns e pétalas 35/31/76/30/32. A lagoa e o capim de perto ganharam (60 → 76 e 59 → 79) porque sai sombra cara de cena.
+- **Não feito:** a mesma forma de sombra nas bétulas e pinheiros (ganho provável, não medido); nada medido no PC; nada jogado.
+
+## 96. O resto do pacote e o capim que abre para o robô (2026-11-19)
+
+O usuário pediu todos os itens da lista do que ainda dava para usar do MegaKit, menos o capim fino (`Grass_Wispy`, pesado demais), e perguntou se o capim podia reagir ao robô.
+
+![O resto do pacote](visual/mata_pacote_completo.jpg)
+
+- **Forma de sombra** nas bétulas (`q_betula_a/b/c`, que vêm do outro pacote) e nos pinheiros novos. As árvores secas são só casca, opaca, e projetam a própria sombra.
+- **Pinheiros do MegaKit** (`Pine_1` a `5` → `q_pinheiro_n_a` a `e`): no lugar dos do Textured Stylized Trees. O nome mantém "pinheiro" porque a colisão e os vultos procuram essa palavra. A folha é branca, tingida em `q_folha_pinho`.
+- **Árvores secas** (`DeadTree_1` a `5` → `q_seca_a` a `e`), no lugar das `q_morta`. As da Fundição continuam as antigas.
+- **As duas tortas que faltavam** (`TwistedTree_2` e `4` → `q_torta_d`, `e`).
+- **Capim alto em manchas** (`Grass_Common_Tall` → `q_capim_alto`, 0,85 m): onde o ruído passa de 0,32 a mancha troca o tufo comum pelo comprido, com metade da densidade (`CapimVivo._criar`, `Clareira.capim_alto_malha`). Só fora da clareira do meio.
+- **Miúdos no chão** (`Vale`, plantas do chão): nove seixos a mais, o segundo trevo, o cogumelo de tronco (`q_orelha`, em tufos no chão da mata; não está preso aos troncos) e as dez lajes de trilha (`q_laje_a` a `j`, reduzidas a 160–320 triângulos), soltas na beira de rio e lagoa como cascalho, nunca em linha.
+- **Capim que abre para o robô:** parâmetro global de shader `robo_capim` (onde o robô pisa e quanto amassa: 1 no chão, 0 a 2 m de altura), atualizado por `EfeitosMato._process`. No `vale_capim.gdshader`, as folhas a menos de 1,25 m deitam para fora e baixam 60%. Custo: uma conta por vértice. O capim não guarda rastro: fecha de novo quando o robô sai. As flores não reagem.
+- **Desempenho** (Mac, mesmas vistas): 34/29/82/30/32 fps nas vistas 1 a 5 (antes de tudo: 33/31/60/31/33).
+- **Não conferido:** nada medido no PC; nada jogado; o capim abrindo só foi visto em foto parada, não em movimento.

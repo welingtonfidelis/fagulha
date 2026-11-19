@@ -9,6 +9,11 @@
 const float FAIXA_TROCA = 34.0;
 // A qualidade do desenho encurta todas as distâncias de troca (1 na alta; Qualidade.aplicar).
 global uniform float troca_fator;
+// Teste de luz e cor (2026-11-18, branch visual-luz-e-cor): 1 liga o visual novo, 0 mostra o de antes
+// (`-- --visual-antigo`). Capim mais amarelo no sol, luz que atravessa as folhas, faixa de luz mais macia.
+global uniform float estilo_novo;
+// Onde o robô pisa (xyz) e quanto ele amassa o capim (w: 1 no chão, 0 no alto). EfeitosMato atualiza.
+global uniform vec4 robo_capim;
 
 vec2 presenca(vec4 dado, vec3 origem, vec3 cam) {
 	float d = distance(origem, cam);
@@ -38,8 +43,8 @@ bool fora_da_trama(vec2 pr, vec2 px) {
 // Luz em duas faixas: sombra e luz com transição curta, mais um realce no lado bem voltado ao sol.
 vec3 luz_faixas(vec3 n, vec3 l, vec3 cor_luz, float aten) {
 	float nl = dot(n, l);
-	float faixa = smoothstep(-0.02, 0.07, nl);
-	float realce = smoothstep(0.62, 0.70, nl) * 0.16;
+	float faixa = smoothstep(-0.02, mix(0.07, 0.2, estilo_novo), nl);
+	float realce = smoothstep(0.62, 0.70, nl) * mix(0.16, 0.24, estilo_novo);
 	return cor_luz * aten * (faixa * 0.86 + realce);
 }
 
@@ -50,6 +55,8 @@ vec3 cor_capim(sampler2D r, vec2 p) {
 	vec3 c = mix(vec3(0.085, 0.21, 0.065), vec3(0.17, 0.30, 0.075), smoothstep(0.3, 0.7, a));
 	c = mix(c, vec3(0.30, 0.33, 0.11), smoothstep(0.62, 0.8, b) * 0.5);  // manchas secas
 	c = mix(c, vec3(0.05, 0.15, 0.075), smoothstep(0.66, 0.82, 1.0 - a) * 0.5);  // manchas fundas
+	// visual novo: verde-amarelado e mais vivo (a sombra azulada vem da luz ambiente)
+	c = mix(c, c * vec3(1.14, 1.12, 0.6) + vec3(0.008, 0.016, 0.0), estilo_novo);
 	return c;
 }
 

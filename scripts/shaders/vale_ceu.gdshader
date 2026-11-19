@@ -14,6 +14,8 @@ uniform float nuvem_de = 0.55;  // quanto do ruído vira nuvem: abaixo disso é 
 uniform float nuvem_ate = 0.66;
 uniform float escala = 0.11;
 uniform vec2 vento = vec2(0.0016, 0.0007);
+uniform float volume = 0.0;  // visual novo: nuvens de borda firme, com a barriga lilás
+uniform vec3 cor_barriga : source_color = vec3(0.70, 0.70, 0.95);
 
 void sky() {
 	float ang = acos(clamp(EYEDIR.y, -1.0, 1.0));
@@ -36,7 +38,17 @@ void sky() {
 		vec2 uv = EYEDIR.xz / (EYEDIR.y + 0.16) * escala + TIME * vento;
 		float n = texture(nuvens, uv).r * 0.72 + texture(nuvens, uv * 2.7 + 0.37).r * 0.28;
 		float nuvem = smoothstep(nuvem_de, nuvem_ate, n) * 0.95 * smoothstep(0.015, 0.16, EYEDIR.y);
-		cor += vec3(1.0, 0.98, 0.95) * cor_nuvens.rgb * nuvem * cor_nuvens.a;
+		if (volume > 0.0) {
+			// a nuvem tapa o céu (em vez de somar luz) e tem a parte de baixo mais escura e lilás: a "espessura"
+			// vem de comparar o ruído com o de um ponto um pouco mais para o lado do sol
+			vec2 para_sol = LIGHT0_ENABLED ? normalize(LIGHT0_DIRECTION.xz + vec2(0.001)) * 0.02 : vec2(0.02, 0.0);
+			float n2 = texture(nuvens, uv + para_sol).r * 0.72 + texture(nuvens, (uv + para_sol) * 2.7 + 0.37).r * 0.28;
+			float luz_n = smoothstep(-0.03, 0.05, n2 - n);
+			vec3 cn = mix(cor_barriga * cor_nuvens.rgb, vec3(1.0, 0.99, 0.97) * cor_nuvens.rgb, luz_n * 0.75 + 0.25);
+			cor = mix(cor, cn, nuvem * cor_nuvens.a);
+		} else {
+			cor += vec3(1.0, 0.98, 0.95) * cor_nuvens.rgb * nuvem * cor_nuvens.a;
+		}
 	} else {
 		float c = (ang - PI * 0.5) / (PI * 0.5);
 		cor = mix(horizonte, chao, clamp(1.0 - pow(1.0 - c, 1.0 / 0.02), 0.0, 1.0));
