@@ -2317,3 +2317,36 @@ O usuário notou na borda dos rios "blocos de pedras que parecem usados pra faze
 - **Foto de conferência:** `plantas_amostra["margem"]` guarda um ponto de margem; a captura tira `v2NN_margem` e `v30_margem_aberta`.
 - **Como ficou:** a margem está quase limpa; os seixos são pequenos e escuros, pouco visíveis no meio do capim. Se a beira parecer vazia, o caminho é aumentar ou clarear os seixos, não voltar às lajes.
 - **Desempenho** (Mac): 34/28/82/29/31 fps nas vistas 1 a 5, igual a antes.
+
+## 99. Quatro relatórios e os defeitos do QA (2026-11-19)
+
+A pedido do usuário, quatro agentes (modelo Opus) rodaram no jogo, cada um num papel: jogador tester, QA sênior, game dev sênior e designer sênior. Nenhum jogou com as mãos; cada relatório marca o que foi visto rodando, lido no código ou deduzido. Estão em `docs/relatorios/`. O usuário escolheu começar pelos defeitos do QA.
+
+**Corrigidos** (numeração do relatório do QA):
+
+- **D1, tela preta depois de "Voltar à base" na pane:** `Armadura.recomecar` agora emite `saiu_pane` quando estava em pane, e a `Pane` guarda o tween para o de escurecer não terminar depois do de clarear.
+- **D2 e D3, pausa por cima da memória:** `Pausa.pode_abrir()` recusa abrir com o jogo já parado por outra tela, e `Pausa._continuar` não faz nada com a pausa fechada. O Esc numa memória só fecha a memória.
+- **D10, pausa dentro da oficina:** a oficina entra no grupo `sem_pausa` e responde `ocupada()`; a pausa não abre com ela em uso. Para sair do jogo dali, é preciso sair da oficina antes.
+- **D5, oficina com o drone instalando:** `Oficina.entrar` e o convite do quadrado conferem `armadura.travado`.
+- **D4, "Apagar o progresso" voltava:** `Guardado.apagado` trava a gravação do progresso até o jogo ser fechado. O botão passou a dizer "feche e abra o jogo para recomeçar". A partida em curso continua com o que tinha na memória.
+- **D7, sem chão além de 1.500 m:** um fundo plano de 12 km de lado (uma caixa; o `WorldBoundaryShape3D` no Jolt só alcança 1 km do corpo), meio metro abaixo do ponto mais fundo do mapa (-14 m), no corpo `ChaoFora`. Lá fora o robô ainda passa do fundo desenhado até esse plano.
+- **D8, Esc nas páginas da pausa:** o Esc volta uma página, como o círculo; o Options fecha a pausa inteira.
+- **D9, tabela de comandos:** "Parar no ar: L2 · R3 / F" e, em linha própria, "Manobra (giro para o lado): O / C". A dica da mira diz que ela se fabrica na oficina.
+
+**Teste novo:** o ponto 34 da bateria do vale (`_ponto_34`, "telas") cobre D1, D2, D3, D4, D5, D7 e D10.
+
+**Não corrigidos, por serem decisão de desenho ou suspeita sem confirmação:** D6 (o drone prende o robô de 3 a 5 s mesmo em luta), D11 (sair da Fundição pela pausa evita perder metade dos materiais), D12 (interface em pixels fixos numa TV 4K), D13 a D21. Os buracos de cobertura (salvar e carregar, outras taxas de quadro, a build do PC) continuam.
+
+## 100. Recomeço limpo, drone fora da luta, pane sem atalho, interface que escala e controle desconectado (2026-11-19)
+
+Cinco decisões do usuário depois de ler a seção 99.
+
+![A pausa e o HUD em 1280, 1600 e 2560 de largura](visual/interface_escala.jpg)
+
+- **Recomeçar limpo sem fechar na mão:** "Apagar o progresso e recomeçar" (Ajustes, dois toques) zera o progresso e o jogo fecha e abre sozinho (`OS.set_restart_on_exit`), já limpo. Recarregar só a cena não serve: peças, armas, lugares e memórias vivem em variáveis estáticas de muitas classes. `Guardado.apagado` continua travando a gravação na saída.
+- **O drone não instala no meio de uma luta:** `PecasMundo._luta_perto()` olha o grupo `maquinas`; com alguma ligada a menos de 45 m (`LUTA_RAIO`), o drone espera. As máquinas perto de peças continuam onde estão.
+- **Em pane não há "Voltar à base":** o botão fica desligado, com o texto "robô desligado: aguarde o drone", e `Pausa._voltar` recusa. Isso fecha o atalho que evitava a perda de metade dos materiais na derrota da Fundição. Sair da Fundição pela pausa **antes** de cair em pane continua sem perda.
+- **Interface que escala com a tela:** `window/stretch/mode = canvas_items` e `aspect = expand` no `project.godot`, com base em 1600×900. HUD, pausa, memória e oficina ficam com o mesmo tamanho relativo em qualquer resolução (conferido em fotos a 1280×720, 1600×900 e 2560×1378). O 3D segue na resolução da tela.
+- **Controle desconectado:** `Pausa._controle_mudou` (sinal `joy_connection_changed`) para o jogo e abre a pausa com o título "O controle desconectou" e a linha "Ligue de novo, use outro controle ou continue com teclado e mouse". Ao reconectar, o título vira "Controle conectado". Não abre por cima de uma memória nem dentro da oficina.
+- **Teste:** o ponto 34 da bateria do vale passou a cobrir o botão travado em pane, o aviso do controle e a espera do drone. A captura `--pausa` ganhou a foto `p6_controle_desconectou`.
+- **Não conferido:** o reinício automático (não roda sem janela, e no PC depende de como o jogo é aberto pela Steam); a desconexão de um DualSense de verdade; a interface numa TV 4K real.

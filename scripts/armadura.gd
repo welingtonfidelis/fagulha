@@ -336,7 +336,11 @@ func teleportar(pos: Vector3, novo: int, vel := Vector3.ZERO) -> void:
 
 
 func recomecar() -> void:
+	# saindo no meio de uma pane (Voltar à base na pausa): avisa quem escureceu a tela e quem segurava o robô,
+	# senão a tela ficava preta até a pane seguinte
+	var estava_em_pane := em_pane
 	em_pane = false
+	_pane_volta = Vector3.INF
 	avaria = 0
 	calor = 0.0
 	superaquecido = false
@@ -344,6 +348,8 @@ func recomecar() -> void:
 	if camera:
 		camera.yaw = yaw_inicio
 		camera.pitch = -0.12
+	if estava_em_pane:
+		saiu_pane.emit()
 
 
 func _mudar(novo: int) -> void:

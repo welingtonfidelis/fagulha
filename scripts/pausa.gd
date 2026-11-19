@@ -13,7 +13,7 @@ const APAGADO := Color(0.62, 0.68, 0.66)
 const DICAS := [
 	"Mergulhar, a chuva e voar rente à água esfriam o motor.",
 	"Segure o pulo para decolar reto e sair voando.",
-	"Mirando, o tiro trava na máquina mais perto da mira.",
+	"A mira assistida se fabrica na oficina: com ela, o tiro trava na máquina mais perto da mira.",
 	"As máquinas não são destruídas: desligam e religam depois.",
 	"Atrás de uma árvore ou de uma pedra, o tiro delas não chega.",
 	"Se o robô desligar, o drone colega vem buscar e leva para a base.",
@@ -32,7 +32,8 @@ const COMANDOS := [
 	["Ligar o voo · desligar e cair", "L3 no ar · toque em L3 ou X", "Shift no ar"],
 	["Acelerar e segurar", "analógico esquerdo", "W · S"],
 	["Planar · voltar ao jato (asas)", "segurar L3 ou X", "segurar Shift"],
-	["Parar no ar · frear", "L2 · O", "F · C"],
+	["Parar no ar", "L2 · R3", "F"],
+	["Manobra (giro para o lado)", "O", "C"],
 	["Mergulho com impacto", "triângulo", "V"],
 	["COMBATE", "", ""],
 	["Mirar · atirar", "L2 · R2", "botões do mouse"],
@@ -46,6 +47,8 @@ const COMANDOS := [
 	["Nadar: subir · descer", "X · O", "Espaço · C"],
 	["Pausa · medidor", "Options · Create", "Esc · F3"],
 ]
+
+const SUBTITULO := "Faísca 2 · Em Busca do Sossego"
 
 var armadura: Armadura
 var aberturas := 0  # quantas vezes abriu (testes)
@@ -71,6 +74,10 @@ var _aba_controle: Button
 var _aba_teclado: Button
 var _sair_armado := 0.0
 var _saindo := false
+var _titulo: Label
+var _subtitulo: Label
+var _botao_voltar: Button
+var avisos_controle := 0  # quantas vezes a pausa abriu por o controle ter desconectado (testes)
 
 
 func _ready() -> void:
@@ -93,14 +100,16 @@ func _ready() -> void:
 	var topo := VBoxContainer.new()
 	topo.add_theme_constant_override("separation", 2)
 	pilha.add_child(topo)
-	topo.add_child(_texto("Pausa", 28, TINTA))
-	topo.add_child(_texto("Faísca 2 · Em Busca do Sossego", 13, APAGADO))
+	_titulo = _texto("Pausa", 28, TINTA)
+	topo.add_child(_titulo)
+	_subtitulo = _texto(SUBTITULO, 13, APAGADO)
+	topo.add_child(_subtitulo)
 	# página inicial
 	_inicio = VBoxContainer.new()
 	_inicio.add_theme_constant_override("separation", 10)
 	pilha.add_child(_inicio)
 	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true)
-	_botao(_inicio, "Voltar à base", "reaparece na base", _voltar)
+	_botao_voltar = _botao(_inicio, "Voltar à base", "reaparece na base", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
 	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes)
 	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair)
@@ -113,7 +122,7 @@ func _ready() -> void:
 	_botao_sens = _botao(_pagina_ajustes, "", "", _trocar_sens)
 	_botao_eixo = _botao(_pagina_ajustes, "", "", _trocar_eixo)
 	_botao_vibra = _botao(_pagina_ajustes, "", "", _trocar_vibra)
-	_botao_apagar = _botao(_pagina_ajustes, "Apagar o progresso", "esquece os lugares visitados e as peças achadas", _apagar)
+	_botao_apagar = _botao(_pagina_ajustes, "Apagar o progresso e recomeçar", "o jogo recomeça do zero", _apagar)
 	_voltar_ajustes = _botao(_pagina_ajustes, "Voltar", "", _fechar_ajustes)
 	_escrever_ajustes()
 	# página de comandos
@@ -153,6 +162,25 @@ func _ready() -> void:
 	pilha.add_child(_dica)
 	pilha.add_child(_texto("X ou Enter: escolher   ·   O ou Esc: voltar", 13, Color(0.5, 0.56, 0.55)))
 	visible = false
+	Input.joy_connection_changed.connect(_controle_mudou)
+
+
+## O controle desconectou (pilha, Bluetooth, cabo): o jogo para e a pausa abre dizendo isso, em vez de o robô
+## seguir voando sozinho. Dá para ligar de novo, usar outro controle ou seguir com teclado e mouse.
+func _controle_mudou(_aparelho: int, ligado: bool) -> void:
+	if ligado:
+		if visible and _titulo.text != "Pausa":
+			_titulo.text = "Controle conectado"
+			_subtitulo.text = "Pode continuar."
+		return
+	if not visible:
+		if not pode_abrir():
+			return
+		_abrir()
+	avisos_controle += 1
+	_titulo.text = "O controle desconectou"
+	_titulo.add_theme_color_override("font_color", LARANJA)
+	_subtitulo.text = "Ligue de novo, use outro controle ou continue com teclado e mouse."
 
 
 func _caixa(cor: Color, raio: int, margem: int, borda := Color(0, 0, 0, 0)) -> StyleBoxFlat:
@@ -241,7 +269,7 @@ func _escrever_ajustes() -> void:
 	_botao_eixo.set_meta("explica", "invertido: empurrar o analógico para a frente olha para baixo")
 	_botao_vibra.text = "Vibração do controle: " + ("ligada" if bool(Guardado.ajuste("vibra")) else "desligada")
 	_botao_vibra.set_meta("explica", "o controle treme nos golpes, no pouso e nos tiros")
-	_botao_apagar.text = "Apagar o progresso"
+	_botao_apagar.text = "Apagar o progresso e recomeçar"
 
 
 func _aplicar() -> void:
@@ -276,10 +304,15 @@ func _apagar() -> void:
 	if _apagar_armado > 0.0:
 		_apagar_armado = 0.0
 		Guardado.recomecar_progresso()
-		_botao_apagar.text = "Progresso apagado (vale na próxima vez que abrir o jogo)"
+		_botao_apagar.text = "Recomeçando..."
+		# o jogo fecha e abre sozinho, já limpo: as peças, armas e lugares vivem espalhados na memória de muitas
+		# partes do jogo, e reabrir é o jeito seguro de zerar tudo de uma vez
+		if DisplayServer.get_name() != "headless":
+			OS.set_restart_on_exit(true, OS.get_cmdline_args())
+			get_tree().quit()
 		return
 	_apagar_armado = 4.0
-	_botao_apagar.text = "Apagar mesmo? Aperte de novo"
+	_botao_apagar.text = "Apagar tudo e recomeçar? Aperte de novo"
 
 
 func _abrir_ajustes() -> void:
@@ -327,20 +360,33 @@ func _fechar_comandos() -> void:
 	_botao_comandos.grab_focus()
 
 
+## A pausa não abre por cima de outra tela: com uma memória aberta (o jogo já está parado por ela) ou dentro
+## da oficina. Antes, fechar a pausa soltava o jogo atrás do texto da memória, e "Voltar à base" deixava a
+## tela da oficina aberta.
+func pode_abrir() -> bool:
+	if get_tree().paused:
+		return false
+	for no in get_tree().get_nodes_in_group("sem_pausa"):
+		if no.has_method("ocupada") and no.ocupada():
+			return false
+	return true
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("menu"):
-		if visible:
-			_continuar()
-		else:
-			_abrir()
-		get_viewport().set_input_as_handled()
-	elif visible and event.is_action_pressed("ui_cancel"):
+	# o Esc é "menu" e também "voltar": dentro de uma página ele volta uma página, como o círculo
+	if visible and event.is_action_pressed("ui_cancel"):
 		if _pagina_comandos.visible:
 			_fechar_comandos()
 		elif _pagina_ajustes.visible:
 			_fechar_ajustes()
 		else:
 			_continuar()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("menu"):
+		if visible:
+			_continuar()
+		elif pode_abrir():
+			_abrir()
 		get_viewport().set_input_as_handled()
 	elif not visible and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -356,6 +402,15 @@ func _abrir() -> void:
 	_inicio.visible = true
 	_sair_armado = 0.0
 	_botao_sair.text = "Sair do jogo"
+	_titulo.text = "Pausa"
+	_titulo.add_theme_color_override("font_color", TINTA)
+	_subtitulo.text = SUBTITULO
+	# desligado (em pane), o robô não volta à base pela pausa: quem o leva é o drone, e a derrota na Fundição
+	# custa metade dos materiais
+	var em_pane := armadura != null and armadura.em_pane
+	_botao_voltar.disabled = em_pane
+	_botao_voltar.text = "Voltar à base (robô desligado: aguarde o drone)" if em_pane else "Voltar à base"
+	(_botao_voltar.get_node("explica") as Label).visible = not em_pane
 	_primeiro.grab_focus()
 	_dica.text = "Dica: " + DICAS[(aberturas - 1) % DICAS.size()]
 	# o cartão chega com um movimento curto
@@ -370,6 +425,8 @@ func _abrir() -> void:
 ## Fecha o menu, mas o jogo só volta quando os botões do menu forem soltos: senão a bolinha que fecha a
 ## pausa também desligava o voo, e o X do "Continuar" também pulava.
 func _continuar() -> void:
+	if not visible:
+		return  # fechada: quem parou o jogo foi outra tela, e não é a pausa que o solta
 	visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_saindo = true
@@ -379,7 +436,7 @@ func _process(delta: float) -> void:
 	if _apagar_armado > 0.0:
 		_apagar_armado -= delta
 		if _apagar_armado <= 0.0 and _botao_apagar:
-			_botao_apagar.text = "Apagar o progresso"
+			_botao_apagar.text = "Apagar o progresso e recomeçar"
 	if _sair_armado > 0.0:
 		_sair_armado -= delta
 		if _sair_armado <= 0.0 and _botao_sair:
@@ -397,6 +454,8 @@ func _process(delta: float) -> void:
 
 
 func _voltar() -> void:
+	if armadura and armadura.em_pane:
+		return
 	_continuar()
 	if armadura:
 		armadura.recomecar()

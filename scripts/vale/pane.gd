@@ -8,6 +8,7 @@ var ciclo: CicloDia
 var saltos := 0  # quantas vezes o tempo saltou (testes)
 
 var _preto: ColorRect
+var _tw: Tween
 var _texto: Label
 
 
@@ -33,7 +34,10 @@ func _ready() -> void:
 
 
 func _entrou() -> void:
+	if _tw:
+		_tw.kill()
 	var tw := create_tween()
+	_tw = tw
 	tw.tween_interval(Ajustes.PANE_ESCURECE)
 	tw.tween_property(_preto, "color:a", 1.0, 1.3)
 	tw.parallel().tween_property(_texto, "modulate:a", 1.0, 1.3)
@@ -51,6 +55,9 @@ func _saltar() -> void:
 
 
 func _saiu() -> void:
+	if _tw:
+		_tw.kill()
 	var tw := create_tween()
+	_tw = tw
 	tw.tween_property(_preto, "color:a", 0.0, 1.6)
 	tw.parallel().tween_property(_texto, "modulate:a", 0.0, 0.8)

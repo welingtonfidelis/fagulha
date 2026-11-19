@@ -54,6 +54,7 @@ func rodar(main: Node) -> void:
 	await _ponto_31()
 	await _ponto_32()
 	await _ponto_33()
+	await _ponto_34()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -2195,3 +2196,100 @@ func _ponto_33() -> void:
 	_ok(me.onde.size() == 10 and Memorias.TEXTOS.size() == 10 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
 		"memórias: %d cristais e %d textos, nenhum em cima de uma peça (%s); tocar abre o texto e para o jogo (%s); fechar devolve o controle" % [me.onde.size(), Memorias.TEXTOS.size(), longe_das_pecas, abriu_m])
 	_zerar()
+
+
+## Telas uma sobre a outra (relatório de QA de 2026-11-19): voltar à base no meio de uma pane clareia a tela;
+## a pausa não abre sobre uma memória nem dentro da oficina; a oficina não abre com o robô preso pelo drone;
+## apagar o progresso não é regravado; e há fundo de colisão fora do mapa.
+func _ponto_34() -> void:
+	_soltar_tudo()
+	_zerar()
+	a.recomecar()
+	await _esperar(0.5)
+	# pane + Voltar à base
+	var pane: Pane = null
+	for n in m.get_children():
+		if n is Pane:
+			pane = n
+	a.graca_pane = 0.0
+	for i in Ajustes.PANE_GOLPES:
+		a.levar_golpe(Vector3(1, 0, 0), 4.0)
+	var entrou: bool = a.em_pane
+	await _esperar(Ajustes.PANE_ESCURECE + 0.6)
+	# desligado, o robô não volta à base pela pausa (a derrota na Fundição custa materiais)
+	m.pausa._abrir()
+	await _esperar(0.1)
+	var voltar_travado: bool = m.pausa.get("_botao_voltar").disabled
+	m.pausa._voltar()
+	await _esperar(0.1)
+	var segue_em_pane: bool = a.em_pane and m.pausa.visible
+	m.pausa._continuar()
+	await _esperar(0.3)
+	# sair da pane por outro caminho (queda para fora do mundo) clareia a tela
+	a.recomecar()
+	await _esperar(2.4)
+	var preto: ColorRect = pane.get("_preto")
+	var clareou: bool = preto.color.a < 0.05 and not a.em_pane and not get_tree().paused
+	# o controle desconecta: a pausa abre avisando
+	var avisos0: int = m.pausa.avisos_controle
+	Input.joy_connection_changed.emit(0, false)
+	await _esperar(0.1)
+	var avisou: bool = m.pausa.visible and get_tree().paused and m.pausa.avisos_controle == avisos0 + 1
+	m.pausa._continuar()
+	await _esperar(0.3)
+	# com máquina ligada por perto, o drone não vem instalar
+	var pm: PecasMundo = null
+	for n in m.get_children():
+		if n is PecasMundo:
+			pm = n
+	var luta_na_base: bool = pm.call("_luta_perto")
+	var luta_ao_lado := false
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		if not bool(n.get("desligada")):
+			var onde_m: Vector3 = (n as Node3D).global_position
+			a.global_position = onde_m + Vector3(6, 2, 0)
+			luta_ao_lado = pm.call("_luta_perto")
+			break
+	a.recomecar()
+	a.graca_pane = 0.0
+	await _esperar(0.3)
+	a.graca_pane = 0.0
+	a.avaria = 0
+	# memória aberta: a pausa não abre, e fechar a pausa (já fechada) não solta o jogo
+	m.memorias.abrir("serra")
+	await _esperar(0.3)
+	var pode_com_memoria: bool = m.pausa.pode_abrir()
+	m.pausa._continuar()
+	await _esperar(0.3)
+	var segue_parado: bool = get_tree().paused and m.memorias.aberta == "serra"
+	m.memorias.fechar()
+	await _esperar(0.2)
+	var pode_depois: bool = m.pausa.pode_abrir()
+	# oficina: não entra com o robô preso (o drone instalando), e com ela em uso a pausa não abre
+	var entradas0: int = m.oficina.entradas
+	a.travado = true
+	m.oficina.entrar()
+	var entrou_preso: bool = m.oficina.entradas != entradas0
+	a.travado = false
+	m.oficina.entrar()
+	var pode_na_oficina: bool = m.pausa.pode_abrir()
+	await _esperar(0.2)
+	m.oficina.call("_fechar")
+	m.oficina.get("_tela").visible = false
+	# apagar o progresso: o que se grava depois não volta ao arquivo
+	var dados0: Dictionary = Guardado.dados.duplicate(true)
+	Guardado.recomecar_progresso()
+	Guardado.por_progresso("pecas", ["antena"], false)
+	var ficou_apagado: bool = (Guardado.progresso("pecas") as Array).is_empty()
+	Guardado.apagado = false
+	Guardado.dados = dados0
+	# fora do mapa (além de F_META) há fundo para o robô que mergulha
+	var espaco := a.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(Vector3(Vale.F_META + 60.0, 5.0, 40.0), Vector3(Vale.F_META + 60.0, -39.0, 40.0), 1)
+	var fundo := espaco.intersect_ray(q)
+	var fundo_y: float = fundo["position"].y if not fundo.is_empty() else -INF
+	_ok(voltar_travado and segue_em_pane and avisou and not luta_na_base and luta_ao_lado and entrou and clareou and not pode_com_memoria and segue_parado and pode_depois and not entrou_preso and not pode_na_oficina and ficou_apagado and fundo_y > -39.0,
+		"telas: em pane o Voltar à base fica travado (%s, %s); controle desconectado abre a pausa (%s); drone espera com máquina perto (%s) e vem sem ela (%s); sair da pane clareia (%s, preto %.2f); pausa não abre sobre a memória (%s) nem a solta (%s), e abre depois (%s); oficina não entra com o robô preso (%s) e segura a pausa (%s); progresso apagado não é regravado (%s); fundo fora do mapa a %.1f m"
+			% [voltar_travado, segue_em_pane, avisou, luta_ao_lado, not luta_na_base, clareou, preto.color.a, not pode_com_memoria, segue_parado, pode_depois, not entrou_preso, not pode_na_oficina, ficou_apagado, fundo_y])
+	a.recomecar()
+	await _esperar(0.3)

@@ -936,6 +936,18 @@ func _colisao_fora() -> void:
 	cs.shape = forma
 	cs.scale = Vector3(F_PASSO, 1.0, F_PASSO)
 	corpo.add_child(cs)
+	# o relevo acaba a F_META do meio, e a pane do mar pode vir depois disso: um fundo plano sem fim, logo
+	# abaixo do ponto mais fundo do mapa, para o robô que mergulha lá fora não cair no vazio
+	var mais_fundo := 0.0
+	for h in dados:
+		mais_fundo = minf(mais_fundo, h)
+	# (uma caixa larga, não um WorldBoundaryShape3D: no Jolt o plano "sem fim" só vai até 1 km do corpo)
+	var laje_fundo := BoxShape3D.new()
+	laje_fundo.size = Vector3(12000.0, 4.0, 12000.0)
+	var cs_p := CollisionShape3D.new()
+	cs_p.shape = laje_fundo
+	cs_p.position = Vector3(0.0, mais_fundo - 2.5, 0.0)
+	corpo.add_child(cs_p)
 
 
 func _mar() -> void:

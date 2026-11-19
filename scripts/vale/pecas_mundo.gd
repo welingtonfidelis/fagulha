@@ -6,6 +6,7 @@ extends Node3D
 signal achou(nome: String)
 signal instalou(nomes: Array)
 
+const LUTA_RAIO := 45.0  # m: com máquina ligada mais perto que isto, o drone espera para instalar
 const PEGA := 1.15  # m do meio do robô ao meio da caixa: tem de encostar nela
 const BOCA := 2.1  # m: distância do meio da boca do cilindro para instalar
 const RADAR := 300.0  # m: alcance da antena de busca
@@ -250,6 +251,16 @@ func _process(delta: float) -> void:
 	_instalar_no_lugar(delta)
 
 
+## Há máquina ligada por perto (as do vale e as da Fundição estão no grupo "maquinas")?
+func _luta_perto() -> bool:
+	var p := armadura.global_position
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		var maq := n as Node3D
+		if maq and not bool(maq.get("desligada")) and maq.global_position.distance_to(p) < LUTA_RAIO:
+			return true
+	return false
+
+
 ## Com peça na mão e o robô parado no chão, o drone vem e instala. O robô fica quieto enquanto isso.
 func _instalar_no_lugar(delta: float) -> void:
 	match _inst_fase:
@@ -257,6 +268,9 @@ func _instalar_no_lugar(delta: float) -> void:
 			if not auto or Melhorias.tudo or Melhorias.achadas.is_empty() or armadura.travado or armadura.em_pane:
 				return
 			if armadura.estado != Armadura.Estado.CHAO or not armadura.is_on_floor():
+				return
+			# no meio de uma luta o drone não vem: prender o robô ali era deixá-lo apanhar parado
+			if _luta_perto():
 				return
 			_inst_fase = 1
 			_inst_t = 0.0

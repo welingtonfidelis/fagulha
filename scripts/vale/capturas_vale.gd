@@ -78,6 +78,10 @@ func rodar(main: Node) -> void:
 		m.pausa._mostrar_aba(2)
 		await _esperar(0.2)
 		await _foto("p4_teclado")
+		m.pausa._fechar_comandos()
+		Input.joy_connection_changed.emit(0, false)
+		await _esperar(0.2)
+		await _foto("p6_controle_desconectou")
 		get_tree().quit()
 		return
 	if "--fisica" in args:

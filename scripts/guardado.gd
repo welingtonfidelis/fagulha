@@ -14,6 +14,7 @@ const PADRAO := {
 static var ativo := true
 static var dados := {}
 static var gravacoes := 0
+static var apagado := false  # o progresso foi apagado nesta partida: nada mais dele é gravado até reabrir o jogo
 
 
 static func carregar() -> void:
@@ -60,6 +61,8 @@ static func progresso(nome: String):
 static func por_progresso(nome: String, valor, gravar := true) -> void:
 	if dados.is_empty():
 		carregar()
+	if apagado:
+		return
 	(dados["progresso"] as Dictionary)[nome] = valor
 	if gravar:
 		salvar()
@@ -70,4 +73,7 @@ static func recomecar_progresso() -> void:
 	if dados.is_empty():
 		carregar()
 	dados["progresso"] = (PADRAO["progresso"] as Dictionary).duplicate(true)
+	# o que está na memória do jogo (peças, armas, lugares, memórias) seria regravado em seguida: a partir
+	# daqui o progresso desta partida não vai mais para o arquivo
+	apagado = true
 	salvar()

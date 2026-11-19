@@ -53,7 +53,13 @@ var _estado: Label
 var _botoes := {}
 
 
+## A pausa não abre com a oficina em uso (ela tem a própria tela e a própria câmera).
+func ocupada() -> bool:
+	return fase != Fase.FORA
+
+
 func _ready() -> void:
+	add_to_group("sem_pausa")
 	var t := BaseVale.cilindro_t
 	_cam = Camera3D.new()
 	_cam.fov = 40.0
@@ -429,7 +435,7 @@ func _relogio(seg: float) -> String:
 # ------------------------------------------------------------------ o passo a passo
 
 func entrar() -> void:
-	if fase != Fase.FORA or armadura.em_pane:
+	if fase != Fase.FORA or armadura.em_pane or armadura.travado:
 		return
 	fase = Fase.ENTRANDO
 	entradas += 1
@@ -530,7 +536,7 @@ func _physics_process(delta: float) -> void:
 				if sons:
 					sons._toque("marcar", -6.0, 0.0)
 			perto = Vector2(p.x - b.x, p.z - b.z).length() < PERTO and p.y < b.y and p.y > b.y - 4.0 \
-				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando
+				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando and not armadura.travado
 			if hud:
 				var novo := "Quadrado / E:  entrar na oficina" if perto else ""
 				if hud.dica != novo and (perto or hud.dica.begins_with("Quadrado / E:  entrar")):
