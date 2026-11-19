@@ -13,6 +13,7 @@ Um robô pequeno que anda, corre, nada e voa numa ilha sossegada de 3 km. Não h
 - **Vida:** cervos, raposas, lobos, coelhos e pássaros na mata; cardumes no mar, nos rios e nas lagoas.
 - **Máquinas antigas:** algumas ainda vigiam. Ninguém é destruído: elas desligam.
 - **Peças e memórias:** dez peças espalhadas melhoram o robô (o drone colega instala), e dez cristais guardam memórias de quem viveu ali.
+- **Simulação:** num jogo novo o robô acorda numa simulação vazia e sem fim, que ensina os comandos com a imagem de cada botão. Dá para voltar a ela pela pausa.
 - **Dia, noite e chuva:** o ciclo muda a luz, os sons e os bichos; de noite há vaga-lumes.
 
 ## O visual
@@ -49,6 +50,12 @@ godot --headless --path . -- --teste
 
 ```bash
 godot --headless --path . -- --teste-vale
+```
+
+A simulação (o tutorial) tem a sua bateria, rápida; com janela ela também tira fotos:
+
+```bash
+godot --headless --path . -s tools/teste_simulacao.gd -- --teste-vale --basico
 ```
 
 As fotos de conferência precisam de janela e vão para `tools/capturas/`:

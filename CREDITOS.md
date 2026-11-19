@@ -71,6 +71,12 @@ Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.
   de Quaternius (https://quaternius.com), CC0 1.0 (`assets/vale/inimigos/`).
 - Partículas de explosão, clarão e laser: Kenney Particle Pack (www.kenney.nl), CC0 (`assets/fx/kenney/`).
 
+## Imagens dos botões (Kenney)
+
+As imagens de botão do controle, do teclado e do mouse (`assets/ui/botoes/`, 44 arquivos) vêm do Input Prompts
+1.5a, de Kenney (www.kenney.nl), licença Creative Commons Zero (CC0). Baixado de
+https://kenney.nl/assets/input-prompts em 2026-11-19.
+
 ## Texturas de ferrugem (Poly Haven)
 
 - **Rusty Metal 02** e **Rust Coarse 01**, de Poly Haven (https://polyhaven.com), CC0

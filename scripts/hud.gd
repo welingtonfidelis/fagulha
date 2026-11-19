@@ -39,6 +39,12 @@ func ligar_locais(l: Locais) -> void:
 
 
 ## Aviso curto no mesmo lugar do nome dos lugares (ex.: sinal fraco no mar).
+## Uma frase do drone colega, com imagens de botão (`{acao}`), por `dura` segundos.
+func aconselhar(texto: String, dura := 10.0) -> void:
+	conselho = texto
+	_conselho_t = dura
+
+
 func avisar(titulo: String, sub := "") -> void:
 	_nome_lugar = titulo
 	_sub_lugar = sub
@@ -54,6 +60,10 @@ func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _conselho_t > 0.0:
+		_conselho_t -= delta
+		if _conselho_t <= 0.0:
+			conselho = ""
 	resumo_t = maxf(0.0, resumo_t - delta)
 	if _tempo_lugar >= 0.0:
 		_tempo_lugar += delta
@@ -81,7 +91,7 @@ func _process(delta: float) -> void:
 ## Bússola no topo: 120° de horizonte em volta da câmera (norte = -Z, leste = +X).
 func _desenhar_bussola() -> void:
 	var cam := get_viewport().get_camera_3d()
-	if cam == null:
+	if cam == null or simples:
 		return
 	var frente := -cam.global_basis.z
 	frente.y = 0.0
@@ -198,6 +208,9 @@ var _arma_vista := 0.0
 var _arma_antes := ""
 
 
+var conselho := ""  # a dica do drone colega (Dicas), acima do convite de botão
+var _conselho_t := 0.0
+var simples := false  # na simulação: sem bússola nem nome de lugar
 var dica := ""  # convite de botão embaixo, no meio (ex.: entrar na oficina)
 var placar := ""  # a Fundição: a onda e quantos robôs faltam (canto de baixo, à esquerda)
 var placar2 := ""  # nível e materiais
@@ -320,18 +333,32 @@ func _desenhar_arma() -> void:
 		draw_arc(size * 0.5, 22.0, -PI * 0.5, -PI * 0.5 + TAU * cg, 40, Color(1.0, 0.62, 0.3, 0.95) if cg < 1.0 else Color(1, 1, 1), 4.0, true)
 
 
+func _desenhar_conselho() -> void:
+	if conselho == "":
+		return
+	# some e aparece devagar; uma barra da cor do drone à esquerda diz de quem é a frase
+	var a := clampf(_conselho_t / 0.6, 0.0, 1.0)
+	var w := Botoes.largura(conselho, _fonte, 19)
+	var p := Vector2(size.x * 0.5 - w * 0.5, size.y - 176.0)
+	draw_rect(Rect2(p.x - 22.0, p.y - 30.0, w + 44.0, 46.0), Color(0.02, 0.06, 0.07, 0.62 * a))
+	draw_rect(Rect2(p.x - 22.0, p.y - 30.0, 4.0, 46.0), Color(0.35, 0.95, 0.85, 0.9 * a))
+	Botoes.desenhar(self, _fonte, p, conselho, 19, Color(0.93, 0.96, 0.95, a))
+
+
 func _desenhar_dica() -> void:
 	if dica == "":
 		return
-	var w := _fonte.get_string_size(dica, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	# `{acao}` no texto vira a imagem do botão no aparelho em uso (Botoes)
+	var w := Botoes.largura(dica, _fonte, 20)
 	var p := Vector2(size.x * 0.5 - w * 0.5, size.y - 120.0)
-	draw_rect(Rect2(p.x - 18.0, p.y - 26.0, w + 36.0, 40.0), Color(0, 0, 0, 0.45))
-	draw_string(_fonte, p, dica, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.95))
+	draw_rect(Rect2(p.x - 18.0, p.y - 30.0, w + 36.0, 46.0), Color(0, 0, 0, 0.45))
+	Botoes.desenhar(self, _fonte, p, dica, 20, Color(1, 1, 1, 0.95))
 
 
 func _draw() -> void:
 	_desenhar_bussola()
 	_desenhar_lugar()
+	_desenhar_conselho()
 	_desenhar_dica()
 	_desenhar_placar()
 	_desenhar_arma()

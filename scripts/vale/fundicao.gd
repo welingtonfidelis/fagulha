@@ -1261,14 +1261,14 @@ func _physics_process(delta: float) -> void:
 	if fase == Fase.PARADA:
 		if hud:
 			var perto := d < 4.0 and absf(armadura.global_position.y - PISO) < 3.0 and armadura.estado == Armadura.Estado.CHAO and not armadura.travado
-			var texto := "Quadrado / E:  ligar a Fundição (onda %d)" % (maxi(onda, Arsenal.ponto_volta - 1) + 1)
+			var texto := "{agir}  ligar a Fundição (onda %d)" % (maxi(onda, Arsenal.ponto_volta - 1) + 1)
 			if Arsenal.recorde > 0:
 				texto += "   ·   recorde: onda %d" % Arsenal.recorde
 			if perto:
 				hud.dica = texto
 				if Input.is_action_just_pressed("agir"):
 					ligar()
-			elif hud.dica.begins_with("Quadrado / E:  ligar a Fundição"):
+			elif hud.dica.begins_with("{agir}  ligar a Fundição"):
 				hud.dica = ""
 		return
 	# a rodada: saiu da cratera ou desligou, para tudo

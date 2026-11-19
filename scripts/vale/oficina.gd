@@ -538,8 +538,8 @@ func _physics_process(delta: float) -> void:
 			perto = Vector2(p.x - b.x, p.z - b.z).length() < PERTO and p.y < b.y and p.y > b.y - 4.0 \
 				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando and not armadura.travado
 			if hud:
-				var novo := "Quadrado / E:  entrar na oficina" if perto else ""
-				if hud.dica != novo and (perto or hud.dica.begins_with("Quadrado / E:  entrar")):
+				var novo := "{agir}  entrar na oficina" if perto else ""
+				if hud.dica != novo and (perto or hud.dica.begins_with("{agir}  entrar")):
 					hud.dica = novo
 			if perto and Input.is_action_just_pressed("agir"):
 				entrar()

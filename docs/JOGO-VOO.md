@@ -2381,3 +2381,51 @@ Fotos de conferência na alta: 38/31/75/31/34 fps nas vistas 1 a 5 (antes 34/28/
 **Não conferido:** nada medido nem jogado no PC, que é onde os trancos apareciam inteiros; o "antes" dos trancos é a medida do game dev, não minha; noite, chuva e Fundição não foram medidas.
 
 **Pendência pequena:** a foto `v2NN_margem` deixou de sair (o ponto de amostra da margem só é guardado quando as plantas são geradas, não quando vêm do cache).
+
+## 102. Ensinar os comandos: imagens dos botões e a simulação (2026-11-19)
+
+O jogador tester e o designer puseram em primeiro lugar que o jogo não ensina nada. O usuário propôs um lugar de treino "dentro da cabeça do robô": vazio, sem limite para voar, com um tutorial que mostra a imagem de cada botão, de onde se sai com o Start e aonde se volta pela pausa, abrindo sozinho num save novo; e, no mundo, dicas do robô sobre a oficina e a forja. Combinado em quatro etapas: (1) imagens dos botões e o aviso na tela; (2) a simulação com um trecho obrigatório curto; (3) estações opcionais (combate, armas, scanner, nado); (4) dicas do drone no mundo. Esta seção cobre as etapas 1 e 2.
+
+![A simulação](visual/simulacao.jpg)
+
+**Etapa 1, imagens dos botões:**
+
+- **Pacote:** Input Prompts 1.5a do Kenney (CC0), baixado com permissão para `Projects/others/bibliotecas/kenney-input-prompts/`. Para o jogo foram 44 imagens de 128 px (`assets/ui/botoes/`): DualSense, teclado e mouse.
+- **`Botoes`** (`scripts/botoes.gd`): num texto, `{acao}` vira a imagem do botão daquela ação no aparelho em uso, e `{@nome}` uma imagem certa. `Botoes.observar` (chamado de `Main._input`) guarda se o último toque veio do controle ou do teclado e mouse; as imagens trocam sozinhas. `Botoes.desenhar` serve a quem desenha no `_draw`; `TextoBotoes` é o nó para telas de nós.
+- **Onde entrou:** o convite da oficina e o da Fundição no HUD (`{agir}  entrar na oficina`) e a tabela de comandos da pausa, que agora mostra as imagens nas duas abas.
+
+**Etapa 2, a simulação:**
+
+- **O mundo** (`SimMapa`, `scripts/simulacao/sim_mapa.gd`, extends `Ilha`): um chão plano com uma grade de luz (`sim_chao.gdshader`), sem relevo, água nem árvores. O chão e a colisão acompanham o robô, então não há borda. Usa o céu e a luz do vale, parados ao meio-dia. Monta em menos de um segundo.
+- **As lições** (`Tutor`, `scripts/simulacao/tutor.gd`): oito, uma de cada vez num cartão no alto da tela, com a imagem do botão em tamanho grande e uma frase curta; só passam quando o jogador faz o que pedem. Olhar; andar até um aro; correr até um aro; pular e pular de novo no ar; segurar o pulo para decolar; voar por dentro de três aros; ver o motor esquentar; pousar. Depois fica "Pronto! Pode treinar à vontade. Acordar: Options".
+- **Entrar e sair:** num jogo novo (nunca visto e nenhum lugar visitado) o jogo abre na simulação. Na pausa dela há "Acordar" (vai para a ilha) e "Voltar ao começo"; na pausa do mundo há "Simulação" (treinar de novo). `Main.trocar_mundo` recarrega a cena; só voltar ao vale pela segunda vez no mesmo processo é que faz o jogo fechar e abrir sozinho, pelo mesmo motivo do "Apagar e recomeçar" (seção 100). O save ganhou `simulacao_vista`.
+- **O robô da simulação** é o do começo do jogo, sem melhorias, e nada do progresso é lido nem gravado lá.
+- **Bateria própria:** `tools/teste_simulacao.gd` (12 pontos, uns 40 s): monta a simulação, faz cada lição e confere que fecha, confere o chão a 6 km do começo e, com janela, tira as fotos `tools/capturas/simulacao/`. A troca simulação → vale → simulação foi conferida à parte, sem janela.
+
+**Diferente do pedido:** o Start abre a pausa da simulação, com "Acordar" logo abaixo de "Continuar", em vez de sair direto (combinado com o usuário). As estações opcionais e as dicas do drone no mundo são as etapas 3 e 4 (seção 103).
+
+**Não conferido:** nada jogado com as mãos; o fechar e abrir sozinho; se uma criança que não lê entende os aros e os botões.
+
+## 103. Ensinar os comandos: treino livre e dicas do drone (2026-11-19)
+
+As etapas 3 e 4 do plano da seção 102.
+
+**Etapa 3, o treino livre na simulação:**
+
+- Depois do básico (ou logo de cara, para quem volta à simulação pela pausa) aparecem três círculos no chão, cada um com a imagem de um botão e o nome: **BÁSICO**, **VOO** e **COMBATE**. Pisar num círculo começa a sequência dele; no fim, volta ao treino livre (`Tutor._livre`, `_ver_postos`, `SEQUENCIAS`).
+- **Voo:** decolar, parar no ar, arrancada, manobra (giro), abrir as asas e o mergulho com impacto.
+- **Combate:** mirar; acertar três alvos; trocar de arma; granada; espada; esquiva. Os alvos (`AlvoTreino`, `scripts/simulacao/alvo_treino.gd`) são esferas de luz no grupo `maquinas`: levam tiro, míssil, granada e impacto como as máquinas do vale, desligam com dois acertos e religam em 8 s.
+- **O robô do treino livre tem tudo:** as dez peças e todas as armas (`Tutor.equipar`). É só dentro da simulação: `Guardado.sem_progresso` impede qualquer gravação de progresso lá, fora a marca de que a simulação foi vista. O básico continua com o robô do começo do jogo.
+- **Ficaram de fora da simulação:** nado e scanner (não há água nem o que escanear lá). Esses dois são ensinados no mundo, pelas dicas.
+
+**Etapa 4, as dicas do drone no mundo** (`Dicas`, `scripts/vale/dicas.gd`):
+
+![Uma dica do drone](visual/dica_do_drone.jpg)
+
+- Uma frase curta com a imagem do botão, numa faixa acima do convite de botão (`Hud.aconselhar`), por 10 s; o drone apita e olha em volta. Cada uma aparece **uma vez só** (o save guarda em `dicas`), e há pelo menos 14 s entre duas.
+- **As nove:** chegada à base; oficina (a menos de 22 m do cilindro); primeira peça achada; a Fundição existe (depois da primeira instalação); o painel da Fundição e a perda de material; água (subir e descer, esfria o motor); motor quente; cristal de memória por perto; máquina antiga por perto (elas desligam; mirar e atirar).
+- Nas fotos de conferência as dicas ficam de fora, a não ser com `--dicas`.
+
+**Testes:** a bateria da simulação foi a 25 pontos: os círculos, o robô equipado, o save fechado, e as sequências de combate e de voo (mirar, acertar os três alvos, trocar de arma, granada, espada, esquiva, decolar e parar no ar com os botões de verdade; arrancada, manobra, asas e mergulho pelas condições). O ponto 35 da bateria do vale cobre as dicas.
+
+**Não conferido:** nada jogado com as mãos; se os textos das dicas estão no tom certo; se 10 s bastam para ler; as dicas da água, do calor, da memória e da Fundição só foram conferidas pelo código (o teste cobre a chegada e a oficina).

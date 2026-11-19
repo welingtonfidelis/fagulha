@@ -8,12 +8,13 @@ extends RefCounted
 const ARQUIVO := "user://faisca2.json"
 const PADRAO := {
 	"ajustes": {"qualidade": 1, "sensibilidade": 2, "inverter_y": false, "vibra": true},
-	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}, "memorias": []},
+	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}, "memorias": [], "simulacao_vista": false, "dicas": []},
 }
 
 static var ativo := true
 static var dados := {}
 static var gravacoes := 0
+static var sem_progresso := false  # na simulação (o tutorial) só se grava que ela foi vista
 static var apagado := false  # o progresso foi apagado nesta partida: nada mais dele é gravado até reabrir o jogo
 
 
@@ -61,7 +62,7 @@ static func progresso(nome: String):
 static func por_progresso(nome: String, valor, gravar := true) -> void:
 	if dados.is_empty():
 		carregar()
-	if apagado:
+	if apagado or (sem_progresso and nome != "simulacao_vista"):
 		return
 	(dados["progresso"] as Dictionary)[nome] = valor
 	if gravar:

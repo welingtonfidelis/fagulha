@@ -6,6 +6,9 @@ extends Node3D
 ## 4 km e os dois cânions) saíram em 2026-11-15 e estão no histórico do git.
 
 static var mapa := ""
+static var simulacao := false  # rodando o tutorial (o mundo vazio "dentro da cabeça do robô")
+static var pedido := ""  # "sim" ou "mundo": o que montar ao recarregar a cena (trocar_mundo)
+static var mundo_montado := false  # o vale já foi montado neste processo (montar de novo pede reabrir o jogo)
 
 var ilha: Ilha
 var armadura: Armadura
@@ -31,8 +34,13 @@ var tiro: Tiro
 var sol: DirectionalLight3D
 
 
+func _input(event: InputEvent) -> void:
+	Botoes.observar(event)  # qual aparelho o jogador está usando: as imagens de botão acompanham
+
+
 func _ready() -> void:
 	Controles.configurar()
+	Botoes.comecar()
 	var args := OS.get_cmdline_user_args()
 	# o robô é desenhado entre dois passos da física (Armadura.pos_suave); o ajuste de tremor do motor mexe no
 	# ritmo desses passos e a fração de interpolação deixa de bater com o que foi andado
@@ -49,7 +57,12 @@ func _ready() -> void:
 	Melhorias.instaladas = []
 	Arsenal.zerar()
 	Arsenal.tudo = Melhorias.tudo
-	if Guardado.ativo:
+	# a simulação: pedida pela pausa, pela linha de comando, ou num jogo novo (nunca visto e nenhum lugar visitado)
+	var novo: bool = Guardado.ativo and not bool(Guardado.progresso("simulacao_vista")) and (Guardado.progresso("lugares") as Array).is_empty()
+	simulacao = pedido == "sim" or (pedido == "" and ("--simulacao" in args or novo))
+	pedido = ""
+	Guardado.sem_progresso = simulacao  # na simulação o robô ganha peças e armas de treino: nada disso é gravado
+	if Guardado.ativo and not simulacao:
 		Melhorias.carregar()
 		Arsenal.carregar()
 	# no jogo de verdade o mundo é montado atrás da tela de carregamento
@@ -62,13 +75,20 @@ func _ready() -> void:
 	if mapa == "":
 		# o vale é o jogo; a ilha pequena fica só para a bateria do voo (--teste) e as fotos antigas
 		mapa = "ilha" if ("--teste" in args or "--captura" in args or "--ilha" in args) else "clareira"
-	if mapa == "clareira":
+	if simulacao:
+		mapa = "simulacao"
+		_ambiente_vale()
+		ciclo.hora = 12.0
+		ciclo.parado = true
+		ilha = SimMapa.new()
+	elif mapa == "clareira":
 		_ambiente_vale()
 		ilha = Clareira.new() if "--so-clareira" in args else Vale.new()
+		mundo_montado = true
 	else:
 		_ambiente()
 		ilha = Ilha.new()
-	var vale := mapa == "clareira"
+	var vale := mapa != "ilha"
 	Armadura.porte = 0.48 if vale else 1.0
 	if not vale:
 		Melhorias.tudo = true  # a ilha pequena de teste não tem peças
@@ -116,10 +136,11 @@ func _ready() -> void:
 			lente.dof_blur_far_transition = 500.0
 			lente.dof_blur_amount = 0.03
 			camera.cam.attributes = lente
-			add_child(PoeiraLuz.new())
-			var petalas := PetalasAr.new()
-			petalas.mapa = ilha
-			add_child(petalas)
+			if ilha is Clareira:
+				add_child(PoeiraLuz.new())
+				var petalas := PetalasAr.new()
+				petalas.mapa = ilha
+				add_child(petalas)
 	var camada := CanvasLayer.new()
 	add_child(camada)
 	hud = Hud.new()
@@ -332,12 +353,51 @@ func _ready() -> void:
 			inimigos.alvo = armadura
 			inimigos.pintar = pinta
 			add_child(inimigos)
+	# nas fotos as dicas ficam de fora, a não ser que se peça (`--dicas`)
+	if ilha is Vale and (not ("--vale-captura" in args) or "--dicas" in args):
+		var dicas := Dicas.new()
+		dicas.name = "Dicas"
+		dicas.armadura = armadura
+		dicas.hud = hud
+		dicas.drone = drone
+		dicas.pecas = pecas
+		dicas.memorias = memorias
+		add_child(dicas)
+	if simulacao:
+		(ilha as SimMapa).alvo = armadura
+		hud.simples = true
+		# as armas, para a estação de combate (os alvos de treino estão no grupo "maquinas")
+		tiro = Tiro.new()
+		tiro.armadura = armadura
+		add_child(tiro)
+		hud.tiro = tiro
+		tiro.hud = hud
+		hud.tiro_no = tiro
+		var roda_sim := RodaArmas.new()
+		roda_sim.name = "RodaArmas"
+		roda_sim.armadura = armadura
+		roda_sim.hud = hud
+		add_child(roda_sim)
+		tiro.disparou.connect(sons.ao_atirar)
+		tiro.disparou.connect(vibra.ao_atirar)
+		armadura.golpe_chao.connect(func(onde: Vector3) -> void: get_tree().call_group("maquinas", "levar_impacto", onde))
+		var tutor := Tutor.new()
+		tutor.name = "Tutor"
+		tutor.armadura = armadura
+		tutor.camera = camera
+		tutor.mapa = ilha as SimMapa
+		tutor.tiro = tiro
+		tutor.livre_de_cara = Guardado.ativo and (bool(Guardado.progresso("simulacao_vista")) or not (Guardado.progresso("lugares") as Array).is_empty())
+		camada.add_child(tutor)
 	pausa = Pausa.new()
 	pausa.armadura = armadura
+	pausa.na_simulacao = simulacao
 	add_child(pausa)
 	aplicar_ajustes()
-	_retomar_progresso()
+	if not simulacao:
+		_retomar_progresso()
 	set_process(true)
+
 	if carga != null:
 		carga.fechar()
 	if "--teste" in args:
@@ -360,6 +420,28 @@ func _ready() -> void:
 		if OS.has_feature("linux"):
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Vai da simulação para o mundo ou do mundo para a simulação. A cena é recarregada; só montar o vale pela
+## segunda vez no mesmo processo é que pede reabrir o jogo (muita coisa dele vive em variáveis estáticas).
+func trocar_mundo(para_sim: bool) -> void:
+	if simulacao and not para_sim:
+		Guardado.por_progresso("simulacao_vista", true)
+	elif not simulacao:
+		guardar_progresso()
+	get_tree().paused = false
+	if not para_sim and mundo_montado and DisplayServer.get_name() != "headless":
+		var a: Array = []
+		for x in OS.get_cmdline_args():
+			if x == "--":
+				break
+			a.append(x)
+		OS.set_restart_on_exit(true, PackedStringArray(a))
+		get_tree().quit()
+		return
+	pedido = "sim" if para_sim else "mundo"
+	mapa = ""
+	get_tree().reload_current_scene()
 
 
 func _ambiente_vale() -> void:
@@ -510,7 +592,7 @@ func _retomar_progresso() -> void:
 
 
 func guardar_progresso() -> void:
-	if not Guardado.ativo:
+	if not Guardado.ativo or simulacao:
 		return
 	if ciclo:
 		Guardado.por_progresso("hora", ciclo.hora, false)

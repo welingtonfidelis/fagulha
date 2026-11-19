@@ -55,6 +55,7 @@ func rodar(main: Node) -> void:
 	await _ponto_32()
 	await _ponto_33()
 	await _ponto_34()
+	await _ponto_35()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -1644,7 +1645,7 @@ func _ponto_31() -> void:
 		await _esperar(0.3)
 	_ok(um and m.tiro.disparos == d0 + 4, "pistola: segurar dá um tiro só; cada aperto, um (%d em 4)" % (m.tiro.disparos - d0))
 	_zerar()
-	var convite: bool = m.hud.dica.begins_with("Quadrado / E:  ligar a Fundição")
+	var convite: bool = m.hud.dica.begins_with("{agir}  ligar a Fundição")
 	await _apertar("agir")
 	await _esperar(0.3)
 	var contando: bool = f.fase == Fundicao.Fase.CONTAGEM and f.onda == 1
@@ -2291,5 +2292,44 @@ func _ponto_34() -> void:
 	_ok(voltar_travado and segue_em_pane and avisou and not luta_na_base and luta_ao_lado and entrou and clareou and not pode_com_memoria and segue_parado and pode_depois and not entrou_preso and not pode_na_oficina and ficou_apagado and fundo_y > -39.0,
 		"telas: em pane o Voltar à base fica travado (%s, %s); controle desconectado abre a pausa (%s); drone espera com máquina perto (%s) e vem sem ela (%s); sair da pane clareia (%s, preto %.2f); pausa não abre sobre a memória (%s) nem a solta (%s), e abre depois (%s); oficina não entra com o robô preso (%s) e segura a pausa (%s); progresso apagado não é regravado (%s); fundo fora do mapa a %.1f m"
 			% [voltar_travado, segue_em_pane, avisou, luta_ao_lado, not luta_na_base, clareou, preto.color.a, not pode_com_memoria, segue_parado, pode_depois, not entrou_preso, not pode_na_oficina, ficou_apagado, fundo_y])
+	a.recomecar()
+	await _esperar(0.3)
+
+
+## As dicas do drone: aparecem uma de cada vez, com espaço entre elas, cada uma só uma vez, e a imagem do
+## botão acompanha o aparelho em uso.
+func _ponto_35() -> void:
+	_soltar_tudo()
+	_zerar()
+	a.recomecar()
+	await _esperar(0.3)
+	var d: Dicas = null
+	for n in m.get_children():
+		if n is Dicas:
+			d = n
+	d.vistas = []
+	d.set("_fila", [] as Array[String])
+	d.set("_pausa", 0.0)
+	var antes: int = d.mostradas
+	await _esperar(1.2)
+	var primeira: String = m.hud.conselho
+	# perto do cilindro a dica da oficina entra na fila, mas espera a vez
+	a.teleportar(BaseVale.boca_cilindro + Vector3(6, 1.0, 0), Armadura.Estado.AR)
+	await _esperar(1.5)
+	var esperou: bool = d.mostradas == antes + 1 and (d.get("_fila") as Array).has("oficina")
+	d.set("_pausa", 0.0)
+	await _esperar(0.8)
+	var segunda: String = m.hud.conselho
+	# a mesma dica não volta
+	d.pedir("oficina")
+	var nao_volta: bool = not (d.get("_fila") as Array).has("oficina")
+	# a imagem do botão troca com o aparelho
+	var pedacos_c: Array = Botoes.pedacos("{agir}", 1)
+	var pedacos_t: Array = Botoes.pedacos("{agir}", 0)
+	var imagens: bool = pedacos_c.size() == 1 and pedacos_c[0] is Texture2D and pedacos_t[0] is Texture2D and pedacos_c[0] != pedacos_t[0]
+	_ok(primeira == Dicas.TEXTOS["chegada"] and esperou and segunda == Dicas.TEXTOS["oficina"] and nao_volta and imagens,
+		"dicas do drone: a primeira é a da chegada (%s); a da oficina espera a vez (%s) e aparece depois (%s); não volta (%s); a imagem do botão muda entre controle e teclado (%s)"
+			% [primeira == Dicas.TEXTOS["chegada"], esperou, segunda == Dicas.TEXTOS["oficina"], nao_volta, imagens])
+	m.hud.conselho = ""
 	a.recomecar()
 	await _esperar(0.3)

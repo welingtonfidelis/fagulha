@@ -20,37 +20,39 @@ const DICAS := [
 	"Na água funda o robô nada com os jatos, e isso esfria o motor.",
 	"Sente (seta para a esquerda): os bichos chegam mais perto.",
 ]
+# [o que é, no controle, no teclado e mouse]. `{@nome}` vira a imagem do botão (ver Botoes).
 const COMANDOS := [
 	["NO CHÃO", "", ""],
-	["Andar · olhar", "analógicos", "W A S D · mouse"],
-	["Correr", "L3", "Shift"],
-	["Pular · pulo duplo", "X · X no ar", "Espaço"],
-	["Esquiva", "O", "C"],
-	["Sentar", "seta para a esquerda", "Ctrl"],
+	["Andar · olhar", "{@al} · {@ar}", "{@k_w}{@k_a}{@k_s}{@k_d} · {@m}"],
+	["Correr", "{@l3}", "{@k_shift}"],
+	["Pular · pulo duplo", "{@x} · {@x} no ar", "{@k_espaco}"],
+	["Esquiva", "{@o}", "{@k_c}"],
+	["Sentar", "{@esq}", "{@k_ctrl}"],
 	["NO AR", "", ""],
-	["Decolar", "segurar X", "segurar Espaço"],
-	["Ligar o voo · desligar e cair", "L3 no ar · toque em L3 ou X", "Shift no ar"],
-	["Acelerar e segurar", "analógico esquerdo", "W · S"],
-	["Planar · voltar ao jato (asas)", "segurar L3 ou X", "segurar Shift"],
-	["Parar no ar", "L2 · R3", "F"],
-	["Manobra (giro para o lado)", "O", "C"],
-	["Mergulho com impacto", "triângulo", "V"],
+	["Decolar", "segurar {@x}", "segurar {@k_espaco}"],
+	["Ligar o voo · desligar e cair", "{@l3} no ar · toque em {@l3} ou {@x}", "{@k_shift} no ar"],
+	["Acelerar e segurar", "{@al}", "{@k_w} · {@k_s}"],
+	["Planar · voltar ao jato (asas)", "segurar {@l3} ou {@x}", "segurar {@k_shift}"],
+	["Parar no ar", "{@l2} · {@r3}", "{@k_f}"],
+	["Manobra (giro para o lado)", "{@o}", "{@k_c}"],
+	["Mergulho com impacto", "{@tri}", "{@k_v}"],
 	["COMBATE", "", ""],
-	["Mirar · atirar", "L2 · R2", "botões do mouse"],
-	["Trocar de arma", "toque no L1 · segurar: roda", "R · 1 a 6"],
-	["Granada", "segurar e soltar R1", "G"],
-	["Espada de laser", "R3 no chão", "X"],
+	["Mirar · atirar", "{@l2} · {@r2}", "{@m_dir} · {@m_esq}"],
+	["Trocar de arma", "toque em {@l1} · segurar: roda", "{@k_r} · {@k_1} a {@k_6}"],
+	["Granada", "segurar e soltar {@r1}", "{@k_g}"],
+	["Espada de laser", "{@r3} no chão", "{@k_x}"],
 	["OUTROS", "", ""],
-	["Oficina · ligar a Fundição", "quadrado", "E"],
-	["Luz · scanner (melhorias)", "seta para cima · direita", "L · T"],
-	["Marcar um ponto", "seta para baixo", "Q"],
-	["Nadar: subir · descer", "X · O", "Espaço · C"],
-	["Pausa · medidor", "Options · Create", "Esc · F3"],
+	["Oficina · ligar a Fundição", "{@quad}", "{@k_e}"],
+	["Luz · scanner (melhorias)", "{@cima} · {@dir}", "{@k_l} · {@k_t}"],
+	["Marcar um ponto", "{@baixo}", "{@k_q}"],
+	["Nadar: subir · descer", "{@x} · {@o}", "{@k_espaco} · {@k_c}"],
+	["Pausa · medidor", "{@options} · {@create}", "{@k_esc} · {@k_f3}"],
 ]
 
 const SUBTITULO := "Faísca 2 · Em Busca do Sossego"
 
 var armadura: Armadura
+var na_simulacao := false  # a pausa do tutorial: "Acordar" no lugar de "Voltar à base"
 var aberturas := 0  # quantas vezes abriu (testes)
 var _cartao: PanelContainer
 var _inicio: Control
@@ -69,7 +71,7 @@ var _apagar_armado := 0.0
 var _botao_sair: Button
 var _voltar_comandos: Button
 var _dica: Label
-var _colunas: Array[Label] = []  # as células de botão da tabela (trocam com a aba)
+var _colunas: Array[TextoBotoes] = []  # as células de botão da tabela (trocam com a aba)
 var _aba_controle: Button
 var _aba_teclado: Button
 var _sair_armado := 0.0
@@ -109,8 +111,12 @@ func _ready() -> void:
 	_inicio.add_theme_constant_override("separation", 10)
 	pilha.add_child(_inicio)
 	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true)
-	_botao_voltar = _botao(_inicio, "Voltar à base", "reaparece na base", _voltar)
+	if na_simulacao:
+		_botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false))
+	_botao_voltar = _botao(_inicio, "Voltar ao começo" if na_simulacao else "Voltar à base", "reaparece no começo" if na_simulacao else "reaparece na base", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
+	if not na_simulacao:
+		_botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true))
 	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes)
 	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair)
 	# página de ajustes
@@ -138,15 +144,17 @@ func _ready() -> void:
 	var tabela := GridContainer.new()
 	tabela.columns = 2
 	tabela.add_theme_constant_override("h_separation", 36)
-	tabela.add_theme_constant_override("v_separation", -3)
+	tabela.add_theme_constant_override("v_separation", -6)
 	_pagina_comandos.add_child(tabela)
 	for linha: Array in COMANDOS:
 		var titulo_grupo: bool = String(linha[1]) == ""
 		var acao := _texto(linha[0], 11 if titulo_grupo else 14, AGUA if titulo_grupo else TINTA)
 		acao.custom_minimum_size = Vector2(250, 0)
 		tabela.add_child(acao)
-		var tecla := _texto("", 14, LARANJA)
-		tecla.custom_minimum_size = Vector2(230, 0)
+		var tecla := TextoBotoes.new()
+		tecla.tamanho = 14
+		tecla.cor = LARANJA
+		tecla.forcar = 1
 		tabela.add_child(tecla)
 		_colunas.append(tecla)
 	_voltar_comandos = _botao(_pagina_comandos, "Voltar", "", _fechar_comandos, true)
@@ -344,7 +352,8 @@ func _mostrar_aba(qual: int) -> void:
 	_aba_controle.button_pressed = qual == 1
 	_aba_teclado.button_pressed = qual == 2
 	for k in _colunas.size():
-		_colunas[k].text = COMANDOS[k][qual]
+		_colunas[k].forcar = 1 if qual == 1 else 0
+		_colunas[k].texto = COMANDOS[k][qual]
 
 
 func _abrir_comandos() -> void:
@@ -409,7 +418,7 @@ func _abrir() -> void:
 	# custa metade dos materiais
 	var em_pane := armadura != null and armadura.em_pane
 	_botao_voltar.disabled = em_pane
-	_botao_voltar.text = "Voltar à base (robô desligado: aguarde o drone)" if em_pane else "Voltar à base"
+	_botao_voltar.text = "Voltar à base (robô desligado: aguarde o drone)" if em_pane else ("Voltar ao começo" if na_simulacao else "Voltar à base")
 	(_botao_voltar.get_node("explica") as Label).visible = not em_pane
 	_primeiro.grab_focus()
 	_dica.text = "Dica: " + DICAS[(aberturas - 1) % DICAS.size()]
@@ -451,6 +460,15 @@ func _process(delta: float) -> void:
 			return
 	_saindo = false
 	get_tree().paused = false
+
+
+func _trocar_mundo(para_sim: bool) -> void:
+	if armadura and armadura.em_pane:
+		return
+	var principal := get_parent()
+	if principal and principal.has_method("trocar_mundo"):
+		visible = false
+		principal.call("trocar_mundo", para_sim)
 
 
 func _voltar() -> void:
