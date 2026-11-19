@@ -30,7 +30,7 @@ const COMANDOS := [
 	["Sentar", "{@esq}", "{@k_ctrl}"],
 	["NO AR", "", ""],
 	["Decolar", "segurar {@x}", "segurar {@k_espaco}"],
-	["Ligar o voo · desligar e cair", "{@l3} no ar · toque em {@l3} ou {@x}", "{@k_shift} no ar"],
+	["Ligar o voo · desligar e cair", "{@l3} no ar · toque em {@l3}", "{@k_shift} no ar"],
 	["Acelerar e segurar", "{@al}", "{@k_w} · {@k_s}"],
 	["Planar · voltar ao jato (asas)", "segurar {@l3} ou {@x}", "segurar {@k_shift}"],
 	["Parar no ar", "{@l2} · {@r3}", "{@k_f}"],
@@ -79,6 +79,14 @@ var _saindo := false
 var _titulo: Label
 var _subtitulo: Label
 var _botao_voltar: Button
+var _pagina_caderno: Control
+var _botao_caderno: Button
+var _caderno_mapa: MapaCaderno
+var _caderno_contas: Label
+var _caderno_memorias: GridContainer
+var _caderno_texto: Label
+var _caderno_scanner: Label
+var _voltar_caderno: Button
 var avisos_controle := 0  # quantas vezes a pausa abriu por o controle ter desconectado (testes)
 
 
@@ -116,6 +124,7 @@ func _ready() -> void:
 	_botao_voltar = _botao(_inicio, "Voltar ao começo" if na_simulacao else "Voltar à base", "reaparece no começo" if na_simulacao else "reaparece na base", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
 	if not na_simulacao:
+		_botao_caderno = _botao(_inicio, "Caderno", "lugares, memórias e o que o scanner leu", _abrir_caderno)
 		_botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true))
 	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes)
 	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair)
@@ -131,6 +140,38 @@ func _ready() -> void:
 	_botao_apagar = _botao(_pagina_ajustes, "Apagar o progresso e recomeçar", "o jogo recomeça do zero", _apagar)
 	_voltar_ajustes = _botao(_pagina_ajustes, "Voltar", "", _fechar_ajustes)
 	_escrever_ajustes()
+	# página do caderno: só o que já foi feito (nada do que falta aparece)
+	_pagina_caderno = VBoxContainer.new()
+	_pagina_caderno.add_theme_constant_override("separation", 12)
+	_pagina_caderno.visible = false
+	pilha.add_child(_pagina_caderno)
+	var lado_a_lado := HBoxContainer.new()
+	lado_a_lado.add_theme_constant_override("separation", 26)
+	_pagina_caderno.add_child(lado_a_lado)
+	_caderno_mapa = MapaCaderno.new()
+	lado_a_lado.add_child(_caderno_mapa)
+	var direita := VBoxContainer.new()
+	direita.add_theme_constant_override("separation", 8)
+	direita.custom_minimum_size = Vector2(470, 0)
+	lado_a_lado.add_child(direita)
+	_caderno_contas = _texto("", 15, TINTA)
+	direita.add_child(_caderno_contas)
+	direita.add_child(_texto("MEMÓRIAS LIDAS", 11, AGUA))
+	_caderno_memorias = GridContainer.new()
+	_caderno_memorias.columns = 2
+	_caderno_memorias.add_theme_constant_override("h_separation", 8)
+	_caderno_memorias.add_theme_constant_override("v_separation", 6)
+	direita.add_child(_caderno_memorias)
+	_caderno_texto = _texto("", 14, APAGADO)
+	_caderno_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_caderno_texto.custom_minimum_size = Vector2(470, 150)
+	direita.add_child(_caderno_texto)
+	direita.add_child(_texto("O SCANNER JÁ LEU", 11, AGUA))
+	_caderno_scanner = _texto("", 13, APAGADO)
+	_caderno_scanner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_caderno_scanner.custom_minimum_size = Vector2(470, 0)
+	direita.add_child(_caderno_scanner)
+	_voltar_caderno = _botao(_pagina_caderno, "Voltar", "", _fechar_caderno, true)
 	# página de comandos
 	_pagina_comandos = VBoxContainer.new()
 	_pagina_comandos.add_theme_constant_override("separation", 10)
@@ -330,6 +371,52 @@ func _abrir_ajustes() -> void:
 	_botao_qualidade.grab_focus()
 
 
+## O caderno é refeito a cada abertura, com o que o jogo sabe agora.
+func _abrir_caderno() -> void:
+	var principal := get_parent()
+	var locais: Locais = principal.get("locais") if principal else null
+	var memorias: Memorias = principal.get("memorias") if principal else null
+	var mapa: Ilha = principal.get("ilha") if principal else null
+	_caderno_mapa.preparar(mapa, locais, armadura.global_position if armadura else Vector3.ZERO)
+	var lugares := locais.descobertos() if locais else 0
+	var lidas: Array = memorias.lidas if memorias else []
+	_caderno_contas.text = "Lugares visitados: %d   ·   Peças: %d   ·   Memórias: %d de %d" % [lugares, Melhorias.instaladas.size() + Melhorias.achadas.size(), lidas.size(), Memorias.ORDEM.size()]
+	for velho in _caderno_memorias.get_children():
+		velho.queue_free()
+	_caderno_texto.text = "Nenhuma memória lida ainda." if lidas.is_empty() else "Escolha uma memória para reler."
+	for chave: String in Memorias.ORDEM:
+		if not lidas.has(chave):
+			continue
+		var par: Array = Memorias.TEXTOS[chave]
+		var b := Button.new()
+		b.text = String(par[0])
+		b.custom_minimum_size = Vector2(230, 32)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_color_override("font_color", TINTA)
+		b.add_theme_color_override("font_focus_color", LARANJA)
+		b.add_theme_stylebox_override("normal", _caixa(Color(0.085, 0.13, 0.14), 4, 10))
+		b.add_theme_stylebox_override("hover", _caixa(Color(0.1, 0.155, 0.165), 4, 10))
+		b.add_theme_stylebox_override("focus", _caixa(Color(0.16, 0.13, 0.09, 0.35), 4, 10, LARANJA))
+		var texto := String(par[1])
+		b.focus_entered.connect(func() -> void: _caderno_texto.text = texto)
+		b.mouse_entered.connect(b.grab_focus)
+		_caderno_memorias.add_child(b)
+	var lidos: Array = Melhorias.escaneados
+	_caderno_scanner.text = "Nada ainda." if lidos.is_empty() else ", ".join(PackedStringArray(lidos))
+	_inicio.visible = false
+	_pagina_caderno.visible = true
+	_dica.text = "O caderno guarda só o que você já viu."
+	_voltar_caderno.grab_focus()
+
+
+func _fechar_caderno() -> void:
+	_pagina_caderno.visible = false
+	_inicio.visible = true
+	if _botao_caderno:
+		_botao_caderno.grab_focus()
+
+
 func _fechar_ajustes() -> void:
 	_pagina_ajustes.visible = false
 	_inicio.visible = true
@@ -386,6 +473,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("ui_cancel"):
 		if _pagina_comandos.visible:
 			_fechar_comandos()
+		elif _pagina_caderno.visible:
+			_fechar_caderno()
 		elif _pagina_ajustes.visible:
 			_fechar_ajustes()
 		else:
@@ -408,6 +497,7 @@ func _abrir() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_pagina_comandos.visible = false
 	_pagina_ajustes.visible = false
+	_pagina_caderno.visible = false
 	_inicio.visible = true
 	_sair_armado = 0.0
 	_botao_sair.text = "Sair do jogo"

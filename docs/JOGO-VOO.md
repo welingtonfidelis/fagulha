@@ -2429,3 +2429,46 @@ As etapas 3 e 4 do plano da seção 102.
 **Testes:** a bateria da simulação foi a 25 pontos: os círculos, o robô equipado, o save fechado, e as sequências de combate e de voo (mirar, acertar os três alvos, trocar de arma, granada, espada, esquiva, decolar e parar no ar com os botões de verdade; arrancada, manobra, asas e mergulho pelas condições). O ponto 35 da bateria do vale cobre as dicas.
 
 **Não conferido:** nada jogado com as mãos; se os textos das dicas estão no tom certo; se 10 s bastam para ler; as dicas da água, do calor, da memória e da Fundição só foram conferidas pelo código (o teste cobre a chegada e a oficina).
+
+## 104. Relatórios: o que não dependia de decisão (2026-11-19)
+
+Uma leva de ajustes pedidos nos relatórios do jogador tester e do game dev que não mexem em regra do jogo.
+
+- **Pulo guardado** (game dev): apertar o pulo caindo, a menos de 55 cm do chão, não gasta mais o pulo duplo; o aperto fica guardado por 0,14 s e vira um pulo ao pousar (`Armadura._pulo_guardado`). Coberto no ponto 35 da bateria do vale.
+- **Mira, distância, velocidade e altura com contorno escuro** (tester): sumiam sobre o capim claro. O trilho do arco do calor ficou largo e escuro pelo mesmo motivo.
+- **Bússola** (tester): a faixa ficou mais escura; a base e a Fundição, quando estão fora dos 120° da faixa, viram uma setinha na ponta do lado certo, em vez do ícone inteiro preso ali.
+- **Fotos de conferência:** a vista `v6_voo_baixo` passou a medir a altura acima do chão (estava debaixo dele desde o relevo de 3 km), e o ponto da foto da margem volta a ser achado quando as plantas vêm do cache.
+
+**O que sobra dos relatórios e depende do usuário** (levado a ele em 2026-11-19):
+
+1. O X no voo cortar os jatos (tester e designer pedem que deixe de cortar; a doc mostra três idas e vindas).
+2. A caveira da Fundição na bússola (trocar por um ícone neutro que só aparece depois da primeira visita).
+3. As máquinas perto do começo e das recompensas: o mecha a 120 m da base, a dupla dos Arcos, o grande ao lado da peça das molas.
+4. Sinal para as memórias (um ponto âmbar na bússola a menos de 300 m) e a região da peça na oficina.
+5. Um "Caderno" na pausa: lugares visitados, memórias para reler, o que o scanner já leu.
+6. Um fim: com as dez memórias, acender o Farol.
+7. A ordem das peças (o radiador duplo cedo demais; o prêmio mais distante é fraco).
+8. O chão: câmera mais alta e capim que abre também perto da câmera.
+9. Retomar de onde parou e "Continuar / Novo jogo" na abertura.
+10. Desempenho que muda o visual: folhas de um lado só, antisserrilhado mais leve, árvores de meia distância em cartão.
+11. Câmera que bate nas copas, zona morta do analógico, interpolação para telas de 120/144 Hz.
+12. Conteúdo: uma ação por lugar marcante, peças que abrem lugares, bichos com papel, música de vez em quando, luzes de noite nos marcos.
+
+## 105. Relatórios: os seis ajustes recomendados (2026-11-19)
+
+O usuário aprovou os seis primeiros itens da lista da seção 104 ("faz os recomendados").
+
+![O caderno da pausa e o farol aceso](visual/caderno_e_farol.jpg)
+
+1. **O X no voo não corta mais os jatos.** Só o toque no L3 (Shift) corta. Segurar o X ainda troca jato e planador, com as asas. Era pedido do usuário de 2026-11-17 que os dois cortassem; mudou porque o X é o botão de pular e a criança caía do céu sem querer. A tabela da pausa e a lição "pousar" da simulação passaram a mostrar o L3.
+2. **A Fundição na bússola é uma engrenagem, e só depois da primeira visita** (`Hud._fundicao_vista`, pelo lugar "A Fundição" visitado). A caveira saiu.
+3. **A luta fora do caminho do sossego** (`InimigosVale.LUGARES`, `Main`): a dupla dos Arcos foi para o Pátio das Máquinas (-680, 190); o mecha que ficava entre a base e a cachoeira (-250, -330) foi para o oeste (-860, -430); o grande da Torre Caída ficou a uns 125 m da peça das molas (-750, 500); e o da clareira saiu de 120 m da base para uns 210 m (-128, -118).
+4. **Memórias na bússola:** um losango âmbar para cada memória não lida a menos de 300 m, como a antena faz com as peças. Fora da faixa, vira setinha na ponta.
+5. **Caderno na pausa** (`Pausa._abrir_caderno`, `MapaCaderno`): o contorno da ilha com só os lugares já visitados, a base e onde o robô está; as contas; as memórias lidas, para reler ali mesmo; e o que o scanner já leu. Nada do que falta aparece, fora o total de memórias, que o jogo já mostrava.
+6. **Um fim: acender o Farol** (`FarolFinal`, `scripts/vale/farol_final.gd`). Com as dez memórias lidas, o drone avisa, a bússola ganha um sol âmbar no rumo do Farol e, a menos de 16 m da lente, aparece o convite `{agir}  acender o Farol`. Acender mostra uma última página e os créditos; depois o farol gira para sempre e o jogo continua. O feixe só existe do fim da tarde ao amanhecer: de dia a lente apenas brilha de leve, porque o cone é uma malha colorida e ao sol ficaria forte demais (aviso do usuário, pelo farol da Ilha Cafuné). O save guarda `farol_aceso`. Não há luta nem contagem.
+
+**Teste:** o ponto 36 da bateria do vale cobre os itens 2, 3, 5 e 6; o item 1 está na bateria de voo e na da simulação.
+
+**Textos novos, escritos por mim e por revisar:** a última página do Farol ("Foi a última luz que eles apagaram...") e a dica do drone que aponta para ele. Entram na mesma revisão dos textos das memórias, que continua pendente.
+
+**Não conferido:** nada jogado com as mãos; o chão onde as máquinas movidas ficaram só foi conferido pelo teste (existem e estão longe do que deviam), não por foto; o sinal das memórias na bússola não tem teste próprio.

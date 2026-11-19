@@ -118,6 +118,8 @@ var _pulo_vivo := false
 var _correr_alt := false
 var _arrancada_alt := false
 var _fora_chao := 0.0
+var _pulo_guardado := 0.0  # apertou o pulo um instante antes de tocar o chão: pula ao pousar (não gasta o pulo duplo)
+var pulos_guardados := 0  # testes
 var _pouso_tempo := 0.0
 var _yaw_ultimo := 0.0
 var _duplo_usado := false
@@ -493,7 +495,10 @@ func _chao(delta: float, mov: Vector2) -> void:
 		_mudar(Estado.CHAO)
 	if estado == Estado.CHAO and postura == 2 and Input.is_action_just_pressed("pular"):
 		postura = 0  # sentado, o X só levanta
-	elif estado == Estado.CHAO and Input.is_action_just_pressed("pular") and erguendo <= 0.0:
+	elif estado == Estado.CHAO and (Input.is_action_just_pressed("pular") or _pulo_guardado > 0.0) and erguendo <= 0.0:
+		if _pulo_guardado > 0.0:
+			pulos_guardados += 1
+		_pulo_guardado = 0.0
 		velocity.y = Ajustes.PULO * Melhorias.pulo()
 		_origem_chao = true
 		_segurando = 0.0
@@ -578,7 +583,11 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_pulo_vivo = false
 		_ligar_voo(mira)
 		return
-	if Input.is_action_just_pressed("pular") and not superaquecido and not caido and not _duplo_usado:
+	_pulo_guardado = maxf(0.0, _pulo_guardado - delta)
+	if Input.is_action_just_pressed("pular") and velocity.y < 0.0 and altura_do_chao() < 0.55 and altura_do_chao() > -0.5:
+		# caindo, quase no chão: o aperto fica guardado e vira um pulo ao pousar
+		_pulo_guardado = 0.14
+	elif Input.is_action_just_pressed("pular") and not superaquecido and not caido and not _duplo_usado:
 		_duplo_usado = true
 		velocity.y = maxf(velocity.y, Ajustes.PULO_DUPLO * Melhorias.pulo())
 		calor = minf(100.0, calor + Ajustes.CALOR_PULO_DUPLO)
@@ -721,9 +730,10 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 		dir_voo = girar_para(dir_voo, (dir_voo + Vector3.DOWN).normalized(), 1.2 * delta)
 	# botões
 	# planando, o X religa o motor
-	# L3 / Shift e X fazem o mesmo no voo (pedido do usuário, 2026-11-17): um toque corta tudo e o robô cai,
-	# esteja com o jato ou planando; segurar troca um pelo outro (do jato para o planador e de volta). Sem
-	# as asas não há planador: o toque corta os jatos na hora.
+	# Um toque no L3 / Shift corta tudo e o robô cai, esteja com o jato ou planando; segurar o L3 ou o X troca
+	# um pelo outro (do jato para o planador e de volta). Sem as asas não há planador: o toque no L3 corta os
+	# jatos na hora. O toque no X não corta mais (2026-11-19): é o botão de pular, o que a criança mais
+	# aperta, e ela caía do céu sem querer.
 	if estado == Estado.PLANAR or Melhorias.tem("asas"):
 		if Input.is_action_just_pressed("voar"):
 			_planar_seg = 0.0
@@ -743,11 +753,12 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 						_mudar(Estado.VOO)
 					return
 			else:
-				# soltou antes: era um toque
+				# soltou antes: era um toque (só o do L3 corta)
 				_planar_seg = -1.0
-				_cortar_jatos()
-				return
-	elif Input.is_action_just_pressed("voar") or Input.is_action_just_pressed("pular"):
+				if _planar_botao == "voar":
+					_cortar_jatos()
+					return
+	elif Input.is_action_just_pressed("voar"):
 		_cortar_jatos()
 		return
 	if Input.is_action_just_pressed("soltar"):

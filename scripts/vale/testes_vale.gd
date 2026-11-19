@@ -56,6 +56,7 @@ func rodar(main: Node) -> void:
 	await _ponto_33()
 	await _ponto_34()
 	await _ponto_35()
+	await _ponto_36()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -2327,9 +2328,111 @@ func _ponto_35() -> void:
 	var pedacos_c: Array = Botoes.pedacos("{agir}", 1)
 	var pedacos_t: Array = Botoes.pedacos("{agir}", 0)
 	var imagens: bool = pedacos_c.size() == 1 and pedacos_c[0] is Texture2D and pedacos_t[0] is Texture2D and pedacos_c[0] != pedacos_t[0]
+	# pulo guardado: apertar um instante antes de tocar o chão pula ao pousar, sem gastar o pulo duplo
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.6)
+	var chao_y: float = a.global_position.y
+	var guardados0: int = a.pulos_guardados
+	a.teleportar(a.global_position + Vector3(0, 1.6, 0), Armadura.Estado.AR)
+	var apertou := false
+	var subiu := 0.0
+	for i in 120:
+		await get_tree().physics_frame
+		if not apertou and a.velocity.y < 0.0 and a.altura_do_chao() < 0.5:
+			Input.action_press("pular")
+			apertou = true
+		elif apertou:
+			Input.action_release("pular")
+			subiu = maxf(subiu, a.global_position.y - chao_y)
+	Input.action_release("pular")
+	var pulo_guardado: bool = apertou and a.pulos_guardados == guardados0 + 1 and subiu > 0.5
+	_ok(pulo_guardado, "pulo guardado: apertado a %.1f m do chão na queda, o robô pula ao pousar (subiu %.2f m, %d guardado)" % [0.5, subiu, a.pulos_guardados - guardados0])
+	await _esperar(1.0)
 	_ok(primeira == Dicas.TEXTOS["chegada"] and esperou and segunda == Dicas.TEXTOS["oficina"] and nao_volta and imagens,
 		"dicas do drone: a primeira é a da chegada (%s); a da oficina espera a vez (%s) e aparece depois (%s); não volta (%s); a imagem do botão muda entre controle e teclado (%s)"
 			% [primeira == Dicas.TEXTOS["chegada"], esperou, segunda == Dicas.TEXTOS["oficina"], nao_volta, imagens])
 	m.hud.conselho = ""
+	a.recomecar()
+	await _esperar(0.3)
+
+
+## O que saiu dos relatórios em 2026-11-19: a engrenagem da Fundição só depois da visita, as máquinas longe do
+## começo e das recompensas, o caderno da pausa e o final do Farol.
+func _ponto_36() -> void:
+	_soltar_tudo()
+	_zerar()
+	a.recomecar()
+	await _esperar(0.3)
+	var v: Vale = m.ilha
+	# a Fundição na bússola só depois de visitada
+	var item_f: Dictionary = {}
+	for it in m.locais.lista:
+		if it["nome"] == "A Fundição":
+			item_f = it
+	var visto0: bool = item_f.get("visto", false)
+	item_f["visto"] = false
+	var antes_f: bool = m.hud.call("_fundicao_vista")
+	item_f["visto"] = true
+	var depois_f: bool = m.hud.call("_fundicao_vista")
+	item_f["visto"] = visto0
+	# as máquinas: nenhuma a menos de 150 m da base, nem a menos de 100 m da peça das molas, nem a menos de
+	# 100 m da memória dos Arcos; e a dupla está no Pátio das Máquinas
+	var base := a.global_position
+	var perto_base := 0
+	var perto_molas := 0
+	var perto_arcos := 0
+	var no_patio := 0
+	for n in get_tree().get_nodes_in_group("maquinas"):
+		var p: Vector3 = (n as Node3D).global_position
+		if n.get("casa") != null:
+			p = n.get("casa")
+		if Vector2(p.x - base.x, p.z - base.z).length() < 150.0:
+			perto_base += 1
+		if m.pecas.onde.has("molas") and p.distance_to(m.pecas.onde["molas"]) < 100.0:
+			perto_molas += 1
+		if m.memorias.onde.has("arcos") and p.distance_to(m.memorias.onde["arcos"]) < 100.0:
+			perto_arcos += 1
+		if Vector2(p.x - Ruinas.PATIO.x, p.z - Ruinas.PATIO.y).length() < 60.0:
+			no_patio += 1
+	# o caderno: só o que já foi visto
+	var lidas0: Array = m.memorias.lidas.duplicate()
+	m.memorias.lidas = ["serra", "arcos"]
+	m.pausa._abrir()
+	await _esperar(0.1)
+	m.pausa._abrir_caderno()
+	await _esperar(0.1)
+	var botoes_mem: int = m.pausa.get("_caderno_memorias").get_child_count()
+	var contas: String = (m.pausa.get("_caderno_contas") as Label).text
+	m.pausa._fechar_caderno()
+	m.pausa._continuar()
+	await _esperar(0.3)
+	# o farol: sem as dez memórias não há convite; com elas, a bússola aponta, o convite aparece e ele acende
+	var farol: FarolFinal = m.farol
+	a.teleportar(MarcosLeste.farol_topo + Vector3(0, 2.0, 0), Armadura.Estado.AR)
+	await _esperar(0.6)
+	var sem_convite: bool = not farol.pronto() and not m.hud.dica.begins_with("{agir}  acender")
+	m.memorias.lidas = Memorias.ORDEM.duplicate()
+	await _esperar(0.3)
+	var convite: bool = m.hud.dica.begins_with("{agir}  acender") and m.hud.destino_final.is_finite()
+	farol.acender()
+	await _esperar(0.2)
+	var pagina: bool = farol.aceso and get_tree().paused and not m.pausa.pode_abrir()
+	for k in 2:
+		await _esperar(1.4)
+		Input.action_press("pular")
+		await _esperar(0.1)
+		Input.action_release("pular")
+	await _esperar(0.3)
+	var fechou: bool = not get_tree().paused and (farol.get("_gira") as Node3D).visible and not m.hud.destino_final.is_finite()
+	_ok(not antes_f and depois_f and perto_base == 0 and perto_molas == 0 and perto_arcos == 0 and no_patio == 2 and botoes_mem == 2 and contas.contains("Memórias: 2 de 10")
+			and sem_convite and convite and pagina and fechou,
+		"relatórios: a Fundição só entra na bússola depois da visita (%s, %s); máquinas a menos de 150 m da base %d, perto da peça das molas %d, perto da memória dos Arcos %d, no Pátio %d; caderno com %d memórias (%s); farol sem convite antes (%s), com convite e rumo depois (%s), acende e para o jogo (%s), fecha e fica girando (%s)"
+			% [not antes_f, depois_f, perto_base, perto_molas, perto_arcos, no_patio, botoes_mem, contas, sem_convite, convite, pagina, fechou])
+	# desfaz
+	farol.aceso = false
+	(farol.get("_gira") as Node3D).visible = false
+	m.memorias.lidas = lidas0
+	m.hud.dica = ""
 	a.recomecar()
 	await _esperar(0.3)

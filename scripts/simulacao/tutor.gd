@@ -20,7 +20,7 @@ const SEQUENCIAS := {
 		["decolar", "segure  {pular}", "Segure para decolar"],
 		["voar", "{mover}  {olhar}", "Voe por dentro dos três aros"],
 		["calor", "", "O motor esquenta voando. Olhe o arco em volta da mira"],
-		["pousar", "{pular}", "Um toque desliga os jatos. Pouse para esfriar"],
+		["pousar", "{voar}", "Um toque desliga os jatos. Pouse para esfriar"],
 	],
 	"voo": [
 		["decolar", "segure  {pular}", "Decole"],

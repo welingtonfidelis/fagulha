@@ -17,6 +17,7 @@ const TEXTOS := {
 	"agua": "Na água:  {pular}  sobe,  {soltar}  desce. Ela esfria o motor",
 	"calor": "Motor quente: pouse, ou voe rente à água",
 	"memoria": "Um cristal de memória. Encoste nele para ler",
+	"farol": "Você leu todas as memórias. Há uma luz apagada no nordeste, no Cabo do Vento",
 	"maquina": "Uma máquina antiga. Elas não se quebram: desligam.  {mirar}  +  {atirar}",
 }
 

@@ -104,7 +104,7 @@ func _desenhar_bussola() -> void:
 	var meia := deg_to_rad(60.0)
 	var escala := 260.0 / meia  # pixels por radiano (faixa de 520 px)
 	# faixa escura atrás da bússola, para ler em céu claro
-	draw_rect(Rect2(cx - 260.0, y0 - 20.0, 520.0, 48.0), Color(0, 0, 0, 0.28))
+	draw_rect(Rect2(cx - 260.0, y0 - 20.0, 520.0, 48.0), Color(0, 0.03, 0.05, 0.46))
 	var letras := ["N", "L", "S", "O"]
 	for k in range(24):
 		var graus := k * 15
@@ -140,28 +140,62 @@ func _desenhar_bussola() -> void:
 	if alvo and Melhorias.base.is_finite():
 		var db := Melhorias.base - alvo.global_position
 		db.y = 0.0
-		if db.length() > 14.0:
-			var xb := cx + clampf(wrapf(atan2(db.x, -db.z) - rumo, -PI, PI), -meia, meia) * escala
+		var off_b := wrapf(atan2(db.x, -db.z) - rumo, -PI, PI)
+		if db.length() > 14.0 and absf(off_b) > meia:
+			_seta_da_ponta(cx, y0, signf(off_b), Color(1.0, 0.82, 0.5))
+		elif db.length() > 14.0:
+			var xb := cx + off_b * escala
 			var yb := y0 + 13.0
 			var cor_b := Color(1.0, 0.82, 0.5)
 			draw_colored_polygon(PackedVector2Array([Vector2(xb, yb - 9.0), Vector2(xb + 8.5, yb - 1.0), Vector2(xb - 8.5, yb - 1.0)]), cor_b)
 			draw_rect(Rect2(xb - 5.5, yb - 1.0, 11.0, 8.0), cor_b)
 			draw_rect(Rect2(xb - 1.5, yb + 2.0, 3.0, 5.0), Color(0, 0, 0, 0.55))
-	# a Fundição, onde há luta: uma caveirinha (some quando o robô já está nela)
-	if alvo and Fundicao.montada:
+	# a Fundição: uma engrenagem, só depois da primeira visita (antes era uma caveira sempre à vista, que
+	# puxava o jogador novo para a luta); some quando o robô já está nela
+	if alvo and Fundicao.montada and _fundicao_vista():
 		var df := Vector3(Fundicao.CENTRO.x, 0, Fundicao.CENTRO.y) - alvo.global_position
 		df.y = 0.0
-		if df.length() > Fundicao.RAIO:
-			var xf := cx + clampf(wrapf(atan2(df.x, -df.z) - rumo, -PI, PI), -meia, meia) * escala
-			var yf := y0 + 11.0
-			var osso := Color(1.0, 0.86, 0.82)
-			draw_circle(Vector2(xf, yf - 2.0), 7.5, osso)
-			draw_rect(Rect2(xf - 4.5, yf + 2.0, 9.0, 6.5), osso)
-			draw_circle(Vector2(xf - 3.0, yf - 2.0), 2.2, Color(0.1, 0.05, 0.05))
-			draw_circle(Vector2(xf + 3.0, yf - 2.0), 2.2, Color(0.1, 0.05, 0.05))
-			draw_rect(Rect2(xf - 0.7, yf + 1.0, 1.4, 2.4), Color(0.1, 0.05, 0.05))
-			for k in 2:
-				draw_rect(Rect2(xf - 2.2 + k * 3.0, yf + 4.5, 1.2, 4.0), Color(0.1, 0.05, 0.05))
+		var off_f := wrapf(atan2(df.x, -df.z) - rumo, -PI, PI)
+		var cor_f := Color(0.84, 0.86, 0.9)
+		if df.length() > Fundicao.RAIO and absf(off_f) > meia:
+			_seta_da_ponta(cx, y0 + 12.0, signf(off_f), cor_f)
+		elif df.length() > Fundicao.RAIO:
+			var cf := Vector2(cx + off_f * escala, y0 + 12.0)
+			for k in 8:
+				var ang := k * TAU / 8.0
+				draw_line(cf + Vector2(cos(ang), sin(ang)) * 5.0, cf + Vector2(cos(ang), sin(ang)) * 9.5, cor_f, 3.4)
+			draw_circle(cf, 6.6, cor_f)
+			draw_circle(cf, 2.6, Color(0.08, 0.1, 0.12))
+	if alvo and destino_final.is_finite():
+		var dd := destino_final - alvo.global_position
+		dd.y = 0.0
+		var off_d := wrapf(atan2(dd.x, -dd.z) - rumo, -PI, PI)
+		var sol_c := Color(1.0, 0.8, 0.35)
+		if absf(off_d) > meia:
+			_seta_da_ponta(cx, y0 + 12.0, signf(off_d), sol_c)
+		else:
+			var ps := Vector2(cx + off_d * escala, y0 + 12.0)
+			for k in 8:
+				var ang := k * TAU / 8.0
+				draw_line(ps + Vector2(cos(ang), sin(ang)) * 7.0, ps + Vector2(cos(ang), sin(ang)) * 11.0, sol_c, 2.0)
+			draw_circle(ps, 5.0, sol_c)
+	# as memórias ainda não lidas a menos de 300 m: um losango âmbar (como a antena faz com as peças)
+	if alvo and memorias:
+		for chave: String in memorias.onde:
+			if memorias.lidas.has(chave):
+				continue
+			var dm: Vector3 = memorias.onde[chave] - alvo.global_position
+			dm.y = 0.0
+			if dm.length() > 300.0 or dm.length() < 6.0:
+				continue
+			var off_m2 := wrapf(atan2(dm.x, -dm.z) - rumo, -PI, PI)
+			var ambar := Color(1.0, 0.72, 0.25)
+			if absf(off_m2) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_m2), ambar)
+			else:
+				var pm := Vector2(cx + off_m2 * escala, y0 + 12.0)
+				draw_colored_polygon(PackedVector2Array([pm + Vector2(0, -8), pm + Vector2(5.5, 0), pm + Vector2(0, 8), pm + Vector2(-5.5, 0)]), ambar)
+				draw_colored_polygon(PackedVector2Array([pm + Vector2(0, -3.5), pm + Vector2(2.4, 0), pm + Vector2(0, 3.5), pm + Vector2(-2.4, 0)]), Color(1, 0.95, 0.8))
 	# a antena de busca: um triângulo verde para cada peça que estiver por perto
 	if alvo:
 		for sinal in Melhorias.sinais:
@@ -175,6 +209,23 @@ func _desenhar_bussola() -> void:
 
 
 ## Nome do lugar no terço de cima: entra, fica e sai (alfa), com sombra leve para ler em céu claro.
+## O jogador já esteve na Fundição? (o lugar "A Fundição" consta como visitado)
+func _fundicao_vista() -> bool:
+	if locais == null:
+		return false
+	for it in locais.lista:
+		if it["nome"] == "A Fundição":
+			return bool(it.get("visto", false))
+	return false
+
+
+## Fora dos 120° da faixa, o lugar vira uma setinha na ponta do lado em que está (antes o ícone inteiro ficava
+## preso na ponta e parecia que o lugar estava sempre ali).
+func _seta_da_ponta(cx: float, y: float, lado: float, cor: Color) -> void:
+	var x := cx + lado * 252.0
+	draw_colored_polygon(PackedVector2Array([Vector2(x + lado * 6.0, y + 4.0), Vector2(x - lado * 3.0, y - 2.0), Vector2(x - lado * 3.0, y + 10.0)]), Color(cor, 0.9))
+
+
 func _desenhar_lugar() -> void:
 	if _tempo_lugar < 0.0:
 		return
@@ -208,6 +259,8 @@ var _arma_vista := 0.0
 var _arma_antes := ""
 
 
+var destino_final := Vector3.INF  # o Farol, quando as dez memórias foram lidas (FarolFinal): um sol âmbar na bússola
+var memorias: Memorias  # para a bússola mostrar as memórias não lidas por perto
 var conselho := ""  # a dica do drone colega (Dicas), acima do convite de botão
 var _conselho_t := 0.0
 var simples := false  # na simulação: sem bússola nem nome de lugar
@@ -393,15 +446,21 @@ func _draw() -> void:
 		var am := _mira_vista
 		if alvo.mirando_agora():
 			var cm := Color(1, 1, 1, 0.9 * am)
+			# contorno escuro por baixo: a mira branca sumia sobre o capim claro
+			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+				draw_line(c + d * 6.0, c + d * 17.0, Color(0, 0, 0, 0.55 * am), 5.0, true)
 			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 				draw_line(c + d * 7.0, c + d * 16.0, cm, 2.0, true)
 			var txt_d := "%d m" % roundi(alvo.global_position.distance_to(alvo.alvo_mira)) if alvo.alvo_mira_ok else ""
 			# a distância fica embaixo da mira (ao lado ficam os arcos da munição)
 			var wd := _fonte.get_string_size(txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-			draw_string(_fonte, c + Vector2(-wd * 0.5, 36), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.6 * am))
+			draw_string_outline(_fonte, c + Vector2(-wd * 0.5, 36), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color(0, 0, 0, 0.6 * am))
+			draw_string(_fonte, c + Vector2(-wd * 0.5, 36), txt_d, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.85 * am))
 		else:
+			draw_arc(c, 11.0, 0.0, TAU, 32, Color(0, 0, 0, 0.45 * am), 4.5, true)
+			draw_circle(c, 3.2, Color(0, 0, 0, 0.5 * am))
 			draw_circle(c, 2.0, Color(1, 1, 1, 0.9 * am))
-			draw_arc(c, 11.0, 0.0, TAU, 32, Color(1, 1, 1, 0.55 * am), 1.5, true)
+			draw_arc(c, 11.0, 0.0, TAU, 32, Color(1, 1, 1, 0.7 * am), 1.5, true)
 	# A munição fica ao lado da mira, em arco (pedido do usuário, 2026-11-18; antes eram marcas embaixo, perto
 	# do calor): os mísseis à direita, com os mísseis escolhidos e mirando; as granadas à esquerda, enquanto
 	# se segura o botão da granada. Um traço curvo por unidade: cheio o que resta, apagado o que foi gasto.
@@ -460,7 +519,7 @@ func _draw() -> void:
 		cor = cor.lerp(Color(1.0, 0.18, 0.12), smoothstep(0.82, 0.98, q))
 		if alvo.superaquecido:
 			cor = Color(1.0, 0.15, 0.1) if pisca else Color(0.5, 0.08, 0.05)
-		draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0, 0, 0, 0.35 * ac), 4.0, true)
+		draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0, 0, 0, 0.55 * ac), 8.0, true)  # trilho largo e escuro: o arco sumia sobre o capim
 		if _frio_visto > 0.01:
 			# o trilho inteiro em azul claro, por baixo do calor que ainda houver
 			draw_arc(centro, raio, meio - abre, meio + abre, 40, Color(0.55, 0.88, 1.0, 0.55 * _frio_visto * ac), 4.0, true)
@@ -501,5 +560,8 @@ func _draw() -> void:
 	if _voo_visto > 0.01:
 		var v := alvo.velocity.length() * 3.6
 		var base := Vector2(28.0, size.y - 34.0)
-		draw_string(_fonte, base, "%d km/h" % roundi(v), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.85 * _voo_visto))
-		draw_string(_fonte, base + Vector2(0, 18), "%d m do chão" % roundi(maxf(0.0, alvo.altura_do_chao())), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.6 * _voo_visto))
+		var txt_h := "%d m do chão" % roundi(maxf(0.0, alvo.altura_do_chao()))
+		draw_string_outline(_fonte, base, "%d km/h" % roundi(v), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 5, Color(0, 0, 0, 0.6 * _voo_visto))
+		draw_string(_fonte, base, "%d km/h" % roundi(v), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.95 * _voo_visto))
+		draw_string_outline(_fonte, base + Vector2(0, 19), txt_h, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.6 * _voo_visto))
+		draw_string(_fonte, base + Vector2(0, 19), txt_h, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.85 * _voo_visto))

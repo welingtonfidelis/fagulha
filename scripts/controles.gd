@@ -25,7 +25,7 @@ static func configurar() -> void:
 	for a in ["olhar_esquerda", "olhar_direita", "olhar_cima", "olhar_baixo"]:
 		InputMap.action_set_deadzone(a, 0.12)
 
-	# Pular / decolar / ligar o voo. No voo, um toque no X corta os jatos (igual ao L3).
+	# Pular / decolar / ligar o voo. No voo, só o toque no L3 corta os jatos (o X deixou de cortar em 2026-11-19).
 	_tecla("pular", [KEY_SPACE])
 	_botao("pular", JOY_BUTTON_A)
 	# Correr no chão e arrancada no voo: Shift segurado; L3 alterna (no chão, só andando).

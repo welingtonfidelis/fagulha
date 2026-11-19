@@ -12,10 +12,13 @@ const DORME := 290.0
 const LUGARES: Array = [
 	# o leste e o sudeste ficam sem máquinas hostis (decisão do usuário, 2026-11-18): as que moravam lá
 	# foram para as faixas novas do oeste, do noroeste e do sudoeste
-	[Vector2(-705, 60), 2, false], [Vector2(-1180, -320), 2, false],
+	# 2026-11-19, para a luta não ficar no caminho do sossego: a dupla dos Arcos foi para o Pátio das Máquinas
+	# (de -705, 60); o que ficava entre a base e a cachoeira (-250, -330) foi para o oeste; e o grande da
+	# Torre Caída (-655, 462) ficou a uns 125 m da peça das molas
+	[Vector2(-680, 190), 2, false], [Vector2(-1180, -320), 2, false],
 	[Vector2(-560, 300), 1, false], [Vector2(-1050, 780), 1, false], [Vector2(150, 620), 1, false],
-	[Vector2(-250, -330), 1, false], [Vector2(-480, -60), 1, false], [Vector2(-880, -1130), 1, false],
-	[Vector2(-655, 462), 1, true], [Vector2(-1150, 420), 1, true],
+	[Vector2(-860, -430), 1, false], [Vector2(-480, -60), 1, false], [Vector2(-880, -1130), 1, false],
+	[Vector2(-750, 500), 1, true], [Vector2(-1150, 420), 1, true],
 ]
 
 var mapa: Vale

@@ -79,6 +79,20 @@ func rodar(main: Node) -> void:
 		await _esperar(0.2)
 		await _foto("p4_teclado")
 		m.pausa._fechar_comandos()
+		# o caderno, com alguns lugares visitados e três memórias lidas
+		if m.locais:
+			for k in mini(9, m.locais.lista.size()):
+				m.locais.lista[k * 2 % m.locais.lista.size()]["visto"] = true
+		if m.memorias:
+			m.memorias.lidas = ["cachoeira", "serra", "arcos"]
+		Melhorias.escaneados = ["cervo", "raposa", "coelho"]
+		m.pausa._abrir_caderno()
+		await _esperar(0.3)
+		if m.pausa._caderno_memorias.get_child_count() > 1:
+			(m.pausa._caderno_memorias.get_child(1) as Button).grab_focus()
+		await _esperar(0.2)
+		await _foto("p7_caderno")
+		m.pausa._fechar_caderno()
 		Input.joy_connection_changed.emit(0, false)
 		await _esperar(0.2)
 		await _foto("p6_controle_desconectou")
@@ -1729,12 +1743,20 @@ func _largo() -> void:
 			["e09_saida_para_o_mar", fq.call(455.0, 0.0, 7.0), fq.call(540.0, 0.0, 6.0)]]
 		Melhorias.tudo = true
 		a.luz_ligada = "--farol" in OS.get_cmdline_user_args()
+	if "--farol-aceso" in OS.get_cmdline_user_args():
+		# o final: o farol girando (`--farol-aceso --hora 21` para ver de noite)
+		m.farol.call("_ligar")
+		var ft := MarcosLeste.farol_topo
+		vistas = [["g1_farol_de_perto", Vector3(ft.x - 70.0, 0, ft.z + 90.0), ft + Vector3(0, -6.0, 0)],
+			["g2_farol_de_longe", Vector3(ft.x - 420.0, 0, ft.z + 380.0), ft + Vector3(0, -20.0, 0)]]
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
 	for v: Array in vistas:
 		var de: Vector3 = v[1]
 		if de.y == 0.0:
 			de.y = c.altura(de.x, de.z) + 3.0
+		elif String(v[0]) == "v6_voo_baixo":
+			de.y = c.altura(de.x, de.z) + 10.0  # a altura fixa ficou debaixo do chão quando o relevo mudou
 		elif de.y < 4.0 and "--visual" in OS.get_cmdline_user_args():
 			de.y += c.altura(de.x, de.z)  # câmera baixa: a altura é acima do chão
 		# o robô vai junto, para as árvores perto dele aparecerem completas (no mar ele fica na praia mais

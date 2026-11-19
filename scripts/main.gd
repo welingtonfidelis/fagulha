@@ -32,6 +32,8 @@ var mato: EfeitosMato
 var ciclo: CicloDia
 var tiro: Tiro
 var sol: DirectionalLight3D
+var farol: FarolFinal
+var dicas_no: Dicas
 
 
 func _input(event: InputEvent) -> void:
@@ -258,6 +260,7 @@ func _ready() -> void:
 			memorias.hud = hud
 			memorias.pecas = pecas
 			add_child(memorias)
+			hud.memorias = memorias
 			if BaseVale.boca_cilindro.is_finite():
 				oficina = Oficina.new()
 				oficina.name = "Oficina"
@@ -329,7 +332,8 @@ func _ready() -> void:
 		var mecha := Mecha.new()
 		mecha.mapa = ilha
 		mecha.alvo = armadura
-		mecha.casa = Vector3(-62, ilha.altura(-62, -56), -56)
+		# (ficava em -62, -56, a 120 m da base e na direção natural da primeira caminhada; 2026-11-19)
+		mecha.casa = Vector3(-128, ilha.altura(-128, -118), -118)
 		mecha.semente = 5
 		add_child(mecha)
 		var peixes := Peixes.new()
@@ -363,6 +367,15 @@ func _ready() -> void:
 		dicas.pecas = pecas
 		dicas.memorias = memorias
 		add_child(dicas)
+		dicas_no = dicas
+	if ilha is Vale and memorias:
+		farol = FarolFinal.new()
+		farol.name = "FarolFinal"
+		farol.armadura = armadura
+		farol.hud = hud
+		farol.memorias = memorias
+		farol.dicas = dicas_no
+		add_child(farol)
 	if simulacao:
 		(ilha as SimMapa).alvo = armadura
 		hud.simples = true

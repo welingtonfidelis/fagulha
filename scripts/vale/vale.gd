@@ -1120,6 +1120,10 @@ func _plantas_do_chao() -> void:
 		var onde: Vector3 = (item[1] as Transform3D).origin
 		if not plantas_amostra.has(item[0]) and Vector2(onde.x, onde.z).length() > 150.0 and Vector2(onde.x, onde.z).length() < 500.0:
 			plantas_amostra[item[0]] = onde
+		# um seixo de margem, para a foto de conferência (vale também quando as plantas vêm do cache)
+		if not plantas_amostra.has("margem") and String(item[0]).begins_with("q_seixo") and Vector2(onde.x, onde.z).length() > 150.0 and Vector2(onde.x, onde.z).length() < 500.0 \
+				and (agua(onde.x + 4.0, onde.z) > -INF or agua(onde.x - 4.0, onde.z) > -INF or agua(onde.x, onde.z + 4.0) > -INF or agua(onde.x, onde.z - 4.0) > -INF):
+			plantas_amostra["margem"] = onde
 	var grupos := {}
 	for item in fila:
 		var xf: Transform3D = item[1]
