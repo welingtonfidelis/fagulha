@@ -133,9 +133,9 @@ func _rodar() -> void:
 	await _foto("s8_pousar")
 	# pousar: um toque corta os jatos
 	if a.estado == Armadura.Estado.VOO:
-		Input.action_press("pular")
+		Input.action_press("voar")
 		await _esperar(0.08)
-		Input.action_release("pular")
+		Input.action_release("voar")
 	_ok(await _fechou("pousar", 12.0), "pousar: tocar o chão fecha a lição (%s)" % a.nome_estado())
 	await _esperar(1.2)
 	_ok(tutor.acabou and tutor.feitas == Tutor.LICOES.size(), "as %d lições fecharam (%d)" % [Tutor.LICOES.size(), tutor.feitas])
