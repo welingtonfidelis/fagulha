@@ -77,6 +77,11 @@ func _ready() -> void:
 	for k in j:
 		if j[k] == null:
 			push_warning("junta não achada: " + k)
+	# o robô novo tem a junta da luva, que torce em torno do antebraço: as peças do antebraço vão presas nela
+	for lado in ["E", "D"]:
+		var luva := modelo.find_child("luva" + lado, true, false)
+		if luva != null:
+			j["luva" + lado] = luva
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
 	if MODELO.ends_with("robo_v1.glb") or MODELO.ends_with("robo_v2.glb"):
@@ -649,11 +654,12 @@ func atualizar(delta: float, a: Armadura) -> void:
 	else:
 		for k in j:
 			var no: Node3D = j[k]
-			if no == null or k.begins_with("aleta"):
+			if no == null or k.begins_with("aleta") or k.begins_with("luva"):
 				continue
 			var alvo: Vector3 = _alvos.get(k, Vector3.ZERO)
 			no.rotation = no.rotation.lerp(alvo, t)
 		_torcer_luvas(delta, a)
+		_olhos(delta, a)
 		(j["raiz"] as Node3D).position.y = lerpf((j["raiz"] as Node3D).position.y, _raiz_y + bob, t)
 		# aletas abrem como asas ao planar
 		var ab := smoothstep(0.0, 1.0, abertura_aletas)
@@ -729,6 +735,63 @@ var _lamina_no: MeshInstance3D
 
 
 ## A lâmina de laser: sai da mão direita, ao longo do braço, só enquanto dura o golpe.
+## Os olhos de tela do robô novo (juntas `olhoE` e `olhoD`, uma no meio de cada olho): piscam de tempos em
+## tempos, estreitam na mira, balançam tontos com o motor superaquecido e ficam caídos, quase fechados, em pane.
+## `olhar` diz qual expressão está valendo (testes e fotos); `expressao_forcada` fixa uma (fotos).
+var olhar := "normal"
+var expressao_forcada := ""
+var _olho_nos := {}
+var _pisca_em := 2.0
+var _pisca_t := 0.0
+var _olho_tempo := 0.0
+
+
+func _olhos(delta: float, a: Armadura) -> void:
+	if _olho_nos.is_empty():
+		for lado: String in ["E", "D"]:
+			_olho_nos[lado] = modelo.find_child("olho" + lado, true, false)
+	if not (_olho_nos["E"] is Node3D) or not (_olho_nos["D"] is Node3D):
+		return
+	_olho_tempo += delta
+	olhar = "normal"
+	if a.em_pane:
+		olhar = "pane"
+	elif a.superaquecido:
+		olhar = "tonto"
+	elif a.mirando_agora() or a.atirando > 0.0 or a.espada_t > 0.0:
+		olhar = "foco"
+	if expressao_forcada != "":
+		olhar = expressao_forcada
+	# piscar: fecha por um instante, a intervalos desiguais (em pane não pisca: já está quase fechado)
+	_pisca_em -= delta
+	if _pisca_em <= 0.0:
+		_pisca_em = randf_range(2.2, 5.5)
+		_pisca_t = 0.13
+	_pisca_t = maxf(0.0, _pisca_t - delta)
+	for lado: String in ["E", "D"]:
+		var no := _olho_nos[lado] as Node3D
+		var s := 1.0 if lado == "E" else -1.0
+		var alto := 1.0
+		var largo := 1.0
+		var giro := 0.0
+		match olhar:
+			"pane":
+				alto = 0.22
+				largo = 1.15
+				giro = -0.3 * s  # caídos para fora
+			"tonto":
+				alto = 0.75 + 0.2 * sin(_olho_tempo * 7.0 + s)
+				giro = 0.55 * sin(_olho_tempo * 5.0) * s + 0.25 * sin(_olho_tempo * 9.0)
+			"foco":
+				alto = 0.6
+				largo = 1.1
+				giro = 0.16 * s  # franzidos para dentro
+		if _pisca_t > 0.0 and olhar != "pane":
+			alto = 0.08
+		var t := 1.0 - exp(-22.0 * delta)
+		no.scale = no.scale.lerp(Vector3(largo, alto, 1.0), t)
+		no.rotation.z = lerp_angle(no.rotation.z, giro, t)
+
 ## As luvas do robô novo (juntas `luvaE` e `luvaD`): em descanso ficam torcidas 90 graus em torno do antebraço,
 ## com o polegar para a frente e a mão aberta; para mirar, atirar ou golpear a luva destorce, a mão fecha e o
 ## cano da luva aponta para a frente.

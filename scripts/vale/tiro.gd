@@ -455,7 +455,7 @@ func _espada(delta: float) -> void:
 	golpes_espada += 1
 	var yaw: float = armadura.camera.yaw if armadura.camera else armadura.rotation.y
 	var frente := Vector3(-sin(yaw), 0, -cos(yaw))
-	armadura.velocity += frente * 3.5
+	# (o golpe não empurra mais o robô para a frente: ele golpeia de onde está)
 	armadura.atirando = maxf(armadura.atirando, float(e["tempo"]))
 	var meio := armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.5, 0)
 	var cor := Color(0.4, 0.95, 1.0)

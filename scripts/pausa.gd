@@ -85,6 +85,10 @@ var _caderno_memorias: GridContainer
 var _caderno_texto: Label
 var _caderno_scanner: Label
 var _voltar_caderno: Button
+var abertura := false  # a pausa fazendo de tela de abertura (ao abrir o jogo): Continuar ou Começar, Novo jogo, Ajustes, Sair
+var _botao_novo: Button
+var _botao_mundo: Button
+var _novo_armado := 0.0
 var avisos_controle := 0  # quantas vezes a pausa abriu por o controle ter desconectado (testes)
 
 
@@ -117,13 +121,15 @@ func _ready() -> void:
 	_inicio.add_theme_constant_override("separation", 10)
 	pilha.add_child(_inicio)
 	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true)
+	_botao_novo = _botao(_inicio, "Novo jogo", "apaga o progresso e começa do zero", _novo_jogo)
+	_botao_novo.visible = false
 	if na_simulacao:
-		_botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false))
+		_botao_mundo = _botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false))
 	_botao_voltar = _botao(_inicio, "Voltar ao começo" if na_simulacao else "Voltar à base", "reaparece no começo" if na_simulacao else "reaparece na base", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
 	if not na_simulacao:
 		_botao_caderno = _botao(_inicio, "Caderno", "lugares, memórias e o que o scanner leu", _abrir_caderno)
-		_botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true))
+		_botao_mundo = _botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true))
 	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes)
 	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair)
 	# página de ajustes
@@ -355,11 +361,61 @@ func _apagar() -> void:
 		# o jogo fecha e abre sozinho, já limpo: as peças, armas e lugares vivem espalhados na memória de muitas
 		# partes do jogo, e reabrir é o jeito seguro de zerar tudo de uma vez
 		if DisplayServer.get_name() != "headless":
-			OS.set_restart_on_exit(true, OS.get_cmdline_args())
-			get_tree().quit()
+			_reabrir_sem_abertura()
 		return
 	_apagar_armado = 4.0
 	_botao_apagar.text = "Apagar tudo e recomeçar? Aperte de novo"
+
+
+## Fecha o jogo e abre de novo, já limpo e sem passar pela tela de abertura.
+func _reabrir_sem_abertura() -> void:
+	var a := PackedStringArray()
+	for x in OS.get_cmdline_args():
+		if x != "--sem-abertura":
+			a.append(x)
+	a.append("--sem-abertura")
+	OS.set_restart_on_exit(true, a)
+	get_tree().quit()
+
+
+## Tem partida guardada? (algum lugar visitado, peça achada ou a simulação já vista)
+static func tem_partida() -> bool:
+	if not Guardado.ativo:
+		return false
+	return bool(Guardado.progresso("simulacao_vista")) or not (Guardado.progresso("lugares") as Array).is_empty() or not (Guardado.progresso("pecas") as Array).is_empty()
+
+
+## A tela de abertura: a mesma pausa, com o nome do jogo e só o que faz sentido antes de jogar.
+func abrir_abertura() -> void:
+	_abrir()
+	abertura = true
+	var tem := tem_partida()
+	_titulo.text = "Faísca 2"
+	_titulo.add_theme_color_override("font_color", LARANJA)
+	_subtitulo.text = "Em Busca do Sossego"
+	_primeiro.text = "Continuar" if tem else "Começar"
+	(_primeiro.get_node("explica") as Label).text = "de onde você parou" if tem else "acorda o robô"
+	_botao_novo.visible = tem
+	_botao_novo.text = "Novo jogo"
+	_novo_armado = 0.0
+	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
+		if b:
+			b.visible = false
+	_dica.visible = false
+	_primeiro.grab_focus()
+
+
+## Novo jogo pede um segundo toque: apaga o progresso e o jogo reabre limpo.
+func _novo_jogo() -> void:
+	if _novo_armado > 0.0:
+		_novo_armado = 0.0
+		Guardado.recomecar_progresso()
+		_botao_novo.text = "Começando..."
+		if DisplayServer.get_name() != "headless":
+			_reabrir_sem_abertura()
+		return
+	_novo_armado = 4.0
+	_botao_novo.text = "Apagar o progresso e começar de novo? Aperte de novo"
 
 
 func _abrir_ajustes() -> void:
@@ -499,6 +555,15 @@ func _abrir() -> void:
 	_inicio.visible = true
 	_sair_armado = 0.0
 	_botao_sair.text = "Sair do jogo"
+	# desfaz o que a tela de abertura mudou
+	abertura = false
+	_primeiro.text = "Continuar"
+	(_primeiro.get_node("explica") as Label).text = "volta ao jogo"
+	_botao_novo.visible = false
+	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
+		if b:
+			b.visible = true
+	_dica.visible = true
 	_titulo.text = "Pausa"
 	_titulo.add_theme_color_override("font_color", TINTA)
 	_subtitulo.text = SUBTITULO
@@ -534,6 +599,10 @@ func _process(delta: float) -> void:
 		_apagar_armado -= delta
 		if _apagar_armado <= 0.0 and _botao_apagar:
 			_botao_apagar.text = "Apagar o progresso e recomeçar"
+	if _novo_armado > 0.0:
+		_novo_armado -= delta
+		if _novo_armado <= 0.0 and _botao_novo:
+			_botao_novo.text = "Novo jogo"
 	if _sair_armado > 0.0:
 		_sair_armado -= delta
 		if _sair_armado <= 0.0 and _botao_sair:

@@ -8,6 +8,7 @@ extends Node3D
 static var mapa := ""
 static var simulacao := false  # rodando o tutorial (o mundo vazio "dentro da cabeça do robô")
 static var pedido := ""  # "sim" ou "mundo": o que montar ao recarregar a cena (trocar_mundo)
+static var abertura_vista := false  # a tela de abertura já apareceu neste processo
 static var mundo_montado := false  # o vale já foi montado neste processo (montar de novo pede reabrir o jogo)
 
 var ilha: Ilha
@@ -425,6 +426,10 @@ func _ready() -> void:
 
 	if carga != null:
 		carga.fechar()
+	# a tela de abertura: uma vez por vez que o jogo abre (não na volta da simulação nem depois de recomeçar)
+	if Guardado.ativo and not abertura_vista and not ("--sem-abertura" in OS.get_cmdline_args()) and DisplayServer.get_name() != "headless":
+		abertura_vista = true
+		_abrir_abertura()
 	if "--teste" in args:
 		var t := Testes.new()
 		add_child(t)
@@ -467,6 +472,17 @@ func _ceu_da_simulacao() -> void:
 		sol.rotation_degrees = Vector3(-52.0, 150.0, 0.0)
 
 
+## A abertura espera um instante: o robô é posto onde parou e a câmera assenta atrás dele, para a tela abrir
+## sobre a paisagem (pausando no primeiro quadro, a câmera ainda estava no meio do mar).
+func _abrir_abertura() -> void:
+	armadura.travado = true
+	for i in 45:
+		await get_tree().process_frame
+	armadura.travado = false
+	if pausa and pausa.pode_abrir():
+		pausa.abrir_abertura()
+
+
 ## Vai da simulação para o mundo ou do mundo para a simulação. A cena é recarregada; só montar o vale pela
 ## segunda vez no mesmo processo é que pede reabrir o jogo (muita coisa dele vive em variáveis estáticas).
 func trocar_mundo(para_sim: bool) -> void:
@@ -480,7 +496,9 @@ func trocar_mundo(para_sim: bool) -> void:
 		for x in OS.get_cmdline_args():
 			if x == "--":
 				break
-			a.append(x)
+			if x != "--sem-abertura":
+				a.append(x)
+		a.append("--sem-abertura")
 		OS.set_restart_on_exit(true, PackedStringArray(a))
 		get_tree().quit()
 		return

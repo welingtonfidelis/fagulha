@@ -1903,14 +1903,16 @@ func _ponto_32() -> void:
 		mx.pose_foto = 0
 	await _esperar(0.3)
 	var lado0: float = a.espada_lado
+	var onde0: Vector3 = a.global_position
 	await _apertar("espada")
 	await _esperar(0.1)
 	var acesa: bool = a.espada_t > 0.0 and a.espada_lado == -lado0
 	await _esperar(0.5)
 	await _apertar("espada")
 	await _esperar(0.15)
-	_ok(acesa and m.tiro.golpes_espada == 2 and a.espada_lado == lado0 and me1.calor > 30.0 and me2.calor == 0.0 and a.calor < 1.0,
-		"espada: dois golpes, um de cada lado; a mecha da frente esquentou (%.0f), a de trás não, e o motor do robô não aqueceu" % me1.calor)
+	var andou_e: float = Vector2(a.global_position.x - onde0.x, a.global_position.z - onde0.z).length()
+	_ok(acesa and m.tiro.golpes_espada == 2 and a.espada_lado == lado0 and me1.calor > 30.0 and me2.calor == 0.0 and a.calor < 1.0 and andou_e < 0.05,
+		"espada: dois golpes, um de cada lado; a mecha da frente esquentou (%.0f), a de trás não, o motor do robô não aqueceu e ele não saiu do lugar (%.2f m)" % [me1.calor, andou_e])
 	me1.queue_free()
 	me2.queue_free()
 	await _esperar(0.5)
@@ -2481,10 +2483,31 @@ func _ponto_37() -> void:
 	await _esperar(0.8)
 	var mira_d: float = rad_to_deg(luva.rotation.y) if luva else 999.0
 	var mira_e: float = rad_to_deg(luva_e.rotation.y) if luva_e else 999.0
+	var olhar_mira: String = vis.olhar
+	var dedos := vis.modelo.find_child("dedosD", true, false) as Node3D
+	var punho_fechado: bool = dedos != null and rad_to_deg(dedos.rotation.x) > 90.0
 	Input.action_release("mirar")
 	await _esperar(0.8)
 	var volta_d: float = rad_to_deg(luva.rotation.y) if luva else 999.0
+	var mao_aberta: bool = dedos != null and absf(rad_to_deg(dedos.rotation.x)) < 5.0
+	var boca_ok: bool = vis.boca_da_arma(false) != null and vis.boca_da_arma(true) != null
+	_ok(olhar_mira == "foco" and vis.olhar == "normal" and punho_fechado and mao_aberta and boca_ok,
+		"mão e olhos: mirando, o olhar é '%s' e o punho fecha (%s); soltando, o olhar volta a '%s' e a mão abre (%s); os dois canos de tiro existem (%s)" % [olhar_mira, punho_fechado, vis.olhar, mao_aberta, boca_ok])
 	_ok(absf(descanso_d + 90.0) < 2.0 and absf(descanso_e - 90.0) < 2.0 and absf(mira_d) < 2.0 and absf(mira_e - 90.0) < 2.0 and absf(volta_d + 90.0) < 2.0,
 		"luvas: em descanso torcidas %.0f e %.0f graus; mirando, a direita fica reta (%.0f) e a esquerda segue torcida (%.0f); soltando a mira, volta (%.0f)" % [descanso_d, descanso_e, mira_d, mira_e, volta_d])
+	# a tela de abertura é a pausa com outro rosto: para o jogo, esconde o que é de dentro da partida e, ao
+	# continuar, a pausa volta ao normal
+	var pz: Pausa = m.pausa
+	pz.abrir_abertura()
+	await _esperar(0.2)
+	var ab_ok: bool = pz.visible and pz.abertura and get_tree().paused and pz.get("_titulo").text == "Faísca 2" and not (pz.get("_botao_voltar") as Button).visible and (pz.get("_primeiro") as Button).text == "Começar"
+	pz.call("_continuar")
+	await _esperar(0.4)
+	pz.call("_abrir")
+	await _esperar(0.1)
+	var volta_ok: bool = not pz.abertura and pz.get("_titulo").text == "Pausa" and (pz.get("_botao_voltar") as Button).visible and not (pz.get("_botao_novo") as Button).visible
+	pz.call("_continuar")
+	await _esperar(0.4)
+	_ok(ab_ok and volta_ok and not get_tree().paused, "tela de abertura: abre com o nome do jogo e 'Começar' sem partida guardada (%s); depois a pausa volta ao normal (%s)" % [ab_ok, volta_ok])
 	_ok(novo and faltam == 0 and vis.chamas.size() == 4 and tres and vazios and solidos,
 		"robô redesenhado: é o modelo do jogo (%s), juntas que faltam %d, chamas %d; baia com três cilindros (%s), vazios (%s) e sólidos (%s)" % [novo, faltam, vis.chamas.size(), tres, vazios, solidos])

@@ -107,6 +107,29 @@ static func _desloca(junta: String) -> Vector3:
 	return Vector3(-d.x * lado, d.z, d.y)
 
 
+## Âncora das peças do antebraço. No robô novo elas vão na junta da luva (`luvaE`/`luvaD`), que torce em torno
+## do antebraço, e por isso giram junto com ela; as posições continuam as medidas no robô anterior.
+static func _ancora_braco(v: ArmaduraVisual, lado: String) -> Node3D:
+	if not (v.j.get("luva" + lado) is Node3D):
+		return _ancora(v, "cotovelo" + lado)
+	var no := _ancora(v, "luva" + lado)
+	var g := Node3D.new()
+	g.position = _desloca("cotovelo" + lado) / (ArmaduraVisual.ALTURA_ALVO * Armadura.porte)
+	no.add_child(g)
+	return g
+
+
+## Mostra ou esconde o cano fixo de uma luva (com uma arma encaixada, é o cano da arma que aparece).
+static func _cano_da_luva(v: ArmaduraVisual, lado: String, visivel: bool) -> void:
+	var luva = v.j.get("luva" + lado)
+	if not (luva is Node3D):
+		return
+	for n in (luva as Node3D).find_children("*", "MeshInstance3D", true, false):
+		var nome := String(n.name)
+		if (nome.begins_with("cano") and not nome.begins_with("cano_base")) or nome.begins_with("luz_arma"):
+			(n as MeshInstance3D).visible = visivel
+
+
 ## Guarda onde cada junta está na pose de descanso (chamar logo que o robô é criado): as peças são
 ## postas em relação a isso, então podem ser vestidas depois, com o robô em qualquer pose.
 static func preparar(v: ArmaduraVisual) -> void:
@@ -125,6 +148,8 @@ static func limpar(v: ArmaduraVisual) -> void:
 			if is_instance_valid(no):
 				(no as Node).queue_free()
 		v.set_meta("ancoras", [])
+	for lado in ["E", "D"]:
+		_cano_da_luva(v, lado, true)
 	for n in v.modelo.find_children("brasa_pe*", "MeshInstance3D", true, false):
 		(n as MeshInstance3D).visible = true
 	var alfa := v.mat_chama.albedo_color.a
@@ -528,7 +553,11 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 		"arma_rajada", "arma_canhao", "arma_precisao", "arma_duplo":
 			# a ponta do braço muda com a arma: os canos vão ao longo do antebraço e passam da mão
 			for s in ([1.0, -1.0] if nome == "arma_duplo" else [1.0]):
-				var g := _grupo(_ancora(v, "cotoveloD" if s > 0.0 else "cotoveloE"), Vector3(s * 0.204, 0.39, -0.062))
+				var lado_arma := "D" if s > 0.0 else "E"
+				var novo: bool = v.j.get("luva" + lado_arma) is Node3D
+				# no robô novo a arma encaixa por cima da base do cano da luva, um pouco mais à frente
+				var g := _grupo(_ancora_braco(v, lado_arma), Vector3(s * 0.204, 0.37 if novo else 0.39, -0.094 if novo else -0.062))
+				_cano_da_luva(v, lado_arma, false)
 				match nome:
 					"arma_rajada":
 						_caixa(g, Vector3(0.05, 0.06, 0.03), Vector3(0, 0.03, 0.006), _mat(ESCURO))
@@ -587,14 +616,14 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 		"escudo":
 			# o escudo de energia: um disco emissor por fora do antebraço esquerdo, como um broquel; aceso quando
 			# está pronto
-			var g := _grupo(_ancora(v, "cotoveloE"), Vector3(-0.252, 0.43, 0.0), Vector3(0, 0, 90))
+			var g := _grupo(_ancora_braco(v, "E"), Vector3(-0.268 if v.j.get("luvaE") is Node3D else -0.252, 0.43, 0.0), Vector3(0, 0, 90))
 			_cil(g, 0.05, 0.05, 0.014, Vector3.ZERO, _mat(ESCURO))
 			_cil(g, 0.054, 0.054, 0.005, Vector3(0, 0.004, 0), _mat(CLARO))
 			nos.append(_cil(g, 0.036, 0.036, 0.005, Vector3(0, 0.009, 0), _mat(Color(0.35, 0.95, 0.85), 2.6)))
 			nos.append(g)
 		"mira":
 			# um aro com um ponto vermelho no punho direito, o braço que atira
-			var g := _grupo(_ancora(v, "cotoveloD"), Vector3(0.204, 0.4, -0.004))
+			var g := _grupo(_ancora_braco(v, "D"), Vector3(0.204, 0.4, -0.004))
 			_cil(g, 0.052, 0.052, 0.014, Vector3.ZERO, _mat(ESCURO))
 			_cil(g, 0.054, 0.054, 0.005, Vector3(0, 0.004, 0), _mat(VERDE))
 			nos.append(_bola(g, 0.011, Vector3(0, 0, -0.055), _mat(Color(1.0, 0.25, 0.2), 3.0)))
