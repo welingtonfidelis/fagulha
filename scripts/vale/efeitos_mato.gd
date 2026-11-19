@@ -111,6 +111,15 @@ func _ready() -> void:
 		armadura.estado_mudou.connect(_ao_mudar_estado)
 
 
+func _process(_delta: float) -> void:
+	# o capim abre onde o robô pisa (vale_capim.gdshader): inteiro no chão, sumindo até 2 m de altura
+	if armadura == null or mapa == null:
+		return
+	var p := armadura.global_position
+	var chao := mapa.altura(p.x, p.z)
+	RenderingServer.global_shader_parameter_set("robo_capim", Vector4(p.x, chao, p.z, 1.0 - smoothstep(0.3, 2.0, p.y - chao)))
+
+
 func _physics_process(delta: float) -> void:
 	if armadura == null or mapa == null:
 		return

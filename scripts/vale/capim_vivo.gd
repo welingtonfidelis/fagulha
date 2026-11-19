@@ -203,10 +203,14 @@ func _soltar(chave: Vector2i) -> void:
 	if cap_perto != null:
 		touceiras -= cap_perto.multimesh.instance_count
 		cap_perto.queue_free()
+	var alto: MultiMeshInstance3D = par[3] if par.size() > 3 else null
+	if alto != null:
+		touceiras -= alto.multimesh.instance_count
+		alto.queue_free()
 	if flo != null:
 		flores -= flo.multimesh.instance_count
 		flo.queue_free()
-	if cap != null or flo != null or cap_perto != null:
+	if cap != null or flo != null or cap_perto != null or alto != null:
 		blocos_vivos -= 1
 	_blocos.erase(chave)
 
@@ -262,11 +266,13 @@ func _criar(chave: Vector2i) -> void:
 			ncob[j * n + i] = mapa.cobertura(px, pz)
 			nny[j * n + i] = 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
 	var ts: Array = []
+	var altos: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semente(chave, 1)
-	var passo := BLOCO / GRADE_CAPIM
-	for j in GRADE_CAPIM:
-		for i in GRADE_CAPIM:
+	var grade := roundi(GRADE_CAPIM / Clareira.TUFO_PASSO) if Clareira.mata_nova() else GRADE_CAPIM
+	var passo := BLOCO / grade
+	for j in grade:
+		for i in grade:
 			var px := clampf(x0 + (i + 0.5) * passo + rng.randf_range(-0.2, 0.2), x0, x0 + BLOCO - 0.001)
 			var pz := clampf(z0 + (j + 0.5) * passo + rng.randf_range(-0.2, 0.2), z0, z0 + BLOCO - 0.001)
 			var k := clampi(roundi((pz - z0) / AMOSTRA), 0, n - 1) * n + clampi(roundi((px - x0) / AMOSTRA), 0, n - 1)
@@ -278,6 +284,12 @@ func _criar(chave: Vector2i) -> void:
 			var s := rng.randf_range(0.75, 1.5)
 			var hy := rng.randf_range(0.8, 1.35)
 			var giro := rng.randf() * TAU
+			# manchas de capim alto: metade dos tufos da mancha, do modelo comprido
+			if mapa.capim_alto_malha != null and _ruido.get_noise_2d(px * 4.0 + 300.0, pz * 4.0 - 170.0) > 0.32:
+				if (i + j) % 2 == 0:
+					altos.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * rng.randf_range(0.85, 1.2), s)),
+						Vector3(px - cc.x, h - 0.03 - cy, pz - cc.y)))
+				continue
 			ts.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * hy, s)),
 				Vector3(px - cc.x, h - 0.03 - cy, pz - cc.y)))
 	var tf: Array = []
@@ -326,8 +338,12 @@ func _criar(chave: Vector2i) -> void:
 	if not tf.is_empty():
 		flo = _mmi(_malha_flor, tf, cf, Vector3(cc.x, cy, cc.y))
 		flores += tf.size()
-	_blocos[chave] = [cap, flo, cap_perto]
-	if cap != null or flo != null or cap_perto != null:
+	var alto: MultiMeshInstance3D = null
+	if not altos.is_empty():
+		alto = _mmi(mapa.capim_alto_malha, altos, [], Vector3(cc.x, cy, cc.y))
+		touceiras += altos.size()
+	_blocos[chave] = [cap, flo, cap_perto, alto]
+	if cap != null or flo != null or cap_perto != null or alto != null:
 		blocos_vivos += 1
 
 

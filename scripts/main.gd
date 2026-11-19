@@ -117,6 +117,10 @@ func _ready() -> void:
 			lente.dof_blur_amount = 0.03
 			camera.cam.attributes = lente
 			add_child(PoeiraLuz.new())
+			if Clareira.mata_nova():
+				var petalas := PetalasAr.new()
+				petalas.mapa = ilha
+				add_child(petalas)
 	var camada := CanvasLayer.new()
 	add_child(camada)
 	hud = Hud.new()

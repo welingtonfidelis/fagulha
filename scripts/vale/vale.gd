@@ -1042,12 +1042,12 @@ func _plantas_do_chao() -> void:
 							tipo = "q_flor_c" if qual < 0.3 else "q_flor_d"
 						s = 0.25
 					elif sorte < 0.05:
-						tipo = ["q_planta_c", "q_planta_d", "q_trevo"][int(qual * 3.0) % 3]
+						tipo = ["q_planta_c", "q_planta_d", "q_trevo", "q_trevo_b"][int(qual * 4.0) % 4]
 						s = 0.6
-					elif sorte < 0.062:
-						tipo = "q_seixo_a" if qual < 0.5 else "q_seixo_b"
+					elif sorte < 0.07:
+						tipo = "q_seixo_" + "abcdefghijk"[int(qual * 11.0) % 11]
 						s = 1.6
-					elif sorte < 0.068:
+					elif sorte < 0.076:
 						tipo = "q_pedra"
 				elif c == 1 or c == 2:
 					if sorte < 0.2:
@@ -1061,6 +1061,13 @@ func _plantas_do_chao() -> void:
 						s = 0.8
 					elif sorte < 0.287:
 						tipo = "q_pedra"
+					elif sorte < 0.305:
+						tipo = "q_orelha"  # o cogumelo de tronco, em tufos no chão da mata
+						s = 0.55
+				# beira d'água (rio, lagoa, mar): cascalho de lajes soltas no lugar do que cresceria ali
+				if sorte > 0.45 and (agua(px + 4.0, pz) > -INF or agua(px - 4.0, pz) > -INF or agua(px, pz + 4.0) > -INF or agua(px, pz - 4.0) > -INF):
+					tipo = "q_laje_" + "abcdefghij"[int(qual * 10.0) % 10]
+					s = 0.9
 				if tipo == "":
 					continue
 				if tipo == "q_pedra":

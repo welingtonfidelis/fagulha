@@ -222,6 +222,22 @@ func _materiais() -> void:
 	_mats["q_cogumelo"] = _tex_q("cogumelo.png", Color(0.85, 0.8, 0.75), 0.0, 0.0)
 	_mats["q_moita"] = _tex_q("moita.png", folha_q, 0.4, 0.4, 0.5)
 	_mats["q_leaves_normaltree"] = _mats["q_moita"]
+	# teste da mata: as árvores de tronco torto (a textura das folhas é branca, a cor é a tinta)
+	_mats["q_casca_torta"] = _tex_q("casca_torta.jpg", Color(0.66, 0.58, 0.52), 0.0, 0.0)
+	_mats["q_folha_torta"] = _tex_q("folha_torta.png", Color(0.33, 0.50, 0.20), 0.4, 1.0)
+	# as árvores de folha larga do mesmo pacote (CommonTree), no lugar das de copa "de bloco"
+	_mats["q_casca_comum"] = _tex_q("casca_comum.jpg", Color(0.50, 0.50, 0.50), 0.0, 0.0)
+	_mats["q_folha_comum"] = _tex_q("folha_comum.png", Color(0.30, 0.47, 0.19), 0.4, 1.0)
+	_mats["q_folha_comum_vinho"] = _tex_q("folha_comum.png", Color(0.50, 0.16, 0.14), 0.4, 1.0)
+	_mats["q_folha_comum_laranja"] = _tex_q("folha_comum.png", Color(0.66, 0.36, 0.10), 0.4, 1.0)
+	_mats["q_folha_pinho"] = _tex_q("folha_pinho.png", Color(0.17, 0.36, 0.19), 0.4, 1.0)
+	_mats["q_casca_seca"] = _tex_q("casca_seca.jpg", Color(0.66, 0.62, 0.58), 0.0, 0.0)
+	# a forma que só projeta sombra (nunca aparece): sem textura, sem recorte, sem vento
+	var so_sombra := Shader.new()
+	so_sombra.code = "shader_type spatial;\nrender_mode unshaded;\nvoid fragment() {\n\tALBEDO = vec3(0.0);\n}\n"
+	var mat_sombra := ShaderMaterial.new()
+	mat_sombra.shader = so_sombra
+	_mats["q_sombra"] = mat_sombra
 	_mats["q_pedra"] = _tex_q("pedra.png", Color(0.62, 0.63, 0.66), 0.0, 0.0)
 	_mats["q_seixo"] = _tex_q("seixo.png", Color(0.62, 0.63, 0.66), 0.0, 0.0)
 
@@ -348,6 +364,8 @@ func _modelos() -> void:
 	for nome: String in Q_ARVORES:
 		_modelo_q(nome, nome, {})
 		_modelo_q(nome + "_longe", nome + "_longe", {})
+	for nome: String in Q_SOMBRA:
+		_modelo_q(nome + "_sombra", nome + "_sombra", {})
 	for nome: String in Q_PLANTAS:
 		_modelo_q(nome, nome, {})
 	# a mesma árvore com outra folhagem
@@ -358,14 +376,35 @@ func _modelos() -> void:
 
 
 const Q_ARVORES := ["q_arvore_a", "q_arvore_b", "q_arvore_c", "q_arvore_d", "q_betula_a", "q_betula_b", "q_betula_c",
-	"q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c", "q_morta_a", "q_morta_b", "q_morta_c"]
+	"q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c", "q_morta_a", "q_morta_b", "q_morta_c", "q_torta_a", "q_torta_b", "q_torta_c",
+	"q_comum_a", "q_comum_b", "q_comum_c", "q_comum_d", "q_comum_e", "q_torta_d", "q_torta_e",
+	"q_pinheiro_n_a", "q_pinheiro_n_b", "q_pinheiro_n_c", "q_pinheiro_n_d", "q_pinheiro_n_e",
+	"q_seca_a", "q_seca_b", "q_seca_c", "q_seca_d", "q_seca_e"]
 const Q_PLANTAS := ["q_samambaia", "q_planta_a", "q_planta_b", "q_planta_c", "q_planta_d", "q_flor_a", "q_flor_b", "q_flor_c",
-	"q_flor_d", "q_cogumelo", "q_moita", "q_moita_flor", "q_trevo", "q_pedra_a", "q_pedra_b", "q_pedra_c", "q_seixo_a", "q_seixo_b"]
+	"q_flor_d", "q_cogumelo", "q_moita", "q_moita_flor", "q_trevo", "q_pedra_a", "q_pedra_b", "q_pedra_c", "q_seixo_a", "q_seixo_b",
+	"q_trevo_b", "q_orelha", "q_laje_a", "q_laje_b", "q_laje_c", "q_laje_d", "q_laje_e", "q_laje_f", "q_laje_g", "q_laje_h", "q_laje_i",
+	"q_laje_j", "q_seixo_c", "q_seixo_d", "q_seixo_e", "q_seixo_f", "q_seixo_g", "q_seixo_h", "q_seixo_i", "q_seixo_j", "q_seixo_k"]
+## As árvores do MegaKit têm a copa em placas de folha com recorte, que pesavam uns 20% do fps só no mapa de
+## sombra. Elas não projetam sombra: quem projeta é uma forma simples e opaca de cada uma (`_sombra`), que só
+## existe no mapa de sombra.
+const Q_SOMBRA := ["q_torta_a", "q_torta_b", "q_torta_c", "q_torta_d", "q_torta_e", "q_comum_a", "q_comum_b", "q_comum_c", "q_comum_d",
+	"q_comum_e", "q_pinheiro_n_a", "q_pinheiro_n_b", "q_pinheiro_n_c", "q_pinheiro_n_d", "q_pinheiro_n_e", "q_betula_a", "q_betula_b", "q_betula_c"]
+
+
+static func sombra_de(nome: String) -> String:
+	var base := nome.trim_suffix("_longe")
+	if Q_CORES.has(base):
+		base = String((Q_CORES[base] as Array)[0])
+	return base + "_sombra" if Q_SOMBRA.has(base) else ""
+
+
 const Q_CORES := {
 	"q_betula_a_amarela": ["q_betula_a", "q_folha_betula", "q_folha_amarela"],
 	"q_betula_c_amarela": ["q_betula_c", "q_folha_betula", "q_folha_amarela"],
 	"q_arvore_b_vinho": ["q_arvore_b", "q_folha", "q_folha_vinho"],
 	"q_arvore_d_laranja": ["q_arvore_d", "q_folha", "q_folha_laranja"],
+	"q_comum_b_vinho": ["q_comum_b", "q_folha_comum", "q_folha_comum_vinho"],
+	"q_comum_d_laranja": ["q_comum_d", "q_folha_comum", "q_folha_comum_laranja"],
 }
 
 
@@ -402,14 +441,27 @@ static func tipo_variado(tipo: String, u: float) -> String:
 		# (até 2026-11-18 uma parte das árvores continuava sendo a nossa, feita por código; o usuário pediu um
 		# padrão só, o do pacote Nature. As antigas ficam só como vulto, além de 450 m.)
 		"pinheiro":
+			if mata_nova():
+				return ["q_pinheiro_n_a", "q_pinheiro_n_b", "q_pinheiro_n_c", "q_pinheiro_n_d", "q_pinheiro_n_e"][int(v * 5.0) % 5]
 			return ["q_pinheiro_a", "q_pinheiro_b", "q_pinheiro_c"][int(v * 3.0) % 3]
 		"betula":
 			if u < 0.3:
 				return "q_betula_a_amarela" if v < 0.5 else "q_betula_c_amarela"
 			return ["q_betula_a", "q_betula_b", "q_betula_c"][int(v * 3.0) % 3]
 		_:
+			if u < 0.05 and mata_nova():
+				return ["q_seca_a", "q_seca_b", "q_seca_c", "q_seca_d", "q_seca_e"][int(v * 5.0) % 5]
 			if u < 0.05:
 				return ["q_morta_a", "q_morta_b", "q_morta_c"][int(v * 3.0) % 3]
+			if mata_nova():
+				# as de folha larga são todas do MegaKit (copa em placas de folha, não em blocos)
+				if u < 0.09:
+					return "q_comum_b_vinho"
+				if u < 0.13:
+					return "q_comum_d_laranja"
+				if u < 0.27 and not ("--sem-tortas" in OS.get_cmdline_user_args()):
+					return ["q_torta_a", "q_torta_b", "q_torta_c", "q_torta_d", "q_torta_e"][int(v * 5.0) % 5]  # tronco torto: uma em cada sete
+				return ["q_comum_a", "q_comum_b", "q_comum_c", "q_comum_d", "q_comum_e"][int(v * 5.0) % 5]
 			if u < 0.09:
 				return "q_arvore_b_vinho"
 			if u < 0.13:
@@ -426,7 +478,7 @@ static func longe_de(tipo: String) -> String:
 ## O vulto genérico, de TROCA_VULTO em diante: lá a forma exata não se nota, e os vultos das árvores antigas
 ## são bem mais baratos (levar a versão leve de cada modelo até o horizonte custava uns 20% nas vistas altas).
 static func vulto_de(tipo: String) -> String:
-	if not tipo.begins_with("q_") or Q_CORES.has(tipo) or tipo.contains("morta"):
+	if not tipo.begins_with("q_") or Q_CORES.has(tipo) or tipo.contains("morta") or tipo.contains("seca"):
 		return tipo + "_longe"
 	if tipo.contains("pinheiro"):
 		return "pinheiro_longe"
@@ -542,6 +594,8 @@ func _medidas_colisao(i: int) -> Array:
 	var f := forma_da_arvore(arv_nome[i])
 	var s := arv_escala[i] / 0.8  # a escala com que o modelo foi desenhado
 	return [f[0] * s, f[1] * s, f[2] * s, f[3] * s, f[4] * s]
+const CAPIM_ALTO := 0.85  # a altura do tufo comprido
+var capim_alto_malha: ArrayMesh  # o capim alto das manchas (só no teste da mata)
 var capim_malha: ArrayMesh  # a touceira com o material do capim (o capim de fora da clareira reusa)
 
 
@@ -549,9 +603,10 @@ func _arvores_e_pedras() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	# postas à mão: carvalhos soltos no campo, bétulas na beira d'água
-	_arvore("carvalho_b", -14.0, 26.0, 1.25, 0.4)
-	_arvore("carvalho_a", 22.0, 38.0, 1.1, 2.1)
-	_arvore("carvalho_a", -58.0, -4.0, 1.2, 4.0)
+	var nova := mata_nova()
+	_arvore("q_comum_b" if nova else "carvalho_b", -14.0, 26.0, 1.25, 0.4)
+	_arvore("q_comum_a" if nova else "carvalho_a", 22.0, 38.0, 1.1, 2.1)
+	_arvore("q_comum_d" if nova else "carvalho_a", -58.0, -4.0, 1.2, 4.0)
 	_arvore("betula", 48.0, 6.0, 1.0, 1.0)
 	_arvore("betula", 44.0, 14.0, 0.85, 2.5)
 	_arvore("betula", 20.0, -22.0, 0.95, 0.2)
@@ -655,6 +710,11 @@ func _centro(xfs: Array) -> Vector3:
 ## poucos até `de` e some aos poucos até `ate`, cada peça pela distância dela até a câmera (vale_comum:
 ## `presenca`). O bloco inteiro só deixa de ser desenhado quando nenhuma peça dele pode aparecer.
 func _multi(nome: String, xfs: Array, centro: Vector3, de: float, ate: float, sombra: bool) -> void:
+	var forma := sombra_de(nome)
+	if forma != "" and sombra and not nome.ends_with("_sombra"):
+		sombra = false
+		if de == 0.0:
+			_multi(forma, xfs, centro, 0.0, 0.0, true)  # a forma da sombra vale para todas as distâncias
 	var raio := 0.0
 	for xf in xfs:
 		raio = maxf(raio, (xf as Transform3D).origin.distance_to(centro))
@@ -680,12 +740,51 @@ func _multi(nome: String, xfs: Array, centro: Vector3, de: float, ate: float, so
 			Qualidade.preparar_bloco(mmi)
 		if not sombra:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		elif nome.ends_with("_sombra"):
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			mmi.visibility_range_end = 420.0 + raio  # a sombra do sol vai até 380 m
 		add_child(mmi)
 
 
 # ---------------------------------------------------------------- capim
 
+## Teste da mata (2026-11-18): tufos de capim, árvores de tronco torto e pétalas no ar, com os modelos do
+## Stylized Nature MegaKit que o jogo ainda não usava. `--mata-antiga` volta ao de antes, para comparar.
+static func mata_nova() -> bool:
+	return not ("--mata-antiga" in OS.get_cmdline_user_args())
+
+
+const TUFO_ALTURA := 0.5  # a altura do tufo do pacote (tools/vale/pacotes_mata.py)
+const TUFO_LARGO := 1.7  # e quanto ele abre para os lados: folha larga, que cobre o chão com menos tufos
+const TUFO_PASSO := 1.4  # tufos mais espaçados que as touceiras antigas (cada um tem 5 vezes os triângulos)
+
+
+## O tufo do pacote: só a forma das folhas (a cor continua vindo do chão, pelo shader do capim).
+func _tufo_pacote(arquivo := "q_capim_a", largo := TUFO_LARGO) -> ArrayMesh:
+	var cena: PackedScene = load(V + "q/" + arquivo + ".glb")
+	var raiz := cena.instantiate()
+	var mi := (raiz.find_children("*", "MeshInstance3D", true, false) + ([raiz] if raiz is MeshInstance3D else []))[0] as MeshInstance3D
+	var de := mi.mesh.surface_get_arrays(0)
+	raiz.free()
+	var vs: PackedVector3Array = de[Mesh.ARRAY_VERTEX]
+	var ns := PackedVector3Array()
+	ns.resize(vs.size())
+	for k in vs.size():
+		vs[k] = Vector3(vs[k].x * largo, maxf(vs[k].y, 0.0), vs[k].z * largo)
+		ns[k] = Vector3.UP
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = vs
+	arr[Mesh.ARRAY_NORMAL] = ns
+	arr[Mesh.ARRAY_INDEX] = de[Mesh.ARRAY_INDEX]
+	var malha := ArrayMesh.new()
+	malha.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return malha
+
+
 func _touceira() -> ArrayMesh:
+	if mata_nova():
+		return _tufo_pacote()
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var r := RandomNumberGenerator.new()
@@ -711,13 +810,21 @@ func _capim() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scripts/shaders/vale_capim.gdshader")
 	mat.set_shader_parameter("ruido", _tex)
+	mat.set_shader_parameter("altura", TUFO_ALTURA if mata_nova() else 0.42)
 	touceira.surface_set_material(0, mat)
 	Qualidade.registrar_material(mat)
 	capim_malha = touceira
+	if mata_nova():
+		# o capim alto, que nasce em manchas (CapimVivo): o tufo comprido do pacote, com o mesmo material
+		capim_alto_malha = _tufo_pacote("q_capim_alto", 1.5)
+		var mat_alto := mat.duplicate() as ShaderMaterial
+		mat_alto.set_shader_parameter("altura", CAPIM_ALTO)
+		capim_alto_malha.surface_set_material(0, mat_alto)
+		Qualidade.registrar_material(mat_alto)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12
 	var blocos := {}
-	var passo := 0.4
+	var passo := 0.4 * (TUFO_PASSO if mata_nova() else 1.0)
 	var z := -118.0
 	while z < 118.0:
 		var x := -118.0

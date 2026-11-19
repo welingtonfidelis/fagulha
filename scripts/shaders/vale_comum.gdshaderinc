@@ -12,6 +12,8 @@ global uniform float troca_fator;
 // Teste de luz e cor (2026-11-18, branch visual-luz-e-cor): 1 liga o visual novo, 0 mostra o de antes
 // (`-- --visual-antigo`). Capim mais amarelo no sol, luz que atravessa as folhas, faixa de luz mais macia.
 global uniform float estilo_novo;
+// Onde o robô pisa (xyz) e quanto ele amassa o capim (w: 1 no chão, 0 no alto). EfeitosMato atualiza.
+global uniform vec4 robo_capim;
 
 vec2 presenca(vec4 dado, vec3 origem, vec3 cam) {
 	float d = distance(origem, cam);
