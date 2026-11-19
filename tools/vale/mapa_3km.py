@@ -203,7 +203,10 @@ novo = np.where(s < 0, np.maximum(FUNDO, s * 0.12), dentro)
 novo = novo * (1 - penhasco) + np.where(s < -10, np.maximum(FUNDO, s * 0.12), parede) * penhasco
 # piscinas naturais na Costa Quebrada: bacias rasas logo atrás da linha da costa
 pocas = quebrada * suave(0.52, 0.60, fbm(70, 97, 3)) * suave(8, 30, s) * (1 - suave(110, 170, s))  # eram poucas: só uma aparecia
-novo = novo * (1 - pocas) + (-0.7) * pocas
+# o fundo acompanha o tamanho: piscina pequena é rasa (0,7 m); no meio de uma grande chega a uns 7 m
+# (o usuário achou o lago grande perto do cais raso demais para o tamanho dele, 2026-11-19)
+miolo = suave(0.35, 0.95, borrar(pocas, 9))
+novo = novo * (1 - pocas) + (-0.7 - 6.5 * miolo) * pocas
 # o fundo raso entre as ilhotas e a costa (bancos de areia)
 for cx, cz, raio in ILHOTAS:
     banco = morro(cx, cz, 330, 1.0)

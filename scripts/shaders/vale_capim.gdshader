@@ -48,6 +48,8 @@ void vertex() {
 void fragment() {
 	vec3 base = cor_capim(ruido, raiz.xz);
 	vec3 c = mix(base * 0.80, base * 1.16 + vec3(0.012, 0.016, 0.0), alt);
+	// visual novo: a raiz mais funda e fria, a ponta clara e quente (folha larga, pintada)
+	c = mix(c, mix(base * vec3(0.4, 0.55, 0.7), base * vec3(1.08, 1.06, 0.8) + vec3(0.015, 0.02, 0.0), alt * alt * (3.0 - 2.0 * alt)), estilo_novo);
 	c += vec3(0.022, 0.028, 0.004) * rajada * alt;  // a rajada clareia a ponta
 	if (funde > 0.001) {
 		c = mix(c, capim_de_longe(ruido, raiz.xz, TIME), funde);

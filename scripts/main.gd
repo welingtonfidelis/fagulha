@@ -108,6 +108,15 @@ func _ready() -> void:
 	if ciclo:
 		ciclo.camera = camera
 		ciclo.nevoa_longe = ilha is Vale  # aqui o mapa já existe
+		if CicloDia.estilo_novo:
+			# visual novo: o fundo desfoca de leve (a mata distante vira mancha macia) e há pólen no ar
+			var lente := CameraAttributesPractical.new()
+			lente.dof_blur_far_enabled = true
+			lente.dof_blur_far_distance = 160.0
+			lente.dof_blur_far_transition = 500.0
+			lente.dof_blur_amount = 0.03
+			camera.cam.attributes = lente
+			add_child(PoeiraLuz.new())
 	var camada := CanvasLayer.new()
 	add_child(camada)
 	hud = Hud.new()

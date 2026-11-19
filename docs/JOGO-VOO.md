@@ -2215,3 +2215,39 @@ O usuário pediu para trocar os peixes pelos do Cute Fish Pack do Quaternius (CC
 - **Cor:** as cores do pacote vêm em valores lineares e o jogo as lia como de tela; os peixes saíam quase pretos. São convertidas e ficam um pouco mais vivas. Cada cor vira um material do vale (`VidaAgua.malha_de`).
 - **Testes:** `--teste-vale` 84 pontos (120 cardumes, 28 espécies, 4 de água doce, 14 de peixes grandes), `--teste` 95.
 - **Não conferido:** nada jogado. Os tamanhos foram escolhidos por mim; o tubarão de 3 a 3,8 m é manso como os outros (foge do robô). O modelo antigo `assets/vale/peixe.glb` ficou sem uso.
+
+## 92. Teste de luz e cor (branch `visual-luz-e-cor`, 2026-11-18)
+
+O usuário mandou seis imagens de referência de um jogo de floresta estilizada e perguntou, pedindo sinceridade, se dava para chegar perto. Resposta dada: na luz, na cor e no clima, sim; na modelagem das árvores e plantas, não sem modelos de artista. Ele pediu um teste numa branch nova.
+
+![Antes à esquerda, depois à direita](visual/luz_e_cor_antes_depois.jpg)
+
+O visual novo tem uma chave: o parâmetro global de shader `estilo_novo` e `CicloDia.estilo_novo`. `-- --visual-antigo` mostra o de antes; `-- --vale-captura --largo --visual` tira as oito fotos do teste.
+
+- **Sombra colorida:** a luz ambiente do dia puxa para o azul-violeta; o sol fica mais quente.
+- **Capim:** verde-amarelado no sol, com a raiz mais funda e fria e a ponta clara.
+- **Folhagem:** mais viva, e a luz atravessa as folhas (só nos materiais com recorte).
+- **Distância:** a névoa azula mais cedo e o fundo desfoca de leve (`CameraAttributesPractical`).
+- **Céu:** azul mais saturado; as nuvens tapam o céu em vez de somar luz, com borda firme e a barriga lilás.
+- **Ar:** pólen flutuando em volta da câmera (`PoeiraLuz`), esverdeado à noite.
+- **Cor geral:** mais saturação e contraste, brilho um pouco maior.
+
+**O que não melhorou:** as árvores e o capim são os mesmos modelos. O capim continua em lâminas finas e escuras (as referências têm folhas largas, em tufos), e as copas continuam "de bloco". É aí que mora a maior diferença para as referências.
+**Não conferido:** o custo do desfoque e do brilho no desempenho; como fica de noite e com chuva; nada jogado.
+
+## 93. Visual novo aprovado, nado e o lago (2026-11-19)
+
+O usuário testou a branch no PC: "a mudança de iluminação e visual novo ficou ótimo, pode aplicar no resto do mapa".
+
+- **Resto do mapa:** a mudança já era global (shaders e ciclo do dia), então vale para a ilha toda. Conferido em fotos das regiões novas, dos marcos e da noite. Dois excessos corrigidos: a sombra dos paredões ficava roxa (a luz ambiente puxa menos para o violeta: 0,4 em vez de 0,6) e o chão visto do alto, limão (capim menos amarelo).
+
+![O visual novo em outras regiões](visual/luz_e_cor_resto_do_mapa.jpg)
+
+- **Nado** (ele achou que ainda não estava bom):
+  - nadando, em velocidade normal ou alta, e apontando **10 graus ou mais para cima**, o robô rompe a superfície e sai voando nesse rumo (eram 30 graus e só acelerado);
+  - **saiu o boiar de pé** na superfície, com os ombros de fora, e o subir sozinho até a tona: ele achou estranho. Parado, o robô fica logo abaixo da lâmina;
+  - segurar o X na superfície continua decolando de pé.
+- **Lago perto do cais** (a piscina natural grande da Costa Quebrada): tinha 0,7 m de fundura em toda a extensão. No gerador, o fundo passou a acompanhar o tamanho: piscina pequena continua rasa, e o meio de uma grande chega a uns 7 m.
+- **Pacote de vegetação que ele achou** (a origem das imagens de referência): Stylized Nature Bundle, da Two Theories, na loja da Unity, 20 dólares, 64,5 MB, versão de 2021. Avaliação na conversa: os modelos e as texturas devem servir (pacote de Unity traz FBX e imagens), mas os shaders de folhagem são da Unity e teriam de ser refeitos na Godot; a página não mostrou o conteúdo nem a licença para uso fora da Unity. Nada comprado.
+- **Testes:** `--teste-vale` 84 pontos, `--teste` 95.
+- **Não conferido:** o custo do visual novo no desempenho; chuva; nada jogado depois destas mudanças.

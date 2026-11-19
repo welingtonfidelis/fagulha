@@ -1667,6 +1667,15 @@ func _largo() -> void:
 		mm2.fechar()
 		get_tree().quit()
 		return
+	if "--visual" in OS.get_cmdline_user_args():
+		# teste de luz e cor (2026-11-18): a clareira com a câmera baixa, como numa cena composta, e do voo
+		livre.fov = 55.0
+		a.visual.visible = false
+		livre.attributes = cam.cam.attributes  # o desfoque do fundo vale também para a câmera das fotos
+		vistas = [["v1_capim_e_mata", Vector3(10, 2.4, 30), Vector3(-60, 6, 20)], ["v2_para_o_norte", Vector3(-10, 2.6, 22), Vector3(-30, 8, -70)],
+			["v3_lagoa", Vector3(20, 2.0, 16), Vector3(40, 1, -8)], ["v4_campo_aberto", Vector3(40, 2.6, 40), Vector3(-40, 10, -30)],
+			["v5_beira_da_mata", Vector3(-30, 2.4, 45), Vector3(-80, 8, 0)], ["v6_voo_baixo", Vector3(60, 22, 110), Vector3(-20, 5, -10)],
+			["v7_voo_alto", Vector3(140, 90, 260), Vector3(-60, 20, -120)], ["v8_serra_ao_longe", Vector3(0, 3.2, 30), Vector3(-560, 200, -628)]]
 	if "--agua" in OS.get_cmdline_user_args():
 		# debaixo d'água: o cais, uma piscina natural, as ilhotas, a lagoa da represa e o navio
 		var ca := MarcosMar.CAIS
@@ -1703,6 +1712,8 @@ func _largo() -> void:
 		var de: Vector3 = v[1]
 		if de.y == 0.0:
 			de.y = c.altura(de.x, de.z) + 3.0
+		elif de.y < 4.0 and "--visual" in OS.get_cmdline_user_args():
+			de.y += c.altura(de.x, de.z)  # câmera baixa: a altura é acima do chão
 		# o robô vai junto, para as árvores perto dele aparecerem completas (no mar ele fica na praia mais
 		# perto, senão entra em pane e a tela escurece)
 		var pe := Vector3(de.x, c.altura(de.x, de.z) + 0.3, de.z)

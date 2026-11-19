@@ -1161,13 +1161,10 @@ func _ponto_25() -> void:
 	Input.action_release("frente")
 	var desceu := y0 - a.global_position.y
 	var esfriou := 60.0 - a.calor
-	# sobe devagar até a tona, nadando para cima (segurar o X decolaria): fica na lâmina, sem sair
-	cam.pitch = 1.2
-	Input.action_press("frente")
-	await _esperar(3.0)
-	Input.action_release("frente")
+	# junto da superfície, parado: fica na água, logo abaixo da lâmina (nadar para cima sairia voando)
 	cam.pitch = 0.0
-	await _esperar(0.4)
+	a.teleportar(poco + Vector3(0, -0.9, 0), Armadura.Estado.AR, Vector3.ZERO)
+	await _esperar(1.0)
 	var na_tona := a.estado == Armadura.Estado.NADO and Vale.POCO_NIVEL - a.global_position.y < a.altura_corpo()
 	await _esperar(0.2)
 	# segurando o X na tona ele decola de pé, como no chão (um toque só sobe)
@@ -2116,33 +2113,37 @@ func _ponto_33() -> void:
 	Input.action_press("frente")
 	await _esperar(0.7)
 	var rapido: bool = a.estado == Armadura.Estado.NADO and a.nado_rapido
-	# acelerado, vira para cima (mais de 30 graus): rompe a lâmina e sai voando
-	cam.pitch = 0.9
+	# apontando só um pouco para baixo do horizonte, fica na água; a 10 graus ou mais para cima, sai voando,
+	# mesmo no nado normal
+	a.teleportar(Vector3(mergulho.x, -3.0, mergulho.y), Armadura.Estado.AR, Vector3(0, -1.0, 0))
+	cam.pitch = 0.0
+	await _esperar(0.6)
+	Input.action_press("frente")
+	await _esperar(2.0)
+	var reto_fica: bool = a.estado == Armadura.Estado.NADO and not a.nado_rapido
+	cam.pitch = 0.3
 	var saidas0: int = a.saidas_da_agua
 	var saiu_rumo := false
-	for i_s in 60 * 4:
+	for i_s in 60 * 5:
 		await get_tree().physics_frame
 		if a.estado == Armadura.Estado.VOO and a.global_position.y > 0.5:
 			saiu_rumo = true
 			break
 	Input.action_release("frente")
 	saiu_rumo = saiu_rumo and a.saidas_da_agua == saidas0 + 1
-	# na tona, parado: boia de pé; um toque no X não sai; segurando, decola
+	# parado na superfície não boia de pé nem sai; segurando o X, decola
 	cam.pitch = 0.0
-	a.teleportar(Vector3(mergulho.x, -0.6, mergulho.y), Armadura.Estado.AR, Vector3.ZERO)
-	await _esperar(1.5)
-	var boiou: bool = a.boiando and a.estado == Armadura.Estado.NADO
-	await _apertar("pular")
-	await _esperar(0.3)
-	var toque_fica: bool = a.estado == Armadura.Estado.NADO
+	a.teleportar(Vector3(mergulho.x, -0.9, mergulho.y), Armadura.Estado.AR, Vector3.ZERO)
+	await _esperar(1.2)
+	var parado_fica: bool = a.estado == Armadura.Estado.NADO and not a.boiando and a.global_position.y < -a.altura_corpo() * 0.7
 	Input.action_press("pular")
 	await _esperar(0.9)
 	var decolou: bool = a.estado == Armadura.Estado.DECOLAGEM or a.estado == Armadura.Estado.VOO
 	await _esperar(1.2)
 	Input.action_release("pular")
-	_ok(lento and zerou and rapido and saiu_rumo and boiou and toque_fica and decolou and a.global_position.y > 3.0,
-		"água: entrou devagar e nadou devagar (%s), o mergulho zerou o calor (%s); entrou acelerado e seguiu acelerado (%s); apontando para cima saiu voando (%s); na tona boia (%s), um toque no X não sai (%s) e segurando decola (%s, a %.1f m da água)" % [
-			lento, zerou, rapido, saiu_rumo, boiou, toque_fica, decolou, a.global_position.y])
+	_ok(lento and zerou and rapido and reto_fica and saiu_rumo and parado_fica and decolou and a.global_position.y > 3.0,
+		"água: entrou devagar e nadou devagar (%s), o mergulho zerou o calor (%s); entrou acelerado e seguiu acelerado (%s); nadando reto fica na água (%s); a 17 graus para cima, no nado normal, saiu voando (%s); parado não boia nem sai (%s); segurando o X decola (%s)" % [
+			lento, zerou, rapido, reto_fica, saiu_rumo, parado_fica, decolou])
 	# atravessar a cachoeira zera o calor
 	var cort: Array = v.cortinas[0]
 	var meio_q: Vector3 = ((cort[0] as Vector3) + (cort[1] as Vector3)) * 0.5
