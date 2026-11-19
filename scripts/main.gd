@@ -100,7 +100,10 @@ func _ready() -> void:
 		Melhorias.tudo = true  # a ilha pequena de teste não tem peças
 		Arsenal.tudo = true
 	Armadura.vel_chao = 0.7 if vale else 1.0
-	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
+	# andar e correr um pouco acima do que eram (2,1 e 6,3 m/s), pedido de 2026-11-19
+	Armadura.vel_andar = 3.0 if vale else 0.0
+	Armadura.vel_correr = 7.5 if vale else 0.0
+	ArmaduraVisual.MODELO = "res://assets/vale/robo_v2.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
 	ArmaduraVisual.toon = vale
 	ilha.name = "Mapa"
 	add_child(ilha)
@@ -372,6 +375,10 @@ func _ready() -> void:
 		dicas.memorias = memorias
 		add_child(dicas)
 		dicas_no = dicas
+	if ilha is Vale and BaseVale.boca_cilindro.is_finite():
+		var cilindros := CilindrosBase.new()
+		cilindros.name = "CilindrosBase"
+		add_child(cilindros)
 	if ilha is Vale and memorias:
 		farol = FarolFinal.new()
 		farol.name = "FarolFinal"

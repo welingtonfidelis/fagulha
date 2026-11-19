@@ -150,7 +150,7 @@ func _process(delta: float) -> void:
 	global_basis = Basis.from_euler(Vector3(pitch_visto, yaw, _roll))
 	# campo de visão pela velocidade
 	var fov_alvo := lerpf(Ajustes.FOV_CHAO, Ajustes.FOV_MAX, clampf((v - 6.0) / (Ajustes.VEL_TOPO - 6.0), 0.0, 1.0) * m)
-	if not voando and v > Ajustes.ANDAR + 1.0:
+	if not voando and v > Armadura.andar() + 1.0:
 		fov_alvo += 3.0
 	fov_alvo = lerpf(fov_alvo, fov_mira, mi)
 	cam.fov = lerpf(cam.fov, fov_alvo, 1.0 - exp(-(3.0 + 6.0 * mi) * delta))

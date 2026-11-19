@@ -14,6 +14,7 @@ const C_CIL := Vector3(-8.6, R_CIL + 0.18, 1.6)  # centro do cilindro (o eixo é
 const MEIO_CIL := 3.2  # metade do comprimento
 const ESCALA_FAISCA := 0.66  # perto de 1 m de pé: o usuário pediu mais uns 15 a 20% menor que o robô do jogador
 
+static var t_base := Transform3D()  # do lugar da base para o mundo (os cilindros dos robôs usam)
 static var posto_drone := Vector3.INF  # no mundo: onde o drone fica parado
 static var cilindro_t := Transform3D()  # no mundo: o centro do cilindro, com o X apontando para a boca
 static var boca_cilindro := Vector3.INF  # no mundo: o meio da boca do cilindro
@@ -28,6 +29,7 @@ static var _cenas := {}
 static func montar(o: Ruinas.Obra) -> void:
 	_mats.clear()
 	pecas_kit = 0
+	t_base = o.t
 	var cy := 0.0
 	# a laje do hangar, rachada nas beiras, e o piso de chapas por cima
 	o.bloco(Vector3(-1.0, cy - 0.6, 1.0), Vector3(21.0, 1.2, 12.5), Basis.IDENTITY, "ruina")
@@ -68,6 +70,7 @@ static func montar(o: Ruinas.Obra) -> void:
 	luz.position = o.t * Vector3(0.4, cy + 3.3, fz - 1.6)
 	o.v.add_child(luz)
 	_cilindro(o, cy)
+	_baia_dos_robos(o, cy)
 	_faisca(o, Vector3(3.3, cy, -3.0), -0.81)
 	_peca(o, "Prop_Crate4", Vector3(3.3 + 0.724 * 0.68, cy, -3.0 - 0.69 * 0.68), -0.81, 0.8, 0.7, 0.5)
 	# caixas, tambores, armário e a antena
@@ -117,6 +120,36 @@ static func _peca(o: Ruinas.Obra, nome: String, pe: Vector3, giro: float, esc: f
 		cx.size = caixa.size * esc
 		o.forma(cx, Transform3D(Basis(Vector3.UP, giro), pe + Vector3(0, caixa.size.y * esc * 0.5, 0)))
 	return no
+
+
+## A baia onde os robôs ficam guardados (os três cilindros de vidro são do `CilindrosBase`, hoje vazios): um estrado de metal
+## com degrau, um painel de fundo, uma cobertura apoiada em dois postes, os cabos que descem até cada cilindro
+## e um terminal ao lado. Fica à direita de quem nasce, contra a parede do fundo.
+const BAIA := Vector3(6.2, 0.0, 3.7)  # o meio do estrado, no chão da base
+const BAIA_ALTO := 0.45  # altura do estrado (o capim da clareira não passa dela)
+const BAIA_VAGAS := [-1.6, 0.0, 1.6]  # onde fica cada cilindro, ao longo do estrado
+
+
+static func _baia_dos_robos(o: Ruinas.Obra, cy: float) -> void:
+	var b := BAIA + Vector3(0, cy, 0)
+	o.bloco(b + Vector3(0, BAIA_ALTO * 0.5, 0), Vector3(5.2, BAIA_ALTO, 2.0), Basis.IDENTITY, "casco")
+	# a rampa de acesso, no lugar do degrau (o robô não subia: o degrau era baixo, mas a caixa do estrado o
+	# barrava logo atrás). Uma chapa inclinada, do chão até a beira do estrado.
+	var rampa_l := 1.5
+	var rampa_ang := atan(BAIA_ALTO / rampa_l)
+	o.bloco(b + Vector3(0, BAIA_ALTO * 0.5 - 0.03, -1.0 - rampa_l * 0.5), Vector3(5.2, 0.08, sqrt(rampa_l * rampa_l + BAIA_ALTO * BAIA_ALTO)),
+		Basis(Vector3.RIGHT, -rampa_ang), "casco")
+	o.bloco(b + Vector3(0, 1.6, 0.94), Vector3(5.2, 2.3, 0.16), Basis.IDENTITY, "ferrugem")  # o painel de fundo
+	o.bloco(b + Vector3(0, 2.84, 0.05), Vector3(5.5, 0.16, 2.0), Basis.IDENTITY, "casco", false)  # a cobertura
+	for lado: float in [-1.0, 1.0]:
+		o.bloco(b + Vector3(lado * 2.6, 1.64, -0.85), Vector3(0.16, 2.4, 0.16), Basis.IDENTITY, "casco")
+	for vx: float in BAIA_VAGAS:
+		# o cabo que desce da cobertura até a tampa do cilindro, e uma faixa clara no painel atrás de cada vaga
+		o.bloco(b + Vector3(vx, 2.56, 0.0), Vector3(0.06, 0.42, 0.06), Basis.IDENTITY, "casco", false)
+		o.bloco(b + Vector3(vx, 1.5, 0.85), Vector3(0.9, 1.9, 0.04), Basis.IDENTITY, "casco", false)
+	_peca(o, "Prop_AccessPoint", Vector3(BAIA.x - 3.3, cy, BAIA.z - 0.7), 0.5, 1.3, 0.4, 0.3)
+	_peca(o, "Prop_Cable_1", Vector3(BAIA.x - 2.2, cy + 0.04, BAIA.z - 2.0), 0.4, 1.2, 0.2, 0.3, false)
+	_peca(o, "Prop_Cable_3", Vector3(BAIA.x + 1.6, cy + 0.04, BAIA.z - 2.1), 2.4, 1.0, 0.2, 0.3, false)
 
 
 ## A caixa de todas as malhas de uma cena, na medida da raiz dela.

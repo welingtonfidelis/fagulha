@@ -91,7 +91,7 @@ func _rodar() -> void:
 	await _quadros(3)
 	# o robô do jogo: o do vale, com o porte e o estilo pintado de lá
 	Armadura.porte = 0.48
-	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb"
+	ArmaduraVisual.MODELO = "res://assets/vale/robo_v1.glb" if "--robo-v1" in OS.get_cmdline_user_args() else "res://assets/vale/robo_v2.glb"
 	ArmaduraVisual.toon = true
 	var v := _robo([])
 	var h := ArmaduraVisual.ALTURA_ALVO * Armadura.porte

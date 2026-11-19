@@ -57,6 +57,7 @@ func rodar(main: Node) -> void:
 	await _ponto_34()
 	await _ponto_35()
 	await _ponto_36()
+	await _ponto_37()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -154,9 +155,9 @@ func _ponto_2() -> void:
 	var v_cor := _hv()
 	var est := a.nome_estado()
 	_soltar_tudo()
-	_ok(absf(v_and - Ajustes.ANDAR * Armadura.vel_chao) < 0.6 and absf(v_cor - Ajustes.CORRER * Armadura.vel_chao) < 0.6 and a.estado == Armadura.Estado.CHAO,
+	_ok(absf(v_and - Armadura.andar()) < 0.6 and absf(v_cor - Armadura.correr()) < 0.6 and a.estado == Armadura.Estado.CHAO,
 		"anda a %.2f m/s (esperado %.1f) e corre a %.2f m/s (esperado %.1f), %s"
-		% [v_and, Ajustes.ANDAR * Armadura.vel_chao, v_cor, Ajustes.CORRER * Armadura.vel_chao, est])
+		% [v_and, Armadura.andar(), v_cor, Armadura.correr(), est])
 	await _esperar(0.5)
 
 
@@ -1234,7 +1235,7 @@ func _ponto_26() -> void:
 	var d0: int = a.degraus
 	cam.yaw = 0.0
 	Input.action_press("frente")
-	await _esperar(2.2)
+	await _esperar(2.2 * 2.1 / Armadura.andar())  # o tempo de chegar ao meio da caixa, na velocidade de andar de agora
 	Input.action_release("frente")
 	var subiu: bool = a.degraus > d0 and a.global_position.z < lugar.z - 2.6 and a.global_position.y > v.altura(a.global_position.x, a.global_position.z) + 0.25
 	a.teleportar(lugar + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
@@ -1892,7 +1893,7 @@ func _ponto_32() -> void:
 	await _esperar(0.4)
 	var me1 := Mecha.new()
 	var me2 := Mecha.new()
-	for par in [[me1, Vector3(0, 0, -3.0)], [me2, Vector3(0, 0, 3.2)]]:
+	for par in [[me1, Vector3(0, 0, -1.9)], [me2, Vector3(0, 0, 3.2)]]:  # a da frente ao alcance do braço com a lâmina curta
 		var mx: Mecha = par[0]
 		mx.mapa = v
 		mx.casa = lugar + (par[1] as Vector3)
@@ -2449,3 +2450,41 @@ func _ponto_36() -> void:
 	m.hud.dica = ""
 	a.recomecar()
 	await _esperar(0.3)
+
+
+## O robô redesenhado e a baia: o modelo do jogo tem todas as juntas que as poses usam, as chamas dos pés e
+## dos estabilizadores, e os três cilindros da base estão lá, vazios e sólidos.
+func _ponto_37() -> void:
+	var vis: ArmaduraVisual = a.visual
+	var faltam := 0
+	for k in vis.j:
+		if vis.j[k] == null:
+			faltam += 1
+	var novo: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb")
+	var cil: CilindrosBase = m.get_node_or_null("CilindrosBase")
+	var tres: bool = cil != null and cil.cilindros.size() == 3
+	var vazios := true
+	var solidos := true
+	if tres:
+		for c in cil.cilindros:
+			vazios = vazios and c.find_children("*", "Skeleton3D", true, false).is_empty() and c.get_child_count() <= 7
+			solidos = solidos and not c.find_children("*", "StaticBody3D", true, false).is_empty()
+	# as luvas: torcidas 90 graus em descanso, retas para mirar
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(1.0)
+	var luva := vis.modelo.find_child("luvaD", true, false) as Node3D
+	var luva_e := vis.modelo.find_child("luvaE", true, false) as Node3D
+	var descanso_d: float = rad_to_deg(luva.rotation.y) if luva else 999.0
+	var descanso_e: float = rad_to_deg(luva_e.rotation.y) if luva_e else 999.0
+	Input.action_press("mirar")
+	await _esperar(0.8)
+	var mira_d: float = rad_to_deg(luva.rotation.y) if luva else 999.0
+	var mira_e: float = rad_to_deg(luva_e.rotation.y) if luva_e else 999.0
+	Input.action_release("mirar")
+	await _esperar(0.8)
+	var volta_d: float = rad_to_deg(luva.rotation.y) if luva else 999.0
+	_ok(absf(descanso_d + 90.0) < 2.0 and absf(descanso_e - 90.0) < 2.0 and absf(mira_d) < 2.0 and absf(mira_e - 90.0) < 2.0 and absf(volta_d + 90.0) < 2.0,
+		"luvas: em descanso torcidas %.0f e %.0f graus; mirando, a direita fica reta (%.0f) e a esquerda segue torcida (%.0f); soltando a mira, volta (%.0f)" % [descanso_d, descanso_e, mira_d, mira_e, volta_d])
+	_ok(novo and faltam == 0 and vis.chamas.size() == 4 and tres and vazios and solidos,
+		"robô redesenhado: é o modelo do jogo (%s), juntas que faltam %d, chamas %d; baia com três cilindros (%s), vazios (%s) e sólidos (%s)" % [novo, faltam, vis.chamas.size(), tres, vazios, solidos])

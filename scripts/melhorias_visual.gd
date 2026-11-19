@@ -78,9 +78,33 @@ static func _ancora(v: ArmaduraVisual, junta: String) -> Node3D:
 	var h := ArmaduraVisual.ALTURA_ALVO * Armadura.porte
 	var no := Node3D.new()
 	pai.add_child(no)
-	no.transform = (v.get_meta("descanso")[junta] as Transform3D) * Transform3D(Basis.from_scale(Vector3.ONE * h), Vector3.ZERO)
+	no.transform = (v.get_meta("descanso")[junta] as Transform3D) * Transform3D(Basis.from_scale(Vector3.ONE * h), _desloca(junta))
 	(v.get_meta("ancoras") as Array).append(no)
 	return no
+
+
+## As peças foram medidas no robô anterior (`robo_v1.glb`). No de agora (`robo_v2.glb`) cada parte do corpo
+## mudou de lugar: aqui vai quanto a parte de cada junta andou, em metros do modelo (x para a esquerda dele,
+## y para trás, z para cima, como no gerador), para a peça ir junto.
+const DESLOCA_V2 := {
+	"raiz": Vector3(0, 0, -0.08), "tronco": Vector3(0, 0.0, -0.105), "cabeca": Vector3(0, 0.0, -0.07),
+	"costas": Vector3(0, -0.01, -0.115), "ombro": Vector3(0.008, 0, -0.128), "cotovelo": Vector3(0.01, 0, -0.095),
+	"punho": Vector3(0.009, 0, -0.087), "quadril": Vector3(0, 0, -0.05), "joelho": Vector3(0.005, 0, -0.012),
+	"tornozelo": Vector3(0.005, 0, 0.0), "pod": Vector3(0, -0.01, -0.14), "aleta": Vector3(0, -0.01, -0.14),
+}
+
+
+static func _desloca(junta: String) -> Vector3:
+	if not ArmaduraVisual.MODELO.ends_with("robo_v2.glb"):
+		return Vector3.ZERO
+	var lado := 0.0
+	var nome := junta
+	if junta.ends_with("E") or junta.ends_with("D"):
+		lado = 1.0 if junta.ends_with("E") else -1.0
+		nome = junta.substr(0, junta.length() - 1)
+	var d: Vector3 = DESLOCA_V2.get(nome, Vector3.ZERO)
+	# do gerador (z para cima, frente em -y) para o espaço do robô no jogo (y para cima, modelo virado de costas)
+	return Vector3(-d.x * lado, d.z, d.y)
 
 
 ## Guarda onde cada junta está na pose de descanso (chamar logo que o robô é criado): as peças são

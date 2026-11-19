@@ -459,7 +459,7 @@ func _espada(delta: float) -> void:
 	armadura.atirando = maxf(armadura.atirando, float(e["tempo"]))
 	var meio := armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.5, 0)
 	var cor := Color(0.4, 0.95, 1.0)
-	EfeitosTiro.arco_espada(self, meio, frente, armadura.espada_lado, float(e["alcance"]), cor)
+	# (o arco largo de luz era do alcance de 3,6 m; com a lâmina curta fica só o brilho dela)
 	Som.toque3d(self, "espada_1" if armadura.espada_lado > 0.0 else "espada_2", armadura.global_position, -3.0)
 	var acertou := false
 	for n in get_tree().get_nodes_in_group("maquinas"):
@@ -704,9 +704,14 @@ func _ponto_de_impacto() -> Vector3:
 	return hit["position"]
 
 
-## Ponta da mão direita: o osso do punho quando o modelo tem a junta, senão um ponto acima do robô.
+## De onde o tiro sai: a ponta do cano da luva; sem ela, o osso do punho quando o modelo tem a junta, senão um ponto acima do robô.
 func _mao(esquerda := false) -> Vector3:
 	var v = armadura.visual
+	# o robô novo atira pelo cano da luva
+	if v != null and v.has_method("boca_da_arma"):
+		var boca: Node3D = v.boca_da_arma(esquerda)
+		if boca != null and is_instance_valid(boca):
+			return boca.global_position
 	if v != null and v.j is Dictionary:
 		var punho = v.j.get("punhoE" if esquerda else "punhoD")
 		if punho is Node3D and is_instance_valid(punho):

@@ -536,7 +536,7 @@ func _pouso_e_batida() -> void:
 	l3s.pressed = false
 	Input.parse_input_event(l3s)
 	await _esperar(0.3)
-	_ok(a.postura == 2 and a.estado == Armadura.Estado.CHAO and _hv() < 0.1, "a seta para a esquerda senta (postura %d, %s)" % [a.postura, a.nome_estado()])
+	_ok(a.postura == 0 and a.estado == Armadura.Estado.CHAO and _hv() < 0.1, "sentar saiu do jogo: a seta para a esquerda não senta (postura %d, %s)" % [a.postura, a.nome_estado()])
 	Input.parse_input_event(l3)
 	await _esperar(0.1)
 	Input.parse_input_event(l3s)
@@ -555,9 +555,9 @@ func _pouso_e_batida() -> void:
 	_ok(a.postura == 0 and a.estado == Armadura.Estado.CHAO, "R3 no chão não agacha mais (postura %d)" % a.postura)
 	await _apertar("sentar")
 	await _esperar(0.2)
-	_ok(a.postura == 2, "toque no botão de sentar senta (%d)" % a.postura)
+	_ok(a.postura == 0, "o botão de sentar não senta (%d)" % a.postura)
 	await _esperar(1.0)
-	_ok(a.postura == 2 and _hv() < 0.1, "sentado, fica sentado depois de soltar o botão")
+	_ok(a.postura == 0 and _hv() < 0.1, "e continua de pé depois de soltar o botão")
 	Input.action_press("frente")
 	await _esperar(0.3)
 	_ok(a.postura == 0, "mexer o analógico levanta (%d)" % a.postura)
@@ -570,7 +570,7 @@ func _pouso_e_batida() -> void:
 	l3cs.pressed = false
 	Input.parse_input_event(l3cs)
 	await _esperar(1.0)
-	_ok(a.postura == 0 and _hv() > Ajustes.ANDAR * Armadura.vel_chao + 1.0, "L3 do controle corre e não senta (%.1f m/s, postura %d)" % [_hv(), a.postura])
+	_ok(a.postura == 0 and _hv() > Armadura.andar() + 1.0, "L3 do controle corre e não senta (%.1f m/s, postura %d)" % [_hv(), a.postura])
 	Input.action_release("frente")
 	await _esperar(0.5)
 	# batida numa árvore: voa reto contra a copa

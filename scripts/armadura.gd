@@ -22,6 +22,21 @@ signal voltou_base  # no meio da pane, com a tela escura: acabou de reaparecer n
 static var porte := 1.0
 ## Chuva (0 a 1), definida pelo ciclo do dia: ajuda a esfriar o motor.
 static var vel_chao := 1.0  # robô pequeno anda e corre mais devagar (a passada é curta)
+## No vale o andar e o correr têm velocidade própria (0: vale a de `Ajustes` vezes `vel_chao`). Desde
+## 2026-11-19: 3,0 e 7,5 m/s (eram 2,1 e 6,3).
+## Sentar saiu do jogo em 2026-11-19; a lógica fica, desligada, até haver outra coisa para "aproveitar a vista".
+static var pode_sentar := false
+static var vel_andar := 0.0
+static var vel_correr := 0.0
+
+
+static func andar() -> float:
+	return vel_andar if vel_andar > 0.0 else Ajustes.ANDAR * vel_chao
+
+
+static func correr() -> float:
+	return vel_correr if vel_correr > 0.0 else Ajustes.CORRER * vel_chao
+
 static var chuva := 0.0
 
 var estado := Estado.CHAO
@@ -37,7 +52,9 @@ var esquivando := 0.0  # tempo que falta da esquiva (o visual e a câmera leem)
 var esquiva_dir := Vector3.ZERO
 ## Manobras no ar com o círculo (2026-11-18): no voo, um giro de caça (com direção, desloca para aquele
 ## lado); pairando, um tranco lateral. O visual lê `manobra` (tempo que falta) e `manobra_lado`.
-const MANOBRA_TEMPO := 0.6
+const MANOBRA_TEMPO := 0.55
+const MANOBRA_PICO := 0.34  # s em que o empurrão de lado da esquiva no voo vale inteiro; depois freia forte
+const MANOBRA_VEL := 24.0  # m/s do empurrão de lado
 var manobra := 0.0
 var manobra_lado := 1.0
 var manobras := 0  # quantas fez (testes)
@@ -51,6 +68,7 @@ var cachoeiras := 0  # quantas vezes atravessou uma queda d'água e zerou o calo
 var _na_queda := false
 var _manobra_espera := 0.0
 var _manobra_vel := Vector3.ZERO  # empurrão de lado, somado só na hora de andar
+var _manobra_pico := 0.0
 var _fora_dagua := 0.0  # acabou de disparar para fora d'água: por um instante sobe reto e não volta a nadar
 var impulso := 0.0  # brilho rápido dos propulsores (pulo duplo, esquiva)
 var tem_marcador := false
@@ -405,7 +423,11 @@ func _passo(delta: float) -> void:
 	_fora_dagua = maxf(0.0, _fora_dagua - delta)
 	resfriado = maxf(0.0, resfriado - delta)
 	manobra = maxf(0.0, manobra - delta)
-	_manobra_vel = _manobra_vel * exp(-5.0 * delta) if manobra > 0.0 or _manobra_vel.length() > 0.5 else Vector3.ZERO
+	# a esquiva no voo: um pico brusco de velocidade lateral que vale inteiro por um instante e depois é freado
+	# forte, para o robô assentar de volta no eixo do voo sem escorregar (antes o empurrão só ia morrendo devagar)
+	_manobra_pico = maxf(0.0, _manobra_pico - delta)
+	if _manobra_pico <= 0.0:
+		_manobra_vel = _manobra_vel * exp(-14.0 * delta) if _manobra_vel.length() > 0.5 else Vector3.ZERO
 	impulso = maxf(0.0, impulso - delta * 3.0)
 	atirando = maxf(0.0, atirando - delta)
 	atirando_e = maxf(0.0, atirando_e - delta)
@@ -470,7 +492,7 @@ func _chao(delta: float, mov: Vector2) -> void:
 	var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
 	if dir.length() > 1.0:
 		dir = dir.normalized()
-	var vmax := (Ajustes.CORRER if correr else Ajustes.ANDAR) * vel_chao
+	var vmax := Armadura.correr() if correr else Armadura.andar()
 	if mirando:
 		vmax = Ajustes.ANDAR_MIRANDO * vel_chao
 	if postura == 1:
@@ -523,6 +545,10 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 		_abaixar_seg = false
 		return
 	# sentar é um toque na seta para a esquerda (Ctrl), parado; outro toque levanta. Agachar saiu do jogo
+	# (sentar saiu do jogo em 2026-11-19; desligado por `pode_sentar`)
+	if not pode_sentar:
+		postura = 0
+		return
 	if Input.is_action_just_pressed("sentar"):
 		if postura == 0 and quieto:
 			postura = 2
@@ -537,7 +563,7 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	velocity.y -= Ajustes.GRAVIDADE * (Ajustes.QUEDA_PESADA if _solto else 1.0) * delta
 	var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
-	var lim := Ajustes.CORRER * vel_chao
+	var lim := Armadura.correr()
 	var alvo := dir.limit_length(1.0) * lim
 	var hv := Vector3(velocity.x, 0.0, velocity.z)
 	if hv.length() > lim:
@@ -927,6 +953,7 @@ func _manobrar(mov: Vector2) -> void:
 		esquiva_dir = dir.normalized()
 		esquivando = Ajustes.ESQUIVA_TEMPO
 		_manobra_vel = esquiva_dir * 22.0
+		_manobra_pico = 0.12
 		manobra = 0.3
 		manobra_lado = 0.0
 		return
@@ -935,7 +962,8 @@ func _manobrar(mov: Vector2) -> void:
 	manobra_lado = lado if lado != 0.0 else 1.0
 	if lado != 0.0:
 		var direita := Vector3(dir_voo.x, 0.0, dir_voo.z).normalized().cross(Vector3.UP)
-		_manobra_vel = direita * lado * 20.0
+		_manobra_vel = direita * lado * MANOBRA_VEL
+		_manobra_pico = MANOBRA_PICO
 
 
 func _tentar_esquiva(mov: Vector2) -> void:
@@ -1030,7 +1058,7 @@ func _depois_de_mover(antes: Vector3) -> void:
 				pouso_forca = 0.25
 				tremor = maxf(tremor, 0.12)
 				_pouso_tempo = 0.24
-				var hvt := Vector3(velocity.x, 0.0, velocity.z).limit_length(Ajustes.CORRER * vel_chao * 1.4)
+				var hvt := Vector3(velocity.x, 0.0, velocity.z).limit_length(Armadura.correr() * 1.4)
 				velocity.x = hvt.x * 0.8
 				velocity.z = hvt.z * 0.8
 				if em_voo():
@@ -1038,7 +1066,7 @@ func _depois_de_mover(antes: Vector3) -> void:
 				_mudar(Estado.POUSO)
 			else:
 				pouso_forca = 0.0
-				var hv := Vector3(velocity.x, 0.0, velocity.z).limit_length(Ajustes.CORRER * vel_chao * 1.4)
+				var hv := Vector3(velocity.x, 0.0, velocity.z).limit_length(Armadura.correr() * 1.4)
 				velocity.x = hv.x
 				velocity.z = hv.z
 				if em_voo():

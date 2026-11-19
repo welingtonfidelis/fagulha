@@ -26,7 +26,8 @@ const MODOS := {
 	"misseis": {"som": "missil_sai", "titulo": "Mísseis", "resumo": "segure para travar até 4 alvos e solte", "gatilho": "trava", "cadencia": 0.9, "dano": 3.0, "calor": 4.0, "area": 4.5, "vel": 34.0},
 }
 ## A espada de laser (R3 no chão): um golpe em arco, que alterna de lado a cada vez.
-const ESPADA := {"dano": 2.0, "alcance": 3.6, "abre": 80.0, "tempo": 0.2, "espera": 0.3}
+## O alcance é o do braço mais a lâmina curta de pulso, a partir do meio do robô: defesa de perto. Eram 3,6 m.
+const ESPADA := {"dano": 2.0, "alcance": 0.9, "abre": 80.0, "tempo": 0.2, "espera": 0.3}
 const GRANADA := {"dano": 2.6, "area": 7.0, "pavio": 4.5, "alcance": 55.0}
 const ANGULO_LANCE := deg_to_rad(70.0)  # granadas e mísseis saem dos lançadores do ombro quase a pique
 

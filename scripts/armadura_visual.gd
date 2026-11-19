@@ -79,7 +79,7 @@ func _ready() -> void:
 			push_warning("junta não achada: " + k)
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
-	if MODELO.ends_with("robo_v1.glb"):
+	if MODELO.ends_with("robo_v1.glb") or MODELO.ends_with("robo_v2.glb"):
 		MelhoriasVisual.preparar(self)
 		vestir_melhorias()
 
@@ -230,14 +230,14 @@ func _trocar_materiais(no: Node) -> void:
 			if m == null:
 				continue
 			# estilo pintado: placas foscas com borda acesa (metal espelhado ficava preto sem reflexo)
-			if toon and m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje"]:
+			if toon and m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje", "laranja", "vidro"]:
 				var mt := ShaderMaterial.new()
 				mt.shader = load("res://scripts/shaders/vale_solido.gdshader")
 				mt.set_shader_parameter("cor", (m as StandardMaterial3D).albedo_color)
 				mt.set_shader_parameter("brilho_borda", 0.18)
 				mi.set_surface_override_material(s, mt)
 				continue
-			if m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje"]:
+			if m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje", "laranja", "vidro"]:
 				var sm := m as StandardMaterial3D
 				sm.metallic = 0.15
 				sm.roughness = 0.62
@@ -374,7 +374,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 	_hv_ant = hv
 	if no_chao and not a.mirando_agora():
 		# no chão o corpo inclina para dentro da curva, mais quanto mais rápido
-		roll_alvo = clampf(wrapf(yaw_alvo - _yaw, -PI, PI) * 0.5, -0.22, 0.22) * clampf(hv / (Ajustes.CORRER * Armadura.vel_chao), 0.0, 1.0)
+		roll_alvo = clampf(wrapf(yaw_alvo - _yaw, -PI, PI) * 0.5, -0.22, 0.22) * clampf(hv / Armadura.correr(), 0.0, 1.0)
 	else:
 		_passada = 0.0
 	var tc := 1.0 - exp(-10.0 * delta)
@@ -653,6 +653,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 				continue
 			var alvo: Vector3 = _alvos.get(k, Vector3.ZERO)
 			no.rotation = no.rotation.lerp(alvo, t)
+		_torcer_luvas(delta, a)
 		(j["raiz"] as Node3D).position.y = lerpf((j["raiz"] as Node3D).position.y, _raiz_y + bob, t)
 		# aletas abrem como asas ao planar
 		var ab := smoothstep(0.0, 1.0, abertura_aletas)
@@ -728,14 +729,51 @@ var _lamina_no: MeshInstance3D
 
 
 ## A lâmina de laser: sai da mão direita, ao longo do braço, só enquanto dura o golpe.
+## As luvas do robô novo (juntas `luvaE` e `luvaD`): em descanso ficam torcidas 90 graus em torno do antebraço,
+## com o polegar para a frente e a mão aberta; para mirar, atirar ou golpear a luva destorce, a mão fecha e o
+## cano da luva aponta para a frente.
+var _luva_k := {"E": 1.0, "D": 1.0}
+
+
+func _torcer_luvas(delta: float, a: Armadura) -> void:
+	for lado: String in ["E", "D"]:
+		var no := modelo.find_child("luva" + lado, true, false) as Node3D if not _luvas.has(lado) else _luvas[lado] as Node3D
+		_luvas[lado] = no
+		if no == null:
+			continue
+		var reta: bool = (a.atirando > 0.0 or a.mirando_agora() or a.espada_t > 0.0) if lado == "D" else a.atirando_e > 0.0
+		_luva_k[lado] = move_toward(float(_luva_k[lado]), 0.0 if (reta and not a.em_pane) else 1.0, delta * 7.0)
+		var k := smoothstep(0.0, 1.0, float(_luva_k[lado]))
+		no.rotation = Vector3(0.0, (PI * 0.5 if lado == "E" else -PI * 0.5) * k, 0.0)
+		# e a mão fecha quando a luva está reta
+		if not _dedos.has(lado):
+			_dedos[lado] = modelo.find_child("dedos" + lado, true, false)
+		if _dedos[lado] is Node3D:
+			(_dedos[lado] as Node3D).rotation = Vector3(deg_to_rad(100.0) * (1.0 - k), 0.0, 0.0)
+
+
+var _luvas := {}
+var _dedos := {}
+var _bocas := {}
+
+
+## A ponta do cano da luva (o robô novo), de onde o tiro sai; sem ela, `null`.
+func boca_da_arma(esquerda: bool) -> Node3D:
+	var lado := "E" if esquerda else "D"
+	if not _bocas.has(lado):
+		_bocas[lado] = modelo.find_child("boca" + lado, true, false)
+	return _bocas[lado] as Node3D
+
+
 func _lamina(acesa: bool) -> void:
 	if _lamina_no == null:
 		if not acesa or not (j.get("punhoD") is Node3D):
 			return
 		_lamina_no = MeshInstance3D.new()
 		var cm := CapsuleMesh.new()
-		cm.radius = 0.045
-		cm.height = 1.25
+		# lâmina curta de pulso (uns 35 cm): defesa de perto. Era uma de 1,25 m
+		cm.radius = 0.028
+		cm.height = 0.36
 		_lamina_no.mesh = cm
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -751,11 +789,11 @@ func _lamina(acesa: bool) -> void:
 		# mão. As medidas são em metros do mundo, desfeita a escala do modelo
 		var h := ALTURA_ALVO * Armadura.porte
 		var esc := maxf(0.001, punho.global_basis.get_scale().y)
-		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.6) / esc, 0))
+		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.2) / esc, 0))
 		var luz := OmniLight3D.new()
 		luz.light_color = Color(0.3, 0.9, 1.0)
-		luz.light_energy = 1.6
-		luz.omni_range = 3.5
+		luz.light_energy = 0.35
+		luz.omni_range = 1.1
 		luz.shadow_enabled = false
 		_lamina_no.add_child(luz)
 	_lamina_no.visible = acesa

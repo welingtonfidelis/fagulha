@@ -298,7 +298,7 @@ func _process(delta: float) -> void:
 			feito = _passou_aro()
 		"correr":
 			# só vale passar pelo aro correndo (andando, o aro espera)
-			if Vector2(armadura.velocity.x, armadura.velocity.z).length() > Ajustes.ANDAR * Armadura.vel_chao * 1.5:
+			if Vector2(armadura.velocity.x, armadura.velocity.z).length() > (Armadura.andar() + Armadura.correr()) * 0.5:
 				feito = _passou_aro()
 		"pular":
 			if e == Armadura.Estado.AR and _estado_ant == Armadura.Estado.CHAO:

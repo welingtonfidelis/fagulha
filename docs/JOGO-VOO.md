@@ -2510,3 +2510,29 @@ O usuário mandou seguir com a lista da seção 104. Feitos os itens 7, 8, 9 (em
 **Não conferido:** nada jogado com as mãos. A câmera subir e recuar no chão e a zona morta menor são mudanças de sensação: só jogando se sabe se ficaram melhores. O retomar foi conferido uma vez à mão, abrindo o jogo com um save de teste numa pasta temporária: o robô apareceu no ponto guardado, de pé no chão, e um ponto enterrado subiu para o chão de agora. Não há teste automático disso (as baterias não usam o save).
 
 **Sobram da lista:** o item 10 (desempenho que muda o visual) e o 12 (conteúdo novo), mais os pedaços não feitos acima.
+
+## 109. Os robôs de fora foram testados e saíram; o que ficou (2026-11-19)
+
+Foram testados no lugar do robô de peças o GDbot da GDQuest (como veio e numa versão "menino"), e um boneco animado do Quaternius. O GDbot agradou no visual, mas cada pose do jogo (mira, voo, nado, esquiva, espada, sentar) teve de ser remendada por cima das animações prontas dele, e a arte dele é de uso não comercial. **Decisão: o robô do jogo continua sendo o nosso, de peças, e o visual dele é que vai ser redesenhado.** Tudo dos robôs de fora saiu do projeto (addons, modelos, scripts, os três cilindros de troca na base, o ajuste "Modelo do robô"). O experimento ficou guardado, fora do jogo, em `bibliotecas/gdquest-3d-characters/teste-no-faisca-2/`.
+
+Do período ficaram, valendo para o robô de peças:
+
+- **Velocidade no chão:** 3,0 m/s andando e 7,5 correndo no vale (eram 2,1 e 6,3). `Armadura.vel_andar`, `vel_correr`, lidas por `Armadura.andar()` e `correr()`.
+- **Esquiva no voo:** um pico de velocidade lateral de 24 m/s que vale inteiro por 0,34 s e depois é freado forte (`MANOBRA_PICO`, `MANOBRA_VEL`, `exp(-14·dt)`), em vez de ir morrendo devagar.
+- **Sentar saiu do jogo** (`Armadura.pode_sentar := false`; a lógica fica, desligada). Falta pensar em outra coisa para "aproveitar a vista".
+
+
+## 110. O robô redesenhado e a baia com os cilindros vazios (2026-11-19)
+
+O robô do jogo passa a ser `assets/vale/robo_v2.glb`, gerado por `tools/vale/robo_v2.py` (Blender; a mesma chamada faz a folha de estudo ou, com `EXPORTAR=`, o glb). É o robô de peças redesenhado, com os traços que agradaram no teste do GDbot mas desenho nosso: placas de armadura com cantos chanfrados, cabeça grande com visor escuro e dois olhos de tela, aba na testa, placas azuis nas laterais e uma faixa azul que acompanha a curva do capacete; tronco pequeno, luvas e botas grandes, juntas pretas; branco, azul e laranja. Tem os dois estabilizadores com chama no meio das costas e as abas nas juntas `aleta`.
+
+- **Mesmas juntas, outros lugares.** Os nomes das juntas são os do `robo.py`, então as poses do `ArmaduraVisual` valem sem mudança; as posições mudaram (pernas mais curtas, cabeça mais baixa e maior). A altura continua 1,2 m.
+- **Materiais.** `placa_clara`, `placa_escura` e `detalhe` continuam com esses nomes (as peças das melhorias leem as cores deles); entraram `laranja` e `vidro`, que o `ArmaduraVisual` também pinta no estilo do vale. O branco é 0,50 no gerador: mais claro que isso estourava no brilho da simulação.
+- **Peças das melhorias.** Foram medidas no robô anterior. `MelhoriasVisual.DESLOCA_V2` diz quanto a parte de cada junta andou no robô novo, e `_ancora` leva a peça junto. Conferido na vitrine (`godot --path . -s tools/vitrine_melhorias.gd`, com `-- --armas` para as armas e `-- --robo-v1` para ver no robô anterior). As armas de braço e os lançadores de ombro ficaram no lugar aproximado; merecem um acerto fino.
+- **Lâmina curta.** A espada virou uma lâmina de pulso de uns 35 cm, com brilho fraco; o alcance do golpe caiu de 3,6 m para 0,9 m (braço mais lâmina) e o arco largo de luz saiu.
+- **Luvas que torcem.** Entre o cotovelo e o punho há a junta `luvaE`/`luvaD`. Em descanso a luva fica torcida 90 graus em torno do antebraço (polegar para a frente, palma para o corpo); para mirar, atirar ou golpear, a luva daquele braço destorce e a boca da arma aponta para a frente (`ArmaduraVisual._torcer_luvas`).
+- **Mão que fecha e cano na luva.** A junta `dedosE`/`dedosD` dobra os dedos: mão aberta em descanso, punho fechado para mirar, atirar e golpear (junto com a luva destorcendo). Sobre as costas de cada antebraço há um cano pequeno com a boca virada para a mão; com o braço erguido ele fica por cima do punho, apontando para a frente. O tiro sai da junta `bocaE`/`bocaD`, na ponta dele (`ArmaduraVisual.boca_da_arma`, usada por `Tiro._mao`); antes saía do punho.
+- **Sem jato nas mãos.** O robô novo não tem as chamas pequenas das mãos (`chamas_pequenas` fica vazia e não há `chama_tiro`).
+- **Falta:** as expressões dos olhos (piscar, tonto no calor, sonolento em pane).
+
+A baia dos robôs voltou à base (`BaseVale._baia_dos_robos`: estrado com rampa, painel, cobertura), com os três cilindros de vidro do `CilindrosBase`, **vazios** e sólidos. A ideia guardada: o robô anterior (`robo_v1.glb`, que continua no projeto com o gerador dele) pode virar um item que se acha no vale e se usa ali.
