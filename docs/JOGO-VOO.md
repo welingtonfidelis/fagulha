@@ -2350,3 +2350,34 @@ Cinco decisões do usuário depois de ler a seção 99.
 - **Controle desconectado:** `Pausa._controle_mudou` (sinal `joy_connection_changed`) para o jogo e abre a pausa com o título "O controle desconectou" e a linha "Ligue de novo, use outro controle ou continue com teclado e mouse". Ao reconectar, o título vira "Controle conectado". Não abre por cima de uma memória nem dentro da oficina.
 - **Teste:** o ponto 34 da bateria do vale passou a cobrir o botão travado em pane, o aviso do controle e a espera do drone. A captura `--pausa` ganhou a foto `p6_controle_desconectou`.
 - **Não conferido:** o reinício automático (não roda sem janela, e no PC depende de como o jogo é aberto pela Steam); a desconexão de um DualSense de verdade; a interface numa TV 4K real.
+
+## 101. Trancos e desempenho, primeira leva (2026-11-19)
+
+A partir do relatório do game dev (`docs/relatorios/game-dev-senior.md`), que mediu onde vai o tempo. O usuário escolheu esta frente depois dos defeitos do QA.
+
+**Os trancos (processador):**
+
+- **Colisão das árvores por célula.** Antes havia um corpo só com 900 formas, reescritas a cada 12 m andados ou voados: de 20 a 28 ms de cada vez (medida do game dev). Agora cada célula de 32 m da grade de árvores ganha um corpo próprio (`Ilha._criar_celula_colisao`), feito uma vez quando o robô chega a uns 95 m e solto além de 185 m. A mesma chamada (`atualizar_colisao_arvores`) passou a custar 0,34 ms na mediana e 2,7 ms no pior caso (40 passos de 12,5 m sobre a mata, cronometrado sem janela). Saiu o limite de 450 árvores com colisão. Os testes desligam a colisão com `colisao_arvores_ligada(false)`.
+- **Capim em segundo plano.** As contas de cada bloco (uns 3 mil sorteios com altura e água) saíram do quadro principal para tarefas do `WorkerThreadPool` (`CapimVivo._calcular`, `_calcular_longe`, até duas ao mesmo tempo), que só leem o mapa. O quadro principal só monta o MultiMesh com o `buffer` pronto (`_montar`). Antes: de 8 a 10 ms por bloco, um bloco por quadro. Agora o `_process` do capim fica em 0,01 ms na mediana e 0,25 ms no pior quadro (300 m andados nos campos do sul).
+
+**O quadro (placa):**
+
+- **Sombra de contato e desfoque por nível de qualidade** (`Qualidade.NIVEIS`): SSAO desligado na baixa, leve na média e como era na alta; desfoque do fundo só na alta. Antes valiam iguais nos três.
+- **Shader sem `discard` para o que não tem recorte** (`vale_tex_opaco.gdshader`, escolhido em `Clareira._tex_q` quando `corte` é 0): cascas, pedras, seixos e cogumelos. A troca por distância dessas peças ficou seca, sem a trama pontilhada.
+
+**Medidas no Mac** (mediana do tempo de quadro, 1600×900; o "antes" é a tabela do game dev, medida com uma bateria de testes rodando ao lado):
+
+| Vista | Alta antes → depois | Média antes → depois | Baixa antes → depois |
+|---|---|---|---|
+| Mata fechada, no chão | 34,4 → 27,8 ms | 29,2 → 22,0 ms | 24,1 → 15,8 ms |
+| Base, olhando o campo | 33,6 → 32,2 ms | 27,3 → 24,8 ms | 21,6 → 18,0 ms |
+| Sobre a mata, a 60 m | 39,1 → 37,4 ms | 32,6 → 28,8 ms | 26,9 → 18,7 ms |
+| Campos do sul | 16,2 → 16,2 ms | 14,0 → 13,3 ms | 11,7 → 13,5 ms (no teto da tela) |
+
+Fotos de conferência na alta: 38/31/75/31/34 fps nas vistas 1 a 5 (antes 34/28/82/29/31; a lagoa bate no teto da tela).
+
+**Não feito, fica para decidir com foto:** folhas desenhadas de um lado só (3,5 a 6,4 ms, mas metade das placas some vista de trás); antisserrilhado mais leve (3 a 6 ms, o recorte serrilha mais); impostores na meia distância; capim fixo da clareira (5 ms na base); câmera que bate nas copas; interpolação de física do motor para 120/144 Hz.
+
+**Não conferido:** nada medido nem jogado no PC, que é onde os trancos apareciam inteiros; o "antes" dos trancos é a medida do game dev, não minha; noite, chuva e Fundição não foram medidas.
+
+**Pendência pequena:** a foto `v2NN_margem` deixou de sair (o ponto de amostra da margem só é guardado quando as plantas são geradas, não quando vêm do cache).

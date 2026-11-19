@@ -798,7 +798,7 @@ func _ponto_19() -> void:
 		de_tiro.religar()
 		# ninguém luta sozinho nesta parte (um vizinho atirando estragava a medida): os tiros do teste saem à mão
 		m.inimigos.process_mode = Node.PROCESS_MODE_DISABLED  # o gerente parado: senão ele reacorda os mechas
-		v._corpo_arvores.collision_layer = 0  # sem árvores no caminho: aqui se mede o projétil (o ponto 29 mede o obstáculo)
+		v.colisao_arvores_ligada(false)  # sem árvores no caminho: aqui se mede o projétil (o ponto 29 mede o obstáculo)
 		# o robô a 40 m, num rumo sem nada no caminho (uma pedra das plantas do chão pode nascer na linha
 		# quando a cobertura do mapa muda: aconteceu em 2026-11-18 e a bala parava nela)
 		var esp_b := a.get_world_3d().direct_space_state
@@ -867,7 +867,7 @@ func _ponto_19() -> void:
 				tempo_missil = i / 60.0
 				break
 		m.inimigos.process_mode = Node.PROCESS_MODE_INHERIT
-		v._corpo_arvores.collision_layer = 2
+		v.colisao_arvores_ligada(true)
 		de_tiro.desligar()
 	a.avaria = 0
 	a.graca_pane = 0.0
@@ -1110,7 +1110,7 @@ func _ponto_24() -> void:
 ## fundo da cachoeira o robô nada: desce para onde a câmera olha, esfria, pula para fora na tona e, vindo
 ## rápido de baixo, rompe a lâmina voando.
 func _ponto_25() -> void:
-	(il as Vale)._corpo_arvores.collision_layer = 0  # sem árvores entre o robô e a máquina (o ponto 29 mede o obstáculo)
+	(il as Vale).colisao_arvores_ligada(false)  # sem árvores entre o robô e a máquina (o ponto 29 mede o obstáculo)
 	print("mira com trava e nado")
 	_soltar_tudo()
 	_zerar()
@@ -1195,7 +1195,7 @@ func _ponto_25() -> void:
 			if cu.nivel(sv + 10.0) > cu.nivel(sv) + 0.001:
 				rio_desce = false
 			sv += 10.0
-	(il as Vale)._corpo_arvores.collision_layer = 2
+	(il as Vale).colisao_arvores_ligada(true)
 	_ok(rio_desce and alvo_m != null and travou and acertou and sem_trava and fundura > 9.0 and nadando and desceu > 1.5 and esfriou > 15.0 and na_tona and pulou and saiu_voando,
 		"os rios só descem no sentido da correnteza (%s); mira: travou a 3° do centro (%s), o tiro travado acertou (%s), a 16° não trava (%s); poço com %.1f m de fundura: nada (%s), desceu %.1f m em 0,8 s, esfriou %.0f, parou na tona (%s), segurando o X decolou (%s), saiu voando de baixo (%s)"
 		% [rio_desce, travou, acertou, sem_trava, fundura, nadando, desceu, esfriou, na_tona, pulou, saiu_voando])

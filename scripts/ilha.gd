@@ -10,7 +10,6 @@ const N := 513  # pontos por lado
 const BLOCO := 64  # quadrados por bloco de malha (256 m)
 const CELULA_ARVORE := 32.0
 const RAIO_COLISAO_ARVORE := 70.0
-const MAX_COLISAO_ARVORE := 450
 
 var alturas := PackedFloat32Array()
 var normais := PackedVector3Array()
@@ -29,9 +28,9 @@ var arv_escala := PackedFloat32Array()
 var arv_tipo := PackedByteArray()
 var _grade_arv := {}  # Vector2i -> PackedInt32Array
 
-var _corpo_arvores: StaticBody3D
-var _formas_tronco: Array[CollisionShape3D] = []
-var _formas_copa: Array[CollisionShape3D] = []
+var _corpo_arvores: Node3D  # o pai dos corpos de colisão das árvores, um por célula da grade
+var _celulas_colisao := {}  # Vector2i -> [StaticBody3D, quantas árvores tinha a célula quando foi feito]
+var _camada_arvores := 2
 var _ultimo_centro := Vector3(INF, 0, INF)
 
 var _n_colina: FastNoiseLite
@@ -467,28 +466,46 @@ func _arvores(semente: int) -> void:
 
 
 func _preparar_colisao_arvores() -> void:
-	_corpo_arvores = StaticBody3D.new()
+	_corpo_arvores = Node3D.new()
 	_corpo_arvores.name = "ArvoresColisao"
-	_corpo_arvores.collision_layer = 2
-	_corpo_arvores.collision_mask = 0
 	add_child(_corpo_arvores)
-	for k in MAX_COLISAO_ARVORE:
-		var t := CollisionShape3D.new()
+
+
+## Liga ou desliga a colisão de todas as árvores (testes que medem o tiro sem tronco no caminho).
+func colisao_arvores_ligada(sim: bool) -> void:
+	_camada_arvores = 2 if sim else 0
+	for cel in _celulas_colisao:
+		(_celulas_colisao[cel][0] as StaticBody3D).collision_layer = _camada_arvores
+
+
+## O corpo de colisão de uma célula da grade de árvores (32 m): um tronco e uma copa por árvore. É feito uma
+## vez, quando o robô chega perto, e solto quando ele vai longe. Antes havia um corpo só, com 900 formas
+## reescritas a cada 12 m andados: de 20 a 28 ms de tranco de cada vez (medido em 2026-11-19).
+func _criar_celula_colisao(cel: Vector2i) -> void:
+	var lista: PackedInt32Array = _grade_arv[cel]
+	var corpo := StaticBody3D.new()
+	corpo.collision_layer = _camada_arvores
+	corpo.collision_mask = 0
+	for i in lista:
+		var p := arv_pos[i]
+		var md := _medidas_colisao(i)  # [raio do tronco, altura do tronco, raio da copa, meio da copa, altura da copa]
+		var tronco := CollisionShape3D.new()
 		var cil := CylinderShape3D.new()
-		cil.radius = 0.45
-		cil.height = 6.0
-		t.shape = cil
-		t.disabled = true
-		_corpo_arvores.add_child(t)
-		_formas_tronco.append(t)
-		var c := CollisionShape3D.new()
-		var cap := CapsuleShape3D.new()
-		cap.radius = 2.6
-		cap.height = 9.0
-		c.shape = cap
-		c.disabled = true
-		_corpo_arvores.add_child(c)
-		_formas_copa.append(c)
+		cil.radius = md[0]
+		cil.height = md[1]
+		tronco.shape = cil
+		tronco.position = p + Vector3(0, md[1] * 0.5, 0)
+		corpo.add_child(tronco)
+		if md[2] >= 0.3:
+			var copa := CollisionShape3D.new()
+			var cap := CapsuleShape3D.new()
+			cap.radius = md[2]
+			cap.height = maxf(md[2] * 2.0 + 0.1, md[4])
+			copa.shape = cap
+			copa.position = p + Vector3(0, md[3], 0)
+			corpo.add_child(copa)
+	_corpo_arvores.add_child(corpo)
+	_celulas_colisao[cel] = [corpo, lista.size()]
 
 
 ## As medidas da colisão da árvore `i`, no mundo: [raio do tronco, altura do tronco, raio da copa, altura do
@@ -500,41 +517,29 @@ func _medidas_colisao(i: int) -> Array:
 	return [0.45 * s, (3.5 if conif else 5.0) * s, r, (9.0 if conif else 8.5) * s, (9.0 if conif else 7.0) * s]
 
 
-## Liga a colisão só das árvores perto de `centro` (troncos e copas).
+## Garante a colisão das árvores perto de `centro` (troncos e copas), célula a célula.
 func atualizar_colisao_arvores(centro: Vector3, forcar := false) -> void:
 	if not forcar and Vector2(centro.x, centro.z).distance_to(Vector2(_ultimo_centro.x, _ultimo_centro.z)) < 12.0:
 		return
 	_ultimo_centro = centro
-	var usados := 0
-	var raio_cel := int(ceil(RAIO_COLISAO_ARVORE / CELULA_ARVORE))
+	var alcance := RAIO_COLISAO_ARVORE + CELULA_ARVORE * 0.75
+	var raio_cel := int(ceil(alcance / CELULA_ARVORE))
 	var cc := Vector2i(floori(centro.x / CELULA_ARVORE), floori(centro.z / CELULA_ARVORE))
+	var xz := Vector2(centro.x, centro.z)
 	for dz in range(-raio_cel, raio_cel + 1):
 		for dx in range(-raio_cel, raio_cel + 1):
 			var cel := cc + Vector2i(dx, dz)
 			if not _grade_arv.has(cel):
 				continue
-			var lista: PackedInt32Array = _grade_arv[cel]
-			for i in lista:
-				if usados >= MAX_COLISAO_ARVORE:
-					break
-				var p := arv_pos[i]
-				if Vector2(p.x - centro.x, p.z - centro.z).length() > RAIO_COLISAO_ARVORE:
+			if Vector2((cel.x + 0.5) * CELULA_ARVORE, (cel.y + 0.5) * CELULA_ARVORE).distance_to(xz) > alcance:
+				continue
+			if _celulas_colisao.has(cel):
+				# árvore posta depois (um marco que plantou a sua): a célula é refeita
+				if int(_celulas_colisao[cel][1]) == (_grade_arv[cel] as PackedInt32Array).size():
 					continue
-				var md := _medidas_colisao(i)  # [raio do tronco, altura do tronco, raio da copa, meio da copa, altura da copa]
-				var tronco := _formas_tronco[usados]
-				var copa := _formas_copa[usados]
-				# formas próprias de cada vaga (sem escala não uniforme, que a física não aceita bem)
-				var cil: CylinderShape3D = tronco.shape
-				cil.radius = md[0]
-				cil.height = md[1]
-				tronco.position = p + Vector3(0, md[1] * 0.5, 0)
-				tronco.disabled = false
-				var cap: CapsuleShape3D = copa.shape
-				cap.radius = md[2]
-				cap.height = maxf(md[2] * 2.0 + 0.1, md[4])
-				copa.position = p + Vector3(0, md[3], 0)
-				copa.disabled = md[2] < 0.3
-				usados += 1
-	for k in range(usados, MAX_COLISAO_ARVORE):
-		_formas_tronco[k].disabled = true
-		_formas_copa[k].disabled = true
+				(_celulas_colisao[cel][0] as Node).queue_free()
+			_criar_celula_colisao(cel)
+	for cel: Vector2i in _celulas_colisao.keys():
+		if Vector2((cel.x + 0.5) * CELULA_ARVORE, (cel.y + 0.5) * CELULA_ARVORE).distance_to(xz) > alcance + 90.0:
+			(_celulas_colisao[cel][0] as Node).queue_free()
+			_celulas_colisao.erase(cel)

@@ -40,6 +40,12 @@ var tufos := 0
 var _longe := {}  # Vector2i -> MultiMeshInstance3D dos tufos de longe (ou null)
 var _fila_l: Array = []
 var _malha_tufo: ArrayMesh
+# As contas de cada bloco (uns 3 mil sorteios, com altura e água de cada ponto) rodam fora do quadro, numa
+# tarefa do WorkerThreadPool: no quadro principal elas custavam de 8 a 10 ms por bloco (medido em 2026-11-19).
+const EM_VOO := 2  # tarefas ao mesmo tempo, no máximo
+var _tarefas := {}  # Vector3i(x, z, tipo) -> id da tarefa
+var _prontos: Array = []  # [tipo, chave, dados] que as tarefas entregam
+var _trava := Mutex.new()
 
 
 func _ready() -> void:
@@ -107,23 +113,71 @@ func _atualizar(p: Vector3) -> void:
 
 
 func _criar_pendentes() -> void:
+	_recolher()
 	if _voando:
 		return
-	var feitos := 0
-	while feitos < POR_QUADRO and not _fila.is_empty() and blocos_vivos < MAX_BLOCOS:
-		var item: Array = _fila.pop_front()
-		var chave: Vector2i = item[1]
-		if _blocos.has(chave):
+	var xz := Vector2(_alvo.x, _alvo.z)
+	while _tarefas.size() < EM_VOO and not _fila.is_empty() and blocos_vivos < MAX_BLOCOS:
+		var chave: Vector2i = (_fila.pop_front() as Array)[1]
+		if _blocos.has(chave) or _tarefas.has(Vector3i(chave.x, chave.y, 0)) or _centro(chave).distance_to(xz) >= RAIO:
 			continue
-		if _centro(chave).distance_to(Vector2(_alvo.x, _alvo.z)) >= RAIO:
-			continue
-		_criar(chave)
-		feitos += 1
+		_lancar(0, chave)
 	# os tufos de longe só quando o capim de perto está em dia
-	if feitos == 0 and not _fila_l.is_empty():
+	if _fila.is_empty() and _tarefas.size() < EM_VOO and not _fila_l.is_empty():
 		var chave_l: Vector2i = (_fila_l.pop_front() as Array)[1]
-		if not _longe.has(chave_l):
-			_criar_longe(chave_l)
+		if not _longe.has(chave_l) and not _tarefas.has(Vector3i(chave_l.x, chave_l.y, 1)):
+			_lancar(1, chave_l)
+
+
+func _lancar(tipo: int, chave: Vector2i) -> void:
+	if _malha_tufo == null and tipo == 1:
+		_malha_tufo = _fazer_tufo()
+	_tarefas[Vector3i(chave.x, chave.y, tipo)] = WorkerThreadPool.add_task(_trabalho.bind(tipo, chave))
+
+
+## Roda numa tarefa, fora do quadro: só lê o mapa (alturas, água, cobertura) e devolve os números prontos.
+func _trabalho(tipo: int, chave: Vector2i) -> void:
+	var d: Dictionary = _calcular(chave) if tipo == 0 else _calcular_longe(chave)
+	_trava.lock()
+	_prontos.append([tipo, chave, d])
+	_trava.unlock()
+
+
+## No quadro principal: pega o que as tarefas entregaram e monta os blocos (só criar os MultiMesh).
+func _recolher() -> void:
+	if _tarefas.is_empty():
+		return
+	_trava.lock()
+	var chegou := _prontos
+	_prontos = []
+	_trava.unlock()
+	var xz := Vector2(_alvo.x, _alvo.z)
+	for item: Array in chegou:
+		var tipo: int = item[0]
+		var chave: Vector2i = item[1]
+		var k := Vector3i(chave.x, chave.y, tipo)
+		if _tarefas.has(k):
+			WorkerThreadPool.wait_for_task_completion(_tarefas[k])
+			_tarefas.erase(k)
+		# o robô pode ter ido embora enquanto a conta rodava
+		if tipo == 0:
+			if not _blocos.has(chave) and _centro(chave).distance_to(xz) < RAIO + 24.0:
+				_montar(chave, item[2])
+		elif not _longe.has(chave) and _centro_l(chave).distance_to(xz) < RAIO_L + 48.0:
+			_montar_longe(chave, item[2])
+
+
+func _exit_tree() -> void:
+	for k in _tarefas:
+		WorkerThreadPool.wait_for_task_completion(_tarefas[k])
+	_tarefas.clear()
+
+
+## Doze números por peça, na ordem que o MultiMesh guarda (as três linhas da matriz, cada uma com a posição).
+static func _por_t(buf: PackedFloat32Array, t: Transform3D) -> void:
+	var b := t.basis
+	var o := t.origin
+	buf.append_array(PackedFloat32Array([b.x.x, b.y.x, b.z.x, o.x, b.x.y, b.y.y, b.z.y, o.y, b.x.z, b.y.z, b.z.z, o.z]))
 
 
 func _centro_l(chave: Vector2i) -> Vector2:
@@ -131,7 +185,7 @@ func _centro_l(chave: Vector2i) -> Vector2:
 
 
 ## Um bloco de tufos de longe: poucos, largos e altos, só para o campo distante ter relevo e contorno.
-func _criar_longe(chave: Vector2i) -> void:
+func _calcular_longe(chave: Vector2i) -> Dictionary:
 	var x0 := chave.x * BLOCO_L
 	var z0 := chave.y * BLOCO_L
 	var cc := _centro_l(chave)
@@ -139,7 +193,7 @@ func _criar_longe(chave: Vector2i) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semente(chave, 7)
 	var passo := BLOCO_L / GRADE_L
-	var ts: Array = []
+	var ts := PackedFloat32Array()
 	for j in GRADE_L:
 		for i in GRADE_L:
 			var px := x0 + (i + rng.randf()) * passo
@@ -154,14 +208,17 @@ func _criar_longe(chave: Vector2i) -> void:
 			var h := _chao(px, pz, ny, rng)
 			if h == -INF:
 				continue
-			ts.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * hy, s)), Vector3(px - cc.x, h - 0.05 - cy, pz - cc.y)))
+			_por_t(ts, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * hy, s)), Vector3(px - cc.x, h - 0.05 - cy, pz - cc.y)))
+	return {"ts": ts, "centro": Vector3(cc.x, cy, cc.y)}
+
+
+func _montar_longe(chave: Vector2i, d: Dictionary) -> void:
+	var ts: PackedFloat32Array = d["ts"]
 	var m: MultiMeshInstance3D = null
 	if not ts.is_empty():
-		if _malha_tufo == null:
-			_malha_tufo = _fazer_tufo()
-		m = _mmi(_malha_tufo, ts, [], Vector3(cc.x, cy, cc.y))
+		m = _mmi(_malha_tufo, ts, 12, d["centro"])
 		m.visibility_range_end = RAIO_L + 50.0
-		tufos += ts.size()
+		tufos += ts.size() / 12
 	_longe[chave] = m
 
 
@@ -248,7 +305,7 @@ func _chance(c: int) -> float:
 	return 0.0
 
 
-func _criar(chave: Vector2i) -> void:
+func _calcular(chave: Vector2i) -> Dictionary:
 	var x0 := chave.x * BLOCO
 	var z0 := chave.y * BLOCO
 	var cc := _centro(chave)
@@ -266,7 +323,7 @@ func _criar(chave: Vector2i) -> void:
 			ncob[j * n + i] = mapa.cobertura(px, pz)
 			nny[j * n + i] = 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
 	var ts: Array = []
-	var altos: Array = []
+	var altos := PackedFloat32Array()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semente(chave, 1)
 	var grade := roundi(GRADE_CAPIM / Clareira.TUFO_PASSO)
@@ -287,13 +344,12 @@ func _criar(chave: Vector2i) -> void:
 			# manchas de capim alto: metade dos tufos da mancha, do modelo comprido
 			if mapa.capim_alto_malha != null and _ruido.get_noise_2d(px * 4.0 + 300.0, pz * 4.0 - 170.0) > 0.32:
 				if (i + j) % 2 == 0:
-					altos.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * rng.randf_range(0.85, 1.2), s)),
+					_por_t(altos, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * rng.randf_range(0.85, 1.2), s)),
 						Vector3(px - cc.x, h - 0.03 - cy, pz - cc.y)))
 				continue
 			ts.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(s, s * hy, s)),
 				Vector3(px - cc.x, h - 0.03 - cy, pz - cc.y)))
-	var tf: Array = []
-	var cf: Array = []
+	var tf := PackedFloat32Array()  # flores: a peça e a cor (16 números)
 	var rf := RandomNumberGenerator.new()
 	rf.seed = _semente(chave, 2)
 	var passo_f := BLOCO / GRADE_FLOR
@@ -315,51 +371,57 @@ func _criar(chave: Vector2i) -> void:
 			var banda := clampi(floori(v * 4.0), 0, 3)
 			if rf.randf() < 0.25:
 				banda = rf.randi_range(0, 3)  # a mistura: uma flor de outra cor no meio da mancha
-			tf.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(1.0, sc, 1.0)),
+			_por_t(tf, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3(1.0, sc, 1.0)),
 				Vector3(px - cc.x, h - 0.02 - cy, pz - cc.y)))
-			cf.append(PALETA[banda].srgb_to_linear())  # a cor da instância chega ao shader sem conversão
+			var cor := PALETA[banda].srgb_to_linear()  # a cor da instância chega ao shader sem conversão
+			tf.append_array(PackedFloat32Array([cor.r, cor.g, cor.b, cor.a]))
+	# duas densidades: uma parte das touceiras, maiores, vai até o fim; o resto só existe perto do robô
+	var longe := PackedFloat32Array()
+	var perto := PackedFloat32Array()  # a peça e o dado que marca "só de perto" (16 números)
+	for t0: Transform3D in ts:
+		if rng.randf() < Qualidade.PARTE_LONGE:
+			_por_t(longe, Transform3D(t0.basis.scaled_local(Vector3.ONE * Qualidade.ESCALA_LONGE), t0.origin))
+		else:
+			_por_t(perto, t0)
+			perto.append_array(PackedFloat32Array([1.0, 0.0, 0.0, 0.0]))
+	return {"longe": longe, "perto": perto, "flores": tf, "altos": altos, "centro": Vector3(cc.x, cy, cc.y)}
+
+
+func _montar(chave: Vector2i, d: Dictionary) -> void:
+	var centro: Vector3 = d["centro"]
+	var longe: PackedFloat32Array = d["longe"]
+	var perto: PackedFloat32Array = d["perto"]
+	var tf: PackedFloat32Array = d["flores"]
+	var altos: PackedFloat32Array = d["altos"]
 	var cap: MultiMeshInstance3D = null
 	var cap_perto: MultiMeshInstance3D = null
 	var flo: MultiMeshInstance3D = null
-	if not ts.is_empty():
-		# duas densidades: uma parte das touceiras, maiores, vai até o fim; o resto só existe perto do robô
-		var longe: Array = []
-		var perto: Array = []
-		for t0: Transform3D in ts:
-			if rng.randf() < Qualidade.PARTE_LONGE:
-				longe.append(Transform3D(t0.basis.scaled_local(Vector3.ONE * Qualidade.ESCALA_LONGE), t0.origin))
-			else:
-				perto.append(t0)
-		if not longe.is_empty():
-			cap = _mmi(mapa.capim_malha, longe, [], Vector3(cc.x, cy, cc.y))
-		if not perto.is_empty():
-			cap_perto = _mmi(mapa.capim_malha, perto, [], Vector3(cc.x, cy, cc.y), true)
-		touceiras += ts.size()
-	if not tf.is_empty():
-		flo = _mmi(_malha_flor, tf, cf, Vector3(cc.x, cy, cc.y))
-		flores += tf.size()
 	var alto: MultiMeshInstance3D = null
+	if not longe.is_empty():
+		cap = _mmi(mapa.capim_malha, longe, 12, centro)
+	if not perto.is_empty():
+		cap_perto = _mmi(mapa.capim_malha, perto, 16, centro, true)
+	touceiras += longe.size() / 12 + perto.size() / 16
+	if not tf.is_empty():
+		flo = _mmi(_malha_flor, tf, 16, centro, false, true)
+		flores += tf.size() / 16
 	if not altos.is_empty():
-		alto = _mmi(mapa.capim_alto_malha, altos, [], Vector3(cc.x, cy, cc.y))
-		touceiras += altos.size()
+		alto = _mmi(mapa.capim_alto_malha, altos, 12, centro)
+		touceiras += altos.size() / 12
 	_blocos[chave] = [cap, flo, cap_perto, alto]
 	if cap != null or flo != null or cap_perto != null or alto != null:
 		blocos_vivos += 1
 
 
-func _mmi(malha: Mesh, ts: Array, cores: Array, centro: Vector3, perto := false) -> MultiMeshInstance3D:
+## `buf` já vem no formato do MultiMesh: `por_peca` números por peça (12 da posição, mais 4 da cor ou do dado).
+func _mmi(malha: Mesh, buf: PackedFloat32Array, por_peca: int, centro: Vector3, perto := false, cores := false) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = not cores.is_empty()
+	mm.use_colors = cores
 	mm.use_custom_data = perto
 	mm.mesh = malha
-	mm.instance_count = ts.size()
-	for k in ts.size():
-		mm.set_instance_transform(k, ts[k])
-		if perto:
-			mm.set_instance_custom_data(k, Color(1.0, 0.0, 0.0, 0.0))
-		if not cores.is_empty():
-			mm.set_instance_color(k, cores[k])
+	mm.instance_count = buf.size() / por_peca
+	mm.buffer = buf
 	var m := MultiMeshInstance3D.new()
 	m.multimesh = mm
 	m.position = centro

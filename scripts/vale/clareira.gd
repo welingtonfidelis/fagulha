@@ -241,7 +241,8 @@ func _materiais() -> void:
 
 func _tex_q(arquivo: String, tinta: Color, corte: float, vento: float, alto_vento := 0.12) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
-	m.shader = load("res://scripts/shaders/vale_tex.gdshader")
+	# sem recorte (casca, pedra): o shader sem `discard`, mais barato
+	m.shader = load("res://scripts/shaders/vale_tex.gdshader" if corte > 0.0 else "res://scripts/shaders/vale_tex_opaco.gdshader")
 	m.set_shader_parameter("tex", load(V + "q/" + arquivo))
 	m.set_shader_parameter("tinta", tinta)
 	m.set_shader_parameter("corte", corte)
