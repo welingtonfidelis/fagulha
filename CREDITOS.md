@@ -81,3 +81,9 @@ https://kenney.nl/assets/input-prompts em 2026-11-19.
 
 - **Rusty Metal 02** e **Rust Coarse 01**, de Poly Haven (https://polyhaven.com), CC0
   (`assets/vale/ferrugem/`, em 1024 px). Usadas na ferrugem da base e da Fundição.
+
+## A ave grande (Quaternius)
+
+A águia do ninho (`assets/vale/aguia/aguia.glb`) é do "Animal Pack Vol.2", de Quaternius, licença Creative Commons
+Zero (CC0). Baixado de https://opengameart.org/content/animated-animales-low-poly em 2026-11-19 e convertido
+de FBX para glb no Blender. As cores são repostas no jogo (`NinhoAve.CORES_AVE`): na conversão vieram todas cinza.

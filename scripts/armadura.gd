@@ -99,6 +99,10 @@ var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-
 var _planar_botao := "voar"
 var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: pronto)
 var escudos_gastos := 0  # testes
+var jato_cortado := false  # um lugar onde os jatos não funcionam (a maresia do ninho da ave): com asas, o robô plana
+var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da Fundição)
+var contemplando := false  # apreciando a vista: a câmera sai de trás do robô e a tela fica limpa
+var vistas := 0  # quantas vezes entrou nisso (testes)
 var espada_t := 0.0  # tempo que falta do golpe de espada (o visual balança o braço e acende a lâmina)
 var espada_lado := 1.0  # +1 da esquerda para a direita, -1 ao contrário
 var luz_ligada := false  # a luz do peito (melhoria), ligada pelo jogador
@@ -164,6 +168,22 @@ func _ready() -> void:
 	visual = ArmaduraVisual.new()
 	visual.name = "Visual"
 	add_child(visual)
+
+
+## Troca o modelo do robô (o novo ou o anterior): só o visual muda; as melhorias são vestidas de novo.
+func trocar_modelo(caminho: String) -> void:
+	if ArmaduraVisual.MODELO == caminho and visual != null:
+		return
+	ArmaduraVisual.MODELO = caminho
+	var giro := 0.0
+	if visual:
+		giro = visual.rotation.y
+		remove_child(visual)
+		visual.queue_free()
+	visual = ArmaduraVisual.new()
+	visual.name = "Visual"
+	add_child(visual)
+	visual.rotation.y = giro
 
 
 func em_voo() -> bool:
@@ -541,6 +561,7 @@ func _chao(delta: float, mov: Vector2) -> void:
 ## X levanta. Correr sempre levanta. (Agachar saiu: não tinha uso no jogo.)
 func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	if estado != Estado.CHAO or esquivando > 0.0:
+		contemplando = false
 		postura = 0
 		_abaixar_seg = false
 		return
@@ -548,6 +569,18 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	# (sentar saiu do jogo em 2026-11-19; desligado por `pode_sentar`)
 	if not pode_sentar:
 		postura = 0
+		# no lugar do sentar: apreciar a vista. Um toque, parado, e a câmera sai de trás do robô para o jogador
+		# olhar a paisagem; outro toque, andar ou qualquer ação volta ao jogo
+		if contemplando:
+			var sai := mov.length() > 0.3 or em_pane or travado or escaneando
+			for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr", "agir"]:
+				if InputMap.has_action(acao) and Input.is_action_just_pressed(acao):
+					sai = true
+			if sai:
+				contemplando = false
+		elif Input.is_action_just_pressed("sentar") and quieto and not em_pane and not travado and not escaneando and not mirando_agora():
+			contemplando = true
+			vistas += 1
 		return
 	if Input.is_action_just_pressed("sentar"):
 		if postura == 0 and quieto:
@@ -1133,7 +1166,16 @@ func _agua_e_calor(delta: float) -> void:
 			taxa -= Ajustes.ESFRIA_AGUA
 		if chuva > 0.3:
 			taxa -= Ajustes.ESFRIA_CHUVA * chuva
-	calor = clampf(calor + taxa * delta, 0.0, 100.0)
+	calor = clampf(calor + (taxa + calor_extra) * delta, 0.0, 100.0)
+	# onde os jatos não funcionam: quem tem asas passa a planar; quem não tem, cai
+	if jato_cortado and motor_ligado():
+		if Melhorias.tem("asas") and estado == Estado.VOO:
+			_mudar(Estado.PLANAR)
+		else:
+			_pulo_vivo = false
+			_duplo_usado = true
+			_solto = true
+			_mudar(Estado.AR)
 	if not superaquecido and calor >= 100.0:
 		superaquecido = true
 		_tempo_super = 0.0

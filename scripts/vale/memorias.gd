@@ -34,6 +34,17 @@ const TEXTOS := {
 		"Não era para achar nada de útil. Construíram porque alguém disse que um lugar que só olha para os próprios problemas acaba ficando triste.\n\nNas noites limpas a ilha inteira subia o morro. Os robôs também vinham, e ficavam olhando sem entender bem o quê.\n\nO telescópio ainda aponta para a última estrela que escolheram."],
 	"casco": ["O último barco",
 		"Este navio trazia peças e levava gente. Na última viagem veio vazio e ninguém embarcou.\n\nFaísca esperou no cais por muitas marés. Depois puxou o barco para a areia, para o mar não o levar, e sentou ao lado.\n\nFoi aqui que ele decidiu continuar. Havia uma ilha inteira para cuidar, e alguém precisava se lembrar deles."],
+	"robo_mergulhador": ["O que segurava a comporta",
+		"Este cuidava da represa por baixo d'água, onde ninguém mais descia. Abria e fechava a comporta do fundo, tirava galho, media a parede com a mão.\n\nNo dia em que a rachadura abriu, ele desceu e segurou a comporta para a água sair devagar. Deu certo: a lagoa não desceu de uma vez, e o vale lá embaixo não se assustou.\n\nFicou segurando. A água ainda corre forte por ali, e ele ainda está com a mão na roda.\n\nJá pode soltar. O drone leva para a base."],
+	"ave_grande": ["A dona do vento",
+		"Ela já fazia ninho por aqui antes da ponte, e continuou depois que a ponte caiu.\n\nQuem trabalhava nas torres dizia que ela mostrava onde o vento era bom: bastava ver por onde ela subia sem bater as asas.\n\nNinguém nunca chegou perto. Ela escolhia os lugares altos, com o mar em volta, onde o ar não deixa motor nenhum funcionar.\n\nAgora ela sabe que tem alguém na ilha de novo. De vez em quando vai passar lá em cima, para ver."],
+	"sinal_de_fora": ["Alguém respondeu",
+		"Do Relé eles falaram com o mundo por anos, e as respostas foram rareando até parar.\n\nEste receptor ficou ligado aqui em cima, no calor, esquecido. Gravou tudo o que chegou depois.\n\nQuase tudo é chiado. Mas há uma voz, repetida todas as noites, sempre na mesma hora, vinda de sudoeste, de além do mar:\n\n\"Recebemos. Tem lugar para vocês aqui.\"\n\nA luz que acompanha a voz ainda acende. De noite dá para ver."],
+	"robozinhos": ["Os pequenos",
+		"Eram cinco, feitos para andar por dentro dos canos e das frestas onde ninguém mais cabia. Passavam o dia correndo pelo salão, um atrás do outro.\n\nQuando as luzes daqui de baixo se apagaram, eles se juntaram num canto, sentaram em roda e ficaram esperando alguém acender de novo.\n\nEsperaram bastante. Não tinham medo do escuro: só não sabiam brincar nele.\n\nAgora foram para a base. Vai ter barulho por lá."],
+	# fora das dez: a lembrança do robô anterior, que aparece ao acordá-lo no Observatório (RoboAntigo)
+	"robo_antigo": ["O que vinha olhar",
+		"Este robô subia o morro quase toda noite. Não tinha tarefa nenhuma aqui: vinha porque gostava.\n\nSentava sempre neste mesmo lugar, ao pé do telescópio, e ficava olhando pela fenda até o céu clarear. Quem trabalhava aqui deixava a porta aberta para ele.\n\nQuando todos se foram, ele continuou vindo. Numa dessas noites a bateria acabou no meio do caminho das estrelas, e ele ficou.\n\nAinda dá para acordá-lo. O drone leva para a base."],
 }
 const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco"]
 
@@ -119,6 +130,9 @@ func _cristal(lida: bool) -> Node3D:
 	luz.distance_fade_begin = 90.0
 	luz.distance_fade_length = 30.0
 	gira.add_child(luz)
+	# de noite, a memória ainda não lida se vê de longe: um ponto âmbar acima do cristal
+	if not lida:
+		LuzesNoite.por(gira, Vector3(0, 0.9, 0), LuzesNoite.AMBAR, 4.5)
 	return no
 
 
@@ -178,12 +192,13 @@ func abrir(chave: String) -> void:
 		return
 	aberta = chave
 	aberturas += 1
-	if not lidas.has(chave):
+	var das_dez: bool = ORDEM.has(chave)
+	if das_dez and not lidas.has(chave):
 		lidas.append(chave)
 		if Guardado.ativo:
 			Guardado.por_progresso("memorias", lidas)
 	var par: Array = TEXTOS[chave]
-	_conta.text = "MEMÓRIA   ·   %d de %d" % [lidas.size(), ORDEM.size()]
+	_conta.text = ("MEMÓRIA   ·   %d de %d" % [lidas.size(), ORDEM.size()]) if das_dez else "LEMBRANÇA"
 	_titulo.text = par[0]
 	_texto.text = par[1]
 	_camada.visible = true

@@ -18,6 +18,7 @@ const DICAS := [
 	"Atrás de uma árvore ou de uma pedra, o tiro delas não chega.",
 	"Se o robô desligar, o drone colega vem buscar e leva para a base.",
 	"Na água funda o robô nada com os jatos, e isso esfria o motor.",
+	"Parado, a seta para a esquerda tira a câmera de trás do robô para você olhar a paisagem.",
 ]
 # [o que é, no controle, no teclado e mouse]. `{@nome}` vira a imagem do botão (ver Botoes).
 const COMANDOS := [
@@ -26,6 +27,7 @@ const COMANDOS := [
 	["Correr", "{@l3}", "{@k_shift}"],
 	["Pular · pulo duplo", "{@x} · {@x} no ar", "{@k_espaco}"],
 	["Esquiva", "{@o}", "{@k_c}"],
+	["Apreciar a vista (parado)", "{@esq}", "{@k_ctrl}"],
 	["NO AR", "", ""],
 	["Decolar", "segurar {@x}", "segurar {@k_espaco}"],
 	["Ligar o voo · desligar e cair", "{@l3} no ar · toque em {@l3}", "{@k_shift} no ar"],

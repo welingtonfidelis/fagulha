@@ -14,6 +14,7 @@ const CASCO_COMP := 76.0
 
 static var torres_topo: Array[Vector3] = []
 static var girando := 0
+static var rotores: Array = []  # [nó do rotor, estado, índice da torre] das torres de pé (as ações por lugar usam)
 static var observatorio_topo := Vector3.INF
 static var conves := Vector3.INF  # um ponto do convés do navio
 
@@ -39,6 +40,7 @@ static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
 	torres_topo.clear()
 	girando = 0
+	rotores.clear()
 	var blocos: Array[PackedVector3Array] = []
 	for k in 6:
 		blocos.append(Ruinas._cubo_talhado(503 + k * 7, 2 + k % 3))
@@ -129,6 +131,7 @@ static func _torres(o: Ruinas.Obra) -> void:
 		var rotor: Node3D = Rotor.new() if estado == "gira" else Node3D.new()
 		rotor.transform = o.t * Transform3D(rumo * Basis(Vector3.FORWARD, 0.5 + k * 1.1), cubo)
 		v.add_child(rotor)
+		rotores.append([rotor, estado, k])
 		if estado == "gira":
 			(rotor as Rotor).vel = 0.32 if k == 0 else 0.2
 			girando += 1

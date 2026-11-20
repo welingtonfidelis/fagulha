@@ -59,7 +59,13 @@ func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 	_tempo_lugar = 0.0
 
 
+static var marcas := 0  # quantos marcadores a bússola mostra agora (memórias perto, peças da antena, o marcador do jogador); a vibração avisa quando surge um
+static var limpa := false  # apreciando a vista (a câmera avisa): a tela some
+
+
 func _process(delta: float) -> void:
+	# apreciando a vista, a tela fica limpa
+	modulate.a = move_toward(modulate.a, 0.0 if limpa else 1.0, delta * 2.5)
 	if _conselho_t > 0.0:
 		_conselho_t -= delta
 		if _conselho_t <= 0.0:
@@ -180,6 +186,7 @@ func _desenhar_bussola() -> void:
 				draw_line(ps + Vector2(cos(ang), sin(ang)) * 7.0, ps + Vector2(cos(ang), sin(ang)) * 11.0, sol_c, 2.0)
 			draw_circle(ps, 5.0, sol_c)
 	# as memórias ainda não lidas a menos de 300 m: um losango âmbar (como a antena faz com as peças)
+	var conta_marcas := 0
 	if alvo and memorias:
 		for chave: String in memorias.onde:
 			if memorias.lidas.has(chave):
@@ -188,6 +195,7 @@ func _desenhar_bussola() -> void:
 			dm.y = 0.0
 			if dm.length() > 300.0 or dm.length() < 6.0:
 				continue
+			conta_marcas += 1
 			var off_m2 := wrapf(atan2(dm.x, -dm.z) - rumo, -PI, PI)
 			var ambar := Color(1.0, 0.72, 0.25)
 			if absf(off_m2) > meia:
@@ -198,6 +206,8 @@ func _desenhar_bussola() -> void:
 				draw_colored_polygon(PackedVector2Array([pm + Vector2(0, -3.5), pm + Vector2(2.4, 0), pm + Vector2(0, 3.5), pm + Vector2(-2.4, 0)]), Color(1, 0.95, 0.8))
 	# a antena de busca: um triângulo verde para cada peça que estiver por perto
 	if alvo:
+		conta_marcas += Melhorias.sinais.size() + (1 if alvo.tem_marcador else 0)
+		marcas = conta_marcas
 		for sinal in Melhorias.sinais:
 			var da := sinal - alvo.global_position
 			da.y = 0.0
@@ -253,6 +263,8 @@ var _mira_vista := 0.0
 var _calor_visto := 0.0
 var _frio_visto := 0.0
 var _missil_visto := 0.0
+var _missil_fica := 0.0  # segundos que o contador de mísseis ainda fica depois de um disparo
+var _misseis_antes := -1
 var _granada_vista := 0.0
 var _voo_visto := 0.0
 var _arma_vista := 0.0
@@ -464,7 +476,16 @@ func _draw() -> void:
 	# A munição fica ao lado da mira, em arco (pedido do usuário, 2026-11-18; antes eram marcas embaixo, perto
 	# do calor): os mísseis à direita, com os mísseis escolhidos e mirando; as granadas à esquerda, enquanto
 	# se segura o botão da granada. Um traço curvo por unidade: cheio o que resta, apagado o que foi gasto.
-	var quer_missil: bool = Arsenal.modo == "misseis" and (alvo.mirando_agora() or (tiro_no != null and not (tiro_no.get("travas") as Array).is_empty()))
+	# os mísseis: com eles escolhidos, aparece mirando, segurando o gatilho (mesmo sem alvo travado) e por uns
+	# dois segundos depois de cada disparo. Antes só aparecia mirando ou com um alvo já travado, e quem
+	# atirava sem mirar e sem máquina por perto nunca via o contador.
+	if Arsenal.misseis != _misseis_antes:
+		if _misseis_antes >= 0:
+			_missil_fica = 2.2
+		_misseis_antes = Arsenal.misseis
+	_missil_fica = maxf(0.0, _missil_fica - dt)
+	var gatilho_missil: bool = tiro_no != null and (bool(tiro_no.get("_segurando_missil")) or not (tiro_no.get("travas") as Array).is_empty())
+	var quer_missil: bool = Arsenal.modo == "misseis" and (alvo.mirando_agora() or gatilho_missil or _missil_fica > 0.0)
 	var quer_granada: bool = Arsenal.granadas_max() > 0 and (Input.is_action_pressed("granada") or (tiro_no != null and (tiro_no.get("arco") as PackedVector3Array).size() > 0))
 	_missil_visto = move_toward(_missil_visto, 1.0 if quer_missil else 0.0, dt * (9.0 if quer_missil else 3.0))
 	_granada_vista = move_toward(_granada_vista, 1.0 if quer_granada else 0.0, dt * (9.0 if quer_granada else 3.0))

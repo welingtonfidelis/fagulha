@@ -102,6 +102,7 @@ static func _anel(v: Vale, corpo: StaticBody3D) -> void:
 	for lado: float in [-1.0, 1.0]:
 		Obstaculos.registrar(c.x + eixo.x * 27.0 * lado, c.y + eixo.z * 27.0 * lado, 3.0)
 	anel = centro
+	Pista.montar(v, centro, (base * Vector3.UP).normalized())
 	lugares.append(["O Anel", c, 60.0])
 
 

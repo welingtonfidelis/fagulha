@@ -58,6 +58,12 @@ func rodar(main: Node) -> void:
 	await _ponto_35()
 	await _ponto_36()
 	await _ponto_37()
+	await _ponto_38()
+	await _ponto_39()
+	await _ponto_40()
+	await _ponto_41()
+	await _ponto_42()
+	await _ponto_43()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -2198,7 +2204,7 @@ func _ponto_33() -> void:
 	var abriu_m: bool = me.aberta == "torres" and get_tree().paused and me._camada.visible
 	me.fechar()
 	await _esperar(0.3)
-	_ok(me.onde.size() == 10 and Memorias.TEXTOS.size() == 10 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
+	_ok(me.onde.size() == 10 and Memorias.ORDEM.size() == 10 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
 		"memórias: %d cristais e %d textos, nenhum em cima de uma peça (%s); tocar abre o texto e para o jogo (%s); fechar devolve o controle" % [me.onde.size(), Memorias.TEXTOS.size(), longe_das_pecas, abriu_m])
 	_zerar()
 
@@ -2462,7 +2468,7 @@ func _ponto_37() -> void:
 	for k in vis.j:
 		if vis.j[k] == null:
 			faltam += 1
-	var novo: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb")
+	var novo: bool = ArmaduraVisual.corpo_novo()
 	var cil: CilindrosBase = m.get_node_or_null("CilindrosBase")
 	var tres: bool = cil != null and cil.cilindros.size() == 3
 	var vazios := true
@@ -2511,3 +2517,374 @@ func _ponto_37() -> void:
 	_ok(ab_ok and volta_ok and not get_tree().paused, "tela de abertura: abre com o nome do jogo e 'Começar' sem partida guardada (%s); depois a pausa volta ao normal (%s)" % [ab_ok, volta_ok])
 	_ok(novo and faltam == 0 and vis.chamas.size() == 4 and tres and vazios and solidos,
 		"robô redesenhado: é o modelo do jogo (%s), juntas que faltam %d, chamas %d; baia com três cilindros (%s), vazios (%s) e sólidos (%s)" % [novo, faltam, vis.chamas.size(), tres, vazios, solidos])
+
+
+## O robô anterior e o apreciar a vista: sentado no Observatório até ser acordado; a lembrança dele não conta
+## entre as dez; depois fica num cilindro da base e a troca muda só o modelo. E a seta para a esquerda, parado,
+## tira a câmera de trás do robô e limpa a tela, até o jogador andar.
+func _ponto_38() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.5)
+	var r: RoboAntigo = m.robo_antigo
+	var la: bool = r != null and not r.achado and r.estatua != null and r.guardado_no == null
+	var perto_obs: bool = la and Vector2(r.estatua.global_position.x, r.estatua.global_position.z).distance_to(MarcosOeste.OBSERVATORIO) < 60.0
+	var lidas0: int = m.memorias.lidas.size()
+	a.teleportar(r.estatua.global_position + Vector3(1.3, 0.4, 0.9), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	var convite: bool = m.hud.dica == "{agir}  acordar o robô"
+	r.achar()
+	await _esperar(0.2)
+	var lembranca: bool = m.memorias.aberta == "robo_antigo" and get_tree().paused and m.memorias.lidas.size() == lidas0
+	m.memorias.fechar()
+	await _esperar(0.3)
+	var guardado: bool = r.achado and r.estatua == null and r.guardado_no != null
+	var cil: Node3D = r.cilindros.cilindros[RoboAntigo.VAGA]
+	a.teleportar(cil.global_position + cil.global_basis.z * 1.5 + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	var convite_troca: bool = m.hud.dica == "{agir}  trocar de robô"
+	r.trocar()
+	await _esperar(0.4)
+	var antigo: bool = ArmaduraVisual.MODELO.ends_with("robo_v1.glb") and a.visual != null and a.visual.chamas_pequenas.size() == 2 and a.visual.boca_da_arma(false) == null
+	Input.action_press("frente")
+	await _esperar(0.5)
+	Input.action_release("frente")
+	var anda: bool = _hv() > 1.0
+	await _esperar(0.5)
+	r.trocar()
+	await _esperar(0.4)
+	var novo: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb") and a.visual.boca_da_arma(false) != null and r.trocas == 2
+	m.hud.dica = ""
+	_ok(la and perto_obs and convite and lembranca and guardado and convite_troca and antigo and anda and novo,
+		"robô anterior: sentado no Observatório (%s, %s), convite (%s), a lembrança abre e não conta entre as dez (%s), vai para o cilindro (%s), convite de troca (%s), trocado é o modelo antigo com os jatos das mãos (%s) e anda (%s); destrocado volta o novo (%s)"
+			% [la, perto_obs, convite, lembranca, guardado, convite_troca, antigo, anda, novo])
+	# apreciar a vista
+	a.recomecar()
+	await _esperar(0.8)
+	await _apertar("sentar")
+	await _esperar(3.0)
+	var vendo: bool = a.contemplando and m.camera.vista > 0.9 and m.hud.modulate.a < 0.05 and a.postura == 0
+	Input.action_press("frente")
+	await _esperar(1.2)
+	Input.action_release("frente")
+	var saiu: bool = not a.contemplando and m.camera.vista < 0.05 and m.hud.modulate.a > 0.9
+	await _esperar(0.4)
+	_ok(vendo and saiu, "apreciar a vista: parado, a seta para a esquerda leva a câmera para o lado e limpa a tela (%s); andar devolve tudo (%s)" % [vendo, saiu])
+
+
+## Luzes de noite e ações por lugar: de noite os marcos acendem e de dia não; atravessar o Anel acende o aro,
+## passar rente a uma torre parada a faz girar, o fundo do poço solta o cardume que anda com o robô, pousar
+## no alto da Árvore-Mãe traz os pássaros, e apreciar a vista no cume ao pôr do sol acende os lugares visitados.
+func _ponto_39() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
+	var hora0: float = m.ciclo.hora
+	var parado0: bool = m.ciclo.parado
+	m.ciclo.parado = true
+	m.ciclo.hora = 22.0
+	await _esperar(0.5)
+	var de_noite: int = m.luzes_noite.acesas
+	var total_luzes: int = get_tree().get_nodes_in_group(LuzesNoite.GRUPO).size()
+	m.ciclo.hora = 13.0
+	await _esperar(0.5)
+	var de_dia: int = m.luzes_noite.acesas
+	_ok(total_luzes >= 10 and de_noite >= 5 and de_dia == 0, "luzes de noite: %d pontos nos marcos e nas memórias; à noite %d acesos (as das torres piscam), de dia %d" % [total_luzes, de_noite, de_dia])
+	var ac: AcoesLugar = m.acoes
+	var c0: int = ac.contagem
+	var v: Vale = m.ilha as Vale
+	# o Anel
+	var eixo: Vector3 = ac.get("_anel_eixo")
+	a.teleportar(Marcos.anel - eixo * 30.0, Armadura.Estado.VOO, eixo * 24.0)
+	for i in 150:
+		a.velocity = eixo * 24.0
+		await get_tree().physics_frame
+	var anel: bool = ac.feitas.has("anel") and (ac.get("_anel_luz") as MeshInstance3D).visible
+	# uma torre parada
+	var rot: Node3D = null
+	for it: Array in MarcosOeste.rotores:
+		if String(it[1]) != "gira":
+			rot = it[0]
+			break
+	var b0: Basis = rot.global_basis
+	a.teleportar(rot.global_position + rot.global_basis.z.normalized() * 4.0 + Vector3(-30, 6, 0), Armadura.Estado.VOO, Vector3(20, 0, 0))
+	for i in 180:
+		a.velocity = Vector3(20, 0, 0)
+		await get_tree().physics_frame
+	await _esperar(3.0)
+	var torre: bool = (ac.feitas.get("torres", []) as Array).size() == 1 and not rot.global_basis.is_equal_approx(b0)
+	# o fundo do poço
+	a.teleportar(Vector3(Vale.POCO.x, Vale.POCO_NIVEL - 7.5, Vale.POCO.y), Armadura.Estado.NADO)
+	await _esperar(0.5)
+	a.teleportar(Vector3(Vale.POCO.x + 3.0, Vale.POCO_NIVEL - 0.6, Vale.POCO.y), Armadura.Estado.NADO)
+	await _esperar(6.0)
+	var perto := 0
+	var cd: Peixes = ac.get("_cardume")
+	if cd:
+		for p in cd.posicoes():
+			if Vector2(p.x - a.global_position.x, p.z - a.global_position.z).length() < 6.5:
+				perto += 1
+	var cardume: bool = ac.feitas.has("cardume") and perto >= 6
+	# o alto da Árvore-Mãe
+	a.teleportar(Marcos.arvore_mae + Vector3(2, 60, 2), Armadura.Estado.AR)
+	await _esperar(12.0)
+	var na_copa := 0
+	var bd: Passaros = ac.get("_bando")
+	if bd:
+		for p in bd.posicoes():
+			if p.y > Marcos.arvore_mae.y + 15.0 and Vector2(p.x - a.global_position.x, p.z - a.global_position.z).length() < 10.0:
+				na_copa += 1
+	var arvore: bool = ac.feitas.has("arvore") and na_copa >= 5
+	# o cume ao pôr do sol
+	var cume: Vector3 = v.cume
+	a.teleportar(Vector3(cume.x + 16.0, v.altura(cume.x + 16.0, cume.z + 9.0) + 0.5, cume.z + 9.0), Armadura.Estado.CHAO)
+	m.ciclo.hora = 18.2
+	await _esperar(1.5)
+	await _apertar("sentar")
+	await _esperar(2.5)
+	var vistos := 0
+	for it: Dictionary in m.locais.lista:
+		if it["visto"]:
+			vistos += 1
+	var pontos: int = (ac.get("_vista_pontos") as Array).size()
+	var cume_ok: bool = ac.feitas.has("cume") and pontos == vistos and pontos > 0
+	Input.action_press("frente")
+	await _esperar(2.5)
+	Input.action_release("frente")
+	var apagou: bool = (ac.get("_vista_pontos") as Array).is_empty()
+	m.ciclo.hora = hora0
+	m.ciclo.parado = parado0
+	m.hud.dica = ""
+	_ok(anel and torre and cardume and arvore and cume_ok and apagou and ac.contagem > c0 and ac.feitas.size() == 5,
+		"ações por lugar: o Anel acende (%s), a torre parada gira (%s), o cardume acompanha (%s, %d peixes perto), os pássaros pousam na copa (%s, %d), o cume acende os %d lugares visitados (%s) e apaga ao sair (%s)"
+			% [anel, torre, cardume, perto, arvore, na_copa, pontos, cume_ok, apagou])
+
+
+## A pista do Anel, as cenas da vista e a música do passeio: a pista existe no eixo do Anel, com lajes faltando
+## e postes que só acendem com o aro; uma cena pedida acontece depois de uns segundos de vista e não se repete
+## na mesma vista; a música toca, respeita o descanso e não emenda uma na outra.
+func _ponto_40() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
+	var total_lajes := int((Pista.ANTES + Pista.DEPOIS) / Pista.LAJE) * 2
+	var no_meio: int = Pista.em(Pista.meio.x + Pista.rumo.x * 30.0, Pista.meio.y + Pista.rumo.y * 30.0)
+	var fora: int = Pista.em(Pista.meio.x - Pista.rumo.y * 40.0, Pista.meio.y + Pista.rumo.x * 40.0)
+	var pista: bool = Pista.lajes.size() > total_lajes * 0.6 and Pista.lajes.size() < total_lajes and Pista.postes >= 5 and no_meio > 0 and fora == 0
+	var cv: CenasVista = m.cenas_vista
+	var vistas0: int = cv.vistas
+	CenasVista.forcar = "folhas"
+	await _apertar("sentar")
+	await _esperar(CenasVista.DEMORA - 1.5)
+	var ainda_nao: bool = cv.vistas == vistas0
+	await _esperar(3.0)
+	var veio: bool = cv.vistas == vistas0 + 1 and cv.ultima == "folhas"
+	await _esperar(3.0)
+	var uma_so: bool = cv.vistas == vistas0 + 1
+	CenasVista.forcar = ""
+	Input.action_press("frente")
+	await _esperar(0.6)
+	Input.action_release("frente")
+	var mu: MusicaPasseio = m.musica
+	mu.espera = 30.0
+	var cedo: bool = mu.tocar("lugar")
+	mu.espera = 0.0
+	var toca: bool = mu.tocar("lugar")
+	var emenda: bool = mu.tocar("voo")
+	var descansa: bool = mu.espera > MusicaPasseio.DESCANSO
+	(mu.get("_toca") as AudioStreamPlayer).stop()
+	_ok(pista and ainda_nao and veio and uma_so and not cedo and toca and not emenda and descansa,
+		"pista, cenas e música: a pista tem %d de %d lajes e %d postes (%s); a cena só vem depois de uns segundos (%s, %s) e uma só por vista (%s); a música respeita o descanso (%s), toca (%s), não emenda (%s) e descansa depois (%s)"
+			% [Pista.lajes.size(), total_lajes, Pista.postes, pista, ainda_nao, veio, uma_so, not cedo, toca, not emenda, descansa])
+
+
+## Os robozinhos do Sumidouro e o mergulhador da Represa: os pequenos só aparecem com a luz do peito e, achados,
+## vão brincar na base; a correnteza da comporta barra o nado rápido sem as barbatanas e deixa passar com elas;
+## o mergulhador achado ganha o cilindro dele e pode ser usado.
+func _ponto_41() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
+	var tudo0: bool = Melhorias.tudo
+	Melhorias.tudo = true
+	var mi: MiniRobos = m.minis
+	var robos: Array = mi.get("_robos")
+	var primeiro: Node3D = (robos[0] as Dictionary)["no"]
+	a.luz_ligada = false
+	a.teleportar(mi.no_escuro + Vector3(5.0, 0.4, 2.0), Armadura.Estado.CHAO)
+	await _esperar(0.8)
+	var no_escuro: bool = not primeiro.visible and not mi.achados
+	a.luz_ligada = true
+	await _esperar(0.5)
+	var com_luz: bool = primeiro.visible and not mi.achados
+	a.teleportar(mi.no_escuro + Vector3(1.5, 0.4, 0.5), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	var acordou: bool = mi.achados and m.memorias.aberta == "robozinhos"
+	m.memorias.fechar()
+	a.luz_ligada = false
+	await _esperar(6.0)
+	var patio: Vector3 = BaseVale.t_base * MiniRobos.PATIO
+	var no_patio := 0
+	for r: Dictionary in robos:
+		var p: Vector3 = (r["no"] as Node3D).global_position
+		if Vector2(p.x - patio.x, p.z - patio.z).length() < MiniRobos.PATIO_RAIO + 0.6:
+			no_patio += 1
+	_ok(no_escuro and com_luz and acordou and no_patio == 5, "robozinhos: no escuro não aparecem (%s), com a luz do peito aparecem (%s), chegando perto acordam e abre a lembrança (%s); depois os %d brincam no pátio da base" % [no_escuro, com_luz, acordou, no_patio])
+	# a correnteza da comporta
+	var r2: RoboAntigo = m.robo_antigo
+	var perto := {}
+	for com: bool in [false, true]:
+		Melhorias.tudo = com
+		a.teleportar(r2.comporta + Vector3(-21.0, 0.8, 0.0), Armadura.Estado.NADO)
+		await _esperar(0.4)
+		Input.action_press("frente")
+		await _esperar(0.1)
+		a.nado_rapido = true
+		var menor := 999.0
+		for i in 60 * 13:
+			var para := (r2.comporta - a.global_position).normalized()
+			m.camera.yaw = atan2(-para.x, -para.z)
+			m.camera.pitch = asin(clampf(para.y, -1.0, 1.0))
+			if r2.estatuas[1]:
+				menor = minf(menor, a.global_position.distance_to(r2.estatuas[1].global_position))
+			await get_tree().physics_frame
+		Input.action_release("frente")
+		perto[com] = menor
+	var convite: bool = m.hud.dica == "{agir}  acordar o robô"
+	r2.achar_robo(1)
+	await _esperar(0.2)
+	var lembranca: bool = m.memorias.aberta == "robo_mergulhador"
+	m.memorias.fechar()
+	a.recomecar()
+	await _esperar(0.5)
+	r2.usar(2)
+	await _esperar(0.4)
+	var em_uso: bool = ArmaduraVisual.MODELO.ends_with("robo_v3.glb") and ArmaduraVisual.corpo_novo() and r2.guardados[1] == null and r2.guardados[2] != null
+	r2.usar(0)
+	await _esperar(0.4)
+	var volta: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb") and r2.guardados[1] != null and r2.guardados[2] == null
+	Melhorias.tudo = tudo0
+	m.hud.dica = ""
+	_ok(float(perto[false]) > 10.0 and float(perto[true]) < RoboAntigo.PERTO and convite and lembranca and em_uso and volta,
+		"mergulhador: sem as barbatanas a correnteza segura o robô a %.1f m dele; com elas, chega a %.1f m; convite (%s), lembrança (%s), em uso com o cilindro dele vazio e o novo guardado (%s), e destroca (%s)"
+			% [float(perto[false]), float(perto[true]), convite, lembranca, em_uso, volta])
+
+
+## O ninho da ave e a torre quente: a maresia apaga os jatos (sem asas o robô cai no mar; com elas plana e
+## pousa no ninho, e a ave acorda e passa a aparecer no céu); na torre, sem radiador o robô superaquece antes
+## da sacada e com ele chega; ligar o receptor abre a lembrança e acende a luz distante.
+func _ponto_42() -> void:
+	_soltar_tudo()
+	var tudo0: bool = Melhorias.tudo
+	var inst0: Array = Melhorias.instaladas.duplicate()
+	var n: NinhoAve = m.ninho
+	var res := {}
+	for com: bool in [false, true]:
+		Melhorias.tudo = false
+		Melhorias.instaladas = ["radiador2", "asas"] if com else ["radiador2"]
+		a.recomecar()
+		await _esperar(0.3)
+		a.teleportar(n.tampo + Vector3(-260.0, 150.0, 0.0), Armadura.Estado.VOO, Vector3(28, 0, 0))
+		a.calor = 0.0
+		var perto := 999.0
+		var planou := false
+		for i in 60 * 30:
+			var para := n.tampo + Vector3(0, 2.0, 0) - a.global_position
+			m.camera.yaw = atan2(-para.x, -para.z)
+			m.camera.pitch = clampf(atan2(para.y, Vector2(para.x, para.z).length()), -0.9, 0.3)
+			perto = minf(perto, a.global_position.distance_to(n.tampo))
+			planou = planou or a.estado == Armadura.Estado.PLANAR
+			if n.achada or (not com and a.estado == Armadura.Estado.NADO):
+				break
+			await get_tree().physics_frame
+		res[com] = [perto, planou, n.achada, a.estado]
+	var sem: Array = res[false]
+	var com_a: Array = res[true]
+	var lembranca: bool = m.memorias.aberta == "ave_grande"
+	m.memorias.fechar()
+	n.aparecer()
+	await _esperar(0.5)
+	var no_ceu: bool = n.no_ceu and (n.get("_ave") as Node3D).visible and (n.get("_ave") as Node3D).global_position.y > 200.0
+	_ok(float(sem[0]) > 60.0 and not bool(sem[1]) and not bool(sem[2]) and int(sem[3]) == Armadura.Estado.NADO and bool(com_a[1]) and bool(com_a[2]) and lembranca and no_ceu,
+		"ninho da ave: sem asas a maresia apaga os jatos e o robô cai no mar a %.0f m do ninho; com asas ele plana (%s) e pousa nele (%s); abre a lembrança (%s) e a ave aparece no céu (%s)"
+			% [float(sem[0]), bool(com_a[1]), bool(com_a[2]), lembranca, no_ceu])
+	a.jato_cortado = false
+	var t: TorreQuente = m.torre
+	var subida := {}
+	for pecas: Array in [[], ["radiador"]]:
+		Melhorias.instaladas = pecas
+		a.recomecar()
+		await _esperar(0.5)
+		a.teleportar(t.pe + Vector3(0, 1.6, 0), Armadura.Estado.AR)
+		a.calor = 0.0
+		var topo := 0.0
+		var quente := false
+		for i in 60 * 7:
+			topo = maxf(topo, a.global_position.y - t.pe.y)
+			quente = quente or a.superaquecido
+			if topo > TorreQuente.SACADA:
+				break
+			await get_tree().physics_frame
+		subida[pecas.size()] = [topo, quente]
+	a.calor_extra = 0.0
+	a.recomecar()
+	await _esperar(0.3)
+	a.calor = 0.0
+	a.superaquecido = false
+	a.teleportar(t.receptor + Vector3(0.9, 0.5, 1.2), Armadura.Estado.CHAO)
+	await _esperar(1.0)
+	var convite: bool = m.hud.dica == "{agir}  ligar o receptor"
+	t.call("_ligar")
+	await _esperar(0.2)
+	var sinal: bool = t.ligado and m.memorias.aberta == "sinal_de_fora" and bool(LuzesNoite.ligadas.get("sinal", false))
+	m.memorias.fechar()
+	Melhorias.tudo = tudo0
+	Melhorias.instaladas = inst0
+	m.hud.dica = ""
+	a.recomecar()
+	await _esperar(0.3)
+	var s0: Array = subida[0]
+	var s1: Array = subida[1]
+	_ok(float(s0[0]) < TorreQuente.SACADA - 5.0 and bool(s0[1]) and float(s1[0]) > TorreQuente.SACADA and not bool(s1[1]) and convite and sinal,
+		"torre quente: sem radiador o robô superaquece e só sobe %.0f m dos %.0f; com o radiador chega à sacada (%.0f m) sem travar; convite (%s); ligar o receptor abre a lembrança e acende a luz distante (%s)"
+			% [float(s0[0]), TorreQuente.SACADA, float(s1[0]), convite, sinal])
+
+
+## A vibração nova: o motor quente (de 80% para cima) zumbe e o frio não; um marcador novo na bússola dá um
+## toque; o escudo engolindo um acerto também; e o contador de mísseis aparece ao segurar o gatilho.
+func _ponto_43() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.5)
+	a.calor = 40.0
+	await _esperar(0.3)
+	var frio: bool = not Vibra.calor_avisando
+	a.calor = 92.0
+	await _esperar(0.2)
+	var quente: bool = Vibra.calor_avisando
+	a.calor = 0.0
+	await _esperar(0.3)
+	Vibra.registro.clear()
+	a.marcador = a.global_position + Vector3(40, 0, 0)
+	a.tem_marcador = true
+	await _esperar(0.6)
+	var toques: int = Vibra.registro.count("marcador")
+	a.tem_marcador = false
+	await _esperar(0.3)
+	var modo0: String = Arsenal.modo
+	var tudo0: bool = Arsenal.tudo
+	Arsenal.tudo = true
+	Arsenal.modo = "misseis"
+	Arsenal.repor_granadas()
+	await _esperar(3.0)
+	var antes: float = m.hud.get("_missil_visto")
+	Input.action_press("atirar")
+	await _esperar(0.5)
+	var segurando: float = m.hud.get("_missil_visto")
+	Input.action_release("atirar")
+	await _esperar(0.4)
+	Arsenal.modo = modo0
+	Arsenal.tudo = tudo0
+	_ok(frio and quente and toques == 2 and antes < 0.05 and segurando > 0.9,
+		"vibração e mísseis: motor a 40%% não zumbe (%s) e a 92%% zumbe (%s); marcador novo na bússola dá %d toques; o contador de mísseis aparece ao segurar o gatilho (%.2f → %.2f)"
+			% [frio, quente, toques, antes, segurando])

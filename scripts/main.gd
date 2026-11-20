@@ -34,6 +34,14 @@ var ciclo: CicloDia
 var tiro: Tiro
 var sol: DirectionalLight3D
 var farol: FarolFinal
+var robo_antigo: RoboAntigo
+var acoes: AcoesLugar
+var minis: MiniRobos
+var ninho: NinhoAve
+var torre: TorreQuente
+var cenas_vista: CenasVista
+var musica: MusicaPasseio
+var luzes_noite: LuzesNoite
 var retomou_em := Vector3.INF  # onde o robô foi posto ao abrir, pelo save (testes)
 var _ultimo_firme := Vector3.INF
 var _ultimo_yaw := 0.0
@@ -300,6 +308,10 @@ func _ready() -> void:
 		noite.camera = camera
 		noite.armadura = armadura
 		add_child(noite)
+		if ilha is Vale:
+			luzes_noite = LuzesNoite.new()
+			luzes_noite.name = "LuzesNoite"
+			add_child(luzes_noite)
 		var agua_fx := EfeitosAgua.new()
 		agua_fx.armadura = armadura
 		agua_fx.mapa = ilha
@@ -380,6 +392,59 @@ func _ready() -> void:
 		var cilindros := CilindrosBase.new()
 		cilindros.name = "CilindrosBase"
 		add_child(cilindros)
+		acoes = AcoesLugar.new()
+		acoes.name = "AcoesLugar"
+		acoes.armadura = armadura
+		acoes.hud = hud
+		acoes.mapa = ilha as Vale
+		acoes.camera = camera
+		acoes.locais = locais
+		add_child(acoes)
+		cenas_vista = CenasVista.new()
+		cenas_vista.name = "CenasVista"
+		cenas_vista.armadura = armadura
+		cenas_vista.camera = camera
+		add_child(cenas_vista)
+		musica = MusicaPasseio.new()
+		musica.name = "MusicaPasseio"
+		musica.armadura = armadura
+		musica.mapa = ilha
+		musica.locais = locais
+		musica.memorias = memorias
+		add_child(musica)
+		if memorias:
+			ninho = NinhoAve.new()
+			ninho.name = "NinhoAve"
+			ninho.armadura = armadura
+			ninho.hud = hud
+			ninho.memorias = memorias
+			ninho.mapa = ilha
+			add_child(ninho)
+			torre = TorreQuente.new()
+			torre.name = "TorreQuente"
+			torre.armadura = armadura
+			torre.hud = hud
+			torre.memorias = memorias
+			torre.mapa = ilha as Vale
+			add_child(torre)
+		if memorias and pecas:
+			minis = MiniRobos.new()
+			minis.name = "MiniRobos"
+			minis.armadura = armadura
+			minis.hud = hud
+			minis.memorias = memorias
+			minis.pecas = pecas
+			minis.mapa = ilha
+			add_child(minis)
+		if memorias and pecas:
+			robo_antigo = RoboAntigo.new()
+			robo_antigo.name = "RoboAntigo"
+			robo_antigo.armadura = armadura
+			robo_antigo.hud = hud
+			robo_antigo.memorias = memorias
+			robo_antigo.pecas = pecas
+			robo_antigo.cilindros = cilindros
+			add_child(robo_antigo)
 	if ilha is Vale and memorias:
 		farol = FarolFinal.new()
 		farol.name = "FarolFinal"

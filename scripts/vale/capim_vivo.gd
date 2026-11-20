@@ -288,6 +288,9 @@ func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float
 		return -INF
 	if mapa.agua(px, pz) > -INF:
 		return -INF
+	# em cima das lajes da pista do Anel só nasce um tufo ou outro, pelas frestas; nos vãos, o capim de sempre
+	if Pista.em(px, pz) == 1 and rng.randf() > 0.1:
+		return -INF
 	var h := mapa.altura(px, pz)
 	if h < 2.2 or ny < 0.9:
 		return -INF

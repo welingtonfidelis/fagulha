@@ -166,6 +166,30 @@ func assustar(ponto: Vector3) -> void:
 		_decolar()
 
 
+## O bando chega voando de longe e pousa em volta de `ponto` (os pássaros da Árvore-Mãe).
+func chegar_em(ponto: Vector3, espalha := 3.0) -> void:
+	if not _pronto:
+		return
+	estado = Estado.POUSANDO
+	_aproximando = true
+	for a in _aves:
+		var ang := _rng.randf() * TAU
+		var dist := _rng.randf_range(30.0, 46.0)
+		a.pos = ponto + Vector3(cos(ang) * dist, _rng.randf_range(9.0, 15.0), sin(ang) * dist)
+		a.voo = true
+		a.atraso = 0.0
+		a.alt = 12.0
+		a.vh = VEL
+		a.vy = 0.0
+		a.yaw = atan2(cos(ang), sin(ang))  # de frente para o ponto
+		var ang2 := _rng.randf() * TAU
+		var d := _rng.randf_range(1.5, espalha)
+		var x := ponto.x + cos(ang2) * d
+		var z := ponto.z + sin(ang2) * d
+		a.alvo = Vector3(x, mapa.altura(x, z), z)
+		a.t_aprox = 0.0
+
+
 # ---------------------------------------------------------------- processo
 
 func _process(delta: float) -> void:

@@ -95,7 +95,7 @@ const DESLOCA_V2 := {
 
 
 static func _desloca(junta: String) -> Vector3:
-	if not ArmaduraVisual.MODELO.ends_with("robo_v2.glb"):
+	if not ArmaduraVisual.corpo_novo():
 		return Vector3.ZERO
 	var lado := 0.0
 	var nome := junta

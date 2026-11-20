@@ -23,6 +23,9 @@ var _afasta := 0.0
 var _mergulho := 0.0  # 0 a 1: no mergulho com impacto a câmera sobe e olha o robô de cima, até depois da batida
 var _mergulho_fica := 0.0
 var pitch_visto := -0.12  # o ângulo usado no último quadro, com a inclinação do mergulho (testes)
+var vista := 0.0  # 0 a 1: apreciando a vista (`Armadura.contemplando`), a câmera vai para a direita e o robô fica desfocado no canto
+var _vista_solta := false  # o jogador mexeu a câmera durante a vista: ela para de girar sozinha
+var _lente_antes := []
 var primeira := false  # scanner: a câmera vai para os olhos do robô
 var zoom := 0.0  # 0 a 1, só em primeira pessoa
 
@@ -34,6 +37,31 @@ func _ready() -> void:
 	cam.fov = Ajustes.FOV_CHAO
 	add_child(cam)
 	cam.current = true
+
+
+## O desfoque de perto, só enquanto se aprecia a vista: o robô, em primeiro plano, vira uma mancha macia e a
+## paisagem fica nítida. Guarda e devolve o que a lente tinha.
+func _desfocar_robo(k: float) -> void:
+	var lente := cam.attributes as CameraAttributesPractical
+	if k <= 0.001:
+		if lente and not _lente_antes.is_empty():
+			lente.dof_blur_near_enabled = false
+			lente.dof_blur_amount = _lente_antes[0]
+			lente.dof_blur_far_enabled = _lente_antes[1]
+			_lente_antes = []
+		return
+	if lente == null:
+		lente = CameraAttributesPractical.new()
+		lente.dof_blur_amount = 0.0
+		cam.attributes = lente
+	if _lente_antes.is_empty():
+		_lente_antes = [lente.dof_blur_amount, lente.dof_blur_far_enabled]
+	# o desfoque de longe sai durante a vista: com a lente mais forte ele borrava a paisagem inteira
+	lente.dof_blur_far_enabled = false
+	lente.dof_blur_near_enabled = true
+	lente.dof_blur_near_distance = _dist + 2.5
+	lente.dof_blur_near_transition = 2.0
+	lente.dof_blur_amount = lerpf(float(_lente_antes[0]), 0.11, k)
 
 
 func mira() -> Vector3:
@@ -74,6 +102,16 @@ func _process(delta: float) -> void:
 		sens *= clampf(fov_mira / Ajustes.FOV_MIRA, 0.3, 1.0)  # com zoom, a mira anda mais devagar
 	if primeira:
 		sens *= lerpf(0.8, 0.22, zoom)  # com zoom, a mira anda mais devagar
+	# apreciar a vista: a câmera gira bem devagar para a direita, até o jogador pegar o controle dela
+	vista = move_toward(vista, 1.0 if (alvo.contemplando and not primeira) else 0.0, delta * (0.45 if alvo.contemplando else 1.6))
+	if not alvo.contemplando:
+		_vista_solta = false
+	elif olhar.length() > 0.1:
+		_vista_solta = true
+	elif not _vista_solta:
+		yaw -= deg_to_rad(2.2) * delta * smoothstep(0.0, 1.0, vista)
+	_desfocar_robo(smoothstep(0.0, 1.0, vista))
+	Hud.limpa = alvo.contemplando
 	yaw -= olhar.x * sens * delta
 	pitch -= olhar.y * sens * 0.75 * delta * (-1.0 if inverter_y else 1.0)
 	pitch = clampf(pitch, deg_to_rad(-85.0), deg_to_rad(75.0))
@@ -127,6 +165,10 @@ func _process(delta: float) -> void:
 	pitch_visto = lerpf(pitch, minf(pitch, deg_to_rad(-52.0)), mg)
 	var b := Basis.from_euler(Vector3(pitch_visto, yaw, 0.0))
 	var ombro := lerpf(lerpf(0.7, 0.35, m), 0.85, mi) * kp
+	# na vista, a câmera desliza para a direita e chega um pouco mais perto: o robô fica no canto esquerdo
+	var vs := smoothstep(0.0, 1.0, vista)
+	ombro += 1.45 * kp * vs
+	_dist = lerpf(_dist, dist_alvo * 0.8, vs * (1.0 - exp(-3.0 * delta)))
 	var origem := _pivo + b * Vector3(ombro, 0.0, 0.0)
 	var desejado := origem + b * Vector3(0.0, 0.0, _dist)
 	# não atravessar o chão nem as árvores

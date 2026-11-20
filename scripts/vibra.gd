@@ -12,24 +12,31 @@ const AJUSTE := {
 	"pouso_leve": [0.2, 0.3, 0.1],
 	"pouso_pesado": [0.4, 0.9, 0.28],
 	"golpe_chao": [0.7, 1.0, 0.5],
-	"levar_golpe": [0.6, 0.85, 0.3],
+	"levar_golpe": [0.75, 1.0, 0.4],
 	"tiro": [0.35, 0.0, 0.06],
 	"superaquecer": [0.8, 0.5, 0.6],
 	"pane": [0.3, 1.0, 0.8],
 	"religar": [0.3, 0.0, 0.15],
+	"escudo": [0.5, 0.35, 0.18],
+	"marcador": [0.55, 0.0, 0.09],
 }
-const ARRANCADA := 0.28  # zumbido contínuo do motor leve enquanto a arrancada dura
+const CALOR_AVISO := 80.0  # a partir daqui o controle zumbe: o motor está perto de travar
 const FREADA := 0.4
 
 ## Para os testes: o nome de cada tranco, na ordem.
 static var registro: Array[String] = []
 ## A pausa ou as opções podem desligar.
 static var ligada := true
+## O zumbido do motor quente está valendo agora (testes).
+static var calor_avisando := false
 
 var armadura: Armadura
 var _estado_antes: int = Armadura.Estado.CHAO
 var _impulso_antes := 0.0
 var _continuo := 0.0
+var _marcas_antes := -1
+var _escudos_antes := -1
+var _marca_dupla := 0.0
 
 
 func iniciar() -> void:
@@ -84,12 +91,32 @@ func _process(delta: float) -> void:
 	if _impulso_antes < 0.5 and impulso >= 0.9:
 		tranco("esquiva" if armadura.esquivando > 0.0 else "pulo_duplo")
 	_impulso_antes = impulso
-	# zumbido contínuo: arrancada e freada no ar (renovado em pedaços curtos, para parar sozinho)
+	# o escudo engolindo um acerto também se sente (mais leve que o dano de verdade)
+	if _escudos_antes >= 0 and armadura.escudos_gastos > _escudos_antes:
+		tranco("escudo")
+	_escudos_antes = armadura.escudos_gastos
+	# um marcador novo na bússola (memória por perto, peça que a antena captou, o marcador do jogador): dois toques curtos
+	if _marcas_antes >= 0 and Hud.marcas > _marcas_antes:
+		tranco("marcador")
+		_marca_dupla = 0.2
+	_marcas_antes = Hud.marcas
+	if _marca_dupla > 0.0:
+		_marca_dupla -= delta
+		if _marca_dupla <= 0.0:
+			tranco("marcador")
+	# zumbido contínuo (renovado em pedaços curtos, para parar sozinho): o motor quente, de 80% para cima,
+	# cada vez mais forte e pulsando; e a freada no ar. Acelerar no ar não vibra mais (pedido do usuário,
+	# 2026-11-19: vibrava o tempo todo no voo).
 	var alvo := 0.0
-	if armadura.arrancada:
-		alvo = ARRANCADA
+	if armadura.calor >= CALOR_AVISO and not armadura.em_pane:
+		var k := clampf((armadura.calor - CALOR_AVISO) / (100.0 - CALOR_AVISO), 0.0, 1.0)
+		alvo = lerpf(0.18, 0.6, k) * (0.7 + 0.3 * sin(Time.get_ticks_msec() * lerpf(0.008, 0.02, k)))
+		calor_avisando = true
 	elif armadura.estado == Armadura.Estado.FREAR:
 		alvo = FREADA
+		calor_avisando = false
+	else:
+		calor_avisando = false
 	_continuo = move_toward(_continuo, alvo, delta * 2.0)
 	if ligada and _continuo > 0.02 and Engine.get_process_frames() % 6 == 0:
 		for c in Input.get_connected_joypads():

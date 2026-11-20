@@ -166,9 +166,12 @@ def casca(*a, **k):
 
 
 
-BRANCA = mat_pbr("placa_clara", (0.50, 0.51, 0.51), 0.0, 0.45)
-AZUL = mat_pbr("detalhe", (0.008, 0.07, 0.36), 0.05, 0.4)
-LARANJA = mat_pbr("laranja", (0.9, 0.2, 0.01), 0.0, 0.45)
+# VARIANTE=mergulhador faz o robô da Represa (robo_v3.glb): o mesmo corpo em amarelo e verde-petróleo, com
+# escotilha redonda no lugar do visor, sem crista nem antena, dois cilindros de ar nas costas e pés de pato.
+MERG = os.environ.get("VARIANTE") == "mergulhador"
+BRANCA = mat_pbr("placa_clara", (0.62, 0.40, 0.03) if MERG else (0.50, 0.51, 0.51), 0.0, 0.45)
+AZUL = mat_pbr("detalhe", (0.01, 0.13, 0.15) if MERG else (0.008, 0.07, 0.36), 0.05, 0.4)
+LARANJA = mat_pbr("laranja", (0.55, 0.56, 0.55) if MERG else (0.9, 0.2, 0.01), 0.0, 0.45)
 JUNTA = mat_pbr("placa_escura", (0.035, 0.04, 0.045), 0.1, 0.6)
 VIDRO = mat_pbr("vidro", (0.008, 0.012, 0.02), 0.0, 0.12)
 OLHOS = mat_luz("olhos", (0.35, 0.9, 1.0), 2.2)
@@ -209,8 +212,16 @@ for s, lado in ((1, "E"), (-1, "D")):
     caixa("ombro_laranja", (s * 0.15, 0, 0.652), (0.05, 0.10, 0.03), LARANJA, tronco, bevel=0.008)
 # cabeça: capacete de placas, aberto na frente para o visor escuro com o rosto de tela
 CASCO = caixa("cabeca_p", (0, 0.015, 0.93), (0.43, 0.40, 0.39), BRANCA, cabeca, base=(0.8, 0.86), topo=(0.8, 0.84), bevel=0.14, segs=3)
-caixa("visor", (0, -0.15, 0.915), (0.33, 0.10, 0.22), VIDRO, cabeca, base=(0.8, 1), bevel=0.045, segs=3)
-caixa("testa", (0, -0.15, 1.05), (0.33, 0.12, 0.04), BRANCA, cabeca, base=(1, 1), topo=(0.86, 0.8), rot=(-10, 0, 0), bevel=0.014)
+if MERG:
+    # a escotilha: um aro de metal em volta de um vidro redondo
+    cil("visor", (0, -0.185, 0.925), 0.125, 0.125, 0.05, VIDRO, cabeca, rot=(90, 0, 0), segs=16, bevel=0.006)
+    cil("aro_escotilha", (0, -0.175, 0.925), 0.15, 0.15, 0.04, LARANJA, cabeca, rot=(90, 0, 0), segs=16, bevel=0.008)
+    for k in range(6):
+        ang = k * math.pi / 3.0
+        cil("parafuso", (math.cos(ang) * 0.138, -0.198, 0.925 + math.sin(ang) * 0.138), 0.009, 0.009, 0.01, JUNTA, cabeca, rot=(90, 0, 0), segs=6, bevel=0)
+else:
+    caixa("visor", (0, -0.15, 0.915), (0.33, 0.10, 0.22), VIDRO, cabeca, base=(0.8, 1), bevel=0.045, segs=3)
+    caixa("testa", (0, -0.15, 1.05), (0.33, 0.12, 0.04), BRANCA, cabeca, base=(1, 1), topo=(0.86, 0.8), rot=(-10, 0, 0), bevel=0.014)
 caixa("queixo", (0, -0.14, 0.785), (0.22, 0.10, 0.04), BRANCA, cabeca, base=(0.75, 0.9), bevel=0.014)
 bm = bmesh.new()
 _fila = []
@@ -229,15 +240,31 @@ md.offset = 0.009
 md = crista.modifiers.new("grossura", "SOLIDIFY")
 md.thickness = 0.018
 md.offset = 0.0
+if MERG:
+    bpy.data.objects.remove(crista)
 for s in (1, -1):
     # cada olho tem a junta dele, no meio: o jogo achata para piscar e inclina para as expressões
     J["olho" + ("E" if s > 0 else "D")] = junta("olho" + ("E" if s > 0 else "D"), (s * 0.066, -0.2015, 0.925), cabeca)
-    caixa("olho", (s * 0.066, -0.2015, 0.925), (0.038, 0.006, 0.085), OLHOS, J["olho" + ("E" if s > 0 else "D")], bevel=0)
+    if MERG:
+        # olhos menores, dentro da escotilha
+        J["olho" + ("E" if s > 0 else "D")].location.x = s * 0.048
+        J["olho" + ("E" if s > 0 else "D")].location.y = -0.2115
+        atualizar()
+        caixa("olho", (s * 0.048, -0.2115, 0.93), (0.03, 0.006, 0.065), OLHOS, J["olho" + ("E" if s > 0 else "D")], bevel=0)
+    else:
+        caixa("olho", (s * 0.066, -0.2015, 0.925), (0.038, 0.006, 0.085), OLHOS, J["olho" + ("E" if s > 0 else "D")], bevel=0)
     caixa("placa_lado", (s * 0.172, -0.03, 0.945), (0.03, 0.16, 0.17), AZUL, cabeca, base=(1, 0.45), rot=(-22, 0, 0), bevel=0.01)
     cil("orelha", (s * 0.175, 0.075, 0.87), 0.045, 0.045, 0.03, JUNTA, cabeca, rot=(0, 90, 0), segs=8, bevel=0.006)
     cil("orelha_luz", (s * 0.192, 0.075, 0.87), 0.022, 0.022, 0.006, LARANJA, cabeca, rot=(0, 90, 0), segs=8, bevel=0)
-cil("antena", (0.12, 0.10, 1.16), 0.006, 0.004, 0.09, JUNTA, cabeca, segs=6, bevel=0)
-caixa("ponta_antena", (0.12, 0.10, 1.21), (0.02, 0.02, 0.02), LARANJA, cabeca, bevel=0.005)
+if MERG:
+    # os dois cilindros de ar, por fora da mochila, e a mangueira até o capacete
+    for s in (1, -1):
+        cil("cilindro_ar", (s * 0.125, 0.16, 0.60), 0.036, 0.036, 0.2, LARANJA, costas, segs=10, bevel=0.012)
+        cil("valvula", (s * 0.125, 0.16, 0.715), 0.016, 0.02, 0.03, JUNTA, costas, segs=8, bevel=0)
+    caixa("mangueira", (0.09, 0.13, 0.80), (0.025, 0.025, 0.2), JUNTA, costas, rot=(18, 0, 0), bevel=0.008)
+else:
+    cil("antena", (0.12, 0.10, 1.16), 0.006, 0.004, 0.09, JUNTA, cabeca, segs=6, bevel=0)
+    caixa("ponta_antena", (0.12, 0.10, 1.21), (0.02, 0.02, 0.02), LARANJA, cabeca, bevel=0.005)
 
 LAMINAS = []
 for s, lado in ((1, "E"), (-1, "D")):
@@ -270,6 +297,8 @@ for s, lado in ((1, "E"), (-1, "D")):
     caixa("faixa_bota", (s * 0.10, 0.088, 0.17), (0.06, 0.012, 0.09), LARANJA, jo, bevel=0.004)
     caixa("pe", (s * 0.10, -0.04, 0.05), (0.15, 0.25, 0.07), BRANCA, to, topo=(0.82, 0.66), bevel=0.02)
     caixa("bico", (s * 0.10, -0.15, 0.04), (0.125, 0.05, 0.05), AZUL, to, topo=(0.85, 0.6), bevel=0.012)
+    if MERG:
+        caixa("pe_de_pato", (s * 0.10, -0.24, 0.022), (0.19, 0.17, 0.02), AZUL, to, base=(1, 1), topo=(1, 1), bevel=0.006)
     caixa("sola", (s * 0.10, -0.04, 0.011), (0.155, 0.255, 0.022), JUNTA, to, bevel=0.004)
     cil("brasa_pe", (s * 0.10, 0.02, 0.0015), 0.038, 0.038, 0.004, CALOR, to, bevel=0, segs=8)
     CHAMAS.append(cil("chama_pe", (s * 0.10, 0.02, -0.15), 0.042, 0.0, 0.30, CHAMA, to, rot=(180, 0, 0), bevel=0, segs=12))

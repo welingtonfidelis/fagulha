@@ -2543,3 +2543,63 @@ A baia dos robôs voltou à base (`BaseVale._baia_dos_robos`: estrado com rampa,
 - **Tela de abertura.** É a própria pausa com outro rosto (`Pausa.abrir_abertura`): "Faísca 2 · Em Busca do Sossego", **Continuar** (ou **Começar**, sem partida guardada), **Novo jogo** (só com partida guardada; pede um segundo toque, apaga o progresso e o jogo reabre limpo), Comandos, Ajustes e Sair. Aparece uma vez por vez que o jogo abre: não na volta da simulação nem depois de recomeçar (o jogo reabre com `--sem-abertura`). Abre 45 quadros depois de montado o mundo, com o robô travado, para a câmera assentar atrás dele.
 - **Ficou de fora:** a interpolação de física da Godot para monitores de 120/144 Hz (item 13 do relatório do game dev). Mexe em tudo o que se move e só dá para julgar num monitor rápido.
 - **Golpe parado.** O golpe da lâmina não empurra mais o robô para a frente (eram 3,5 m/s de avanço): ele golpeia de onde está.
+
+## 112. O robô anterior achável e o apreciar a vista (2026-11-19)
+
+**O robô anterior** (`RoboAntigo`, `scripts/vale/robo_antigo.gd`). O robô de peças de antes (`robo_v1.glb`) fica desligado, sentado no chão dentro do Observatório, ao lado do pedestal do telescópio, de cabeça erguida para a fenda da cúpula. Perto dele aparece "acordar o robô"; ao apertar, abre a lembrança "O que vinha olhar" (ele subia o morro toda noite porque gostava) e o drone o leva para a base. A lembrança usa a tela das memórias mas **não conta entre as dez** (`Memorias.TEXTOS["robo_antigo"]`, fora de `ORDEM`; o cabeçalho diz "LEMBRANÇA").
+
+- Depois de achado, o robô que não está em uso fica no primeiro cilindro da baia, desligado. Perto do cilindro, "trocar de robô" troca os dois (`Armadura.trocar_modelo`: o visual é refeito e as melhorias vestidas de novo).
+- **Só o visual muda.** A jogabilidade é a mesma. O anterior não tem cano na luva: atira pelos jatos das mãos, como antes, e não torce as luvas nem muda os olhos.
+- Guardado em `progresso`: `robo_antigo` (achado) e `robo_em_uso` (0 o novo, 1 o anterior). Novo jogo zera os dois.
+
+**Apreciar a vista** (no lugar do sentar). Parado no chão, a seta para a esquerda (Ctrl) liga `Armadura.contemplando`: a câmera desliza para a direita e chega um pouco mais perto, o robô fica no canto esquerdo, desfocado (desfoque de perto da lente, só nesse modo), a tela some e a câmera gira bem devagar para a direita (2,2 graus por segundo) até o jogador mexer nela. Andar, outro toque ou qualquer ação devolve tudo. `CameraVoo.vista` vai de 0 a 1; `Hud.limpa` apaga a tela.
+
+## 113. Conteúdo novo: luzes de noite e uma ação por lugar (2026-11-19)
+
+Do item 12 dos relatórios o usuário aprovou as luzes de noite, as ações por lugar, as peças que abrem lugares e a música; "bichos com papel" não (no lugar: apreciar a vista pode, de vez em quando, mostrar alguma cena, sem exagero). O item de desempenho que muda o visual foi dispensado: ele está satisfeito com o visual como está.
+
+**Luzes de noite** (`LuzesNoite`, `scripts/vale/luzes_noite.gd`). Pontos de luz pequenos (um disco que brilha, virado para a câmera; nada de cone nem feixe de malha, pela lição do farol da Ilha Cafuné): vermelho piscando no alto das cinco Torres do Vento e da torre do Relé, brasa na boca das duas chaminés da Fundição e um ponto âmbar sobre cada memória ainda não lida. Acendem com `ArmaduraVisual.noite` e de dia somem. Qualquer construção pede um ponto com `LuzesNoite.por(pai, pos, cor, tamanho, pisca)`.
+
+**Ações por lugar** (`AcoesLugar`, `scripts/vale/acoes_lugar.gd`). Sem cronômetro nem placar; cada uma muda algo no mundo e a mudança fica (`progresso.acoes`):
+
+- **O Anel:** atravessá-lo no ar acende uma faixa de luz por dentro do aro (discreta de dia, forte à noite).
+- **Torres do Vento:** passar voando rente às pás de uma torre parada (a sem uma pá e a parada) faz a hélice voltar a girar. `MarcosOeste.rotores` lista os rotores.
+- **Cachoeira:** nadar até 6 m de fundo no poço solta um cardume que não foge: acompanha o robô enquanto ele nada ali (`Peixes.seguir`).
+- **Cume:** apreciar a vista a menos de 45 m do cume, entre 16h48 e 19h48, acende um ponto âmbar sobre cada lugar já visitado; some ao sair da vista.
+- **Árvore-Mãe:** pousar no alto da copa faz um bando chegar voando e pousar em volta (`Passaros.chegar_em`); eles passam a morar lá. Para eles a copa é chão (`AcoesLugar.Poleiro`).
+
+De passagem: ao apreciar a vista, o desfoque de longe da lente é desligado (com a lente mais forte ele borrava a paisagem inteira).
+
+## 114. A pista do Anel, cenas raras da vista e música de vez em quando (2026-11-19)
+
+**A pista do Anel** (`Pista`, `scripts/vale/pista.gd`; ideia do usuário). O Anel não dizia para que servia: virou o arco de aproximação de uma pista de pouso em ruínas. Ela começa 50 m à frente dele, do lado do mar, passa por dentro do aro e segue 150 m pela planície; 16 m de largura, em lajes de concreto de 8 × 10 m. Um quinto das lajes sumiu (mais nas pontas), três em cada dez estão partidas ao meio e desniveladas, sobrou parte da faixa do meio e das barras da cabeceira, e na beira há postes baixos de balizamento, uns de pé e outros caídos. Sobre as lajes o capim só nasce num tufo ou outro (`Pista.em`, lido pelo `CapimVivo`); nos vãos nasce o de sempre. Os postes de pé têm um ponto de luz ciano que só acende de noite **depois que alguém atravessa o Anel** (`LuzesNoite.ligadas["anel"]`). Não é estrada: é ruína no meio do capim.
+
+**Cenas raras ao apreciar a vista** (`CenasVista`). No lugar de "bichos com papel", que o usuário não quis: depois de 7 s olhando a paisagem, às vezes acontece algo para ver. De dia, uma revoada de sete pássaros em cunha cruzando o céu ou folhas levadas pelo vento; de noite com céu limpo, duas estrelas cadentes. Raro de propósito, para não repetir nem perder a surpresa: no máximo uma por vista, sorteada (40%), com pelo menos quatro minutos entre uma e outra e nunca a mesma duas vezes seguidas. `CenasVista.forcar` pede uma (fotos e testes).
+
+**Música de vez em quando** (`MusicaPasseio`; faixas de `tools/musica_passeio.py`, por síntese, sem nada baixado). Três temas curtos que entram e somem sozinhos: `lugar` (26 s) ao chegar pela primeira vez a um lugar com nome, `amanhecer` (46 s) quando o dia clareia e `voo` (42 s) depois de 8 s voando a mais de 90 m do chão. Pelo menos cinco minutos entre uma e outra; o primeiro minuto do jogo fica sem música; uma memória aberta cala a do passeio. **Ninguém ouviu as faixas ainda**: foram compostas no escuro, por código.
+
+## 115. Peças que abrem lugares: os robozinhos e o mergulhador (2026-11-19)
+
+O usuário definiu o que cada um dos quatro lugares guarda: um robô novo jogável, cinco mini robôs que passam a brincar na base, um animal voador grande que às vezes voa alto sobre a ilha, e um gancho para um lugar novo fora da ilha (a discutir). Feitos os dois primeiros.
+
+**Luz do peito → os cinco robozinhos** (`MiniRobos`, `scripts/vale/mini_robos.gd`). Ficam sentados em roda num canto do salão do Sumidouro, longe da memória de lá. No escuro não aparecem; com a luz do peito acesa a menos de 13 m aparecem, e chegando a 3,5 m com ela acesa acordam: abre a lembrança "Os pequenos" e eles vão para a base. Lá brincam num pátio de 4 m de raio na frente da laje: andam, correm uns atrás dos outros, pulam, giram e chutam uma bola. São o robô novo em escala 0,42, cada um com uma cor; não têm colisão. Guardado em `progresso.achados.minis`.
+
+**Barbatanas → o mergulhador** (`RoboAntigo`, que agora cuida de todos os robôs achados). Um robô novo jogável: `robo_v3.glb`, feito pelo mesmo gerador com `VARIANTE=mergulhador` (amarelo e verde-petróleo, escotilha redonda no lugar do visor, sem crista nem antena, dois cilindros de ar e pés de pato). Está no fundo da lagoa da Represa, ao pé da parede, segurando a roda da comporta. Dali sai uma correnteza de 11,6 m/s (inteira até 15 m, some aos 24): o nado rápido sem as barbatanas faz 10,1 m/s e não vence; com elas faz 13 e avança devagar. Quem chega embalado do ar é freado, e o convite só vale para quem está nadando há mais de 1,5 s. Lembrança: "O que segurava a comporta". Por usar o corpo novo, ele tem tudo o que o robô novo tem (`ArmaduraVisual.corpo_novo()`).
+
+**Cilindros.** Cada robô achado tem o dele (o anterior no primeiro, o mergulhador no segundo); o terceiro guarda o robô novo quando outro está em uso. `RoboAntigo.usar(n)`: 0 o novo, 1 o anterior, 2 o mergulhador. Save: `robo_antigo`, `robo_mergulhador`, `robo_em_uso`.
+
+## 116. Peças que abrem lugares: o ninho da ave e a torre quente (2026-11-19)
+
+Nos dois, voar resolveria tudo, então cada porta ganhou uma regra de lugar no `Armadura`: `jato_cortado` (onde os jatos não funcionam: quem tem asas e está voando passa a planar sozinho; quem não tem, cai) e `calor_extra` (calor por segundo que o lugar soma ao motor).
+
+**Asas → a ave grande** (`NinhoAve`, `scripts/vale/ninho_ave.gd`). O ninho fica no tabuleiro de um pilar da ponte antiga, 36 m acima do mar, 130 m ao sul da ilhota do sul do Arquipélago. Num raio de 175 m (até 230 m de altura) a maresia apaga os jatos; do mar não se sobe no pilar. Com as asas, quem chega alto atravessa planando e pousa. Pousando no tabuleiro a ave acorda, abre a lembrança "A dona do vento", sobe em espiral e some. Depois aparece de vez em quando (a cada 5 a 9 minutos, por uns 3) dando voltas a 270 m de altura sobre a ilha. O modelo é a águia do "Animal Pack Vol.2" do Quaternius (CC0), com 11 m de envergadura e duas animações, pousada e voando; as cores voltam por código (`CORES_AVE`), porque na conversão do FBX vieram todas cinza.
+
+**Radiador → o gancho para fora da ilha** (`TorreQuente`, `scripts/vale/torre_quente.gd`). Uma torre de resfriamento fechada, de 62 m, a uns 125 m da Fundição (o lugar é escolhido pelo chão mais plano e sem árvore). Entra-se pela porta de baixo; o ar quente do meio leva o robô para cima a 9 m/s e soma 38% de calor por segundo sem radiador (dividido pelo mesmo fator do voo com ele). Medido: sem radiador o motor trava aos 3,9 s, a 35 m, e o ar deixa de sustentar; com o radiador chega à sacada (52 m) aos 6 s com 66% de calor; com o duplo, quase frio. Na sacada há um receptor: ligado, abre a lembrança "Alguém respondeu" (uma voz de sudoeste, de além do mar: "Tem lugar para vocês aqui") e acende de noite uma luz distante no horizonte, a sudoeste (`TorreQuente.SINAL`, `LuzesNoite.ligadas["sinal"]`). **É só o gancho:** o lugar de fora da ilha ainda vai ser discutido e construído.
+
+Save: `progresso.achados` guarda `minis`, `ave` e `sinal`.
+
+**Segunda passada no ninho e na torre (mesmo dia, a pedido).** O pilar do ninho passou a ser feito com a `Obra` das ruínas, como os outros pilares da ponte: fuste em três lances, capitel, tabuleiro com um canto partido e pendurado, guarda-corpo torto, vergalhões, um pilar partido mais baixo e um pedaço de tabuleiro caído ao pé, mato nos cantos. O ninho tem três voltas de galhos trançados, gravetos espetados, forro de palha, três ovos e penas caídas. A torre virou uma chaminé de resfriamento: vinte fiadas de blocos que afinam até dois terços e abrem de leve na boca (`TorreQuente.perfil`), remendos e o resto de uma faixa pintada, quatro cintas de ferro, porta com verga e duas folhas tortas, escada de marinheiro com um trecho caído, o duto que vem da Fundição sobre cavaletes, respiros acesos no pé, entulho e mato, grade de ferro fechando a boca (só passa a fumaça), fumaça e brasa no alto; por dentro, a grade do fundo, restos de passadiço e a sacada com guarda-corpo, o receptor com tela e botões e a antena. As medidas da porta de calor não mudaram.
+
+**Contador de mísseis.** O arco de mísseis ao lado da mira só aparecia mirando ou com um alvo já travado: quem atirava sem mirar e sem máquina por perto nunca o via. Agora, com os mísseis escolhidos, aparece também ao segurar o gatilho e fica 2,2 s depois de cada disparo (`Hud._missil_fica`).
+
+**Vibração do controle (pedido do usuário).** Acelerar no ar não vibra mais (vibrava o voo inteiro). No lugar: de 80% de calor para cima o controle zumbe, cada vez mais forte e pulsando mais depressa até travar (`Vibra.CALOR_AVISO`); levar dano ficou mais forte e mais longo, e o escudo engolindo um acerto dá um tranco leve; um marcador novo na bússola (memória a menos de 300 m, peça que a antena captou, o marcador do jogador) dá dois toques curtos (`Hud.marcas`). A freada no ar continua vibrando.

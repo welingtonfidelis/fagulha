@@ -49,6 +49,11 @@ const ABAIXA_DESCE := 0.42  # quanto a bacia desce abaixado, em alturas de armad
 const SENTA_DESCE := 1.1
 
 
+## O modelo em uso tem o corpo novo (o robô redesenhado ou uma variante dele, como o mergulhador)?
+static func corpo_novo() -> bool:
+	return MODELO.ends_with("robo_v2.glb") or MODELO.ends_with("robo_v3.glb")
+
+
 func _ready() -> void:
 	var cena: PackedScene = load(MODELO)
 	modelo = cena.instantiate()
@@ -84,7 +89,7 @@ func _ready() -> void:
 			j["luva" + lado] = luva
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
-	if MODELO.ends_with("robo_v1.glb") or MODELO.ends_with("robo_v2.glb"):
+	if MODELO.ends_with("robo_v1.glb") or corpo_novo():
 		MelhoriasVisual.preparar(self)
 		vestir_melhorias()
 

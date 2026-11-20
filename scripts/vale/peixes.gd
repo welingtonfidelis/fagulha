@@ -56,6 +56,7 @@ var raio := 10.0
 var quantos := 9
 var semente := 0
 var pintar: Callable  # opcional: pintar.call(modelo) para cada peixe
+var acompanha := false  # o meio da área anda (`seguir`): quem ficou para trás nada depressa até alcançar
 var sustos := 0  # contador para teste (eventos de susto)
 var saltos := 0  # contador para teste
 
@@ -232,13 +233,22 @@ func _nadar(p: Peixe, dt: float, cm: Vector2) -> void:
 		if _fundo(frente) < FUNDO_MIN + 0.2 or (frente - _c).length() > raio:
 			alvo += (_c - p.pos).normalized() * 2.0
 
+	# o cardume que acompanha: fora do círculo, o peixe vai direto para o meio, tanto mais depressa quanto mais longe
+	var atrasado := false
+	if acompanha and not fugindo:
+		var falta := (_c - p.pos).length() - raio
+		if falta > 0.0:
+			atrasado = true
+			alvo = (_c - p.pos).normalized()
+			v = clampf(1.0 + falta * 1.6, p.vel, 8.0)
 	if alvo.length() > 0.001:
 		var ang := p.dir.angle()
-		ang += clampf(angle_difference(ang, alvo.angle()), -VIRADA * dt, VIRADA * dt)
+		var vira := VIRADA * (4.0 if atrasado else 1.0)
+		ang += clampf(angle_difference(ang, alvo.angle()), -vira * dt, vira * dt)
 		p.dir = Vector2.from_angle(ang)
 	p.vel_atual = v
 	var nova := p.pos + p.dir * v * dt
-	if _valido(nova):
+	if _valido(nova) or (atrasado and _fundo(nova) >= FUNDO_MIN):
 		p.pos = nova
 	else:
 		# não cabe ali (raso ou fora do círculo): fica e vira para o meio
@@ -316,6 +326,14 @@ func _ponto_aleatorio() -> Vector2:
 		if _valido(v):
 			return v
 	return _c
+
+
+## Muda o meio e o raio da área do cardume (o cardume que acompanha o robô no poço da Cachoeira).
+func seguir(meio: Vector3, novo_raio: float) -> void:
+	centro = Vector3(meio.x, 0, meio.z)
+	_c = Vector2(meio.x, meio.z)
+	raio = novo_raio
+	acompanha = true
 
 
 ## Fundo da água em (x, z): profundidade em metros, ou -INF onde não há água.

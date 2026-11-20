@@ -853,6 +853,7 @@ static func montar(v: Vale) -> void:
 		for k in 5:
 			_kit(raiz, "pipe-large-long", Transform3D(Basis(Vector3(0, 0, 1), PI * 0.5).scaled(Vector3.ONE * 2.2), pc + Vector3(1.1, 2.2 + k * 4.4, 0)), Color(0.85, 0.75, 0.7), 0.5, 0.3, corpo)
 		_fumaca(raiz, pc + Vector3(0, 23.5, 0), 6.0, Color(0.4, 0.4, 0.4, 0.34), 14)
+		LuzesNoite.por(raiz, pc + Vector3(1.1, 24.6, 0), LuzesNoite.BRASA, 7.0)  # a brasa na boca da chaminé, de noite
 	_kit(raiz, "pipe-large-bend", _esc(0.0, 2.6, aqui(-MX - 6.0, 0, MZ - 11.0)), Color(0.9, 0.55, 0.35), 0.8, 0.3, corpo)
 	# lâmpadas penduradas das treliças: luz fraca e amarelada; duas piscam e duas já queimaram
 	lampadas.clear()
