@@ -5,8 +5,12 @@ extends MaquinaPequena
 ## vermelho antes. Chegando perto demais ele recua. Não corre atrás de quem voa alto: fica atirando de
 ## baixo. Três tiros do robô desligam: cai, fuma e religa depois.
 
-enum Estado { RONDA, CACA, VOLTA }
-const NOMES := ["ronda", "caça", "volta"]
+enum Estado { RONDA, CACA, VOLTA, PROCURA, RECUA }
+const NOMES := ["ronda", "caça", "volta", "procura", "recua"]
+const GRUPO := "vigias"
+## A cabeça numa árvore de comportamento (VigiaArvore, com a Beehave). Desligando, volta a máquina de
+## estados de antes: ronda, caça e volta.
+static var com_arvore := true
 const VER := 42.0
 const PERDER := 70.0
 const VEL_RONDA := 1.2
@@ -44,6 +48,17 @@ var _aviso := 0.0
 var _lado := 1.0
 var _tiro_t := 0.0  # tempo que falta da animação de tiro
 
+# o que a árvore usa
+var arvore: BeehaveTree
+var visto_em := Vector3.INF  # onde viu o robô pela última vez
+var sem_ver := 99.0  # há quantos segundos não vê
+var pista := Vector3.INF  # um lugar para ir olhar
+var procura_t := 0.0  # tempo olhando em volta no lugar da pista
+var recuando := false
+var recuo_t := 0.0
+var recuo_folga := 0.0
+var avisada := 0  # vezes em que outra máquina a chamou (testes)
+
 
 func calor_por_tiro() -> float:
 	return calor_tiro
@@ -71,6 +86,9 @@ func _ready() -> void:
 	var q := _ponto_ronda()
 	global_position = Vector3(q.x, mapa.altura(q.x, q.z), q.z)
 	rotation.y = _rng.randf() * TAU
+	add_to_group(GRUPO)
+	if com_arvore:
+		arvore = VigiaArvore.montar(self)
 
 
 ## O corpo da máquina (quem herda pode montar outro).
@@ -142,6 +160,14 @@ func _process(delta: float) -> void:
 	var para_alvo := alvo_p - global_position
 	var dist := Vector2(para_alvo.x, para_alvo.z).length()
 	var guiando := guiado.is_finite()
+	if ve:
+		visto_em = alvo.global_position
+		sem_ver = 0.0
+	else:
+		sem_ver += delta
+	recuo_folga = maxf(0.0, recuo_folga - delta)
+	if arvore and not guiando:
+		arvore.tick()
 	if guiando:
 		var pg := guiado - global_position
 		pg.y = 0.0
@@ -169,7 +195,7 @@ func _process(delta: float) -> void:
 					_rumo = para.normalized()
 					vel = VEL_RONDA
 		Estado.CACA:
-			if alvo == null or alvo.em_pane or alvo.graca_pane > 0.0 or para_alvo.length() > PERDER:
+			if arvore == null and (alvo == null or alvo.em_pane or alvo.graca_pane > 0.0 or para_alvo.length() > PERDER):
 				estado = Estado.VOLTA
 				_aviso = 0.0
 			else:
@@ -218,6 +244,24 @@ func _process(delta: float) -> void:
 				vel = vel_caca * 0.7
 			if ve and para_alvo.length() < VER * 0.6:
 				estado = Estado.CACA
+		Estado.PROCURA:
+			# vai até onde o robô foi visto por último e fica olhando em volta
+			var ate := pista - global_position
+			ate.y = 0.0
+			if pista.is_finite() and ate.length() > 2.5:
+				_rumo = ate.normalized()
+				vel = vel_caca * 0.8
+			else:
+				procura_t += delta
+				_rumo = _rumo.rotated(Vector3.UP, 1.1 * delta * _lado)
+		Estado.RECUA:
+			# quente: anda de costas, de frente para o robô, sem atirar, até esfriar
+			recuo_t += delta
+			_aviso = 0.0
+			if dist > 0.3:
+				_rumo = Vector3(para_alvo.x, 0, para_alvo.z).normalized()
+			if dist < dist_tiro * 2.6:
+				vel = -vel_caca * 0.75
 	# a rajada sai aos poucos, cada tiro com o erro de mira dele
 	if _rajada_resta > 0 and mech:
 		_rajada_t -= delta
@@ -243,7 +287,7 @@ func _process(delta: float) -> void:
 			vel = 0.0
 		else:
 			global_position += anda * absf(vel) * delta
-			if vel > 0.0 and estado != Estado.CACA:
+			if vel > 0.0 and estado != Estado.CACA and estado != Estado.RECUA:
 				_rumo = anda  # na caça ele continua de frente para o robô, andando de lado se for preciso
 		# rodando em volta da mesma coisa: a cada 2 s confere onde estava 4 s atrás. Desviando o tempo todo e
 		# ainda a menos de 3 m daquele ponto, está dando voltas (na forja as máquinas ficavam rodando numa planta
@@ -292,4 +336,4 @@ func _process(delta: float) -> void:
 			mech.tocar("Walk", 1.1)
 		else:
 			mech.tocar("Idle")
-	_lente_brilho(6.0 if _aviso > 0.0 else (2.4 if estado == Estado.CACA else 0.8))
+	_lente_brilho(6.0 if _aviso > 0.0 else (2.4 if estado == Estado.CACA else (1.5 if estado == Estado.PROCURA else 0.8)))

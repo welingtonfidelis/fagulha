@@ -42,7 +42,7 @@ const COMANDOS := [
 	["Granada", "segurar e soltar {@r1}", "{@k_g}"],
 	["Espada de laser", "{@r3} no chão", "{@k_x}"],
 	["OUTROS", "", ""],
-	["Oficina · ligar a Fundição", "{@quad}", "{@k_e}"],
+	["Oficina · acordar e trocar de robô", "{@quad}", "{@k_e}"],
 	["Luz · scanner (melhorias)", "{@cima} · {@dir}", "{@k_l} · {@k_t}"],
 	["Marcar um ponto", "{@baixo}", "{@k_q}"],
 	["Nadar: subir · descer", "{@x} · {@o}", "{@k_espaco} · {@k_c}"],

@@ -21,49 +21,56 @@ func rodar(main: Node) -> void:
 	cam = main.camera
 	ciclo = main.ciclo
 	await _esperar(0.3)
-	await _ponto_1()
-	await _ponto_2()
-	await _ponto_3()
-	await _ponto_4()
-	await _ponto_5()
-	await _ponto_6()
-	await _ponto_7()
-	await _ponto_8()
-	await _ponto_9()
-	await _ponto_10()
-	await _ponto_11()
-	await _ponto_12()
-	await _ponto_13()
-	await _ponto_14()
-	await _ponto_15()
-	await _ponto_16()
-	await _ponto_17()
-	await _ponto_18()
-	await _ponto_19()
-	await _ponto_20()
-	await _ponto_21()
-	await _ponto_22()
-	await _ponto_23()
-	await _ponto_24()
-	await _ponto_25()
-	await _ponto_26()
-	await _ponto_27()
-	await _ponto_28()
-	await _ponto_29()
-	await _ponto_30()
-	await _ponto_31()
-	await _ponto_32()
-	await _ponto_33()
-	await _ponto_34()
-	await _ponto_35()
-	await _ponto_36()
-	await _ponto_37()
-	await _ponto_38()
-	await _ponto_39()
-	await _ponto_40()
-	await _ponto_41()
-	await _ponto_42()
-	await _ponto_43()
+	# VALE_SO_PONTO=45 roda só aquele ponto (para acertar um ponto novo sem esperar os outros)
+	var so_ponto := OS.get_environment("VALE_SO_PONTO")
+	if so_ponto != "":
+		await call("_ponto_" + so_ponto)
+	else:
+		await _ponto_1()
+		await _ponto_2()
+		await _ponto_3()
+		await _ponto_4()
+		await _ponto_5()
+		await _ponto_6()
+		await _ponto_7()
+		await _ponto_8()
+		await _ponto_9()
+		await _ponto_10()
+		await _ponto_11()
+		await _ponto_12()
+		await _ponto_13()
+		await _ponto_14()
+		await _ponto_15()
+		await _ponto_16()
+		await _ponto_17()
+		await _ponto_18()
+		await _ponto_19()
+		await _ponto_20()
+		await _ponto_21()
+		await _ponto_22()
+		await _ponto_23()
+		await _ponto_24()
+		await _ponto_25()
+		await _ponto_26()
+		await _ponto_27()
+		await _ponto_28()
+		await _ponto_29()
+		await _ponto_30()
+		await _ponto_31()
+		await _ponto_32()
+		await _ponto_33()
+		await _ponto_34()
+		await _ponto_35()
+		await _ponto_36()
+		await _ponto_37()
+		await _ponto_38()
+		await _ponto_39()
+		await _ponto_40()
+		await _ponto_41()
+		await _ponto_42()
+		await _ponto_43()
+		await _ponto_44()
+		await _ponto_45()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -1367,6 +1374,7 @@ func _ponto_27() -> void:
 		mc.process_mode = Node.PROCESS_MODE_INHERIT
 		mc.global_position = Vector3(a0.x, v.altura(a0.x, a0.z), a0.z)
 		mc.estado = Vigia.Estado.RONDA
+		mc.pista = Vector3.INF  # sem pista de outro ponto: a árvore a mandaria procurar
 		mc._destino = b0
 		mc._pausa = 0.0
 		var d0: int = mc.desvios
@@ -1653,9 +1661,10 @@ func _ponto_31() -> void:
 		await _esperar(0.3)
 	_ok(um and m.tiro.disparos == d0 + 4, "pistola: segurar dá um tiro só; cada aperto, um (%d em 4)" % (m.tiro.disparos - d0))
 	_zerar()
-	var convite: bool = m.hud.dica.begins_with("{agir}  ligar a Fundição")
-	await _apertar("agir")
-	await _esperar(0.3)
+	# não há botão: quem entra é avisado, e ficando 30 s a horda começa (aqui a contagem é encurtada)
+	var convite: bool = f.avisos_perigo >= 1 and f.fase == Fundicao.Fase.PARADA and not m.hud.dica.begins_with("{agir}  ligar")
+	f.perigo_t = 0.4
+	await _esperar(0.8)
 	var contando: bool = f.fase == Fundicao.Fase.CONTAGEM and f.onda == 1
 	await _esperar(Fundicao.T_CONTAGEM + 4.5)
 	var esperado := Fundicao.receita(1).size()
@@ -1665,7 +1674,7 @@ func _ponto_31() -> void:
 		xs.append(mc0.global_position.x)
 	var abertura: float = (xs.max() - xs.min()) if xs.size() > 1 else 0.0
 	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
-		"quadrado no painel liga a onda 1: %d robôs saem da porta e se espalham (%.0f m de um lado ao outro)" % [f.vivos.size(), abertura])
+		"quem entra no galpão é avisado e, ficando lá, a onda 1 começa sozinha: %d robôs saem da porta e se espalham (%.0f m de um lado ao outro)" % [f.vivos.size(), abertura])
 	_ok(abertura > 3.0, "os robôs não saem em fila reta: 4,5 s depois da porta já abriram %.0f m" % abertura)
 	Arsenal.xp = 95  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
 	var xp0 := Arsenal.xp
@@ -2626,7 +2635,7 @@ func _ponto_39() -> void:
 				perto += 1
 	var cardume: bool = ac.feitas.has("cardume") and perto >= 6
 	# o alto da Árvore-Mãe
-	a.teleportar(Marcos.arvore_mae + Vector3(2, 60, 2), Armadura.Estado.AR)
+	a.teleportar(Marcos.copas_mae[0] + Vector3(0, 6, 0), Armadura.Estado.AR)  # em cima de uma das touceiras de folhas
 	await _esperar(12.0)
 	var na_copa := 0
 	var bd: Passaros = ac.get("_bando")
@@ -2898,3 +2907,263 @@ func _ponto_43() -> void:
 	_ok(frio and quente and toques == 2 and antes < 0.05 and segurando > 0.9,
 		"vibração e mísseis: motor a 40%% não zumbe (%s) e a 92%% zumbe (%s); marcador novo na bússola dá %d toques; o contador de mísseis aparece ao segurar o gatilho (%.2f → %.2f)"
 			% [frio, quente, toques, antes, segurando])
+
+
+## A leva de 2026-11-20: degraus da base sobem andando; os tampos da Árvore-Mãe seguram o pouso; dá para passar
+## por baixo das torres do Relé e a lembrança dele está no patamar; debaixo da terra fica escuro, não chove e
+## nada voa; debaixo d'água não chove; a música da vista toca enquanto se aprecia a vista; a janela de peça
+## nova abre, para o jogo e fecha.
+func _ponto_44() -> void:
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.3)
+	var v: Vale = m.ilha as Vale
+	var tb: Transform3D = BaseVale.t_base
+	# da areia para cima da laje da base, andando
+	var d0: int = a.degraus
+	a.teleportar(tb * Vector3(0.0, 0.6, -8.0), Armadura.Estado.CHAO)
+	await _esperar(0.6)
+	var alvo_l: Vector3 = tb * Vector3(0.0, 0.3, 0.0)
+	Input.action_press("frente")
+	for i in 60 * 6:
+		var para := alvo_l - a.global_position
+		m.camera.yaw = atan2(-para.x, -para.z)
+		if Vector2(para.x, para.z).length() < 1.3:
+			break
+		await get_tree().physics_frame
+	Input.action_release("frente")
+	var na_laje: bool = Vector2(a.global_position.x - alvo_l.x, a.global_position.z - alvo_l.z).length() < 1.6 and a.degraus > d0
+	# a Árvore-Mãe
+	var pousos := 0
+	for c: Vector3 in Marcos.copas_mae:
+		a.teleportar(c + Vector3(0, 5, 0), Armadura.Estado.AR)
+		await _esperar(2.0)
+		if a.estado == Armadura.Estado.CHAO and absf(a.global_position.y - c.y) < 0.6:
+			pousos += 1
+	# o Relé: por baixo da torre velha e do mastro, e a lembrança no patamar
+	var esp: PhysicsDirectSpaceState3D = (m as Node3D).get_world_3d().direct_space_state
+	var pe_t := Vector3(MarcosMar.RELE.x, v.altura(MarcosMar.RELE.x, MarcosMar.RELE.y) + 4.0, MarcosMar.RELE.y)
+	var livre_t: bool = esp.intersect_ray(PhysicsRayQueryParameters3D.create(pe_t + Vector3(9, 0, 0), pe_t + Vector3(-9, 0, 0), 1)).is_empty()
+	var mastro: MastroRadio = m.torre
+	var pe_m: Vector3 = mastro.pe + Vector3(0, 4.0, 0)
+	var livre_m: bool = esp.intersect_ray(PhysicsRayQueryParameters3D.create(pe_m + Vector3(12, 0, 0), pe_m + Vector3(-12, 0, 0), 1)).is_empty()
+	var mem: Vector3 = m.memorias.onde["rele"]
+	var no_patamar: bool = absf(mem.y - MarcosMar.rele_topo.y) < 0.6 and Vector2(mem.x - MarcosMar.rele_topo.x, mem.z - MarcosMar.rele_topo.z).length() < 2.7
+	_ok(na_laje and pousos == Marcos.copas_mae.size() and pousos >= 3 and livre_t and livre_m and no_patamar,
+		"degraus e colisões: da areia sobe na laje da base andando (%s); pousa nos %d tampos da Árvore-Mãe (%d); passa por baixo da torre do Relé (%s) e do mastro (%s); a lembrança do Relé está no patamar (%s)"
+			% [na_laje, Marcos.copas_mae.size(), pousos, livre_t, livre_m, no_patamar])
+	# debaixo da terra e debaixo d'água
+	var hora0: float = m.ciclo.hora
+	var parado0: bool = m.ciclo.parado
+	var chuva0: float = m.ciclo.chuva
+	m.ciclo.parado = true
+	m.ciclo.hora = 13.0
+	m.ciclo.chuva = 1.0
+	var S := Sumidouro
+	a.teleportar(Vector3(S.centro.x + S.dir.x * 10.0, S.piso + 0.6, S.centro.y + S.dir.y * 10.0), Armadura.Estado.CHAO)
+	await _esperar(2.5)
+	var gotas: GPUParticles3D = m.ciclo.get("_gotas")
+	var no_escuro: bool = m.ciclo.escuro > 0.95 and m.ciclo.env.ambient_light_energy < 0.2 and not gotas.emitting
+	var ar_limpo := true
+	for n: Node in m.find_children("*", "PetalasAr", true, false) + m.find_children("*", "PoeiraLuz", true, false):
+		for g: Node in ([n] if n is GPUParticles3D else []) + n.find_children("*", "GPUParticles3D", true, false):
+			ar_limpo = ar_limpo and not (g as GPUParticles3D).emitting
+	a.teleportar(tb * Vector3(0.0, 1.0, -30.0), Armadura.Estado.CHAO)
+	await _esperar(2.0)
+	var fora: bool = m.ciclo.escuro < 0.3 and gotas.emitting
+	a.teleportar(Vector3(Vale.POCO.x, Vale.POCO_NIVEL - 6.0, Vale.POCO.y), Armadura.Estado.NADO)
+	m.camera.pitch = 0.6
+	await _esperar(1.2)
+	var cam_p: Vector3 = m.camera.cam.global_position
+	var submerso: bool = v.agua(cam_p.x, cam_p.z) > cam_p.y
+	var sem_chuva_na_agua: bool = not submerso or not gotas.emitting
+	m.ciclo.chuva = chuva0
+	m.ciclo.hora = hora0
+	m.ciclo.parado = parado0
+	_ok(no_escuro and ar_limpo and fora and submerso and sem_chuva_na_agua,
+		"cavernas e água: no Sumidouro fica escuro e não chove (%s) e nada voa no ar (%s); fora volta a luz e a chuva (%s); com a câmera debaixo d'água (%s) a chuva some (%s)"
+			% [no_escuro, ar_limpo, fora, submerso, sem_chuva_na_agua])
+	# a música da vista e a janela de peça nova
+	a.recomecar()
+	await _esperar(0.8)
+	var mu: MusicaPasseio = m.musica
+	await _apertar("sentar")
+	await _esperar(0.6)
+	var tocando: bool = a.contemplando and mu.vista_tocando
+	Input.action_press("frente")
+	await _esperar(0.8)
+	Input.action_release("frente")
+	var parou: bool = not mu.vista_tocando
+	var cp := CartaoPeca.new()
+	m.add_child(cp)
+	cp.mostrar("asas")
+	cp.mostrar("farol")
+	await _esperar(0.3)
+	var aberto: bool = cp.visible and cp.aberto == "asas" and get_tree().paused and not m.pausa.pode_abrir()
+	cp.fechar()
+	await _esperar(0.2)
+	var segundo: bool = cp.aberto == "farol" and get_tree().paused
+	cp.fechar()
+	await _esperar(0.2)
+	var fechou: bool = not cp.visible and not get_tree().paused and cp.mostrados == 2
+	cp.queue_free()
+	_ok(tocando and parou and aberto and segundo and fechou,
+		"música e janela: a música da vista toca ao apreciar a vista (%s) e para ao sair (%s); a janela de peça nova abre e para o jogo (%s), mostra a seguinte (%s) e fecha (%s)"
+			% [tocando, parou, aberto, segundo, fechou])
+
+
+## A base nova (telheiro, cantinho, bancada, horta, fogueira) e a cabeça do Vigia em árvore (Beehave).
+func _ponto_45() -> void:
+	var v: Vale = m.ilha as Vale
+	var tb: Transform3D = BaseVale.t_base
+	var esp := (m as Node3D).get_world_3d().direct_space_state
+	# o telheiro cobre o cantinho e a bancada, e deixa o céu aberto em cima do estrado de nascer
+	var cob := func(l: Vector3) -> bool:
+		var de: Vector3 = tb * l
+		return not esp.intersect_ray(PhysicsRayQueryParameters3D.create(de, de + Vector3(0, 12, 0), 1)).is_empty()
+	var coberto: bool = cob.call(Vector3(-3.0, 1.6, 4.0)) and cob.call(Vector3(1.5, 1.6, 4.6)) and cob.call(Vector3(6.2, 3.2, 5.6))
+	var aberto: bool = not cob.call(Vector3(0.0, 1.0, 0.0)) and not cob.call(Vector3(0.0, 1.0, -3.0))
+	var na_laje := func(w: Vector3) -> bool:
+		var l: Vector3 = tb.affine_inverse() * w
+		return absf(l.x + 1.0) < 10.5 and l.z > -5.25 and l.z < 7.25
+	var horta_fora: bool = BaseLar.horta.is_finite() and not na_laje.call(BaseLar.horta) and BaseLar.canteiros == 3
+	var fogo_fora: bool = BaseLar.fogueira.is_finite() and not na_laje.call(BaseLar.fogueira)
+	var banc: Vector3 = tb.affine_inverse() * BaseLar.bancada
+	var bancada_coberta: bool = BaseLar.bancada.is_finite() and cob.call(banc + Vector3(0, 1.2, -0.8)) and m.find_child("TelaDoJogo", true, false) != null
+	# o robô anda do estrado até o sofá sem travar
+	a.recomecar()
+	await _esperar(0.5)
+	var alvo_l := Vector3(-3.0, 0.3, 3.6)
+	a.teleportar(tb * Vector3(-0.6, 0.4, 1.2), Armadura.Estado.CHAO)
+	await _esperar(0.4)
+	m.camera.yaw = atan2(-(tb.basis * (alvo_l - Vector3(-0.6, 0, 1.2))).x, -(tb.basis * (alvo_l - Vector3(-0.6, 0, 1.2))).z)
+	Input.action_press("frente")
+	var chegou := false
+	for i in 4 * 60:
+		await get_tree().physics_frame
+		var l: Vector3 = tb.affine_inverse() * a.global_position
+		if Vector2(l.x - alvo_l.x, l.z - alvo_l.z).length() < 1.3:
+			chegou = true
+			break
+	Input.action_release("frente")
+	_ok(coberto and aberto and horta_fora and fogo_fora and bancada_coberta and chegou and BaseLar.moveis >= 18 and BaseLar.luzinhas >= 25,
+		"base nova: telheiro cobre cantinho, bancada e baia (%s) e deixa o estrado a céu aberto (%s); horta fora da laje com %d canteiros (%s); fogueira fora (%s); bancada com TV debaixo da cobertura (%s); o robô anda até o tapete (%s); %d móveis, %d luzinhas"
+			% [coberto, aberto, BaseLar.canteiros, horta_fora, fogo_fora, bancada_coberta, chegou, BaseLar.moveis, BaseLar.luzinhas])
+	# sentar nos móveis (o botão de apreciar a vista, perto de um assento) e a fogueira só de noite e sem chuva
+	a.recomecar()
+	await _esperar(0.4)
+	var sentou := false
+	var levantou := false
+	var lugares: int = Armadura.assentos.size()
+	if lugares > 0:
+		var lugar: Array = Armadura.assentos[0]
+		a.teleportar(lugar[2], Armadura.Estado.CHAO)
+		await _esperar(0.6)
+		await _apertar("sentar")
+		await _esperar(1.0)
+		sentou = a.no_assento and a.postura == 2 and a.contemplando and a.global_position.distance_to(lugar[0]) < 0.15
+		Input.action_press("frente")
+		await _esperar(0.5)
+		Input.action_release("frente")
+		levantou = not a.no_assento and a.postura == 0 and not a.contemplando and a.estado == Armadura.Estado.CHAO
+	var fogo: Fogueira = m.find_child("Fogueira", true, false)
+	var hora0: float = m.ciclo.hora
+	var parado0: bool = m.ciclo.parado
+	var chuva0: float = m.ciclo.chuva
+	m.ciclo.parado = true
+	m.ciclo.chuva = 0.0
+	m.ciclo.hora = 13.0
+	await _esperar(2.5)
+	var de_dia_apagada: bool = fogo != null and not fogo.acesa and fogo.forca < 0.05 and not fogo.luz.visible
+	m.ciclo.hora = 22.0
+	await _esperar(3.5)
+	var de_noite_acesa: bool = fogo != null and fogo.acesa and fogo.forca > 0.9
+	m.ciclo.chuva = 1.0
+	await _esperar(2.5)
+	var na_chuva_apagada: bool = fogo != null and not fogo.acesa and fogo.forca < 0.05
+	m.ciclo.chuva = chuva0
+	m.ciclo.hora = hora0
+	m.ciclo.parado = parado0
+	_ok(lugares >= 9 and sentou and levantou and de_dia_apagada and de_noite_acesa and na_chuva_apagada,
+		"sentar e fogueira: %d lugares de sentar; o robô senta no sofá (%s) e levanta ao andar (%s); a fogueira fica apagada de dia (%s), acende de noite (%s) e apaga na chuva (%s)"
+			% [lugares, sentou, levantou, de_dia_apagada, de_noite_acesa, na_chuva_apagada])
+	# a árvore do Vigia: caça, perde de vista e procura onde viu, volta; quente, recua; e avisa o vizinho
+	var um: Vigia = null
+	var dois: Vigia = null
+	for n in m.inimigos.todas:
+		if n is Vigia and not (n as Vigia).chefe and not (n as Vigia).corpo_a_corpo and (n as Vigia).arvore != null:
+			if um == null:
+				um = n
+			elif dois == null:
+				dois = n
+	var cacou := false
+	var procurou := false
+	var foi_olhar := false
+	var voltou := false
+	var recuou := false
+	var afastou := false
+	var avisou := false
+	if um and dois:
+		var c := Vector3(-30.0, 0, 62.0)
+		for par: Array in [[um, Vector3(0, 0, 0)], [dois, Vector3(9, 0, 4)]]:
+			var q: Vigia = par[0]
+			q.religar()
+			q.process_mode = Node.PROCESS_MODE_INHERIT
+			var w: Vector3 = c + par[1]
+			q.global_position = Vector3(w.x, v.altura(w.x, w.z), w.z)
+			q.casa = q.global_position
+			q.estado = Vigia.Estado.RONDA
+			q.pista = Vector3.INF
+			q.sem_ver = 99.0
+			q._pausa = 99.0
+		# o segundo fica de costas num buraco de vista: quem vê é só o primeiro
+		a.graca_pane = 0.0
+		var onde := c + Vector3(0, 0, 17)
+		a.teleportar(Vector3(onde.x, v.altura(onde.x, onde.z) + 0.3, onde.z), Armadura.Estado.CHAO)
+		var av0 := dois.avisada
+		for i in 5 * 60:
+			await get_tree().physics_frame
+			a.avaria = 0
+			if um.estado == Vigia.Estado.CACA:
+				cacou = true
+				break
+		avisou = dois.avisada > av0 or dois.estado == Vigia.Estado.CACA
+		# quente: recua de frente para o robô
+		um.calor = 72.0
+		um._sem_tiro = 0.0
+		var d0 := um.global_position.distance_to(a.global_position)
+		for i in 3 * 60:
+			await get_tree().physics_frame
+			a.avaria = 0
+			a.global_position = Vector3(onde.x, a.global_position.y, onde.z)
+			um._sem_tiro = 0.0
+			if um.estado == Vigia.Estado.RECUA:
+				recuou = true
+		afastou = um.global_position.distance_to(a.global_position) > d0 + 2.0
+		um.calor = 0.0
+		um.recuando = false
+		await _esperar(1.0)
+		# some de vista: ele vai procurar onde viu por último, olha em volta e volta para casa
+		var visto := um.visto_em
+		# (o robô fica a 30 m, sem ser visto: longe demais, o jogo congela as máquinas)
+		var some := visto + Vector3(30.0, 0, 6.0)
+		a.teleportar(Vector3(some.x, v.altura(some.x, some.z) + 0.3, some.z), Armadura.Estado.CHAO)
+		a.graca_pane = 999.0
+		var perto := INF
+		for i in 30 * 60:
+			await get_tree().physics_frame
+			if um.estado == Vigia.Estado.PROCURA:
+				procurou = true
+				perto = minf(perto, Vector2(um.global_position.x - visto.x, um.global_position.z - visto.z).length())
+			if procurou and (um.estado == Vigia.Estado.VOLTA or um.estado == Vigia.Estado.RONDA):
+				voltou = true
+				break
+		foi_olhar = perto < 3.5
+		a.graca_pane = 0.0
+		for q2: Vigia in [um, dois]:
+			q2.avancar_tempo(1.0)
+	a.recomecar()
+	await _esperar(0.3)
+	_ok(VigiaArvore.arvores > 0 and cacou and avisou and recuou and afastou and procurou and foi_olhar and voltou,
+		"árvore do Vigia (Beehave): %d árvores; vê e caça (%s), avisa a vizinha (%s), quente recua (%s) e se afasta (%s), sem ver procura (%s) onde viu por último (%s) e depois volta (%s)"
+			% [VigiaArvore.arvores, cacou, avisou, recuou, afastou, procurou, foi_olhar, voltou])

@@ -57,3 +57,8 @@ fer_grossa={
 "type": "sampler2D",
 "value": "res://assets/vale/ferrugem/ferrugem_grossa.jpg"
 }
+
+[autoload]
+
+BeehaveGlobalMetrics="*res://addons/beehave/metrics/beehave_global_metrics.gd"
+BeehaveGlobalDebugger="*res://addons/beehave/debug/global_debugger.gd"

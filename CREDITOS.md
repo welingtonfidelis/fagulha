@@ -87,3 +87,26 @@ https://kenney.nl/assets/input-prompts em 2026-11-19.
 A águia do ninho (`assets/vale/aguia/aguia.glb`) é do "Animal Pack Vol.2", de Quaternius, licença Creative Commons
 Zero (CC0). Baixado de https://opengameart.org/content/animated-animales-low-poly em 2026-11-19 e convertido
 de FBX para glb no Blender. As cores são repostas no jogo (`NinhoAve.CORES_AVE`): na conversão vieram todas cinza.
+
+## Morcegos (Danimal)
+
+Os morcegos do Sumidouro (`assets/vale/morcego/morcego.glb`) são o "Vampire Bat (animated)", de Danimal, licença
+Creative Commons Zero (CC0). Baixado de https://opengameart.org/content/vampire-bat-animated em 2026-11-20 e
+exportado do `.blend` para glb no Blender. As texturas do pacote vão ao lado, reduzidas (`morcego_pelo.jpg`, `morcego_partes.jpg`).
+
+## Pássaros pequenos (vk e FacadeGaikan)
+
+Os pássaros do vale (`assets/vale/passaro.glb`) partem da "bird basemesh", de vk e FacadeGaikan, licença Creative
+Commons Zero (CC0). Baixada de https://opengameart.org/content/bird-basemesh em 2026-11-20. O
+`tools/vale/passaro_base.py` pinta a ave, separa as asas e acrescenta os olhos.
+
+## Móveis da base (KayKit)
+
+O sofá, a poltrona, o tapete, as mesas, a luminária, os quadros, os cactos e os enfeites da bancada
+(`assets/vale/moveis/`) são do "KayKit Furniture Bits 1.0", de Kay Lousberg (www.kaylousberg.com), licença
+Creative Commons Zero (CC0).
+
+## Beehave (árvores de comportamento)
+
+A cabeça das máquinas usa a Beehave 2.9.3, de bitbrain (https://github.com/bitbrain/beehave), licença MIT
+(`addons/beehave/`, com a licença em `addons/beehave/LICENSE`).

@@ -120,10 +120,9 @@ func _construir() -> void:
 			o.bloco((t0 + t1) * 0.5, Vector3(fio * 0.8, fio * 0.8, t0.distance_to(t1)), Basis.looking_at((t1 - t0).normalized(), Vector3.UP), "ferrugem", false)
 			var d0 := pe + Vector3(c0.x * l0 * 0.5, y0, c0.y * l0 * 0.5)
 			o.bloco((d0 + t1) * 0.5, Vector3(fio * 0.6, fio * 0.6, d0.distance_to(t1)), Basis.looking_at((t1 - d0).normalized(), Vector3.UP), "ferrugem", false)
-		# o miolo do lance barra o voo por dentro do mastro
-		var cx := BoxShape3D.new()
-		cx.size = Vector3((l0 + l1) * 0.5, alt, (l0 + l1) * 0.5)
-		o.forma(cx, Transform3D(Basis.IDENTITY, pe + Vector3(0, (y0 + y1) * 0.5, 0)))
+		# a colisão é só das quatro pernas: dá para passar por baixo do mastro e andar no patamar inteiro
+		for canto: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			MarcosMar.perna_colisao(o, pe + Vector3(canto.x * l0 * 0.5, y0, canto.y * l0 * 0.5), pe + Vector3(canto.x * l1 * 0.5, y1, canto.y * l1 * 0.5), maxf(0.5, fio * 1.6))
 	# o patamar de serviço, abaixo do campo quente: dá para pousar e esfriar antes do último trecho
 	var lp := largura(PATAMAR) + 5.0
 	o.bloco(pe + Vector3(0, PATAMAR, 0), Vector3(lp, 0.3, lp), Basis.IDENTITY, "casco")

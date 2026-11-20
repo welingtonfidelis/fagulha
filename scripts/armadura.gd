@@ -101,6 +101,14 @@ var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: p
 var escudos_gastos := 0  # testes
 var jato_cortado := false  # um lugar onde os jatos não funcionam (a maresia do ninho da ave): com asas, o robô plana
 var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da Fundição)
+## Lugares de sentar (sofá, poltrona, bancos da fogueira): [posição da bacia, frente, saída], no mundo.
+## Quem monta o cenário enche a lista (`BaseLar.assento_em`).
+static var assentos: Array = []
+const ASSENTO_PERTO := 1.7
+var no_assento := false  # sentado num móvel: parado ali até andar ou apertar algo
+var assento_yaw := 0.0  # para onde o corpo vira (o visual lê)
+var sentadas := 0  # vezes em que sentou num móvel (testes)
+var _assento: Array = []
 var contemplando := false  # apreciando a vista: a câmera sai de trás do robô e a tela fica limpa
 var vistas := 0  # quantas vezes entrou nisso (testes)
 var espada_t := 0.0  # tempo que falta do golpe de espada (o visual balança o braço e acende a lâmina)
@@ -314,6 +322,7 @@ func pos_suave() -> Vector3:
 
 
 var degraus := 0  # quantos degraus subiu (testes)
+var _querer_andar := Vector3.ZERO  # a direção que o jogador pede no chão
 var _degrau_y := 0.0  # depois de subir um degrau o corpo desenhado alcança o de verdade aos poucos
 
 
@@ -322,7 +331,11 @@ var _degrau_y := 0.0  # depois de subir um degrau o corpo desenhado alcança o d
 func _subir_degrau(delta: float) -> void:
 	if estado != Estado.CHAO or not is_on_floor() or em_pane:
 		return
+	# para onde o jogador quer ir, e não a velocidade: encostado no degrau a velocidade já era zero, e o
+	# robô ficava travado diante de beiras de 30 cm (visto pelo usuário na base, 2026-11-20)
 	var h := Vector3(velocity.x, 0, velocity.z)
+	if _querer_andar.length() > 0.3:
+		h = _querer_andar.normalized() * maxf(h.length(), Armadura.andar())
 	if h.length() < 0.6:
 		return
 	var frente := h.normalized() * maxf(h.length() * delta, 0.16)
@@ -356,6 +369,7 @@ func _subir_degrau(delta: float) -> void:
 
 func teleportar(pos: Vector3, novo: int, vel := Vector3.ZERO) -> void:
 	global_position = pos
+	no_assento = false
 	_fora_dagua = 0.0
 	manobra = 0.0
 	_manobra_vel = Vector3.ZERO
@@ -431,6 +445,9 @@ func _passo(delta: float) -> void:
 		return
 	escudo_t = maxf(0.0, escudo_t - delta)
 	if travado:
+		return
+	if no_assento:
+		_passo_assento(delta)
 		return
 	if Input.is_action_just_pressed("luz") and Melhorias.tem("farol"):
 		luz_ligada = not luz_ligada
@@ -512,6 +529,7 @@ func _chao(delta: float, mov: Vector2) -> void:
 	var dir := _plano_camera() * Vector3(mov.x, 0.0, mov.y)
 	if dir.length() > 1.0:
 		dir = dir.normalized()
+	_querer_andar = dir
 	var vmax := Armadura.correr() if correr else Armadura.andar()
 	if mirando:
 		vmax = Ajustes.ANDAR_MIRANDO * vel_chao
@@ -557,6 +575,57 @@ func _chao(delta: float, mov: Vector2) -> void:
 		erguendo = 0.0
 
 
+## O lugar de sentar mais perto do robô (lista vazia: nenhum ao alcance).
+func assento_perto() -> Array:
+	var melhor: Array = []
+	var md := ASSENTO_PERTO
+	for lugar: Array in assentos:
+		var p: Vector3 = lugar[0]
+		var d := Vector2(p.x - global_position.x, p.z - global_position.z).length()
+		if d < md and absf(p.y - global_position.y) < 1.6:
+			md = d
+			melhor = lugar
+	return melhor
+
+
+func _sentar_em(lugar: Array) -> void:
+	_assento = lugar
+	no_assento = true
+	sentadas += 1
+	_assento_t = 0.0
+	var f: Vector3 = lugar[1]
+	assento_yaw = atan2(-f.x, -f.z)
+	velocity = Vector3.ZERO
+	postura = 2
+	erguendo = 0.0
+
+
+## Sentado num móvel: o corpo vai para o assento e fica; andar ou apertar qualquer ação levanta, e o
+## robô sai para a frente do móvel, de pé no chão.
+func _passo_assento(delta: float) -> void:
+	var mov := Input.get_vector("esquerda", "direita", "frente", "tras")
+	var sai := mov.length() > 0.3 or em_pane or escaneando
+	for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr", "agir", "voar"]:
+		if InputMap.has_action(acao) and Input.is_action_just_pressed(acao) and _tempo_estado > 0.0 and _assento_t > 0.3:
+			sai = true
+	_assento_t += delta
+	if sai:
+		no_assento = false
+		contemplando = false
+		postura = 0
+		erguendo = 0.0
+		_assento_t = 0.0
+		teleportar(_assento[2], Estado.CHAO)
+		return
+	postura = 2
+	velocity = Vector3.ZERO
+	global_position = global_position.lerp(_assento[0], 1.0 - exp(-9.0 * delta))
+	calor = maxf(0.0, calor - 12.0 * delta)
+
+
+var _assento_t := 0.0
+
+
 ## Sentar (seta para a esquerda / Ctrl): um toque senta, parado; outro toque, mexer o analógico ou apertar o
 ## X levanta. Correr sempre levanta. (Agachar saiu: não tinha uso no jogo.)
 func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
@@ -579,6 +648,9 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 			if sai:
 				contemplando = false
 		elif Input.is_action_just_pressed("sentar") and quieto and not em_pane and not travado and not escaneando and not mirando_agora():
+			var lugar := assento_perto()
+			if not lugar.is_empty():
+				_sentar_em(lugar)
 			contemplando = true
 			vistas += 1
 		return

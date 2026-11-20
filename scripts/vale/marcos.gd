@@ -6,6 +6,8 @@ extends RefCounted
 
 static var lugares: Array = []  # [nome, Vector2(x, z), raio]: o jogo põe na lista de lugares com nome
 static var arvore_mae := Vector3.INF
+static var indice_mae := -1  # a Árvore-Mãe na lista de árvores (a copa dela tem colisão própria)
+static var copas_mae: Array[Vector3] = []  # o meio do tampo de cada touceira de folhas dela, no mundo
 static var anel := Vector3.INF
 static var colunas := Vector3.INF
 
@@ -37,6 +39,87 @@ static func montar(v: Vale) -> void:
 
 ## Uma árvore de 70 m sozinha no meio das flores. Entra na lista de árvores do mapa (colisão do tronco e da
 ## copa pela medida do modelo, como as outras), com pedras e um canteiro em volta.
+## A colisão da copa da Árvore-Mãe. A copa dela são quatro touceiras de folhas na ponta dos galhos, e a
+## colisão genérica das árvores era uma cápsula só no meio: batia-se onde não havia folha e pousava-se no
+## vazio (visto pelo usuário, 2026-11-20). Aqui cada touceira ganha um tampo largo e reto, medido nas folhas
+## do próprio modelo: onde se vê folha por cima, dá para pousar.
+static func _copas_da_mae(v: Vale, nome: String, xf: Transform3D) -> void:
+	copas_mae.clear()
+	var pts := PackedVector3Array()
+	var topo := -INF
+	for par: Array in v._malhas[nome]:
+		var faces := (par[0] as Mesh).get_faces()
+		var t: Transform3D = xf * (par[1] as Transform3D)
+		for k in range(0, faces.size(), 2):
+			var w := t * faces[k]
+			pts.append(w)
+			topo = maxf(topo, w.y)
+	var corte := xf.origin.y + (topo - xf.origin.y) * 0.56  # dali para cima são folhas
+	var folhas := PackedVector3Array()
+	var meio := Vector3.ZERO
+	for w in pts:
+		if w.y > corte:
+			folhas.append(w)
+			meio += w
+	if folhas.size() < 40:
+		return
+	meio /= folhas.size()
+	# quatro grupos, começando um em cada quadrante em volta do meio
+	var centros: Array[Vector3] = []
+	for k in 4:
+		var ang := k * TAU / 4.0 + 0.6
+		centros.append(meio + Vector3(cos(ang), 0, sin(ang)) * 9.0)
+	var dono := PackedInt32Array()
+	dono.resize(folhas.size())
+	for volta in 10:
+		var soma: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
+		var conta := [0, 0, 0, 0]
+		for n in folhas.size():
+			var melhor := 0
+			var menor := INF
+			for k in 4:
+				var d := Vector2(folhas[n].x - centros[k].x, folhas[n].z - centros[k].z).length_squared()
+				if d < menor:
+					menor = d
+					melhor = k
+			dono[n] = melhor
+			soma[melhor] += folhas[n]
+			conta[melhor] += 1
+		for k in 4:
+			if conta[k] > 0:
+				centros[k] = soma[k] / conta[k]
+	var corpo := StaticBody3D.new()
+	corpo.name = "CopasDaArvoreMae"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	v.add_child(corpo)
+	v.rids_fixos.append(corpo.get_rid())  # a câmera atravessa a folhagem, como nas outras árvores
+	for k in 4:
+		var alto := -INF
+		var baixo := INF
+		var raio := 0.0
+		var n_k := 0
+		for n in folhas.size():
+			if dono[n] != k:
+				continue
+			n_k += 1
+			alto = maxf(alto, folhas[n].y)
+			baixo = minf(baixo, folhas[n].y)
+			raio += Vector2(folhas[n].x - centros[k].x, folhas[n].z - centros[k].z).length()
+		if n_k < 12:
+			continue
+		raio = raio / n_k * 1.35  # a média das distâncias fica aquém da beira das folhas
+		var tampo := alto - (alto - baixo) * 0.12  # um pouco abaixo da ponta das folhas mais altas
+		var cil := CylinderShape3D.new()
+		cil.radius = raio
+		cil.height = maxf(2.0, (alto - baixo) * 0.6)
+		var cs := CollisionShape3D.new()
+		cs.shape = cil
+		cs.position = Vector3(centros[k].x, tampo - cil.height * 0.5, centros[k].z)
+		corpo.add_child(cs)
+		copas_mae.append(Vector3(centros[k].x, tampo, centros[k].z))
+
+
 static func _arvore_mae(v: Vale) -> void:
 	var c := _chao_bom(v, [Vector2(660, 110), Vector2(640, 140), Vector2(700, 90), Vector2(620, 80)])
 	var h := v._fora(c.x, c.y)
@@ -46,7 +129,9 @@ static func _arvore_mae(v: Vale) -> void:
 	var s := 6.6
 	var p := Vector3(c.x, h - 0.8, c.y)
 	v._por(nome, Transform3D(Basis(Vector3.UP, 0.7).scaled(Vector3.ONE * s), p))
+	_copas_da_mae(v, nome, Transform3D(Basis(Vector3.UP, 0.7).scaled(Vector3.ONE * s), p))
 	var i := v.arv_pos.size()
+	indice_mae = i
 	v.arv_pos.append(p)
 	v.arv_escala.append(s * 0.8)
 	v.arv_tipo.append(1)

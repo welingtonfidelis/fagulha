@@ -17,7 +17,7 @@ const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
 const LAGOA_FUNDO := 3.4  # metros a mais de fundura no meio
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
-const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5)]  # o último é o chão batido da base
+const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2)]  # os três últimos: o chão batido da base, o da horta e o da fogueira (BaseLar)
 const MIRANTE := Vector2(-46.0, 22.0)
 
 var cervos_em: Array[Vector3] = []
@@ -577,6 +577,8 @@ func _medidas_colisao(i: int) -> Array:
 		return super._medidas_colisao(i)
 	var f := forma_da_arvore(arv_nome[i])
 	var s := arv_escala[i] / 0.8  # a escala com que o modelo foi desenhado
+	if i == Marcos.indice_mae:
+		return [f[0] * s, f[1] * s, 0.0, f[3] * s, f[4] * s]  # a copa da Árvore-Mãe tem a colisão dela (Marcos._copas_da_mae)
 	return [f[0] * s, f[1] * s, f[2] * s, f[3] * s, f[4] * s]
 const CAPIM_ALTO := 0.85  # a altura do tufo comprido
 var capim_alto_malha: ArrayMesh  # o capim alto das manchas

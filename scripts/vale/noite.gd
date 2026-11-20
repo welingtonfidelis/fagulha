@@ -43,7 +43,9 @@ func _process(_delta: float) -> void:
 		_estrelas.global_position = camera.global_position
 	# vaga-lumes: do anoitecer até a madrugada, sem chuva
 	var vl := maxf(smoothstep(18.4, 19.4, h), 1.0 - smoothstep(4.0, 5.2, h)) * (1.0 if c.chuva < 0.2 else 0.0)
-	_vagalumes.emitting = vl > 0.3
+	var subsolo: bool = camera != null and Cavernas.no_subsolo(camera.global_position)
+	_vagalumes.emitting = vl > 0.3 and not subsolo
+	_vagalumes.visible = not subsolo
 	if armadura:
 		var p := armadura.global_position
 		var chao := armadura.ilha.altura(p.x, p.z) if armadura.ilha else p.y

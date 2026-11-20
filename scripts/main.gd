@@ -37,6 +37,7 @@ var farol: FarolFinal
 var robo_antigo: RoboAntigo
 var acoes: AcoesLugar
 var minis: MiniRobos
+var cartao_peca: CartaoPeca
 var ninho: NinhoAve
 var torre: MastroRadio
 var cenas_vista: CenasVista
@@ -145,6 +146,7 @@ func _ready() -> void:
 	armadura.camera = camera
 	if ciclo:
 		ciclo.camera = camera
+		ciclo.mapa = ilha
 		ciclo.nevoa_longe = ilha is Vale  # aqui o mapa já existe
 		if CicloDia.estilo_novo:
 			# visual novo: o fundo desfoca de leve (a mata distante vira mancha macia) e há pólen no ar
@@ -480,6 +482,12 @@ func _ready() -> void:
 		tutor.tiro = tiro
 		tutor.livre_de_cara = Guardado.ativo and (bool(Guardado.progresso("simulacao_vista")) or not (Guardado.progresso("lugares") as Array).is_empty())
 		camada.add_child(tutor)
+	# a janela de peça nova só existe no jogo de verdade (nos testes e nas fotos ela pararia tudo)
+	if Guardado.ativo and not simulacao:
+		cartao_peca = CartaoPeca.new()
+		cartao_peca.name = "CartaoPeca"
+		add_child(cartao_peca)
+		CartaoPeca.ativo = cartao_peca
 	pausa = Pausa.new()
 	pausa.armadura = armadura
 	pausa.na_simulacao = simulacao

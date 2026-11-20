@@ -333,8 +333,8 @@ static func cristal(base: Vector3, cor: Color, rng: RandomNumberGenerator, porte
 		vale.add_child(mi)
 	var luz := OmniLight3D.new()
 	luz.light_color = cor
-	luz.light_energy = 2.2 * porte
-	luz.omni_range = 17.0 * porte
+	luz.light_energy = 1.2 * porte  # eram 2,2 e 17 m: as cavernas ficavam claras demais
+	luz.omni_range = 11.0 * porte
 	luz.shadow_enabled = false
 	luz.position = base + Vector3(0, maior + 0.8, 0)
 	vale.add_child(luz)

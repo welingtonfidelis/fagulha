@@ -48,7 +48,7 @@ func _novo(k: int) -> Dictionary:
 	var no := Node3D.new()
 	add_child(no)
 	var cena := (load(MODELO) as PackedScene).instantiate() as Node3D
-	cena.rotation.y = PI
+	# sem virar o modelo: aqui a frente de quem anda é +z (corriam de costas)
 	cena.scale = Vector3.ONE * TAMANHO
 	no.add_child(cena)
 	_pintar(cena, CORES[k])

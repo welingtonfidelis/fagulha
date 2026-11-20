@@ -75,6 +75,13 @@ static func _fundo(o: Ruinas.Obra, lx: float, lz: float) -> float:
 
 
 ## Uma treliça de ferro de `a` até `b`: quatro banzos e as diagonais, com uma caixa só de colisão.
+## A colisão de uma perna de torre: uma caixa fina de `a` a `b`.
+static func perna_colisao(o: Ruinas.Obra, a: Vector3, b: Vector3, grossura: float) -> void:
+	var cx := BoxShape3D.new()
+	cx.size = Vector3(grossura, grossura, a.distance_to(b))
+	o.forma(cx, Transform3D(Basis.looking_at((b - a).normalized(), Vector3.RIGHT), (a + b) * 0.5))
+
+
 static func _trelica(o: Ruinas.Obra, a: Vector3, b: Vector3, larg: float, fio := 0.16, mat := "ferrugem", colide := true) -> void:
 	var eixo := b - a
 	var comp := eixo.length()
@@ -261,9 +268,10 @@ static func _rele(o: Ruinas.Obra) -> void:
 			var a := Vector3([-1, 1, 1, -1][lado] * l1 * 0.5, y1, [-1, -1, 1, 1][lado] * l1 * 0.5)
 			var b := Vector3([1, 1, -1, -1][lado] * l1 * 0.5, y1, [-1, 1, 1, -1][lado] * l1 * 0.5)
 			o.bloco(pe + (a + b) * 0.5, Vector3(0.14, 0.14, a.distance_to(b)), Basis.looking_at((b - a).normalized(), Vector3.UP), "ferrugem", false)
-		var cx := BoxShape3D.new()
-		cx.size = Vector3((l0 + l1) * 0.5, alt_lance, (l0 + l1) * 0.5)
-		o.forma(cx, Transform3D(Basis.IDENTITY, pe + Vector3(0, (y0 + y1) * 0.5, 0)))
+		# a colisão é só das quatro pernas: o miolo fechado barrava quem queria passar por baixo da torre e
+		# ocupava o meio do patamar (visto pelo usuário em 2026-11-20)
+		for canto: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			perna_colisao(o, pe + Vector3(canto.x * l0 * 0.5, y0, canto.y * l0 * 0.5), pe + Vector3(canto.x * l1 * 0.5, y1, canto.y * l1 * 0.5), 0.6)
 	var quebra := pe + Vector3(0, base_y + 4.0 * alt_lance, 0)
 	# o terço de cima, dobrado e pendurado para o sul
 	var dobrado := quebra + Vector3(3.0, RELE_ALTURA * 0.05, RELE_ALTURA * 0.30)

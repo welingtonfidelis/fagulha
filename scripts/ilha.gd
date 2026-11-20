@@ -31,6 +31,7 @@ var _grade_arv := {}  # Vector2i -> PackedInt32Array
 var _corpo_arvores: Node3D  # o pai dos corpos de colisão das árvores, um por célula da grade
 var _celulas_colisao := {}  # Vector2i -> [StaticBody3D, quantas árvores tinha a célula quando foi feito]
 var _camada_arvores := 2
+var rids_fixos: Array[RID] = []  # copas com colisão própria, que não vêm e vão com as células (a da Árvore-Mãe)
 var rids_copas: Array[RID] = []  # os corpos das copas das células vivas (a câmera os deixa de fora do raio dela)
 var _ultimo_centro := Vector3(INF, 0, INF)
 

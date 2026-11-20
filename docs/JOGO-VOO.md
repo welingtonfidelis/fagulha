@@ -2613,3 +2613,80 @@ O usuário achou que uma torre de rádio muito alta fazia mais sentido que a cha
 - **A porta:** a antena do topo ainda transmite. Num raio de 80 m em volta da cabine o motor ganha 40% de calor por segundo sem radiador, 62% disso com o radiador simples e 16% com o duplo (`Armadura.calor_extra`); dentro da gaiola (5 m) não esquenta. Como o campo é uma esfera em volta do topo, não há caminho que o evite. Medido, saindo frio do patamar: com o radiador simples o motor trava aos 3,4 s, a 38 m da cabine; com o duplo o robô entra nela aos 6 s.
 - **O gancho:** o mesmo de antes. Ligar o receptor abre a lembrança "Alguém respondeu" (o texto agora fala do mastro) e acende de noite a luz distante a sudoeste (`MastroRadio.SINAL`).
 - De noite o mastro tem balizamento vermelho no topo e no patamar e a antena em brasa.
+
+## 118. Leva de ajustes do usuário (2026-11-20)
+
+Catorze pedidos de uma vez. Feitos treze; o da base ficou como rascunho para discutir (`tools/capturas/esboco/base_rascunho.png`).
+
+- **Janela de peça nova** (`CartaoPeca`, `scripts/cartao_peca.gd`). Quando uma peça é instalada ou uma arma é fabricada, o jogo para e aparece um cartão: o nome, uma figura animada do efeito (desenhada por código), o botão do controle ou a tecla em tamanho grande ("funciona sozinha" para as que não têm botão) e uma frase curta. Pensado para quem não lê. Só existe no jogo de verdade; os testes criam um para conferir.
+- **Sumidouro escuro.** `CicloDia.escuro` vai a 1 com a câmera debaixo da terra (`Cavernas.no_subsolo`) e derruba a luz ambiente a 7% e o sol a 4%. A luz geral do salão caiu de 1,1 para 0,16; os cristais, de 2,2 e 17 m para 1,2 e 11 m; a câmara do fundo tinha dois cristais grandes num lugar apertado (era a "luz muito forte") e ficou com um só, pequeno. Quem ilumina agora é a luz do peito.
+- **Nada no ar nas cavernas.** Saíram os pontinhos de luz do salão e da câmara; pólen, folhas, pétalas, vaga-lumes e chuva não aparecem debaixo da terra.
+- **Morcegos.** O modelo animado de Danimal (OpenGameArt, CC0) no lugar dos de triângulos: 0,95 m de envergadura, a animação de voo com ritmo próprio em cada um, com a pintura do próprio modelo (as texturas vão ao lado do glb, reduzidas, porque na conversão não vieram ligadas aos materiais).
+- **Pássaros pequenos.** A "bird basemesh" do OpenGameArt (CC0) no lugar do pássaro feito por nós. Ela vinha branca, inteiriça e sem animação: o `tools/vale/passaro_base.py` aplica o espelho, pinta por região (penas, peito claro, bico e pernas), separa as asas com a dobradiça na raiz, põe os olhos e exporta com os nomes de peça e de material que o jogo já usava (`corpo`, `asaE`, `asaD`; `pena`, `pena_clara`, `bico`, `pelo_escuro`), então o bando anima e é pintado como antes.
+- **O que o vento leva.** Pelo vale: pólen ralo de dia e 16 folhas (eram 72 pétalas por toda a ilha). As pétalas só aparecem a menos de 260 m do meio do Platô das Flores (`PetalasAr.FLORES`).
+- **Fundição sem botão.** Quem entra no galpão recebe um aviso que não para o jogo; ficando 30 s lá dentro (`Fundicao.T_PERIGO`), com outro aviso aos 10 s, a horda começa. Sair zera a contagem.
+- **Espada de 80 cm.** A lâmina passou de 36 para 80 cm e o alcance do golpe de 0,9 para 1,4 m.
+- **Robozinhos de frente.** Corriam de costas: o modelo estava virado.
+- **Degraus.** O robô travava diante de beiras de 30 cm (a laje da base): a subida de degrau olhava a velocidade, que já era zero com ele encostado. Agora olha para onde o jogador quer ir (`Armadura._querer_andar`).
+- **Árvore-Mãe.** A copa são quatro touceiras de folhas e a colisão era uma cápsula só no meio. Agora cada touceira tem um tampo largo e reto, medido nas folhas do próprio modelo (`Marcos._copas_da_mae`, `Marcos.copas_mae`).
+- **Torres do Relé.** A colisão do miolo das torres saiu (barrava quem passava por baixo e ocupava o meio do patamar): ficou só nas quatro pernas, na torre velha e no mastro. A lembrança do Relé desceu da ponta de uma barra para o patamar reto da torre velha.
+- **Chuva.** Some com a câmera debaixo d'água e debaixo da terra.
+- **Música da vista.** Um laço calmo de 40 s (`musica_vista.wav`, do mesmo `tools/musica_passeio.py`) toca sempre que se aprecia a vista e sai ao voltar ao jogo.
+- **IA dos inimigos:** só pesquisa. As bibliotecas que servem são a Beehave (GDScript puro, MIT) e a LimboAI (C++ por GDExtension, MIT). Fica para decidir com o usuário o que os inimigos devem passar a fazer.
+
+## 119. A base aconchegante e a cabeça do Vigia em árvore (2026-11-20)
+
+**A base** (`scripts/vale/base_lar.gd`, classe `BaseLar`, chamada por `BaseVale.montar`). Do rascunho aprovado
+pelo usuário: "telhado aberto", a bancada de passatempos debaixo da cobertura, a horta fora, na terra.
+
+- **Telheiro** aberto na frente: cobre do z 0,55 ao 7,5 da laje (os 6,5 m do fundo, 21 m de largura), com
+  5,35 m na frente caindo para 4,3 m em cima da parede. Viga da frente em três postes (o canto esquerdo apoia
+  no cilindro), oito caibros, telhas de chapas diferentes, uma lona no lugar de uma chapa e meia chapa
+  faltando sobre a baia. O estrado de nascer fica a céu aberto (decolar reto não bate em nada).
+  `BaseLar.teto_y(z)` dá a altura do telhado.
+- **A porta do cilindro** saiu das dobradiças e está encostada na parede, atrás dele. Aberta, ela tomava o
+  meio da base, onde hoje é o cantinho. As vigas caídas e os cabos pendurados saíram; as colunas baixaram.
+- **Cantinho de descanso** (x -5 a -0,5, contra a parede): sofá virado para o campo, poltrona, tapete,
+  mesinha, luminária de pé (a luz quente da base), cacto e o mural de quadros na parede.
+- **Bancada de passatempos** (x 0,3 a 2,8, debaixo da janela): TV de tubo com a tela de um jogo de navinha
+  acesa, o videogame com cartucho e controle, o rádio, livros, caneca e um banquinho. Por enquanto é só
+  cenário: jogar o joguinho e ligar o rádio ficam para depois.
+- **Horta e flores**, fora da laje, à frente e à esquerda: três canteiros de madeira (flores, verduras e
+  brotos), um barril de água e uma cerquinha. **Fogueira** à frente e à direita, com anel de pedras, três
+  bancos de tronco e brasa que acende de noite. O chão dos dois é de terra batida: entraram em
+  `Clareira.CLAROS` (o capim não nasce ali).
+- **Varal de luzinhas**: na beira do telheiro, por dentro do cantinho e num fio até o poste da fogueira.
+  De dia são bolinhas de vidro; de noite cada uma é um ponto de `LuzesNoite` (sem feixe de malha).
+- **Riscos de giz** no piso da frente (amarelinha, sol e estrela), ao lado do pátio dos robozinhos.
+- O terminal alto que ficava entre a baia e o drone foi para o lado direito da baia.
+- Móveis: KayKit Furniture Bits (CC0), em `assets/vale/moveis/`, a 62% do tamanho (são para gente de 2 m).
+  Vestem o `vale_base.gdshader` com a textura do pacote. A TV, o rádio, o telheiro, os canteiros e a
+  fogueira são feitos por código (`BaseLar.caixa`).
+
+- **Sentar nos móveis** (pedido do usuário no mesmo dia): perto do sofá, da poltrona ou de um banco da
+  fogueira (até 1,7 m), o botão de apreciar a vista (seta para a esquerda / Ctrl) senta o robô ali, virado
+  para onde o móvel olha, e a câmera abre para a vista. Andar ou apertar qualquer ação levanta e põe o robô
+  de pé à frente do móvel. São nove lugares (`Armadura.assentos`, enchida por `BaseLar.assento_em`); a pose
+  é a de sentado que já existia (pernas esticadas). Sentado, o robô não usa a física (`Armadura.no_assento`).
+- **A fogueira só acende de noite e sem chuva** (`scripts/vale/fogueira.gd`): de dia, ou chovendo, é lenha
+  e carvão apagados, sem luz. Acesa, tem brasa, uma chama que treme, os pontos de `LuzesNoite` e uma luz
+  quente em volta.
+
+**A cabeça do Vigia** (`scripts/vale/vigia_arvore.gd`, classe `VigiaArvore`): teste da biblioteca **Beehave**
+2.9.3 (bitbrain, MIT), em `addons/beehave`. A árvore só decide o `estado`; andar, desviar e atirar seguem no
+`Vigia`. Vale para todas as máquinas que herdam dele (mechas e as do pacote).
+
+- A árvore, do mais urgente para o menos: quente (calor ≥ 60, ou seja, dois tiros) **recua** de frente para o
+  robô até esfriar (até 6 s, e só de novo 12 s depois; os chefes não recuam); vendo o robô, **caça** como
+  antes; perdendo de vista por 2,5 s, **procura**: vai até onde viu por último e olha em volta por 4 s;
+  longe de casa, **volta**; senão, **ronda**.
+- Quem começa a caçar **avisa** as máquinas a até 38 m que estão em ronda: elas vão olhar o lugar.
+- Antes a máquina seguia o robô até 70 m mesmo sem ver, e nunca recuava. Agora dá para despistar: sair de
+  vista atrás de uma rocha ou ruína faz ela ir ao último lugar, e não a você.
+- `Vigia.com_arvore = false` volta à máquina de estados antiga (ronda, caça, volta).
+- A Beehave pede dois nós globais; entraram como `[autoload]` no `project.godot`. O plugin do editor
+  (painel de depuração da árvore) não está ligado: ligar em Projeto → Plugins se quiser ver a árvore andando.
+- Mudança local no addon: `debugger_messages.gd` só manda mensagem com o depurador ativo (sem isso, rodar
+  fora do editor enchia o registro de erros).
+- Bateria: `VALE_SO_PONTO=45 godot --headless --path . -- --teste-vale` roda só um ponto. O ponto 45 cobre a
+  base nova e a árvore.

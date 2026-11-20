@@ -275,7 +275,7 @@ static func _enfeites(v: Vale) -> void:
 	var lugares: Array = [
 		[centro + dir * 30.0 + perp * 12.0, piso + 3.0, COR], [centro + dir * 30.0 - perp * 13.0, piso + 3.0, COR],
 		[centro - dir * 12.0 - perp * 14.0, piso + 3.0, COR], [centro + dir * 4.0 + perp * 17.0, piso + 3.0, COR],
-		[_camara_xz() + dir * 5.0, piso + 4.5, COR_2], [_camara_xz() - dir * 6.0 + perp * 3.0, piso + 4.5, COR_2],
+		[_camara_xz() + dir * 5.0, piso + 4.5, COR_2, 0.4],  # na câmara do fundo, um só e pequeno: eram dois grandes num lugar apertado, e clareavam tudo
 		[centro.lerp(saida, 0.55) + perp * 3.5, lerpf(piso, saida_h, 0.5) + 2.5, COR],
 		[centro + dir * ANEL_RAIO, ya + 2.0, COR_2], [centro - dir * ANEL_RAIO * 0.7 + perp * ANEL_RAIO * 0.7, ya + 2.0, COR_2],
 		[centro - dir * ANEL_RAIO * 0.7 - perp * ANEL_RAIO * 0.7, ya + 2.0, COR_2]]
@@ -283,12 +283,12 @@ static func _enfeites(v: Vale) -> void:
 		var xz: Vector2 = l[0]
 		var pt := RochaMalha.piso_teto(xz.x, xz.y, l[1], vazio, extra)
 		if pt.x != INF:
-			RochaMalha.cristal(Vector3(xz.x, pt.x, xz.y), l[2], rng)
+			RochaMalha.cristal(Vector3(xz.x, pt.x, xz.y), l[2], rng, float(l[3]) if l.size() > 3 else 1.0)
 	# uma luz fria e fraca no meio do salão, para o fundo não ficar um breu
 	var geral := OmniLight3D.new()
 	geral.light_color = Color(0.55, 0.8, 1.0)
-	geral.light_energy = 1.1
-	geral.omni_range = 34.0
+	geral.light_energy = 0.16  # era 1,1: o salão ficava claro como o dia
+	geral.omni_range = 30.0
 	geral.omni_attenuation = 0.7
 	geral.shadow_enabled = false
 	geral.position = _v3(centro + dir * 8.0, piso + 12.0)
@@ -306,46 +306,8 @@ static func _vida(v: Vale) -> void:
 	morcegos.eixo = _v3(centro, piso)
 	morcegos.faixas = [Vector2(9.0, ANEL_ALTURA - 6.0), Vector2(ANEL_ALTURA + 5.0, topo - piso - 4.0)]
 	v.add_child(morcegos)
-	for lugar: Array in [[_v3(centro + dir * 8.0, piso + 5.0), Vector3(24, 4.5, 17), 46, COR],
-			[_v3(_camara_xz(), piso + 5.5), Vector3(7, 3, 7), 16, COR_2]]:
-		var pm := ParticleProcessMaterial.new()
-		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-		pm.emission_box_extents = lugar[1]
-		pm.gravity = Vector3.ZERO
-		pm.direction = Vector3(1, 0.3, 0)
-		pm.spread = 180.0
-		pm.initial_velocity_min = 0.15
-		pm.initial_velocity_max = 0.5
-		pm.turbulence_enabled = true
-		pm.turbulence_noise_strength = 0.6
-		pm.turbulence_noise_scale = 3.0
-		var curva := Curve.new()
-		curva.add_point(Vector2(0, 0))
-		curva.add_point(Vector2(0.2, 1))
-		curva.add_point(Vector2(0.8, 1))
-		curva.add_point(Vector2(1, 0))
-		var ct := CurveTexture.new()
-		ct.curve = curva
-		pm.scale_curve = ct
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.albedo_color = (lugar[3] as Color).lerp(Color(1, 1, 0.7), 0.5)
-		mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.13, 0.13)
-		quad.material = mat
-		var gp := GPUParticles3D.new()
-		gp.process_material = pm
-		gp.draw_pass_1 = quad
-		gp.amount = lugar[2]
-		gp.lifetime = 9.0
-		gp.preprocess = 9.0
-		gp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gp.visibility_aabb = AABB(-(lugar[1] as Vector3) - Vector3.ONE * 4.0, (lugar[1] as Vector3) * 2.0 + Vector3.ONE * 8.0)
-		gp.position = lugar[0]
-		v.add_child(gp)
+	# (os pontinhos de luz que flutuavam no salão e na câmara saíram: na caverna nada flutua no ar; pedido do
+	# usuário, 2026-11-20)
 
 
 ## A lagoa debaixo do poço. A água de verdade (respingo, esfriar) vem de Vale.agua, que pergunta aqui.

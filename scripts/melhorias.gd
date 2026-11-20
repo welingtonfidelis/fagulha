@@ -68,6 +68,7 @@ static func instalar(nome: String) -> bool:
 	achadas.erase(nome)
 	if not instaladas.has(nome):
 		instaladas.append(nome)
+		CartaoPeca.avisar(nome)
 	guardar()
 	return true
 
@@ -83,6 +84,7 @@ static func instalar_achadas() -> Array:
 	for nome in novas:
 		if not instaladas.has(nome):
 			instaladas.append(nome)
+			CartaoPeca.avisar(nome)
 	achadas.clear()
 	if not novas.is_empty():
 		guardar()

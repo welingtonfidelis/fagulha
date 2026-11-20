@@ -20,6 +20,12 @@ static func chao_antes(x: float, z: float) -> float:
 
 
 ## Dentro da área cavada de uma peça de rocha (com folga): ali não nasce árvore nem rocha de paredão.
+## O ponto está debaixo da terra (numa gruta ou no Sumidouro)? Ali não chove, não voa pólen nem folha, e a
+## luz do dia quase não chega.
+static func no_subsolo(p: Vector3) -> bool:
+	return p.y < chao_antes(p.x, p.z) - 1.5 and (Sumidouro.no_vazio(p) or dentro(p.x, p.z, 0.0))
+
+
 static func dentro(x: float, z: float, folga := 4.0) -> bool:
 	return RochaMalha.dentro(x, z, folga)
 

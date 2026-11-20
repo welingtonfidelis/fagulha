@@ -49,6 +49,9 @@ func _process(_delta: float) -> void:
 	if vista:
 		global_position = vista.global_position + Vector3(0, 1.5, 0)
 	var noite := CicloDia.atual != null and CicloDia.atual.eh_noite()
-	# teste da mata: de dia o ar é das pétalas (PetalasAr); o pólen fica só como os vaga-lumes da noite
-	emitting = noite
+	# de dia é pólen (ralo); de noite, vaga-lumes. Debaixo da terra não há nada no ar
+	var subsolo: bool = vista != null and Cavernas.no_subsolo(vista.global_position)
+	emitting = not subsolo
+	visible = not subsolo
+	amount_ratio = 1.0 if noite else 0.5
 	((draw_pass_1 as QuadMesh).material as StandardMaterial3D).albedo_color = Color(0.7, 1.0, 0.5, 0.9) if noite else Color(1.0, 0.96, 0.75, 0.75)

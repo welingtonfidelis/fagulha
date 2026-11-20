@@ -13,7 +13,7 @@ const TEXTOS := {
 	"oficina": "A oficina fica no cilindro da base:  {agir}  na boca dele",
 	"peca": "Achou uma peça! Pouse num lugar calmo que eu instalo",
 	"fundicao_longe": "As máquinas da Fundição, a oeste, dão material para fabricar armas na oficina",
-	"fundicao": "No painel da Fundição,  {agir}  acorda as máquinas. Derrotado, perde metade do material",
+	"fundicao": "Aqui é perigoso: quem fica mais de 30 segundos acorda as máquinas. Derrotado, perde metade do material da rodada.",
 	"agua": "Na água:  {pular}  sobe,  {soltar}  desce. Ela esfria o motor",
 	"calor": "Motor quente: pouse, ou voe rente à água",
 	"memoria": "Um cristal de memória. Encoste nele para ler",

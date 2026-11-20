@@ -85,9 +85,12 @@ func _ready() -> void:
 		onde[chave] = pecas._assentar(alvos[chave])
 	# em cima de construções: o passadiço da represa, a plataforma da torre do relé e o convés do navio
 	for alto: Array in [["represa", Vector2(MarcosLeste.represa_x(-26.0), MarcosLeste.REPRESA.y - 26.0)],
-			["rele", Vector2(MarcosMar.rele_topo.x + 1.5, MarcosMar.rele_topo.z - 1.5)], ["casco", Vector2(MarcosOeste.conves.x, MarcosOeste.conves.z)]]:
+			["casco", Vector2(MarcosOeste.conves.x, MarcosOeste.conves.z)]]:
 		var p := pecas._de_cima(alto[1])
 		onde[alto[0]] = p if p.is_finite() else pecas._assentar(alto[1])
+	# na torre velha do Relé, em cima do patamar reto perto do topo (ficava na ponta de uma barra de ferro: o
+	# raio de cima para baixo batia no lance dobrado da torre)
+	onde["rele"] = MarcosMar.rele_topo + Vector3(1.3, 0.2, -1.3)
 	# no salão do Sumidouro, onde a luz do peito faz falta
 	var salao := pecas._no_salao()
 	onde["sumidouro"] = salao if salao.is_finite() else pecas._assentar(Sumidouro.saida)

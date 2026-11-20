@@ -177,6 +177,7 @@ func _process(delta: float) -> void:
 	var fora: Array[RID] = [alvo.get_rid()]
 	if ilha:
 		fora.append_array(ilha.rids_copas)
+		fora.append_array(ilha.rids_fixos)
 	var q := PhysicsRayQueryParameters3D.create(origem, desejado, 1 | 2, fora)
 	var hit := espaco.intersect_ray(q)
 	if not hit.is_empty():

@@ -18,6 +18,8 @@ var camera: Node3D
 var hora := 9.5  # 0 a 24
 var minutos_por_dia := 60.0
 var chuva := 0.0  # 0 a 1 (suave)
+var mapa: Ilha  # para saber onde há água (a chuva some com a câmera debaixo dela)
+var escuro := 0.0  # 0 a 1: a câmera está debaixo da terra (a luz do céu e do sol quase não chega)
 var chovendo := false  # ligado de fora (testes), fica até desligarem
 var parado := false  # hora fixa (fotos)
 var nevoa_longe := false  # vale grande: névoa por distância, que embaça perto como antes mas deixa ver longe
@@ -112,7 +114,11 @@ func _process(delta: float) -> void:
 			_cam_vel = Vector3.ZERO
 		_cam_ant = cp
 		_gotas.global_position = cp + Vector3(0, 9.0, 0) + _cam_vel * 0.5
-		_gotas.emitting = chuva > 0.05
+		# debaixo d'água e dentro das cavernas não chove
+		var coberto: bool = Cavernas.no_subsolo(cp) or (mapa != null and mapa.agua(cp.x, cp.z) > cp.y)
+		_gotas.emitting = chuva > 0.05 and not coberto
+		_gotas.visible = not coberto
+		escuro = move_toward(escuro, 1.0 if Cavernas.no_subsolo(cp) else 0.0, delta * 1.2)
 		_gotas.amount_ratio = clampf(chuva, 0.05, 1.0)
 
 
@@ -212,6 +218,9 @@ func _estilo(luz_dia: float, nublado: float, topo: Color, horiz: Color) -> void:
 	env.glow_hdr_threshold = 1.0
 	env.tonemap_exposure *= 0.97
 	sol.shadow_opacity = lerpf(1.0, 0.5, nublado)
+	# debaixo da terra fica escuro de verdade: quem ilumina são os cristais e a luz do peito
+	env.ambient_light_energy *= lerpf(1.0, 0.07, escuro)
+	sol.light_energy *= lerpf(1.0, 0.04, escuro)
 
 
 func _criar_gotas() -> void:

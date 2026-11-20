@@ -117,3 +117,34 @@ for i, ac in enumerate(acordes):
         f.sopro(ac[2] + 12, t + b * 2, b * 9, 0.2)
     t += b * 12
 f.gravar(os.path.join(RAIZ, "musica_voo.wav"), 5.0)
+
+# --- vista: um laço calmo para o modo de apreciar a vista (fá maior); as notas dão a volta no fim, sem emenda
+b = 1.25
+dur = 16 * 4 * b * 0.5
+f = Faixa(dur)
+n_total = f.n
+
+
+def volta(faixa, quando, onda):
+    i0 = int(quando * SR)
+    idx = (i0 + np.arange(len(onda))) % faixa.n
+    np.add.at(faixa.som, idx, onda)
+
+
+f._somar = lambda quando, onda, _f=f: volta(_f, quando, onda)
+acordes = [[53, 57, 60, 64], [48, 52, 55, 60], [50, 53, 57, 60], [48, 55, 58, 64]] * 2
+passo = dur / len(acordes)
+for i, ac in enumerate(acordes):
+    t = i * passo
+    f.tapete(ac[:3] + [ac[0] + 12], t, passo * 1.25, 0.8)
+    for k, j in enumerate([3, 1, 2] if i % 2 == 0 else [2, 3, 1]):
+        f.sino(ac[j] + 12, t + 0.4 + k * passo / 3.2, 4.0, 0.33 if k else 0.45, 0.15)
+    if i % 4 == 2:
+        f.sopro(ac[3] + 12, t + passo * 0.3, passo * 0.9, 0.16)
+s2 = f.som / max(1e-9, np.max(np.abs(f.som))) * 0.62
+with wave.open(os.path.join(RAIZ, "musica_vista.wav"), "wb") as w:
+    w.setnchannels(1)
+    w.setsampwidth(2)
+    w.setframerate(SR)
+    w.writeframes((s2 * 32767).astype(np.int16).tobytes())
+print("ok musica_vista.wav %.1f s (laço)" % dur)

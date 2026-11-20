@@ -23,6 +23,8 @@ var ultima := ""
 var espera := 45.0  # o primeiro minuto do jogo fica sem música
 
 var _toca: AudioStreamPlayer
+var _vista: AudioStreamPlayer  # o laço calmo de apreciar a vista
+var vista_tocando := false  # testes
 var _alto := 0.0
 var _hora_ant := -1.0
 
@@ -31,6 +33,10 @@ func _ready() -> void:
 	_toca = AudioStreamPlayer.new()
 	_toca.volume_db = -60.0
 	add_child(_toca)
+	_vista = AudioStreamPlayer.new()
+	_vista.volume_db = -60.0
+	_vista.stream = Som.laco_stream("musica_vista")
+	add_child(_vista)
 	if locais:
 		locais.chegou.connect(func(_nome: String, primeira: bool) -> void:
 			if primeira:
@@ -58,6 +64,24 @@ func tocar(nome: String) -> bool:
 
 func _process(delta: float) -> void:
 	espera = maxf(0.0, espera - delta)
+	# apreciar a vista sempre tem música: um laço calmo que entra devagar e sai quando o jogador volta ao jogo
+	var vendo: bool = armadura != null and armadura.contemplando and not (memorias and memorias.aberta != "")
+	if vendo and not vista_tocando:
+		vista_tocando = true
+		if _vista.stream:
+			if not _vista.playing:
+				_vista.volume_db = -45.0
+				_vista.play()
+			create_tween().tween_property(_vista, "volume_db", VOLUME - 1.0, 2.5)
+		if _toca.playing:
+			create_tween().tween_property(_toca, "volume_db", -60.0, 1.0)  # a música do passeio dá a vez
+	elif not vendo and vista_tocando:
+		vista_tocando = false
+		var tw := create_tween()
+		tw.tween_property(_vista, "volume_db", -60.0, 1.6)
+		tw.tween_callback(func() -> void:
+			if not vista_tocando:
+				_vista.stop())
 	# uma memória aberta cala a música do passeio
 	if _toca.playing and memorias and memorias.aberta != "":
 		_toca.stop()

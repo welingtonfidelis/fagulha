@@ -390,6 +390,8 @@ func atualizar(delta: float, a: Armadura) -> void:
 	var tc := 1.0 - exp(-10.0 * delta)
 	if not is_nan(yaw_forcado):
 		yaw_alvo = yaw_forcado
+	if a.no_assento:
+		yaw_alvo = a.assento_yaw  # sentado num móvel: de frente para onde o móvel olha
 	_yaw = lerp_angle(_yaw, yaw_alvo, tc)
 	_rolagem = lerpf(_rolagem, roll_alvo, tc)
 	# a manobra do círculo no voo: uma volta inteira em torno do nariz, para o lado pedido
@@ -839,9 +841,9 @@ func _lamina(acesa: bool) -> void:
 			return
 		_lamina_no = MeshInstance3D.new()
 		var cm := CapsuleMesh.new()
-		# lâmina curta de pulso (uns 35 cm): defesa de perto. Era uma de 1,25 m
-		cm.radius = 0.028
-		cm.height = 0.36
+		# lâmina de pulso de 80 cm (pedido do usuário, 2026-11-20; a de 35 cm ficou curta demais). Era uma de 1,25 m
+		cm.radius = 0.03
+		cm.height = 0.8
 		_lamina_no.mesh = cm
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -857,11 +859,11 @@ func _lamina(acesa: bool) -> void:
 		# mão. As medidas são em metros do mundo, desfeita a escala do modelo
 		var h := ALTURA_ALVO * Armadura.porte
 		var esc := maxf(0.001, punho.global_basis.get_scale().y)
-		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.2) / esc, 0))
+		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.42) / esc, 0))
 		var luz := OmniLight3D.new()
 		luz.light_color = Color(0.3, 0.9, 1.0)
-		luz.light_energy = 0.35
-		luz.omni_range = 1.1
+		luz.light_energy = 0.4
+		luz.omni_range = 1.6
 		luz.shadow_enabled = false
 		_lamina_no.add_child(luz)
 	_lamina_no.visible = acesa

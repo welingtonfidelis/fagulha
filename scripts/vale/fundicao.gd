@@ -17,6 +17,7 @@ const PISO := 86.0
 const SAIU := 84.0  # passando disto do centro, a rodada para
 const ATIVOS := 7  # robôs ligados ao mesmo tempo, no máximo
 const T_CONTAGEM := 5.0
+const T_PERIGO := 30.0  # segundos dentro do galpão até a horda começar
 const T_RESPIRO := 15.0
 const CHEFE_A_CADA := 5
 const T_AVISO_CHEFE := 2.6  # s de aviso antes de o minichefe sair da porta
@@ -31,6 +32,9 @@ var sons: Sons
 var mapa: Vale
 var fase := Fase.PARADA
 var onda := 0  # a onda em andamento (ou a última ligada)
+var perigo_t := T_PERIGO + 1.0  # contagem de quem está dentro do galpão com a Fundição parada (acima de T_PERIGO: ainda não entrou)
+var avisos_perigo := 0  # testes
+var _perigo_meio := false
 var vivos: Array[Vigia] = []
 var vencidos_total := 0  # testes
 var rodada := {"sucata": 0, "nucleos": 0, "chips": 0}  # o que esta rodada já rendeu (a derrota leva metade)
@@ -950,6 +954,11 @@ func _ready() -> void:
 	onda = Arsenal.ponto_volta - 1
 
 
+## O ponto está dentro do galpão (entre as paredes, do piso ao teto)?
+static func dentro_do_galpao(p: Vector3) -> bool:
+	return absf(p.x - CENTRO.x) < MX and absf(p.z - CENTRO.y) < MZ and p.y > PISO - 1.5 and p.y < PISO + ALT + 8.0
+
+
 func _dist() -> float:
 	var p := armadura.global_position
 	return Vector2(p.x, p.z).distance_to(CENTRO)
@@ -1002,7 +1011,7 @@ func ligar() -> void:
 	_t = T_CONTAGEM
 	if hud:
 		hud.dica = ""
-		hud.avisar("Fundição ligada", "onda %d em %d s" % [onda, int(T_CONTAGEM)])
+		hud.avisar("Eles estão vindo", "onda %d em %d s" % [onda, int(T_CONTAGEM)])
 	if sons:
 		sons._toque("onda_comeca", -5.0, 0.0)
 
@@ -1260,17 +1269,29 @@ func _physics_process(delta: float) -> void:
 	_andar_caixas(delta)
 	var d := _dist()
 	if fase == Fase.PARADA:
-		if hud:
-			var perto := d < 4.0 and absf(armadura.global_position.y - PISO) < 3.0 and armadura.estado == Armadura.Estado.CHAO and not armadura.travado
-			var texto := "{agir}  ligar a Fundição (onda %d)" % (maxi(onda, Arsenal.ponto_volta - 1) + 1)
-			if Arsenal.recorde > 0:
-				texto += "   ·   recorde: onda %d" % Arsenal.recorde
-			if perto:
-				hud.dica = texto
-				if Input.is_action_just_pressed("agir"):
-					ligar()
-			elif hud.dica.begins_with("{agir}  ligar a Fundição"):
-				hud.dica = ""
+		# Não há mais botão para ligar (pedido do usuário, 2026-11-20). Quem entra no galpão recebe um aviso,
+		# sem parar o jogo; ficando mais de 30 s lá dentro, os robôs hostis começam a vir e a horda começa.
+		# Sair zera a contagem.
+		var la_dentro := dentro_do_galpao(armadura.global_position) and not armadura.em_pane and not armadura.travado
+		if la_dentro:
+			if perigo_t <= 0.0 or perigo_t > T_PERIGO:
+				perigo_t = T_PERIGO
+				_perigo_meio = false
+				avisos_perigo += 1
+				if hud:
+					hud.avisar("Lugar perigoso", "se ficar mais de %d segundos aqui, robôs hostis começam a vir" % int(T_PERIGO))
+				if sons:
+					sons._toque("chefe_aviso", -10.0, 0.0)
+			perigo_t -= delta
+			if not _perigo_meio and perigo_t < 10.0:
+				_perigo_meio = true
+				if hud:
+					hud.avisar("Eles estão acordando", "saia em 10 segundos ou prepare-se")
+			if perigo_t <= 0.0:
+				perigo_t = T_PERIGO + 1.0  # se a rodada acabar com o robô ainda aqui, avisa e conta de novo
+				ligar()
+		else:
+			perigo_t = T_PERIGO + 1.0
 		return
 	# a rodada: saiu da cratera ou desligou, para tudo
 	if armadura.em_pane:

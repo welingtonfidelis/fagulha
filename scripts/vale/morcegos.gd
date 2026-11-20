@@ -5,6 +5,11 @@ extends Node3D
 ## Uso: defina eixo (o meio do poço, no piso), raio_max e as faixas de altura, e então add_child.
 
 const QUANTOS := 16
+## O morcego animado de Danimal (opengameart.org/content/vampire-bat-animated, CC0), reduzido no Blender.
+const MODELO := "res://assets/vale/morcego/morcego.glb"
+const TEXTURAS := ["res://assets/vale/morcego/morcego_pelo.jpg", "res://assets/vale/morcego/morcego_partes.jpg"]
+const ENVERGADURA := 0.95  # metros de asa a asa
+const GIRO_MODELO := 0.0  # para a frente do modelo ficar em -z
 const SUSTO := 16.0  # distância em que o robô agita o bando
 
 var alvo: Node3D
@@ -14,48 +19,79 @@ var faixas: Array[Vector2] = []  # alturas acima do eixo: [de, até]
 var agitados := 0.0  # 0 calmos, 1 agitados (para teste)
 
 var _bichos: Array[Dictionary] = []
+var _escala := 0.0
+var _mats := {}
 
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9090
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.09, 0.08, 0.11)
-	mat.roughness = 1.0
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var corpo := SphereMesh.new()
-	corpo.radius = 0.09
-	corpo.height = 0.26
-	corpo.radial_segments = 6
-	corpo.rings = 3
-	var asa := ArrayMesh.new()
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3(0, 0, -0.1), Vector3(0.42, 0, -0.02), Vector3(0, 0, 0.12),
-		Vector3(0.42, 0, -0.02), Vector3(0.3, 0, 0.16), Vector3(0, 0, 0.12)])
-	arr[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
-	asa.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var cena := load(MODELO) as PackedScene
 	for i in QUANTOS:
 		var faixa := faixas[i % faixas.size()]
 		var no := Node3D.new()
 		add_child(no)
-		var c := MeshInstance3D.new()
-		c.mesh = corpo
-		c.material_override = mat
-		c.rotation.x = PI * 0.5
-		no.add_child(c)
-		var asas: Array[Node3D] = []
-		for lado: float in [1.0, -1.0]:
-			var a := MeshInstance3D.new()
-			a.mesh = asa
-			a.material_override = mat
-			a.scale.x = lado
-			a.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			no.add_child(a)
-			asas.append(a)
-		_bichos.append({"no": no, "asas": asas, "raio": rng.randf_range(2.2, raio_max), "y": rng.randf_range(faixa.x, faixa.y),
+		var modelo := cena.instantiate() as Node3D
+		no.add_child(modelo)
+		# o tamanho pela largura de asa a asa
+		if _escala <= 0.0:
+			var larg := 0.0
+			for mi: MeshInstance3D in modelo.find_children("*", "MeshInstance3D", true, false):
+				var cx := mi.get_aabb()
+				var esc := mi.global_basis.get_scale()
+				larg = maxf(larg, maxf(cx.size.x * absf(esc.x), maxf(cx.size.y * absf(esc.y), cx.size.z * absf(esc.z))))
+			_escala = ENVERGADURA / maxf(larg, 0.001)
+		modelo.scale = Vector3.ONE * _escala * rng.randf_range(0.85, 1.15)
+		modelo.rotation.y = GIRO_MODELO
+		for mi: MeshInstance3D in modelo.find_children("*", "MeshInstance3D", true, false):
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			# as texturas do pacote não vieram junto na conversão: o corpo fica num marrom quase preto e o
+			# segundo material (focinho, orelhas e dedos) num tom mais claro
+			for sf in mi.mesh.get_surface_count():
+				# a pintura do próprio modelo (pelo marrom, asas de couro, focinho rosado), no estilo do vale;
+				# sem a textura, um marrom quase preto
+				# (as texturas vão ao lado do modelo, reduzidas: no glb elas não vieram ligadas aos materiais)
+				var arq: String = TEXTURAS[mini(sf, TEXTURAS.size() - 1)]
+				if ResourceLoader.exists(arq):
+					mi.set_surface_override_material(sf, _mat_tex(load(arq)))
+				else:
+					mi.set_surface_override_material(sf, _mat(Color(0.2, 0.15, 0.14) if sf > 0 else Color(0.09, 0.075, 0.085)))
+		var anim: AnimationPlayer = null
+		var tocadores := modelo.find_children("*", "AnimationPlayer", true, false)
+		if not tocadores.is_empty():
+			anim = tocadores[0] as AnimationPlayer
+			for nome: String in anim.get_animation_list():
+				if "Flying" in nome:
+					anim.get_animation(nome).loop_mode = Animation.LOOP_LINEAR
+					anim.play(nome)
+					anim.seek(rng.randf() * anim.get_animation(nome).length, true)
+		_bichos.append({"no": no, "anim": anim, "raio": rng.randf_range(2.2, raio_max), "y": rng.randf_range(faixa.x, faixa.y),
 			"fase": rng.randf() * TAU, "vel": rng.randf_range(0.5, 1.0) * (1.0 if i % 2 == 0 else -1.0),
-			"sobe": rng.randf_range(0.6, 1.6), "bate": rng.randf_range(9.0, 13.0), "de": faixa.x, "ate": faixa.y})
+			"sobe": rng.randf_range(0.6, 1.6), "bate": rng.randf_range(1.6, 2.4), "de": faixa.x, "ate": faixa.y})
+
+
+func _mat_tex(tex: Texture2D) -> ShaderMaterial:
+	var chave := "tex%d" % tex.get_instance_id()
+	if not _mats.has(chave):
+		var mt := ShaderMaterial.new()
+		mt.shader = load("res://scripts/shaders/vale_tex_opaco.gdshader")
+		mt.set_shader_parameter("tex", tex)
+		mt.set_shader_parameter("tinta", Vector3(0.6, 0.5, 0.46))
+		mt.set_shader_parameter("corte", 0.0)
+		mt.set_shader_parameter("vento", 0.0)
+		_mats[chave] = mt
+	return _mats[chave]
+
+
+func _mat(cor: Color) -> ShaderMaterial:
+	var chave := cor.to_html()
+	if not _mats.has(chave):
+		var mt := ShaderMaterial.new()
+		mt.shader = load("res://scripts/shaders/vale_solido.gdshader")
+		mt.set_shader_parameter("cor", cor)
+		mt.set_shader_parameter("brilho_borda", 0.3)
+		_mats[chave] = mt
+	return _mats[chave]
 
 
 func _process(delta: float) -> void:
@@ -74,6 +110,6 @@ func _process(delta: float) -> void:
 		var frente := Vector3(-sin(f), 0, cos(f)) * signf(vel)
 		no.global_position = p
 		no.rotation.y = atan2(-frente.x, -frente.z)
-		var bat := sin(t * float(b["bate"]) * (1.0 + agitados * 0.6) + f) * 0.9
-		(b["asas"][0] as Node3D).rotation.z = bat
-		(b["asas"][1] as Node3D).rotation.z = -bat
+		if b["anim"]:
+			(b["anim"] as AnimationPlayer).speed_scale = float(b["bate"]) * (1.0 + agitados * 0.7)
+		no.rotation.z = -0.35 * signf(vel)  # inclinado para dentro da volta

@@ -38,7 +38,8 @@ static func montar(o: Ruinas.Obra) -> void:
 			if (ix == 2 and iz == -1) or (ix == -2 and iz == -1):
 				continue  # chapas que faltam nos cantos da frente
 			var nome: String = ["Platform_Metal2", "Platform_DarkPlates", "Platform_Squares"][absi(ix * 3 + iz * 5) % 3]
-			_peca(o, nome, Vector3(ix * 4.0 - 1.0, cy + 0.02, iz * 4.0 + 1.0), 0.0, 1.0, 0.5, 0.2, false)
+			# debaixo do telheiro o piso é cuidado: pouca ferrugem e quase nenhum musgo
+			_peca(o, nome, Vector3(ix * 4.0 - 1.0, cy + 0.02, iz * 4.0 + 1.0), 0.0, 1.0, 0.5 if iz < 0 else 0.22, 0.2 if iz < 0 else 0.03, false)
 	# o estrado redondo onde o robô nasce
 	_peca(o, "Platform_Round1", Vector3(0, cy + 0.02, 0), 0.0, 1.0, 0.3, 0.1, false)
 	var disco := CylinderShape3D.new()
@@ -47,25 +48,21 @@ static func montar(o: Ruinas.Obra) -> void:
 	o.forma(disco, Transform3D(Basis.IDENTITY, Vector3(0, cy + 0.095, 0)))
 	# a parede do fundo: três panos, um quebrado, e as colunas do hangar
 	var fz := 6.6
-	_peca(o, "WallAstra_Straight_Broken", Vector3(-5.0, cy, fz), PI * 0.5, 1.35, 0.6, 0.55)
+	_peca(o, "WallAstra_Straight", Vector3(-5.0, cy, fz), PI * 0.5, 1.35, 0.5, 0.4)
 	_peca(o, "WallAstra_Straight_Window", Vector3(0.4, cy, fz), PI * 0.5, 1.35, 0.5, 0.5)
-	_peca(o, "WallAstra_Straight", Vector3(5.8, cy, fz), PI * 0.5, 1.35, 0.55, 0.6)
+	_peca(o, "WallAstra_Straight_Broken", Vector3(5.8, cy, fz), PI * 0.5, 1.35, 0.6, 0.55)
 	_peca(o, "WallBand_Straight_Broken", Vector3(10.9, cy, 4.6), 0.12, 1.3, 0.7, 0.6)
-	_peca(o, "Column_Large_Straight", Vector3(-8.0, cy, fz + 0.4), PI * 0.5, 0.62, 0.5, 0.45)
-	_peca(o, "Column_Large_Straight", Vector3(8.6, cy, fz + 0.4), PI * 0.5, 0.62, 0.6, 0.5)
+	_peca(o, "Column_Large_Straight", Vector3(-8.0, cy, fz + 0.4), PI * 0.5, 0.41, 0.5, 0.45)
+	_peca(o, "Column_Large_Straight", Vector3(8.6, cy, fz + 0.4), PI * 0.5, 0.41, 0.6, 0.5)
 	_peca(o, "Column_Pipes", Vector3(-2.4, cy, fz + 0.2), 0.0, 0.85, 0.7, 0.4)
 	_peca(o, "Column_Pipes", Vector3(3.1, cy, fz + 0.2), 0.0, 0.85, 0.6, 0.4)
-	# o que sobrou do teto: uma viga inteira e duas caídas
-	o.bloco(Vector3(0.3, cy + 6.05, fz + 0.4), Vector3(17.4, 0.45, 0.6), Basis.IDENTITY, "casco")
-	o.bloco(Vector3(-8.0, cy + 5.5, 3.4), Vector3(0.4, 0.4, 6.4), Basis.from_euler(Vector3(0.16, 0, 0)), "ferrugem")
-	o.bloco(Vector3(8.6, cy + 4.3, 3.0), Vector3(0.4, 0.4, 7.4), Basis.from_euler(Vector3(0.52, 0.05, 0)), "ferrugem")
-	o.bloco(Vector3(-3.6, cy + 0.25, -4.7), Vector3(0.4, 0.4, 5.6), Basis.from_euler(Vector3(0.03, 1.35, 0.02)), "ferrugem")
-	_peca(o, "TopCables_Straight_Hanging", Vector3(1.6, cy + 1.3, fz - 0.5), PI * 0.5, 1.0, 0.3, 0.2, false)
+	# o telheiro, o cantinho, a bancada, a horta e a fogueira (2026-11-20)
+	BaseLar.montar(o, cy)
 	# a lâmpada do estrado, na parede
 	_peca(o, "Prop_Light_Wide", Vector3(0.4, cy + 3.5, fz - 0.75), PI * 0.5, 1.6, 0.2, 0.0, false)
 	var luz := OmniLight3D.new()
-	luz.light_color = Color(0.35, 0.95, 0.85)
-	luz.light_energy = 1.5
+	luz.light_color = Color(1.0, 0.82, 0.6)  # era ciano; a base ficou de luz quente
+	luz.light_energy = 1.2
 	luz.omni_range = 11.0
 	luz.position = o.t * Vector3(0.4, cy + 3.3, fz - 1.6)
 	o.v.add_child(luz)
@@ -77,12 +74,11 @@ static func montar(o: Ruinas.Obra) -> void:
 	_peca(o, "Prop_Crate_Large", Vector3(5.6, cy, 5.3), 0.08, 1.0, 0.5, 0.45)
 	_peca(o, "Prop_Crate_Tarp", Vector3(4.2, cy, 5.2), 0.3, 0.9, 0.2, 0.5)
 	_peca(o, "Prop_Crate", Vector3(10.4, cy, -2.4), -0.2, 1.0, 0.6, 0.4)
-	_peca(o, "Prop_Crate4", Vector3(-3.4, cy, 5.3), 0.5, 1.0, 0.7, 0.5)
-	_peca(o, "Prop_Barrel1", Vector3(-4.6, cy, 4.9), 0.0, 1.15, 0.8, 0.3)
-	_peca(o, "Prop_Barrel2_Open", Vector3(-5.5, cy, 5.3), 1.0, 1.15, 0.7, 0.4)
+	_peca(o, "Prop_Crate4", Vector3(8.9, cy, 5.5), 0.5, 1.0, 0.7, 0.5)
+	_peca(o, "Prop_Barrel1", Vector3(7.2, cy, 5.5), 0.0, 1.15, 0.8, 0.3)
+	_peca(o, "Prop_Barrel2_Open", Vector3(7.9, cy, 5.2), 1.0, 1.15, 0.7, 0.4)
 	_peca(o, "Prop_Barrel_Large", Vector3(10.6, cy, 0.4), 0.4, 1.2, 0.8, 0.5)
-	_peca(o, "Prop_Locker", Vector3(-1.2, cy, 5.75), 0.0, 1.0, 0.6, 0.35)
-	_peca(o, "Prop_Shelves_WideTall", Vector3(1.0, cy, 5.75), 0.0, 1.0, 0.7, 0.4)
+	_peca(o, "Prop_Shelves_WideTall", Vector3(-5.7, cy, 5.75), 0.0, 1.0, 0.6, 0.3)
 	_peca(o, "Prop_SatelliteDish", Vector3(10.4, o.chao(10.4, 7.6), 7.6), 2.4, 1.2, 0.5, 0.45)
 	_peca(o, "Prop_Crate_Tarp_Large", Vector3(-12.6, o.chao(-12.6, -2.8), -2.8), 1.3, 1.0, 0.3, 0.6)
 	# entulho e mato tomando as beiras
@@ -91,9 +87,9 @@ static func montar(o: Ruinas.Obra) -> void:
 	o.entulho(Vector2(-4.0, -5.6), Vector2(2.2, 0.8), 4, 0.3, 0.7)
 	for p: Vector3 in [Vector3(-10.6, 0, 5.6), Vector3(9.4, 0, 6.2), Vector3(11.2, 0, 2.0), Vector3(-11.6, 0, -4.4), Vector3(6.4, 0, -5.6), Vector3(-6.2, 0, 7.6)]:
 		o.arbusto(Vector3(p.x, o.chao(p.x, p.z), p.z), 1.0 + 0.5 * absf(sin(p.x)))
-	for p2: Array in [["q_samambaia", Vector3(-6.4, 0, 5.9), 1.3], ["q_samambaia", Vector3(6.6, 0, 5.8), 1.5], ["q_planta_a", Vector3(-1.9, 0, 5.2), 1.2],
+	for p2: Array in [["q_samambaia", Vector3(6.6, 0, 5.8), 1.5], 
 			["q_samambaia", Vector3(-10.4, 0, -0.9), 1.4], 
-			["q_planta_b", Vector3(-4.9, 0, -3.8), 1.2], ["q_moita", Vector3(9.9, 0, -1.6), 1.0], ["q_trevo", Vector3(-2.8, 0, 3.6), 1.5],
+			["q_planta_b", Vector3(-4.9, 0, -3.8), 1.2], ["q_moita", Vector3(9.9, 0, -1.6), 1.0], 
 			["q_planta_d", Vector3(7.9, 0, 6.0), 1.2], ["q_samambaia", Vector3(-7.6, 0, -2.6), 1.2]]:
 		_planta(o, p2[0], p2[1], p2[2])
 
@@ -147,7 +143,7 @@ static func _baia_dos_robos(o: Ruinas.Obra, cy: float) -> void:
 		# o cabo que desce da cobertura até a tampa do cilindro, e uma faixa clara no painel atrás de cada vaga
 		o.bloco(b + Vector3(vx, 2.56, 0.0), Vector3(0.06, 0.42, 0.06), Basis.IDENTITY, "casco", false)
 		o.bloco(b + Vector3(vx, 1.5, 0.85), Vector3(0.9, 1.9, 0.04), Basis.IDENTITY, "casco", false)
-	_peca(o, "Prop_AccessPoint", Vector3(BAIA.x - 3.3, cy, BAIA.z - 0.7), 0.5, 1.3, 0.4, 0.3)
+	_peca(o, "Prop_AccessPoint", Vector3(BAIA.x + 2.95, cy, BAIA.z + 1.5), -0.5, 1.3, 0.4, 0.3)  # saiu do caminho entre a baia e o drone
 	_peca(o, "Prop_Cable_1", Vector3(BAIA.x - 2.2, cy + 0.04, BAIA.z - 2.0), 0.4, 1.2, 0.2, 0.3, false)
 	_peca(o, "Prop_Cable_3", Vector3(BAIA.x + 1.6, cy + 0.04, BAIA.z - 2.1), 2.4, 1.0, 0.2, 0.3, false)
 
@@ -340,10 +336,10 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	mp.name = "PortaDoCilindro"
 	mp.mesh = porta.commit()
 	mp.mesh.surface_set_material(0, _mat_cor(Color(0.22, 0.22, 0.19), 0.9, 0.4, tex))
-	# a dobradiça fica do lado +Z da boca; a porta abre uns 115°
-	var dobra := c + Vector3(MEIO_CIL + 0.1, 0, R_CIL + 0.3)
-	var giro := Basis(Vector3.UP, -2.0)
-	var centro_porta := dobra + giro * Vector3(0, 0, -(R_CIL + 0.3))
+	# a porta foi tirada das dobradiças e encostada na parede, atrás do cilindro (aberta, ela tomava o
+	# meio da base, onde hoje é o cantinho de descanso)
+	var giro := Basis(Vector3.RIGHT, 0.1) * Basis(Vector3.UP, PI * 0.5)
+	var centro_porta := Vector3(c.x - 0.6, cy + R_CIL + 0.12, 5.55)
 	mp.transform = o.t * Transform3D(giro, centro_porta)
 	o.v.add_child(mp)
 	# os raios da porta

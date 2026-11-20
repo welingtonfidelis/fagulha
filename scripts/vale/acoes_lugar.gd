@@ -15,7 +15,7 @@ const TORRE_PERTO := 26.0
 const TORRE_FUNDO := 9.0  # quão longe do plano das pás ainda vale
 const POCO_FUNDO := 6.0  # metros abaixo da superfície do poço
 const CUME_PERTO := 45.0
-const ARVORE_PERTO := 16.0
+const ARVORE_PERTO := 32.0  # as touceiras de folhas ficam até uns 25 m do tronco
 const ARVORE_ALTO := 18.0  # acima do pé da árvore
 
 var armadura: Armadura
