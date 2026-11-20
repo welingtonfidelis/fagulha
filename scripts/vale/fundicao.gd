@@ -4,7 +4,8 @@ extends Node3D
 ## arruinado, de chão chato: uma única porta grande de onde os robôs saem, forjas ainda acesas, escombros e
 ## paredes quebradas de proteção, robôs velhos caídos, fios pendurados e o painel de partida no meio.
 ## A ilha continua de paz: aqui só há luta quando o jogador liga o painel (quadrado / E). As ondas crescem;
-## de 5 em 5 vem um minichefe, e vencê-lo salva o ponto de volta. Saindo da cratera a rodada para. Robô
+## de 5 em 5 vem um minichefe. Toda horda começa da onda 1 (2026-11-20: não há mais ponto de volta). Saindo
+## da cratera a rodada para. Robô
 ## vencido desliga e afunda no chão (ninguém é destruído); deixa experiência e materiais (Arsenal).
 ## `cavar` aplaina o relevo antes de o chão ser montado; `montar` põe as peças; o nó cuida das ondas.
 
@@ -955,7 +956,7 @@ func _ready() -> void:
 	_painel_luz.omni_range = 9.0
 	_painel_luz.position = meio + Vector3(0, 2.2, 0)
 	add_child(_painel_luz)
-	onda = Arsenal.ponto_volta - 1
+	onda = 0
 
 
 ## O ponto está dentro do galpão (entre as paredes, do piso ao teto)?
@@ -1018,7 +1019,7 @@ func ligar() -> void:
 	conta = {"xp": 0, "vencidos": 0, "ondas": 0, "recorde_antes": Arsenal.recorde}
 	if hud:
 		hud.resumo_t = 0.0
-	onda = maxi(onda, Arsenal.ponto_volta - 1) + 1
+	onda = 1  # toda horda começa da onda 1 (pedido do usuário, 2026-11-20)
 	fase = Fase.CONTAGEM
 	_t = T_CONTAGEM
 	if hud:
@@ -1197,15 +1198,14 @@ func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 			["Robôs desligados", str(int(conta["vencidos"]))],
 			["Experiência", "+%d · nível %d" % [int(conta["xp"]), Arsenal.nivel()]],
 			["Materiais" + (" (metade ficou lá)" if not perdeu.is_empty() else ""), mats],
-			["Recomeça na", "onda %d" % Arsenal.ponto_volta],
+			["Recomeça na", "onda 1"],
 		]
 		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]))
 		motivo = ""
 	for cx in _caixas:
 		(cx["no"] as Node3D).queue_free()
 	_caixas.clear()
-	if fase != Fase.RESPIRO:
-		onda = maxi(0, onda - 1)  # a onda que não acabou fica para a próxima vez
+	onda = 0  # a próxima horda começa da onda 1, tenha saído ou perdido
 	fase = Fase.PARADA
 	for mc in vivos:
 		if is_instance_valid(mc):
@@ -1313,12 +1313,8 @@ func _physics_process(delta: float) -> void:
 		_parar("A Fundição venceu desta vez", "metade dos materiais da rodada ficou lá", perdeu)
 		return
 	if d > SAIU:
-		# saiu no meio da horda: ela zera e, na volta, começa da onda 1 de novo, mesmo depois de um minichefe
-		# (pedido do usuário, 2026-11-20). O ponto de volta só vale para quem fica e perde lá dentro.
-		Arsenal.ponto_volta = 1
-		Arsenal.guardar()
+		# saiu no meio da horda: ela zera e, na volta, começa da onda 1 de novo
 		_parar("Fundição desligada", "você saiu da cratera; a horda recomeça na onda 1")
-		onda = 0
 		return
 	match fase:
 		Fase.CONTAGEM:
@@ -1385,13 +1381,11 @@ func _vencer_onda() -> void:
 	if armadura.avaria > 0:
 		soltar_caixa("conserto")
 	var chefe := onda % CHEFE_A_CADA == 0
-	if chefe:
-		Arsenal.ponto_volta = onda + 1
 	Arsenal.guardar()
 	fase = Fase.RESPIRO
 	_t = T_RESPIRO
 	if hud:
-		hud.avisar("Onda %d vencida" % onda, "ponto de volta salvo" if chefe else "respiro de %d s" % int(T_RESPIRO))
+		hud.avisar("Onda %d vencida" % onda, ("minichefe desligado · respiro de %d s" if chefe else "respiro de %d s") % int(T_RESPIRO))
 	if sons:
 		sons._toque("chefe_cai" if chefe else "onda_vencida", -3.0, 0.0)
 	onda_vencida.emit(onda)

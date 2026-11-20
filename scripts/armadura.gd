@@ -433,6 +433,8 @@ func _mudar(novo: int) -> void:
 	mergulhando = false
 	if novo != Estado.FREAR and novo != Estado.PAIRAR:
 		_x_seg = -1.0
+	if novo != Estado.AR:
+		_origem_chao = false  # só o pulo do chão (e o duplo logo depois) conta como saído do chão
 	if novo != Estado.CHAO:
 		postura = 0
 		_abaixar_seg = false
@@ -771,7 +773,9 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	elif Input.is_action_pressed("pular") and _pulo_seg >= 0.0:
 		_pulo_seg += delta
 		if _pulo_seg >= Ajustes.DECOLAR_SEGURAR and not superaquecido and not caido:
-			if altura_do_chao() > 4.0:
+			# o pulo que saiu do chão decola (com as melhorias de pulo ele já passa de 4 m quando o segurar
+			# conta, e ligava o voo direto rente ao chão); caindo do alto, liga o voo direto
+			if altura_do_chao() > 4.0 and not _origem_chao:
 				# já no alto: segurar o X liga o voo direto, sem a subida da decolagem (antes era só no L3)
 				_pulo_vivo = false
 				_ligar_voo(mira)

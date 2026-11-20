@@ -328,13 +328,16 @@ func _voo_e_arrancada() -> void:
 	Input.action_release("pular")
 	await _esperar(0.2)
 	var pelo_x: bool = a.estado == Armadura.Estado.PLANAR
+	# os comandos novos (§125): um toque no X, planando ou voando, freia e para no ar
 	await _apertar("pular")
 	await _esperar(0.2)
-	var x_nao_corta: bool = a.estado == Armadura.Estado.PLANAR
+	var x_para: bool = a.estado == Armadura.Estado.FREAR or a.estado == Armadura.Estado.PAIRAR
+	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.dir_voo * 20.0)
+	await _esperar(0.2)
 	await _apertar("voar")
 	await _esperar(0.2)
-	_ok(planou and religou and pelo_x and x_nao_corta and a.estado == Armadura.Estado.AR,
-		"com as asas, segurar L3 ou X troca jato e planador; o toque no X não corta (%s) e o toque no L3 planando corta e cai (%s)" % [x_nao_corta, a.nome_estado()])
+	_ok(planou and religou and pelo_x and x_para and a.estado == Armadura.Estado.AR,
+		"com as asas, segurar L3 ou X troca jato e planador; o toque no X planando freia e para no ar (%s) e o toque no L3 planando corta e cai (%s)" % [x_para, a.nome_estado()])
 	await _apertar("voar")
 	await _esperar(0.3)
 	a.calor = 0.0
@@ -371,7 +374,7 @@ func _planar_e_mergulho() -> void:
 	await _esperar(0.2)
 	await _apertar("pular")
 	await _esperar(0.3)
-	_ok(a.estado == Armadura.Estado.VOO, "um toque no X no voo não corta os jatos (%s)" % a.nome_estado())
+	_ok(a.estado == Armadura.Estado.FREAR or a.estado == Armadura.Estado.PAIRAR, "um toque no X no voo não corta os jatos: freia e para no ar (%s)" % a.nome_estado())
 	a.teleportar(a.global_position, Armadura.Estado.PLANAR, a.velocity)
 	cam.pitch = -0.2
 	var y0 := a.global_position.y

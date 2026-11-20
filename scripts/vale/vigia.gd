@@ -38,7 +38,7 @@ var motor := "carrapato_loop"
 
 var estado := Estado.RONDA
 var disparos := 0
-var chefe := false  # máquina grande: aguenta mais e bate mais forte (a Mecha e a MaquinaPacote acertam o resto)
+var chefe := false  # máquina grande: aguenta mais e bate mais forte (a Mecha acerta o resto)
 var pose_foto := -1
 var guiado := Vector3.INF  # um ponto para onde andar reto antes de qualquer coisa (a saída da porta da Fundição)
 
@@ -139,6 +139,7 @@ var _meta_melhor := INF  # a menor distância até onde quer ir, na janela de ag
 var _meta_t := 0.0
 var _meta_desvio := 0.0
 var _meta_p := Vector3.ZERO  # onde a janela começou
+var _meta_andou := 0.0  # o caminho andado na janela
 var _sem_avanco := 0
 var _atravessa_t := 0.0
 var _lado_desvio := 1.0
@@ -366,6 +367,7 @@ func _process(delta: float) -> void:
 		if vel > 0.0 and meta.is_finite() and int(estado) == _meta_estado:
 			var dm := Vector2(meta.x - global_position.x, meta.z - global_position.z).length()
 			_meta_t += delta
+			_meta_andou += anda.length() * absf(vel) * delta
 			if anda.dot(quer) < 0.99:
 				_meta_desvio += delta
 			if dm < _meta_melhor - 0.6:
@@ -373,9 +375,14 @@ func _process(delta: float) -> void:
 				_meta_t = 0.0
 				_meta_desvio = 0.0
 				_meta_p = global_position
+				_meta_andou = 0.0
 				_sem_avanco = 0
-			elif _meta_t >= 1.8:
-				if _meta_desvio > _meta_t * 0.6 and global_position.distance_to(_meta_p) < 5.5:
+			elif _meta_t >= 1.8 and (_meta_andou >= 3.0 or _meta_t >= 8.0):
+				# rodar é andar bastante e acabar perto de onde começou; contornar uma fila de pedras devagar
+				# (a ronda anda a 1,2 m/s) leva para longe dali, então não conta (o teste antigo, com uma
+				# distância fixa de 5,5 m, travava a ronda numa fila de pedras)
+				var reta := Vector2(global_position.x - _meta_p.x, global_position.z - _meta_p.z).length()
+				if _meta_desvio > _meta_t * 0.6 and _meta_andou >= 3.0 and reta < _meta_andou * 0.45:
 					_sem_avanco += 1
 					voltas_cortadas += 1
 					_lado_desvio = -_lado_desvio
@@ -386,12 +393,14 @@ func _process(delta: float) -> void:
 				_meta_t = 0.0
 				_meta_desvio = 0.0
 				_meta_p = global_position
+				_meta_andou = 0.0
 		elif vel > 0.0:
 			_meta_estado = int(estado)
 			_meta_melhor = INF
 			_meta_t = 0.0
 			_meta_desvio = 0.0
 			_meta_p = global_position
+			_meta_andou = 0.0
 		# destravar: quer andar e não sai do lugar
 		_trava_t += delta
 		if _trava_t >= 1.2:

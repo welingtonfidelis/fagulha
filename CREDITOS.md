@@ -66,6 +66,10 @@ A Lata, o Guarda, o Barril e os chefes (o Colosso, a Lâmina e o Artilheiro), em
 (`lata.glb`, `guarda.glb`, `barril.glb`, `colosso.glb`, `lamina.glb`, `artilheiro.glb`), são do próprio projeto,
 modelados por script no Blender (`tools/vale/inimigos.py`).
 
+Os oito robôs inimigos de agora (Sentinela, Espadachim, Couraça, Batedor e Artilheiro; os chefes Capataz,
+Canhoneiro e Guardião), em `assets/vale/robos_inimigos/`, são o robô do jogador com outras peças e outra
+pintura, também do próprio projeto (`tools/vale/robo_v2.py` com `VARIANTE=<nome>`).
+
 Os gigantes de obra do Sono dos Gigantes (a Escavadeira, o Guindaste e o Bate-estaca, em
 `assets/vale/gigantes/`) também são do próprio projeto (`tools/vale/gigantes.py`).
 
@@ -84,10 +88,8 @@ Máquinas, esteiras, braços de robô, tubos, guindastes, engrenagens e telas do
 (`assets/vale/fundicao/`). Factory Kit 3.0, de Kenney (www.kenney.nl), licença Creative Commons Zero (CC0).
 Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.
 
-## Máquinas da Fundição (Quaternius)
+## Efeitos da Fundição (Kenney)
 
-- **Stan**, do Animated Mech Pack (março de 2021), e **Trilobite** e **QuadShell**, do Sci-Fi Essentials Kit,
-  de Quaternius (https://quaternius.com), CC0 1.0 (`assets/vale/inimigos/`).
 - Partículas de explosão, clarão e laser: Kenney Particle Pack (www.kenney.nl), CC0 (`assets/fx/kenney/`).
 
 ## Imagens dos botões (Kenney)

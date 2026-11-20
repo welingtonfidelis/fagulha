@@ -412,7 +412,7 @@ func rodar(main: Node) -> void:
 		get_tree().quit()
 		return
 	if "--chefes" in args:
-		# as máquinas de pacote ao lado do robô, e o laser de cada arma (`--chefes --hora 12`)
+		# os três minichefes da Fundição ao lado do robô, e o laser de cada arma (`--chefes --hora 12`)
 		await _esperar(2.5)
 		a.recomecar()
 		var lugar := Vector3(20.0, c.altura(20.0, -40.0) + 0.4, -40.0)
@@ -424,11 +424,12 @@ func rodar(main: Node) -> void:
 		livre.make_current()
 		var maqs := []
 		var k := 0
-		for tipo: String in ["quadshell", "trilobite", "stan"]:
-			var mp := MaquinaPacote.new()
-			mp.tipo = tipo
+		for arma_c: String in ["pesado", "corpo", "bala"]:
+			var mp := Mecha.new()
+			mp.arma_forcada = arma_c
+			mp.chefe = true
 			mp.mapa = c
-			mp.casa = lugar + Vector3(4.0 + k * 5.0, 0, -6.0)
+			mp.casa = lugar + Vector3(3.0 + k * 5.0, 0, -6.0)
 			mp.casa.y = c.altura(mp.casa.x, mp.casa.z)
 			mp.semente = 5 + k
 			m.add_child(mp)
@@ -532,7 +533,7 @@ func rodar(main: Node) -> void:
 		a.teleportar(Fundicao.aqui(60.0, 0.0, 60.0) + Vector3(0, 1.0, 0), Armadura.Estado.CHAO)
 		await _esperar(1.0)
 		m.hud.mostrar_resumo("Fundição desligada", [["Ondas vencidas", "6"], ["Recorde", "onda 6 · novo"], ["Robôs desligados", "31"], ["Experiência", "+412 · nível 4"],
-			["Materiais", "sucata +38 · núcleos +3 · chips +1"], ["Recomeça na", "onda 6"]], true)
+			["Materiais", "sucata +38 · núcleos +3 · chips +1"], ["Recomeça na", "onda 1"]], true)
 		m.hud.placar = "Onda 7"
 		m.hud.placar_total = 9
 		m.hud.placar_restam = 4

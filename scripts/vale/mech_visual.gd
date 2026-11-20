@@ -1,6 +1,6 @@
 class_name MechVisual
 extends Node3D
-## A base do corpo animado das máquinas (quem monta o corpo é o InimigoVisual, ou o MechPacote nas máquinas de pacote da Fundição): tocar uma animação pelo nome
+## A base do corpo animado das máquinas (quem monta o corpo é o InimigoVisual): tocar uma animação pelo nome
 ## comum (Idle, Walk, Run, Shoot, Death...), e os efeitos.
 ## A frente fica em -Z e os pés na origem. `olho` acende uma luz vermelha na cabeça (o aviso de ataque),
 ## `clarao` pisca o corpo ao levar tiro e `apagar` escurece a máquina desligada.

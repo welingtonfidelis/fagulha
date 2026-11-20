@@ -2949,3 +2949,33 @@ mudanças na Fundição.
   - um ponto novo da rajada esquentando e travando.
 
   O `capturas_vale` ainda fotografa o Stan, o Trilobite e o QuadShell (as classes continuam no projeto).
+
+## 129. Sem os robôs de fora e toda horda na onda 1 (2026-11-20)
+
+- **Os robôs de fora saíram do projeto** (pedido do usuário):
+  - o Stan, o Trilobite e o QuadShell (modelos e texturas da Quaternius em `assets/vale/inimigos/`);
+  - `MaquinaPacote` e `MechPacote`.
+
+  O scanner não tem mais a ficha deles. As fotos `--chefes` do `capturas_vale` mostram o Canhoneiro, o Capataz e
+  o Guardião. O CREDITOS.md perdeu a linha deles e ganhou a dos oito robôs inimigos do projeto
+  (`assets/vale/robos_inimigos/`). Os modelos antigos do próprio projeto (Lata, Guarda, Barril, Colosso, Lâmina
+  e Artilheiro) continuam na pasta, sem uso.
+- **Toda horda começa da onda 1**: não há mais ponto de volta (`Arsenal.ponto_volta` saiu, e o save antigo
+  ignora o campo). Parar a rodada, saindo da cratera ou perdendo, zera a contagem. O resumo diz "Recomeça na
+  onda 1", e vencer um minichefe avisa "minichefe desligado · respiro de 15 s". Antes, quem perdia recomeçava
+  na onda em que perdeu enquanto o resumo dizia outra coisa.
+- **O que as baterias acharam** (rodadas depois da aprovação do usuário):
+  - **Decolar do chão pulava a subida.** Com as melhorias de pulo, o robô já passa de 4 m quando o segurar do X
+    conta (0,4 s), e a regra "no alto, segurar o X liga o voo direto" (§125) valia também para o pulo saído
+    do chão. Agora o pulo do chão, e o duplo logo depois, sempre decola (sobe reto e sai voando). Só quem
+    já está no alto sem ter pulado do chão (caiu de um penhasco, cortou os jatos) liga o voo direto. Para
+    isso serve a marca `_origem_chao`, que existia sem uso.
+  - **A ronda travava numa fila de pedras.** O detector de voltas da §127 marcava "rodando" quem não saía de
+    5,5 m em 1,8 s, e a ronda, a 1,2 m/s, nunca sai disso. Agora ele olha o caminho andado: rodar é andar
+    3 m ou mais e terminar a menos de 45% disso em linha reta de onde começou. Contornar uma fila leva para
+    longe; dar voltas numa coluna, não. A coluna da Fundição continua resolvida (chega e golpeia).
+  - **Testes que ficaram para trás nos comandos novos (§125):**
+    - a pausa não tem mais "Voltar à base";
+    - a roda passa da pistola para o tiro duplo;
+    - perto do móvel, senta-se com o triângulo, e levantar leva um instante;
+    - um toque no X voando ou planando freia e para no ar.

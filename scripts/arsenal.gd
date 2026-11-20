@@ -7,7 +7,6 @@ static var xp := 0
 static var sucata := 0
 static var nucleos := 0
 static var chips := 0
-static var ponto_volta := 1  # a onda em que a Fundição recomeça (salva a cada minichefe vencido)
 static var recorde := 0  # a onda mais alta vencida
 static var fabricados: Array = []  # o que já foi fabricado na oficina
 static var modo := "pistola"  # a arma em uso (a roda do L1 troca)
@@ -139,7 +138,6 @@ static func carregar() -> void:
 	sucata = int(d.get("sucata", 0))
 	nucleos = int(d.get("nucleos", 0))
 	chips = int(d.get("chips", 0))
-	ponto_volta = int(d.get("ponto_volta", 1))
 	recorde = int(d.get("recorde", 0))
 	fabricados = (d.get("fabricados", []) as Array).duplicate()
 	modo = String(d.get("modo", "pistola"))
@@ -151,7 +149,7 @@ static func carregar() -> void:
 static func guardar() -> void:
 	if Guardado.ativo:
 		Guardado.por_progresso("arsenal", {"xp": xp, "sucata": sucata, "nucleos": nucleos, "chips": chips,
-			"ponto_volta": ponto_volta, "recorde": recorde, "fabricados": fabricados, "modo": modo})
+			"recorde": recorde, "fabricados": fabricados, "modo": modo})
 
 
 static func zerar() -> void:
@@ -159,7 +157,6 @@ static func zerar() -> void:
 	sucata = 0
 	nucleos = 0
 	chips = 0
-	ponto_volta = 1
 	recorde = 0
 	fabricados = []
 	modo = "pistola"

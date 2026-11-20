@@ -1693,7 +1693,7 @@ func _ponto_31() -> void:
 	await _esperar(0.6)
 	_ok(m.hud.resumo_t > 0.0 and m.hud._resumo_linhas.size() == 6 and String(m.hud._resumo_linhas[1][1]).ends_with("novo") and Arsenal.recorde == 1,
 		"ao sair aparece o resumo da rodada, com o recorde novo (%s)" % String(m.hud._resumo_linhas[1][1] if m.hud._resumo_linhas.size() > 1 else "nada"))
-	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 0 and Arsenal.ponto_volta == 1 and m.hud.placar == "",
+	_ok(segunda and f.fase == Fundicao.Fase.PARADA and f.vivos.is_empty() and f.onda == 0 and m.hud.placar == "",
 		"a onda 2 vem sozinha; saindo da cratera tudo para e a horda recomeça da onda 1 na volta")
 	# o telhado segura o robô: solto de cima em vários pontos (painéis, emendas e nervuras) ele para em cima,
 	# e voando depressa contra a lateral do arco ele não atravessa
@@ -1717,9 +1717,9 @@ func _ponto_31() -> void:
 	# o minichefe: aviso antes de sair, depois a barra de vida no alto; os sons novos existem
 	a.teleportar(meio, Armadura.Estado.CHAO)
 	await _esperar(0.3)
-	Arsenal.ponto_volta = 5
-	f.onda = 4
 	f.ligar()
+	var da_um: bool = f.onda == 1  # toda horda começa da onda 1
+	f.onda = 5  # para o teste, pula direto para a do minichefe
 	await _esperar(Fundicao.T_CONTAGEM + 1.2)
 	var avisando: bool = f._chefe_t > 0.0 and f.chefe_vivo == null and m.hud.chefe_vida < 0.0
 	await _esperar(Fundicao.T_AVISO_CHEFE + 2.0)
@@ -1732,8 +1732,8 @@ func _ponto_31() -> void:
 			sons_ok = false
 	_ok(avisando and com_barra and sons_ok, "minichefe: 2,6 s de aviso, depois o Canhoneiro sai e a barra de vida aparece; os 26 sons novos existem")
 	f._parar("")
-	Arsenal.ponto_volta = 1
-	f.onda = 0
+	var zerou: bool = f.onda == 0
+	_ok(da_um and zerou, "toda horda começa da onda 1, e parar a rodada zera a contagem")
 	_ok(Fundicao.receita(5)[0]["chefe"] and Fundicao.receita(10).size() < Fundicao.receita(9).size(), "de 5 em 5 ondas a receita traz um minichefe com escolta menor")
 	# a dificuldade sobe aos poucos: só ataque de perto nas três primeiras; fuzis da 4ª, canhões da 7ª, mísseis da 10ª
 	var so_perto := true
@@ -1967,7 +1967,7 @@ func _ponto_32() -> void:
 	# um toque no L1 passa para a próxima arma, sem abrir a roda
 	await _apertar("roda")
 	await _esperar(0.1)
-	var toque: bool = Arsenal.modo == "rajada" and not RodaArmas.aberta and Engine.time_scale == 1.0
+	var toque: bool = Arsenal.modo == "duplo" and not RodaArmas.aberta and Engine.time_scale == 1.0  # a ordem nova: pistola, duplo...
 	roda.trocar("pistola")
 	Input.action_press("roda")
 	await _esperar(0.4)
@@ -2256,11 +2256,10 @@ func _ponto_34() -> void:
 		a.levar_golpe(Vector3(1, 0, 0), 4.0)
 	var entrou: bool = a.em_pane
 	await _esperar(Ajustes.PANE_ESCURECE + 0.6)
-	# desligado, o robô não volta à base pela pausa (a derrota na Fundição custa materiais)
+	# a pausa do jogo não tem mais "Voltar à base" (§125): desligado, o robô segue em pane com a pausa aberta
 	m.pausa._abrir()
 	await _esperar(0.1)
-	var voltar_travado: bool = m.pausa.get("_botao_voltar").disabled
-	m.pausa._voltar()
+	var voltar_travado: bool = m.pausa.get("_botao_voltar") == null
 	await _esperar(0.1)
 	var segue_em_pane: bool = a.em_pane and m.pausa.visible
 	m.pausa._continuar()
@@ -2329,7 +2328,7 @@ func _ponto_34() -> void:
 	var fundo := espaco.intersect_ray(q)
 	var fundo_y: float = fundo["position"].y if not fundo.is_empty() else -INF
 	_ok(voltar_travado and segue_em_pane and avisou and not luta_na_base and luta_ao_lado and entrou and clareou and not pode_com_memoria and segue_parado and pode_depois and not entrou_preso and not pode_na_oficina and ficou_apagado and fundo_y > -39.0,
-		"telas: em pane o Voltar à base fica travado (%s, %s); controle desconectado abre a pausa (%s); drone espera com máquina perto (%s) e vem sem ela (%s); sair da pane clareia (%s, preto %.2f); pausa não abre sobre a memória (%s) nem a solta (%s), e abre depois (%s); oficina não entra com o robô preso (%s) e segura a pausa (%s); progresso apagado não é regravado (%s); fundo fora do mapa a %.1f m"
+		"telas: a pausa não tem Voltar à base e, em pane, o robô segue desligado (%s, %s); controle desconectado abre a pausa (%s); drone espera com máquina perto (%s) e vem sem ela (%s); sair da pane clareia (%s, preto %.2f); pausa não abre sobre a memória (%s) nem a solta (%s), e abre depois (%s); oficina não entra com o robô preso (%s) e segura a pausa (%s); progresso apagado não é regravado (%s); fundo fora do mapa a %.1f m"
 			% [voltar_travado, segue_em_pane, avisou, luta_ao_lado, not luta_na_base, clareou, preto.color.a, not pode_com_memoria, segue_parado, pode_depois, not entrou_preso, not pode_na_oficina, ficou_apagado, fundo_y])
 	a.recomecar()
 	await _esperar(0.3)
@@ -2535,12 +2534,12 @@ func _ponto_37() -> void:
 	var pz: Pausa = m.pausa
 	pz.abrir_abertura()
 	await _esperar(0.2)
-	var ab_ok: bool = pz.visible and pz.abertura and get_tree().paused and pz.get("_titulo").text == "Faísca 2" and not (pz.get("_botao_voltar") as Button).visible and (pz.get("_primeiro") as Button).text == "Começar"
+	var ab_ok: bool = pz.visible and pz.abertura and get_tree().paused and pz.get("_titulo").text == "Faísca 2" and pz.get("_botao_voltar") == null and (pz.get("_primeiro") as Button).text == "Começar"
 	pz.call("_continuar")
 	await _esperar(0.4)
 	pz.call("_abrir")
 	await _esperar(0.1)
-	var volta_ok: bool = not pz.abertura and pz.get("_titulo").text == "Pausa" and (pz.get("_botao_voltar") as Button).visible and not (pz.get("_botao_novo") as Button).visible
+	var volta_ok: bool = not pz.abertura and pz.get("_titulo").text == "Pausa" and not (pz.get("_botao_novo") as Button).visible
 	pz.call("_continuar")
 	await _esperar(0.4)
 	_ok(ab_ok and volta_ok and not get_tree().paused, "tela de abertura: abre com o nome do jogo e 'Começar' sem partida guardada (%s); depois a pausa volta ao normal (%s)" % [ab_ok, volta_ok])
@@ -3079,12 +3078,14 @@ func _ponto_45() -> void:
 		var lugar: Array = Armadura.assentos[0]
 		a.teleportar(lugar[2], Armadura.Estado.CHAO)
 		await _esperar(0.6)
-		await _apertar("sentar")
-		await _esperar(1.0)
-		sentou = a.no_assento and a.postura == 2 and a.contemplando and a.global_position.distance_to(lugar[0]) < 0.15
+		# perto de um móvel o triângulo (agir) senta (§125; antes era a seta de apreciar a vista)
+		await _apertar("agir")
+		await _esperar(1.2)
+		sentou = a.no_assento and a.postura == 2 and a.global_position.distance_to(lugar[0]) < 0.15
 		Input.action_press("frente")
 		await _esperar(0.5)
 		Input.action_release("frente")
+		await _esperar(Armadura.LEVANTAR_TEMPO + 0.2)  # levantar leva um instante
 		levantou = not a.no_assento and a.postura == 0 and not a.contemplando and a.estado == Armadura.Estado.CHAO
 	var fogo: Fogueira = m.find_child("Fogueira", true, false)
 	var hora0: float = m.ciclo.hora
