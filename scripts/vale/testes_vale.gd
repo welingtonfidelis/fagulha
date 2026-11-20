@@ -2770,9 +2770,10 @@ func _ponto_41() -> void:
 			% [float(perto[false]), float(perto[true]), convite, lembranca, em_uso, volta])
 
 
-## O ninho da ave e a torre quente: a maresia apaga os jatos (sem asas o robô cai no mar; com elas plana e
-## pousa no ninho, e a ave acorda e passa a aparecer no céu); na torre, sem radiador o robô superaquece antes
-## da sacada e com ele chega; ligar o receptor abre a lembrança e acende a luz distante.
+## O ninho da ave e o mastro do Relé: a maresia apaga os jatos (sem asas o robô cai no mar; com elas plana e
+## pousa no ninho, e a ave acorda e passa a aparecer no céu); no mastro, o campo da antena faz o motor travar
+## antes da cabine com o radiador simples e deixa chegar com o duplo; ligar o receptor abre a lembrança e
+## acende a luz distante.
 func _ponto_42() -> void:
 	_soltar_tudo()
 	var tudo0: bool = Melhorias.tudo
@@ -2809,31 +2810,40 @@ func _ponto_42() -> void:
 		"ninho da ave: sem asas a maresia apaga os jatos e o robô cai no mar a %.0f m do ninho; com asas ele plana (%s) e pousa nele (%s); abre a lembrança (%s) e a ave aparece no céu (%s)"
 			% [float(sem[0]), bool(com_a[1]), bool(com_a[2]), lembranca, no_ceu])
 	a.jato_cortado = false
-	var t: TorreQuente = m.torre
+	var t: MastroRadio = m.torre
 	var subida := {}
-	for pecas: Array in [[], ["radiador"]]:
-		Melhorias.instaladas = pecas
+	for peca: String in ["radiador", "radiador2"]:
+		Melhorias.instaladas = [peca]
 		a.recomecar()
-		await _esperar(0.5)
-		a.teleportar(t.pe + Vector3(0, 1.6, 0), Armadura.Estado.AR)
+		await _esperar(0.4)
 		a.calor = 0.0
-		var topo := 0.0
+		a.superaquecido = false
+		a.teleportar(t.pe + Vector3(9.0, MastroRadio.PATAMAR + 3.0, 9.0), Armadura.Estado.VOO, Vector3(0, 20, 0))
+		var perto := 999.0
 		var quente := false
-		for i in 60 * 7:
-			topo = maxf(topo, a.global_position.y - t.pe.y)
+		var alvo_c := t.topo + Vector3(1.2, 1.2, 1.4)
+		Input.action_press("frente")
+		for i in 60 * 14:
+			var para := alvo_c - a.global_position
+			m.camera.yaw = atan2(-para.x, -para.z)
+			m.camera.pitch = clampf(atan2(para.y, Vector2(para.x, para.z).length()), -1.2, 1.2)
+			var d := a.global_position.distance_to(t.topo + Vector3(0, 1.0, 0))
+			perto = minf(perto, d)
 			quente = quente or a.superaquecido
-			if topo > TorreQuente.SACADA:
+			if d < MastroRadio.ABRIGO or quente:
 				break
 			await get_tree().physics_frame
-		subida[pecas.size()] = [topo, quente]
+		Input.action_release("frente")
+		subida[peca] = [perto, quente]
 	a.calor_extra = 0.0
 	a.recomecar()
 	await _esperar(0.3)
 	a.calor = 0.0
 	a.superaquecido = false
-	a.teleportar(t.receptor + Vector3(0.9, 0.5, 1.2), Armadura.Estado.CHAO)
+	a.teleportar(t.receptor + Vector3(1.3, 0.3, 1.3), Armadura.Estado.CHAO)
 	await _esperar(1.0)
 	var convite: bool = m.hud.dica == "{agir}  ligar o receptor"
+	var abrigo: bool = not t.no_campo and a.calor_extra == 0.0
 	t.call("_ligar")
 	await _esperar(0.2)
 	var sinal: bool = t.ligado and m.memorias.aberta == "sinal_de_fora" and bool(LuzesNoite.ligadas.get("sinal", false))
@@ -2843,11 +2853,11 @@ func _ponto_42() -> void:
 	m.hud.dica = ""
 	a.recomecar()
 	await _esperar(0.3)
-	var s0: Array = subida[0]
-	var s1: Array = subida[1]
-	_ok(float(s0[0]) < TorreQuente.SACADA - 5.0 and bool(s0[1]) and float(s1[0]) > TorreQuente.SACADA and not bool(s1[1]) and convite and sinal,
-		"torre quente: sem radiador o robô superaquece e só sobe %.0f m dos %.0f; com o radiador chega à sacada (%.0f m) sem travar; convite (%s); ligar o receptor abre a lembrança e acende a luz distante (%s)"
-			% [float(s0[0]), TorreQuente.SACADA, float(s1[0]), convite, sinal])
+	var s1: Array = subida["radiador"]
+	var s2: Array = subida["radiador2"]
+	_ok(bool(s1[1]) and float(s1[0]) > MastroRadio.ABRIGO + 5.0 and not bool(s2[1]) and float(s2[0]) < MastroRadio.ABRIGO and convite and abrigo and sinal,
+		"mastro do Relé: com o radiador simples o motor trava a %.0f m da cabine; com o duplo o robô chega nela (%.1f m) sem travar; na cabine não esquenta (%s); convite (%s); ligar o receptor abre a lembrança e acende a luz distante (%s)"
+			% [float(s1[0]), float(s2[0]), abrigo, convite, sinal])
 
 
 ## A vibração nova: o motor quente (de 80% para cima) zumbe e o frio não; um marcador novo na bússola dá um

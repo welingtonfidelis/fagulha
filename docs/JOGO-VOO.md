@@ -2603,3 +2603,13 @@ Save: `progresso.achados` guarda `minis`, `ave` e `sinal`.
 **Contador de mísseis.** O arco de mísseis ao lado da mira só aparecia mirando ou com um alvo já travado: quem atirava sem mirar e sem máquina por perto nunca o via. Agora, com os mísseis escolhidos, aparece também ao segurar o gatilho e fica 2,2 s depois de cada disparo (`Hud._missil_fica`).
 
 **Vibração do controle (pedido do usuário).** Acelerar no ar não vibra mais (vibrava o voo inteiro). No lugar: de 80% de calor para cima o controle zumbe, cada vez mais forte e pulsando mais depressa até travar (`Vibra.CALOR_AVISO`); levar dano ficou mais forte e mais longo, e o escudo engolindo um acerto dá um tranco leve; um marcador novo na bússola (memória a menos de 300 m, peça que a antena captou, o marcador do jogador) dá dois toques curtos (`Hud.marcas`). A freada no ar continua vibrando.
+
+## 117. O gancho vai para a Ilha do Relé: o mastro de rádio (2026-11-19)
+
+O usuário achou que uma torre de rádio muito alta fazia mais sentido que a chaminé ao lado da forja, e lembrou que a ilha já tem um lugar de comunicação por rádio. **A torre chaminé da Fundição saiu do jogo** (`TorreQuente` não existe mais); o gancho passou para a Ilha do Relé.
+
+**O mastro grande do Relé** (`MastroRadio`, `scripts/vale/mastro_radio.gd`). Ao lado da torre velha e torta, no chão mais alto da ilhota, sobe um mastro de treliça de 150 m: quinze lances que afinam de 9 m para 2 m, com o miolo de cada lance barrando o voo por dentro; um patamar de serviço aos 60 m, para pousar e esfriar; tambores e painéis de antena a dois terços da altura; três estais; e, no topo, uma cabine de 5,6 m protegida por uma gaiola de ferro, com o receptor, e a haste da antena por cima. É lá em cima que o robô capta o sinal.
+
+- **A porta:** a antena do topo ainda transmite. Num raio de 80 m em volta da cabine o motor ganha 40% de calor por segundo sem radiador, 62% disso com o radiador simples e 16% com o duplo (`Armadura.calor_extra`); dentro da gaiola (5 m) não esquenta. Como o campo é uma esfera em volta do topo, não há caminho que o evite. Medido, saindo frio do patamar: com o radiador simples o motor trava aos 3,4 s, a 38 m da cabine; com o duplo o robô entra nela aos 6 s.
+- **O gancho:** o mesmo de antes. Ligar o receptor abre a lembrança "Alguém respondeu" (o texto agora fala do mastro) e acende de noite a luz distante a sudoeste (`MastroRadio.SINAL`).
+- De noite o mastro tem balizamento vermelho no topo e no patamar e a antena em brasa.

@@ -38,7 +38,7 @@ var robo_antigo: RoboAntigo
 var acoes: AcoesLugar
 var minis: MiniRobos
 var ninho: NinhoAve
-var torre: TorreQuente
+var torre: MastroRadio
 var cenas_vista: CenasVista
 var musica: MusicaPasseio
 var luzes_noite: LuzesNoite
@@ -420,8 +420,8 @@ func _ready() -> void:
 			ninho.memorias = memorias
 			ninho.mapa = ilha
 			add_child(ninho)
-			torre = TorreQuente.new()
-			torre.name = "TorreQuente"
+			torre = MastroRadio.new()
+			torre.name = "MastroRadio"
 			torre.armadura = armadura
 			torre.hud = hud
 			torre.memorias = memorias
