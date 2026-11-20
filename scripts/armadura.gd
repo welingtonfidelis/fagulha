@@ -98,6 +98,8 @@ var escaneando := false  # scanner aberto: primeira pessoa, sem tiro
 var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-1: não está)
 var _planar_botao := "voar"
 var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: pronto)
+var escudo_cargas := Arsenal.ESCUDO_CARGAS  # acertos que o escudo ainda engole antes de quebrar
+var _escudo_sossego := 0.0  # tempo desde o último acerto no escudo (gasto em parte, ele se enche de novo)
 var escudos_gastos := 0  # testes
 var jato_cortado := false  # um lugar onde os jatos não funcionam (a maresia do ninho da ave): com asas, o robô plana
 var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da Fundição)
@@ -107,6 +109,13 @@ static var assentos: Array = []
 const ASSENTO_PERTO := 1.7
 var no_assento := false  # sentado num móvel: parado ali até andar ou apertar algo
 var assento_yaw := 0.0  # para onde o corpo vira (o visual lê)
+## Sentar num móvel tem três fases (o visual lê as duas): 0 sentando, 1 sentado, 2 levantando; `assento_p`
+## vai de 0 a 1 dentro da fase de sentar ou de levantar.
+var assento_fase := 1
+var assento_p := 1.0
+const SENTAR_TEMPO := 0.8
+const LEVANTAR_TEMPO := 0.75
+var _assento_de := Vector3.ZERO
 var sentadas := 0  # vezes em que sentou num móvel (testes)
 var _assento: Array = []
 var contemplando := false  # apreciando a vista: a câmera sai de trás do robô e a tela fica limpa
@@ -146,6 +155,11 @@ var _tempo_super := 0.0
 var _segurando := 0.0
 var _pulo_vivo := false
 var _correr_alt := false
+const ANALOGICO_CHEIO := 0.93  # daqui para cima o analógico esquerdo conta como "até o fim"
+static var analogico_teste := Vector2.INF  # os testes fingem o analógico por aqui
+var convite_assento := ""  # o convite do HUD perto de um lugar de sentar ("{agir}  sentar")
+var _x_seg := -1.0  # freando ou parado no ar: há quanto tempo o X está segurado (-1: não está)
+var freadas := 0  # testes: quantas vezes o X no voo freou para parar no ar
 var _arrancada_alt := false
 var _fora_chao := 0.0
 var _pulo_guardado := 0.0  # apertou o pulo um instante antes de tocar o chão: pula ao pousar (não gasta o pulo duplo)
@@ -229,9 +243,13 @@ func altura_do_chao() -> float:
 func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 	if em_pane or graca_pane > 0.0:
 		return
-	# o escudo de energia (fabricável) engole um acerto e leva um tempo para recarregar
+	# o escudo de energia (fabricável) engole três acertos (eram um; pedido do usuário, 2026-11-20) e, quebrado,
+	# leva um tempo para recarregar
 	if Arsenal.tem("escudo") and escudo_t <= 0.0:
-		escudo_t = Arsenal.ESCUDO_RECARGA
+		escudo_cargas -= 1
+		_escudo_sossego = 0.0
+		if escudo_cargas <= 0:
+			escudo_t = Arsenal.ESCUDO_RECARGA
 		escudos_gastos += 1
 		tremor = maxf(tremor, 0.25)
 		velocity += direcao.normalized() * forca * 0.3
@@ -413,6 +431,8 @@ func _mudar(novo: int) -> void:
 	_tempo_estado = 0.0
 	floor_snap_length = 0.5 if (novo == Estado.CHAO or novo == Estado.POUSO) else 0.0
 	mergulhando = false
+	if novo != Estado.FREAR and novo != Estado.PAIRAR:
+		_x_seg = -1.0
 	if novo != Estado.CHAO:
 		postura = 0
 		_abaixar_seg = false
@@ -441,9 +461,17 @@ func _physics_process(delta: float) -> void:
 
 func _passo(delta: float) -> void:
 	_tempo_estado += delta
+	convite_assento = ""
 	if _pane(delta):
 		return
-	escudo_t = maxf(0.0, escudo_t - delta)
+	if escudo_t > 0.0:
+		escudo_t = maxf(0.0, escudo_t - delta)
+		if escudo_t <= 0.0:
+			escudo_cargas = Arsenal.ESCUDO_CARGAS
+	elif escudo_cargas < Arsenal.ESCUDO_CARGAS:
+		_escudo_sossego += delta
+		if _escudo_sossego >= Arsenal.ESCUDO_RECARGA:
+			escudo_cargas = Arsenal.ESCUDO_CARGAS
 	if travado:
 		return
 	if no_assento:
@@ -485,7 +513,7 @@ func _passo(delta: float) -> void:
 		Estado.PAIRAR:
 			_pairar(delta, mov, mira)
 		Estado.FREAR:
-			_frear(delta, mira)
+			_frear(delta, mov, mira)
 		Estado.NADO:
 			_nado(delta, mov)
 	if _fora_dagua > 0.35 and estado == Estado.VOO:
@@ -522,7 +550,8 @@ func _chao(delta: float, mov: Vector2) -> void:
 		_correr_alt = not _correr_alt
 	if mov.length() < 0.15:
 		_correr_alt = false
-	var correr := Input.is_action_pressed("correr") or _correr_alt
+	# correr: empurrar o analógico até o fim (2026-11-20); o L3 e o Shift continuam valendo
+	var correr := Input.is_action_pressed("correr") or _correr_alt or analogico().length() > ANALOGICO_CHEIO
 	var postura_antes := postura
 	erguendo = maxf(0.0, erguendo - delta)
 	_abaixar(delta, mov, correr, quieto)
@@ -575,6 +604,19 @@ func _chao(delta: float, mov: Vector2) -> void:
 		erguendo = 0.0
 
 
+## O analógico esquerdo do controle, sem o teclado (x: direita, y: para trás). Serve para o que depende de
+## quanto ele está inclinado: correr, nadar rápido e parar no ar.
+func analogico() -> Vector2:
+	if analogico_teste.is_finite():
+		return analogico_teste
+	var melhor := Vector2.ZERO
+	for id: int in Input.get_connected_joypads():
+		var v := Vector2(Input.get_joy_axis(id, JOY_AXIS_LEFT_X), Input.get_joy_axis(id, JOY_AXIS_LEFT_Y))
+		if v.length() > melhor.length():
+			melhor = v
+	return melhor
+
+
 ## O lugar de sentar mais perto do robô (lista vazia: nenhum ao alcance).
 func assento_perto() -> Array:
 	var melhor: Array = []
@@ -598,29 +640,55 @@ func _sentar_em(lugar: Array) -> void:
 	velocity = Vector3.ZERO
 	postura = 2
 	erguendo = 0.0
+	assento_fase = 0
+	assento_p = 0.0
+	_assento_de = global_position
 
 
-## Sentado num móvel: o corpo vai para o assento e fica; andar ou apertar qualquer ação levanta, e o
-## robô sai para a frente do móvel, de pé no chão.
+## Sentado num móvel. Sentando, o robô chega à frente do móvel já de costas para ele, dobra os joelhos e
+## leva a bacia para trás até o assento; depois fica ali até andar ou apertar qualquer ação. Levantando,
+## joga o tronco à frente, empurra com as pernas e sai para a frente do móvel, de pé no chão.
 func _passo_assento(delta: float) -> void:
-	var mov := Input.get_vector("esquerda", "direita", "frente", "tras")
-	var sai := mov.length() > 0.3 or em_pane or escaneando
-	for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr", "agir", "voar"]:
-		if InputMap.has_action(acao) and Input.is_action_just_pressed(acao) and _tempo_estado > 0.0 and _assento_t > 0.3:
-			sai = true
-	_assento_t += delta
-	if sai:
-		no_assento = false
-		contemplando = false
-		postura = 0
-		erguendo = 0.0
-		_assento_t = 0.0
-		teleportar(_assento[2], Estado.CHAO)
-		return
-	postura = 2
 	velocity = Vector3.ZERO
-	global_position = global_position.lerp(_assento[0], 1.0 - exp(-9.0 * delta))
+	postura = 2
 	calor = maxf(0.0, calor - 12.0 * delta)
+	_assento_t += delta
+	var p: Vector3 = _assento[0]
+	var fora: Vector3 = _assento[2]
+	match assento_fase:
+		0:
+			assento_p = minf(1.0, _assento_t / SENTAR_TEMPO)
+			var chega := smoothstep(0.0, 0.4, assento_p)
+			var desce := smoothstep(0.3, 1.0, assento_p)
+			var de_pe := _assento_de.lerp(Vector3(fora.x, _assento_de.y, fora.z), chega)
+			global_position = de_pe.lerp(p, desce)
+			if assento_p >= 1.0:
+				assento_fase = 1
+				_assento_t = 0.0
+		1:
+			var mov := Input.get_vector("esquerda", "direita", "frente", "tras")
+			var sai := mov.length() > 0.3 or em_pane or escaneando
+			for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr", "agir", "voar"]:
+				if InputMap.has_action(acao) and Input.is_action_just_pressed(acao) and _tempo_estado > 0.0 and _assento_t > 0.3:
+					sai = true
+			if sai:
+				assento_fase = 2
+				assento_p = 0.0
+				_assento_t = 0.0
+				return
+			global_position = global_position.lerp(p, 1.0 - exp(-9.0 * delta))
+		2:
+			assento_p = minf(1.0, _assento_t / LEVANTAR_TEMPO)
+			global_position = p.lerp(fora, smoothstep(0.2, 0.9, assento_p))
+			if assento_p >= 1.0 or em_pane:
+				no_assento = false
+				contemplando = false
+				postura = 0
+				erguendo = 0.0
+				_assento_t = 0.0
+				assento_fase = 1
+				assento_p = 1.0
+				teleportar(fora, Estado.CHAO)
 
 
 var _assento_t := 0.0
@@ -634,6 +702,15 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 		postura = 0
 		_abaixar_seg = false
 		return
+	# sentar num móvel (sofá, poltrona, bancos da fogueira): perto dele, o triângulo (agir) senta; outro
+	# toque, andar ou qualquer ação levanta (2026-11-20, pedido do usuário; antes era a seta de apreciar a vista)
+	if not em_pane and not travado and not escaneando and not mirando_agora() and not contemplando:
+		var lugar := assento_perto()
+		if not lugar.is_empty():
+			convite_assento = "{agir}  sentar"
+			if Input.is_action_just_pressed("agir"):
+				_sentar_em(lugar)
+				return
 	# sentar é um toque na seta para a esquerda (Ctrl), parado; outro toque levanta. Agachar saiu do jogo
 	# (sentar saiu do jogo em 2026-11-19; desligado por `pode_sentar`)
 	if not pode_sentar:
@@ -648,9 +725,6 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 			if sai:
 				contemplando = false
 		elif Input.is_action_just_pressed("sentar") and quieto and not em_pane and not travado and not escaneando and not mirando_agora():
-			var lugar := assento_perto()
-			if not lugar.is_empty():
-				_sentar_em(lugar)
 			contemplando = true
 			vistas += 1
 		return
@@ -697,7 +771,12 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	elif Input.is_action_pressed("pular") and _pulo_seg >= 0.0:
 		_pulo_seg += delta
 		if _pulo_seg >= Ajustes.DECOLAR_SEGURAR and not superaquecido and not caido:
-			_decolar()
+			if altura_do_chao() > 4.0:
+				# já no alto: segurar o X liga o voo direto, sem a subida da decolagem (antes era só no L3)
+				_pulo_vivo = false
+				_ligar_voo(mira)
+			else:
+				_decolar()
 			return
 	else:
 		_pulo_seg = -1.0
@@ -859,12 +938,9 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 	# planando devagar demais, o nariz cai
 	if estado == Estado.PLANAR and vlen < Melhorias.estol():
 		dir_voo = girar_para(dir_voo, (dir_voo + Vector3.DOWN).normalized(), 1.2 * delta)
-	# botões
-	# planando, o X religa o motor
-	# Um toque no L3 / Shift corta tudo e o robô cai, esteja com o jato ou planando; segurar o L3 ou o X troca
-	# um pelo outro (do jato para o planador e de volta). Sem as asas não há planador: o toque no L3 corta os
-	# jatos na hora. O toque no X não corta mais (2026-11-19): é o botão de pular, o que a criança mais
-	# aperta, e ela caía do céu sem querer.
+	# botões (2026-11-20, pedido do usuário): no voo, um toque no X freia com os jatos para a frente e para
+	# no ar; com as asas, segurar o X troca o jato pelo planador e de volta. Um toque no L3 / Shift corta
+	# tudo e o robô cai; segurar o L3 também troca para o planador. Sem as asas o X freia na hora.
 	if estado == Estado.PLANAR or Melhorias.tem("asas"):
 		if Input.is_action_just_pressed("voar"):
 			_planar_seg = 0.0
@@ -884,13 +960,19 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 						_mudar(Estado.VOO)
 					return
 			else:
-				# soltou antes: era um toque (só o do L3 corta)
+				# soltou antes: era um toque. O do L3 corta; o do X freia e para no ar
 				_planar_seg = -1.0
 				if _planar_botao == "voar":
 					_cortar_jatos()
 					return
+				if not superaquecido and not jato_cortado:
+					_frear_e_pairar()
+					return
 	elif Input.is_action_just_pressed("voar"):
 		_cortar_jatos()
+		return
+	elif Input.is_action_just_pressed("pular") and not superaquecido:
+		_frear_e_pairar()
 		return
 	if Input.is_action_just_pressed("soltar"):
 		# o círculo no voo é a manobra (a freada ficou com o L3, que corta, e o L2/R3, que para no ar)
@@ -905,26 +987,61 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 ## dá para religar a qualquer momento.
 func _cortar_jatos() -> void:
 	_pulo_vivo = false
+	_pulo_seg = -1.0
+	_x_seg = -1.0
 	_duplo_usado = true
 	_solto = false
 	_mudar(Estado.AR)
 
 
-## Freada antes de desligar o voo: de pé no ar, pés e mãos para a frente, os jatos seguram o embalo.
-## Quando acaba, o motor desliga e o robô cai pesado.
-func _frear(delta: float, mira: Vector3) -> void:
+## O toque no X no voo: os jatos viram para a frente, o robô fica de pé no ar e o embalo morre; quando
+## acaba, ele fica parado no ar (PAIRAR).
+func _frear_e_pairar() -> void:
+	var v := Vector2(velocity.x, velocity.z).length()
+	_frear_tempo = lerpf(Ajustes.FREAR_TEMPO_MIN, Ajustes.FREAR_TEMPO, clampf(v / 30.0, 0.0, 1.0))
+	_x_seg = -1.0
+	_pulo_vivo = false
+	freadas += 1
+	tremor = maxf(tremor, 0.2)
+	_mudar(Estado.FREAR)
+
+
+## Freando para parar no ar: de pé, pés e mãos para a frente, os jatos seguram o embalo. Quando acaba,
+## fica pairando. O X vale aqui como no voo parado (toque volta a voar, segurar desliga e cai).
+func _frear(delta: float, mov: Vector2, mira: Vector3) -> void:
 	var k := exp(-Ajustes.FREAR_FORCA * delta)
 	velocity.x *= k
 	velocity.z *= k
 	velocity.y = velocity.y * exp(-3.0 * delta) - Ajustes.G_VOO * 0.3 * delta
 	impulso = maxf(impulso, 0.9)
 	tremor = maxf(tremor, 0.15)
-	if Input.is_action_just_pressed("pular") and not superaquecido:
-		_ligar_voo(mira)  # desistiu de desligar: volta a voar
-	elif _tempo_estado >= _frear_tempo:
-		velocity.y = minf(velocity.y, 0.0) - 2.0
-		_solto = true
-		_mudar(Estado.AR)
+	if _botao_x_parado(delta, mira):
+		return
+	if Input.is_action_just_pressed("golpe"):
+		_mergulhar()
+	elif _tempo_estado >= _frear_tempo or Vector2(velocity.x, velocity.z).length() < 2.5:
+		_mudar(Estado.PAIRAR)
+	elif mov.length() > 0.5 and _tempo_estado > 0.15:
+		_mudar(Estado.PAIRAR)  # já mexendo o analógico: assume o voo parado na hora
+
+
+## O X parado no ar (freando ou pairando): um toque volta a voar para a frente; segurar desliga os jatos e o
+## robô cai. Devolve true se mudou de estado.
+func _botao_x_parado(delta: float, mira: Vector3) -> bool:
+	if Input.is_action_just_pressed("pular"):
+		_x_seg = 0.0
+	elif _x_seg >= 0.0:
+		if Input.is_action_pressed("pular"):
+			_x_seg += delta
+			if _x_seg >= Ajustes.PLANAR_SEGURAR:
+				_cortar_jatos()
+				return true
+		else:
+			_x_seg = -1.0
+			if not superaquecido:
+				_ligar_voo(mira)
+				return true
+	return false
 
 
 # ---------------------------------------------------------------- nado
@@ -975,6 +1092,8 @@ func _nado(delta: float, mov: Vector2) -> void:
 	# de pé, com a cabeça e os ombros fora, e o X dá o impulso para fora e já engata o voo.
 	if Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr") or Input.is_action_just_pressed("voar"):
 		nado_rapido = not nado_rapido
+	if analogico().length() > ANALOGICO_CHEIO:
+		nado_rapido = true  # como no chão: o analógico até o fim é o nado rápido
 	# solto por mais de 0,8 s, volta ao nado normal (um instante sem direção não tira o embalo de quem mergulhou)
 	_nado_solto = _nado_solto + delta if (mov.length() < 0.15 and not Input.is_action_pressed("pular")) else 0.0
 	if _nado_solto > 0.8:
@@ -1027,8 +1146,11 @@ func _pairar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	velocity.z = hv.z
 	velocity.y = move_toward(velocity.y, sin(_tempo_estado * 2.2) * 0.25, Ajustes.PAIRAR_FREIO * delta)
 	dir_voo = Vector3(mira.x, 0.0, mira.z).normalized() if Vector2(mira.x, mira.z).length() > 0.05 else dir_voo
-	# voo parado: fica assim mesmo soltando o L2. X volta a voar para a frente; O desliga o propulsor.
-	if Input.is_action_just_pressed("pular") or Input.is_action_just_pressed("voar"):
+	# voo parado: fica assim mesmo soltando o L2. Um toque no X (ou o L3) volta a voar para a frente;
+	# segurar o X desliga os jatos e cai; o R3 também cancela.
+	if _botao_x_parado(delta, mira):
+		return
+	if Input.is_action_just_pressed("voar"):
 		_ligar_voo(mira)
 	elif Input.is_action_just_pressed("golpe"):
 		_mergulhar()

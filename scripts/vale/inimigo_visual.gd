@@ -1,231 +1,217 @@
 class_name InimigoVisual
 extends MechVisual
-## O corpo dos robôs inimigos do próprio projeto (2026-11-20), no lugar dos mechas de pacote: três famílias
-## de máquina comum (a Lata, o Guarda e o Barril) e três chefes (o Colosso, a Lâmina e o Artilheiro), feitos
-## por `tools/vale/inimigos.py`. Como o robô do jogador, não têm esqueleto nem animação gravada: o modelo
-## traz as juntas como nós e este código gira cada uma (parado, andando, correndo, atacando, desligado).
+## O corpo dos robôs inimigos (2026-11-20, segunda versão, ideia do usuário): o nosso robô jogável com outra
+## pintura, outros olhos e peças próprias (`tools/vale/robo_v2.py`, VARIANTE=<nome>), animado pelo mesmo
+## código do jogador (ArmaduraVisual): anda, corre, pula, pousa, esquiva, mira com o braço estendido, bate de
+## espada em arco e, desligado, cai de joelhos como o robô em pane. Não voa nem nada. Os primeiros robôs do
+## projeto (Lata, Guarda e Barril) se mexiam pouco e saíram.
 ##
-## As armas são as do jogador:
-##  - **tiro**: o cano fica na luva direita; para atirar o braço estende na direção do robô e o tiro sai da
-##    boca do cano (`ponto_tiro`), como o jogador mirando;
-##  - **corpo**: a lâmina de luz sai do pulso só durante o golpe e varre em arco de um lado ao outro, como a
-##    espada do jogador. Quem é alto inclina o arco para baixo, até a altura do robô (`alvo_mira`);
-##  - **costas**: casulos de mísseis nos ombros.
-## `forcar` ("corpo", "bala", "pesado" ou "missil") tira o sorteio da arma; `forcar_modelo` o do corpo.
+## Cinco comuns e três chefes, cada um com o seu jeito de lutar (`FICHAS`):
+##  - Sentinela: fuzil, um tiro certeiro;  Espadachim: lâmina de luz, rápido, pula para cima do robô;
+##  - Couraça: canhão, lento e aguenta mais;  Batedor: metralha, o mais rápido, esquiva muito;
+##  - Artilheiro: mísseis dos casulos das costas;
+##  - chefes: o Capataz (lâmina, pula e esquiva), o Canhoneiro (dois tiros de canhão) e o Guardião (atira de
+##    longe e, de perto, bate de lâmina).
+## A Mecha lê a ficha e acerta a IA (Vigia); este visual traduz o estado dela para o PoseInimigo.
+## `forcar` ("corpo", "bala", "pesado" ou "missil") escolhe pela arma; `forcar_modelo` escolhe o robô.
 
-const PASTA := "res://assets/vale/inimigos/%s.glb"
-const FAMILIAS := ["lata", "guarda", "barril"]
-const CHEFES := ["colosso", "lamina", "artilheiro"]
-const NOMES := {"lata": "Lata", "guarda": "Guarda", "barril": "Barril", "colosso": "Colosso", "lamina": "Lâmina", "artilheiro": "Artilheiro"}
-## As cores da chapa de cada família: [placa, placa clara], uma por sorteio.
-const PALETAS := {
-	"lata": [[Color(0.20, 0.25, 0.10), Color(0.36, 0.40, 0.20)], [Color(0.08, 0.20, 0.24), Color(0.22, 0.38, 0.40)], [Color(0.21, 0.21, 0.23), Color(0.42, 0.42, 0.42)]],
-	"guarda": [[Color(0.42, 0.12, 0.04), Color(0.60, 0.26, 0.08)], [Color(0.30, 0.06, 0.10), Color(0.50, 0.18, 0.20)], [Color(0.40, 0.26, 0.06), Color(0.60, 0.44, 0.16)]],
-	"barril": [[Color(0.62, 0.42, 0.04), Color(0.62, 0.58, 0.44)], [Color(0.10, 0.40, 0.34), Color(0.55, 0.60, 0.50)], [Color(0.70, 0.30, 0.05), Color(0.62, 0.58, 0.44)]],
+const PASTA := "res://assets/vale/robos_inimigos/%s.glb"
+const COMUNS := ["sentinela", "espadachim", "couraca", "batedor", "artilheiro"]
+const CHEFES := ["capataz", "canhoneiro", "guardiao"]
+const NOMES := {"sentinela": "Sentinela", "espadachim": "Espadachim", "couraca": "Couraça", "batedor": "Batedor",
+	"artilheiro": "Artilheiro", "capataz": "Capataz", "canhoneiro": "Canhoneiro", "guardiao": "Guardião"}
+## arma ("tiro", "corpo" ou "costas"), mão, costas, armaduras (0 a 2: aguenta mais tiros), porte (pesado anda
+## mais devagar), altura em metros, ágil (0 a 1: quanto pula e esquiva), misto (atira de longe e bate de perto),
+## a chance no sorteio dos comuns e a cor da lâmina e do aviso.
+const FICHAS := {
+	"sentinela": {"arma": "tiro", "mao": "fuzil", "costas": "", "armaduras": 1, "porte": 0.3, "altura": 1.55, "agil": 0.35, "chance": 0.26},
+	"espadachim": {"arma": "corpo", "mao": "lamina", "costas": "", "armaduras": 0, "porte": 0.1, "altura": 1.5, "agil": 1.0, "chance": 0.24},
+	"couraca": {"arma": "tiro", "mao": "canhao", "costas": "", "armaduras": 2, "porte": 0.6, "altura": 1.65, "agil": 0.1, "chance": 0.16},
+	"batedor": {"arma": "tiro", "mao": "metralha", "costas": "", "armaduras": 0, "porte": 0.0, "altura": 1.4, "agil": 1.0, "chance": 0.18},
+	"artilheiro": {"arma": "costas", "mao": "", "costas": "misseis", "armaduras": 1, "porte": 0.45, "altura": 1.6, "agil": 0.2, "chance": 0.16},
+	"capataz": {"arma": "corpo", "mao": "lamina", "costas": "", "armaduras": 2, "porte": 0.3, "altura": 2.8, "agil": 0.8},
+	"canhoneiro": {"arma": "tiro", "mao": "canhao", "costas": "", "armaduras": 2, "porte": 0.6, "altura": 3.0, "agil": 0.1},
+	"guardiao": {"arma": "corpo", "mao": "lamina", "costas": "", "armaduras": 2, "porte": 0.4, "altura": 2.9, "agil": 0.5, "misto": true},
 }
-const BASE := {"lata": "lata", "guarda": "guarda", "barril": "barril", "colosso": "lata", "lamina": "guarda", "artilheiro": "barril"}
-const LENTES := {"lata": Color(1.0, 0.55, 0.12), "guarda": Color(1.0, 0.14, 0.07), "barril": Color(0.4, 0.9, 1.0)}
-const FIXAS := {"escuro": Color(0.035, 0.04, 0.045), "grafite": Color(0.10, 0.11, 0.12), "aco": Color(0.32, 0.33, 0.34), "missil": Color(0.6, 0.08, 0.04)}
+const POR_ARMA := {"corpo": ["espadachim", "capataz"], "bala": ["sentinela", "guardiao"], "pesado": ["couraca", "canhoneiro"], "missil": ["artilheiro", "canhoneiro"]}
 const T_GOLPE := 0.42  # do começo do ataque até a lâmina passar na frente
 const T_TIRO := 0.3
 const T_MISSIL := 0.4
+const VARRE := 0.3  # quanto dura a varrida da lâmina (o meio dela é o T_GOLPE)
+const COR_LAMINA := Color(1.0, 0.35, 0.12)
 
 static var forcar := ""
 static var forcar_modelo := ""
-static var _cenas := {}
-static var _branco: ImageTexture
 
 var ficha := {}
-var modelo: Node3D
-var tipo := "lata"
-var j := {}  # nome da junta -> Node3D
-var cor_lente := Color(1.0, 0.2, 0.1)
-var tempo_ataque := 0.0  # segundos desde o começo do ataque (testes)
+var modelo: Node3D  # o modelo dentro do corpo (para quem mede peças, como a Fundição)
+var corpo: ArmaduraVisual
+var pose := PoseInimigo.new()
+var tipo := "sentinela"
+var escala := 1.0  # do corpo: altura do inimigo / altura do nosso robô
+var ataque := "tiro"  # o ataque da vez: "tiro", "corpo" ou "costas" (o Guardião troca conforme a distância)
+var cor_lente := Color(1.0, 0.4, 0.2)
+var tempo_ataque := 0.0  # segundos desde o começo do ataque (testes e vitrine)
 var lamina_acesa := false
+## Pulo e esquiva (a Mecha acerta): no ar, pousando e esquivando
+var no_ar := false
+var pousando := 0.0
+var esquivando := 0.0
 var _mats: Array[ShaderMaterial] = []
-var _mat_lente: StandardMaterial3D
-var _laminas: Array[MeshInstance3D] = []
-var _alvos := {}
-var _fase := 0.0
+var _mat_olhos: Array[StandardMaterial3D] = []
 var _vel := 1.0
 var _apagado := 0.0
-var _arriado := 0.0
-var _perna := 0.3  # comprimento da coxa, em metros do modelo (para o corpo descer quando dobra as pernas)
-var _raiz_base := 0.0
-var _esc := 1.0
+var _desbotado := 0.0
+var _pos_ant := Vector3.INF
+var _vel_mundo := Vector3.ZERO
+var _lado_golpe := 1.0
+var vel_vitrine := Vector3.INF  # vitrine: anda sem sair do lugar (velocidade no mundo)
 
 
-static func montar(semente: int, alt: float, ruido: Texture2D, chefe := false) -> InimigoVisual:
+static func montar(semente: int, _alt: float, ruido: Texture2D, chefe := false) -> InimigoVisual:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = semente * 9973 + 101
 	var v := InimigoVisual.new()
-	v.altura = alt
-	v.tipo = (CHEFES if chefe else FAMILIAS)[rng.randi_range(0, 2)]
-	if forcar_modelo != "":
-		v.tipo = forcar_modelo
-	if not _cenas.has(v.tipo):
-		_cenas[v.tipo] = load(PASTA % v.tipo)
-	v.modelo = (_cenas[v.tipo] as PackedScene).instantiate() as Node3D
-	var caixa := BaseVale._caixa(v.modelo)
-	v._esc = alt / maxf(0.01, caixa.size.y)
-	v.modelo.scale = Vector3.ONE * v._esc
-	v.modelo.rotation.y = PI  # o modelo olha para +Z; a frente das máquinas é -Z
-	v.add_child(v.modelo)
-	for nome: String in ["raiz", "tronco", "cabeca", "ombroE", "ombroD", "cotoveloE", "cotoveloD", "bocaE", "bocaD", "bocaM",
-			"quadrilE", "quadrilD", "joelhoE", "joelhoD", "quadrilE2", "quadrilD2", "joelhoE2", "joelhoD2"]:
-		var no := v.modelo.find_child(nome, true, false)
-		if no is Node3D:
-			v.j[nome] = no
-	v._raiz_base = (v.j["raiz"] as Node3D).position.y
-	v._perna = ((v.j["joelhoE"] as Node3D).position).length()
-	# a arma: os chefes têm a deles; os comuns sorteiam (ou vem pedida)
-	var arma := "tiro"
-	var mao := "fuzil"
-	var costas := ""
-	match v.tipo:
-		"colosso":
-			mao = "canhao"
-		"lamina":
-			arma = "corpo"
-			mao = "lamina"
-		"artilheiro":
-			arma = "costas"
-			costas = "misseis2"
-		_:
-			var sorte := rng.randf()
-			if forcar == "corpo" or (forcar == "" and sorte < 0.34):
-				arma = "corpo"
-				mao = "lamina"
-			elif forcar == "missil" or (forcar == "" and sorte < 0.56):
-				arma = "costas"
-				costas = "misseis"
-			else:
-				mao = ["fuzil", "metralha", "canhao"][rng.randi_range(0, 2)]
-				if forcar == "bala":
-					mao = "fuzil"
-				elif forcar == "pesado":
-					mao = "canhao"
-	var mostra := {"tiro": "arma_canhao", "corpo": "arma_lamina", "costas": "arma_misseis"}
-	for n in v.modelo.find_children("arma_*", "Node3D", true, false):
-		var nome_n := String(n.name)
-		# os chefes já saem do gerador só com as armas deles
-		(n as Node3D).visible = v.tipo in CHEFES or nome_n.begins_with(mostra[arma])
-	v.boca = v.j.get("bocaM") if arma == "costas" else v.j.get("bocaD")
-	var paleta := rng.randi_range(0, 2)
-	var cores: Array = PALETAS[BASE[v.tipo]][paleta]
-	v.cor_lente = LENTES[BASE[v.tipo]]
-	v.ficha = {"arma": arma, "mao": mao, "costas": costas, "armaduras": rng.randi_range(0, 2), "porte": {"lata": 0.6, "guarda": 0.25, "barril": 0.45}[BASE[v.tipo]],
-		"paleta": paleta, "modelo": v.tipo, "nome": NOMES[v.tipo]}
-	v._vestir(cores, ruido)
-	# a cabeça (para a luz do aviso) e as lâminas
+	var tipo_s := ""
+	if forcar_modelo != "" and FICHAS.has(forcar_modelo):
+		tipo_s = forcar_modelo
+	elif forcar != "" and POR_ARMA.has(forcar):
+		tipo_s = POR_ARMA[forcar][1 if chefe else 0]
+	elif chefe:
+		tipo_s = CHEFES[rng.randi_range(0, CHEFES.size() - 1)]
+	else:
+		var sorte := rng.randf()
+		tipo_s = COMUNS[COMUNS.size() - 1]
+		for nome: String in COMUNS:
+			sorte -= float(FICHAS[nome]["chance"])
+			if sorte <= 0.0:
+				tipo_s = nome
+				break
+	if forcar == "bala" and tipo_s == "sentinela" and rng.randf() < 0.4:
+		tipo_s = "batedor"
+	v.tipo = tipo_s
+	var f: Dictionary = FICHAS[tipo_s]
+	v.altura = float(f["altura"])
+	v.ficha = {"arma": f["arma"], "mao": f["mao"], "costas": f["costas"], "armaduras": f["armaduras"], "porte": f["porte"],
+		"agil": f["agil"], "misto": f.get("misto", false), "modelo": tipo_s, "nome": NOMES[tipo_s], "paleta": 0}
+	v.ataque = String(f["arma"])
+	v.corpo = ArmaduraVisual.new()
+	v.corpo.name = "Corpo"
+	v.corpo.caminho_modelo = PASTA % tipo_s
+	v.corpo.cor_lamina = COR_LAMINA
+	v.corpo.preparar()
+	v.corpo.yaw_forcado = 0.0  # quem vira para o robô é o Vigia; o corpo fica de frente para onde ele olha
+	v.add_child(v.corpo)
+	v.modelo = v.corpo.modelo
+	# do tamanho da ficha: o nosso robô tem 1,25 m; o comum fica um pouco maior que ele e o chefe, o dobro
+	var caixa := BaseVale._caixa(v.corpo.modelo)
+	v.escala = v.altura / maxf(0.01, caixa.size.y)
+	v.corpo.scale = Vector3.ONE * v.escala
+	v.corpo.escala_lamina = v.escala
+	v.pose.altura = caixa.size.y
+	v._vestir(ruido)
+	# o aviso de ataque: os olhos acendem e uma luz na cabeça
 	v.cabeca = null
 	v.luz = OmniLight3D.new()
 	v.luz.light_color = v.cor_lente
-	v.luz.omni_range = alt * 0.8
+	v.luz.omni_range = v.altura * 0.8
 	v.luz.omni_attenuation = 2.0
 	v.luz.light_energy = 0.0
 	v.luz.shadow_enabled = false
-	(v.j["cabeca"] as Node3D).add_child(v.luz)
-	v.luz.position = Vector3(0, 0.1, 0.3)
-	if arma == "corpo":
-		v._por_lamina("bocaD")
-		if v.tipo == "lamina":
-			v._por_lamina("bocaE")
+	if v.corpo.j.get("cabeca") is Node3D:
+		(v.corpo.j["cabeca"] as Node3D).add_child(v.luz)
+		v.luz.position = Vector3(0, 0.15, -0.25)
+	else:
+		v.add_child(v.luz)
+	v.boca = v.corpo.boca_da_arma(false)
+	if v.ataque == "costas":
+		v.boca = v.corpo.j.get("podD") if v.corpo.j.get("podD") is Node3D else v.corpo.j.get("tronco")
 	v.tocar("Idle")
 	return v
 
 
-func _vestir(cores: Array, ruido: Texture2D) -> void:
-	if _branco == null:
-		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
-		img.fill(Color.WHITE)
-		_branco = ImageTexture.create_from_image(img)
-	var por_nome := {}
-	var feito := func(cor: Color) -> ShaderMaterial:
-		var m := ShaderMaterial.new()
-		m.shader = load("res://scripts/shaders/vale_tex_opaco.gdshader")
-		m.set_shader_parameter("tex", _branco)
-		m.set_shader_parameter("tinta", cor)
-		m.set_shader_parameter("corte", 0.0)
-		m.set_shader_parameter("vento", 0.0)
-		m.set_shader_parameter("borda", 0.22)
-		m.set_shader_parameter("ruido", ruido)
-		_mats.append(m)
-		return m
-	por_nome["placa"] = feito.call(cores[0])
-	por_nome["placa_clara"] = feito.call(cores[1])
-	for nome: String in FIXAS:
-		por_nome[nome] = feito.call(FIXAS[nome])
-	mat = por_nome["placa"]
-	_mat_lente = StandardMaterial3D.new()
-	_mat_lente.albedo_color = cor_lente
-	_mat_lente.emission_enabled = true
-	_mat_lente.emission = cor_lente
-	_mat_lente.emission_energy_multiplier = 1.6
-	var mat_boca := StandardMaterial3D.new()
-	mat_boca.albedo_color = Color(0.5, 0.25, 0.08)
-	mat_boca.emission_enabled = true
-	mat_boca.emission = Color(1.0, 0.5, 0.15)
-	mat_boca.emission_energy_multiplier = 0.9
-	for mi: MeshInstance3D in modelo.find_children("*", "MeshInstance3D", true, false):
+## As chapas ganham o material das máquinas do vale (pisca ao levar tiro, escurece desligada, desbota velha),
+## na cor que o modelo trouxe. Os olhos ficam acesos na cor deles e acendem mais no aviso.
+func _vestir(ruido: Texture2D) -> void:
+	var feitos := {}
+	for mi: MeshInstance3D in corpo.modelo.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var m0 := mi.mesh.surface_get_material(s)
 			var nome := String(m0.resource_name) if m0 else ""
-			if nome == "lente":
-				mi.set_surface_override_material(s, _mat_lente)
-			elif nome == "boca":
-				mi.set_surface_override_material(s, mat_boca)
-			else:
-				mi.set_surface_override_material(s, por_nome.get(nome, por_nome["grafite"]))
+			if nome in ["calor", "chama", "lamina"]:
+				continue
+			var cor := (m0 as StandardMaterial3D).albedo_color if m0 is StandardMaterial3D else Color(0.3, 0.3, 0.3)
+			if nome == "olhos":
+				# a cor dos olhos vem na emissão (a cor base é quase preta)
+				if m0 is StandardMaterial3D and (m0 as StandardMaterial3D).emission_enabled:
+					cor = (m0 as StandardMaterial3D).emission
+				var mo := StandardMaterial3D.new()
+				mo.albedo_color = cor
+				mo.emission_enabled = true
+				mo.emission = cor
+				mo.emission_energy_multiplier = 1.6
+				mo.set_meta("cor", cor)
+				_mat_olhos.append(mo)
+				mi.set_surface_override_material(s, mo)
+				cor_lente = cor
+				continue
+			var chave := cor.to_html()
+			if not feitos.has(chave):
+				var m := ShaderMaterial.new()
+				m.shader = load("res://scripts/shaders/vale_tex_opaco.gdshader")
+				m.set_shader_parameter("tex", _branco())
+				m.set_shader_parameter("tinta", cor)
+				m.set_shader_parameter("corte", 0.0)
+				m.set_shader_parameter("vento", 0.0)
+				m.set_shader_parameter("borda", 0.2)
+				m.set_shader_parameter("ruido", ruido)
+				_mats.append(m)
+				feitos[chave] = m
+			mi.set_surface_override_material(s, feitos[chave])
+	if not _mats.is_empty():
+		mat = _mats[0]
 
 
-## A lâmina de luz, no eixo do braço, a partir da boca do emissor. Só aparece durante o golpe.
-func _por_lamina(junta: String) -> void:
-	var no := j.get(junta) as Node3D
-	if no == null:
-		return
-	var comp := 0.5 * altura
-	var cm := CapsuleMesh.new()
-	cm.radius = 0.018 * altura
-	cm.height = comp
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = Color(1.0, 0.85, 0.6)
-	m.emission_enabled = true
-	m.emission = Color(1.0, 0.4, 0.1)
-	m.emission_energy_multiplier = 4.0
-	var mi := MeshInstance3D.new()
-	mi.name = "LaminaDeLuz"
-	mi.mesh = cm
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.transform = Transform3D(Basis.from_scale(Vector3.ONE / _esc), Vector3(0, -comp * 0.5 / _esc, 0))
-	mi.visible = false
-	no.add_child(mi)
-	_laminas.append(mi)
+static var _tex_branca: ImageTexture
+
+
+static func _branco() -> ImageTexture:
+	if _tex_branca == null:
+		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		_tex_branca = ImageTexture.create_from_image(img)
+	return _tex_branca
 
 
 func tempo_do_tiro() -> float:
-	return {"corpo": T_GOLPE, "costas": T_MISSIL}.get(ficha.get("arma", "tiro"), T_TIRO)
+	return {"corpo": T_GOLPE, "costas": T_MISSIL}.get(ataque, T_TIRO)
 
 
 func tocar(nome: String, vel := 1.0, _mistura := 0.2) -> void:
 	if atual != nome:
 		if nome == "Shoot":
 			tempo_ataque = 0.0
+			_lado_golpe = -_lado_golpe
 		atual = nome
 	_vel = vel
 
 
+func ponto_tiro() -> Vector3:
+	if boca and is_instance_valid(boca):
+		return boca.global_position + (Vector3(0, 0.25 * altura, 0) if ataque == "costas" else Vector3.ZERO)
+	return ponto_cabeca()
+
+
 func ponto_cabeca() -> Vector3:
-	return (j["cabeca"] as Node3D).global_position + Vector3(0, altura * 0.08, 0) if j.has("cabeca") else global_position + Vector3(0, altura * 0.85, 0)
+	var c = corpo.j.get("cabeca") if corpo else null
+	return (c as Node3D).global_position + Vector3(0, altura * 0.06, 0) if c is Node3D else global_position + Vector3(0, altura * 0.85, 0)
 
 
 func olho(energia: float) -> void:
 	if luz:
 		luz.light_energy = energia
-	if _mat_lente:
-		_mat_lente.emission_energy_multiplier = lerpf(1.6, 0.03, _apagado) + energia * 5.0
+	for m in _mat_olhos:
+		m.emission_energy_multiplier = lerpf(1.6, 0.03, _apagado) + energia * 4.0
 
 
 func clarao(v: float) -> void:
@@ -237,118 +223,92 @@ func apagar(v: float) -> void:
 	_apagado = v
 	for m in _mats:
 		m.set_shader_parameter("apagado", v)
-	if _mat_lente:
-		_mat_lente.emission_energy_multiplier = lerpf(1.6, 0.03, v)
+	for m in _mat_olhos:
+		m.emission_energy_multiplier = lerpf(1.6, 0.03, v)
 
 
 ## Tira a cor e puxa para a ferrugem (os robôs velhos caídos na Fundição).
 func desbotar(v: float) -> void:
+	_desbotado = v
 	for m in _mats:
 		m.set_shader_parameter("desbotado", v)
 
 
-func _alvo(nome: String, x: float, y := 0.0, z := 0.0) -> void:
-	_alvos[nome] = Vector3(deg_to_rad(x), deg_to_rad(y), deg_to_rad(z))
-
-
-func _pernas(nome: String, esq: float, dir: float) -> void:
-	_alvo(nome + "E", esq)
-	_alvo(nome + "D", dir)
-	if j.has(nome + "E2"):  # o Artilheiro: as de trás andam trocadas com as da frente
-		_alvo(nome + "E2", dir)
-		_alvo(nome + "D2", esq)
-
-
-## Quantos graus o braço desce abaixo da horizontal para apontar o alvo (negativo: aponta para cima).
-func _descida(junta: String) -> float:
-	if not alvo_mira.is_finite() or not j.has(junta):
+## Graus de inclinação de `de` até o alvo (positivo: o alvo está acima).
+func _inclinacao(de: Vector3) -> float:
+	if not alvo_mira.is_finite():
 		return 0.0
-	var de := (j[junta] as Node3D).global_position
 	var d := alvo_mira - de
-	return clampf(rad_to_deg(atan2(-d.y, maxf(0.4, Vector2(d.x, d.z).length()))), -55.0, 58.0)
+	return rad_to_deg(atan2(d.y, maxf(0.4, Vector2(d.x, d.z).length())))
 
 
 func _process(delta: float) -> void:
-	if modelo == null:
+	if corpo == null or corpo.modelo == null:
 		return
-	_alvos.clear()
-	var t := float(Time.get_ticks_msec()) * 0.001
-	var dobra := 0.0  # graus de dobra das pernas (o corpo desce junto)
+	# a velocidade de verdade (anda, recua, esquiva, pula), no espaço do modelo
+	var p := global_position
+	if _pos_ant.is_finite() and delta > 0.0 and delta < 1.0:
+		var v := (p - _pos_ant) / delta
+		_vel_mundo = _vel_mundo.lerp(v, 1.0 - exp(-12.0 * delta))
+	_pos_ant = p
+	if vel_vitrine.is_finite():
+		_vel_mundo = vel_vitrine
+	var frente := -global_basis.z
+	frente.y = 0.0
+	frente = frente.normalized() if frente.length() > 0.01 else Vector3.FORWARD
+	var hv := Vector2(_vel_mundo.x, _vel_mundo.z).length()
+	if atual == "Death":
+		hv = 0.0
+	var de_costas := Vector3(_vel_mundo.x, 0, _vel_mundo.z).dot(frente) < -0.3
+	pose.velocity = Vector3(0, 0, -hv / escala)
+	corpo.re_forcado = de_costas
+	pose.em_pane = atual == "Death"
+	pose.estado = Armadura.Estado.AR if no_ar else (Armadura.Estado.POUSO if pousando > 0.0 else Armadura.Estado.CHAO)
+	pose.pouso_forca = 0.3
+	pose.esquivando = esquivando
+	pose.atirando = 0.0
+	pose.espada_t = 0.0
+	pose.calor = 0.0
+	corpo.sobrepor.clear()
+	corpo.espada_desce = 0.0
 	var lamina := false
-	var macio := 10.0
-	match atual:
-		"Walk", "Run":
-			var corre := atual == "Run"
-			_fase += delta * (9.5 if corre else 6.0) * _vel
-			var amp := 34.0 if corre else 22.0
-			var s := sin(_fase)
-			var c := cos(_fase)
-			_pernas("quadril", -amp * s, amp * s)
-			_pernas("joelho", amp * 1.1 * maxf(0.0, c), amp * 1.1 * maxf(0.0, -c))
-			_alvo("ombroE", -amp * 0.7 * s, 0.0, 5.0)
-			_alvo("ombroD", amp * 0.7 * s, 0.0, -5.0)
-			_alvo("cotoveloE", -12.0)
-			_alvo("cotoveloD", -12.0)
-			_alvo("tronco", 6.0 if corre else 2.0, 0.0, 2.0 * s)
-			dobra = 6.0 + 4.0 * absf(c)
-			macio = 22.0
-		"Shoot":
-			tempo_ataque += delta
-			macio = 22.0
-			match String(ficha.get("arma", "tiro")):
-				"corpo":
-					# o golpe do jogador: o braço varre de um lado ao outro na altura do peito; daqui ele
-					# desce o que for preciso para a lâmina passar na altura do robô
-					var desce := maxf(0.0, _descida("ombroD"))
-					var giro := lerpf(-85.0, 85.0, smoothstep(0.2, 0.62, tempo_ataque))
-					_alvo("ombroD", -86.0 + desce, -giro, -6.0)
-					_alvo("cotoveloD", -6.0)
-					if j.has("bocaE") and tipo == "lamina":
-						_alvo("ombroE", -86.0 + desce, giro, 6.0)
-						_alvo("cotoveloE", -6.0)
-					_alvo("tronco", desce * 0.25, -giro * 0.3, 0.0)
-					dobra = 8.0 + desce * 0.25
-					lamina = tempo_ataque > 0.06 and tempo_ataque < 0.85
-				"costas":
-					_alvo("tronco", 9.0)
-					_alvo("ombroE", 10.0, 0.0, 16.0)
-					_alvo("ombroD", 10.0, 0.0, -16.0)
-					dobra = 12.0
-				_:
-					# braço estendido para o robô: o tiro sai da boca do cano
-					var desce := _descida("ombroD")
-					_alvo("ombroD", -90.0 + desce, 0.0, -3.0)
-					_alvo("cotoveloD", -3.0)
-					_alvo("cabeca", clampf(desce * 0.4, -20.0, 20.0))
-					_alvo("tronco", 0.0, -6.0, 0.0)
-					if tipo == "colosso":
-						_alvo("ombroE", -90.0 + desce, 0.0, 3.0)
-						_alvo("cotoveloE", -3.0)
-		"Death":
-			# desligou: arria nas pernas, o tronco e a cabeça caem para a frente e os braços pendem
-			dobra = 46.0
-			_alvo("tronco", 34.0)
-			_alvo("cabeca", 30.0)
-			_alvo("ombroE", 14.0, 0.0, 4.0)
-			_alvo("ombroD", 14.0, 0.0, -4.0)
-			macio = 4.0
-		_:
-			_alvo("tronco", 1.5 * sin(t * 1.6))
-			_alvo("cabeca", 0.0, 10.0 * sin(t * 0.5))
-			_alvo("ombroE", 2.0 * sin(t * 1.6), 0.0, 4.0)
-			_alvo("ombroD", 2.0 * sin(t * 1.6 + 0.5), 0.0, -4.0)
-	if dobra > 0.0 and atual != "Walk" and atual != "Run":
-		_pernas("quadril", -dobra, -dobra)
-		_pernas("joelho", dobra * 2.0, dobra * 2.0)
-	var k := 1.0 - exp(-macio * delta)
-	for nome: String in j:
-		if nome.begins_with("boca"):
-			continue
-		var no := j[nome] as Node3D
-		no.rotation = no.rotation.lerp(_alvos.get(nome, Vector3.ZERO), k)
-	# dobrando as pernas, o corpo desce para os pés ficarem no chão
-	_arriado = lerpf(_arriado, 2.0 * _perna * (1.0 - cos(deg_to_rad(dobra))), k)
-	(j["raiz"] as Node3D).position.y = _raiz_base - _arriado
+	if atual == "Shoot" and not pose.em_pane:
+		tempo_ataque += delta
+		match ataque:
+			"corpo":
+				# o golpe do jogador: arma a lâmina de lado e varre de um lado ao outro; o meio da varrida é o
+				# instante do acerto. Quem é alto desce o braço até a lâmina passar na altura do robô
+				var ombro = corpo.j.get("ombroD")
+				if ombro is Node3D:
+					corpo.espada_desce = clampf(-_inclinacao((ombro as Node3D).global_position), 0.0, 60.0)
+				var comeco := T_GOLPE - VARRE * 0.5
+				var tempo_e := float(Arsenal.ESPADA["tempo"])
+				if tempo_ataque > 0.06 and tempo_ataque < comeco + VARRE + 0.12:
+					var f := clampf((tempo_ataque - comeco) / VARRE, 0.0, 1.0)
+					pose.espada_t = maxf(0.001, tempo_e * (1.0 - f))
+					pose.espada_lado = _lado_golpe
+					lamina = true
+			"costas":
+				# os mísseis saem dos casulos das costas: o corpo se apruma, abre os braços e firma as pernas
+				corpo.sobrepor["tronco"] = Vector3(-8.0, 0, 0)
+				corpo.sobrepor["ombroE"] = Vector3(8.0, 0, 22.0)
+				corpo.sobrepor["ombroD"] = Vector3(8.0, 0, -22.0)
+				corpo.sobrepor["cotoveloE"] = Vector3(-30.0, 0, 0)
+				corpo.sobrepor["cotoveloD"] = Vector3(-30.0, 0, 0)
+			_:
+				# o braço estende para o robô e o tiro sai da boca do cano, como o jogador mirando
+				pose.atirando = 0.6
+				var ombro2 = corpo.j.get("ombroD")
+				pose.camera.pitch = deg_to_rad(_inclinacao((ombro2 as Node3D).global_position if ombro2 is Node3D else ponto_cabeca()))
+				if tipo == "canhoneiro":
+					pose.atirando_e = 0.6  # dois canhões: os dois braços
+	if atual != "Shoot":
+		pose.atirando_e = 0.0
 	lamina_acesa = lamina
-	for l in _laminas:
-		l.visible = lamina
+	pose.camera.yaw = 0.0
+	corpo.atualizar(minf(delta, 1.0) if delta < 5.0 else 1.0, pose)
+	if delta >= 5.0:
+		# pose de uma vez (a Fundição põe os velhos já caídos): várias passadas para as juntas chegarem
+		for i in 30:
+			corpo.atualizar(0.2, pose)
+	pousando = maxf(0.0, pousando - delta)

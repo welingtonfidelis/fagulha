@@ -21,7 +21,7 @@ func _ready() -> void:
 	_criar_vagalumes()
 	_lanterna = OmniLight3D.new()
 	_lanterna.light_color = Color(1.0, 0.72, 0.45)
-	_lanterna.omni_range = 2.4
+	_lanterna.omni_range = 3.4
 	_lanterna.omni_attenuation = 1.6
 	_lanterna.light_energy = 0.0
 	_lanterna.shadow_enabled = false
@@ -51,11 +51,13 @@ func _process(_delta: float) -> void:
 		var chao := armadura.ilha.altura(p.x, p.z) if armadura.ilha else p.y
 		_vagalumes.global_position = Vector3(p.x, chao + 1.1, p.z)
 		# o brilho dos leds do robô: fraco, só um halo em volta dele (iluminar o caminho é da luz do peito,
-		# que é melhoria). Fica um palmo à frente do peito e segue a posição suavizada: presa à posição da
-		# física, dentro do corpo, ela tremia no voo e piscava por baixo da cabeça (visto pelo usuário)
+		# que é melhoria). Segue a posição suavizada: presa à posição da física, dentro do corpo, ela tremia no
+		# voo e piscava por baixo da cabeça (visto pelo usuário). Fica acima da cabeça e um pouco à frente: um
+		# palmo à frente do peito, como era, ela estourava o peito de branco à noite, como se a luz do peito
+		# estivesse ligada (visto pelo usuário em 2026-11-20)
 		var frente := -armadura.visual.global_basis.z.normalized() if armadura.visual else Vector3.ZERO
-		_lanterna.global_position = armadura.pos_suave() + Vector3(0, 0.6, 0) + frente * 0.32
-	_lanterna.light_energy = n * 0.22
+		_lanterna.global_position = armadura.pos_suave() + Vector3(0, 1.7, 0) + frente * 0.6
+	_lanterna.light_energy = n * 0.16
 	ArmaduraVisual.noite = n
 
 

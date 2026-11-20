@@ -10,11 +10,25 @@ extends RefCounted
 
 const PASTA := "res://assets/vale/base/"
 const R_CIL := 2.3  # raio de fora do cilindro
-const C_CIL := Vector3(-8.6, R_CIL + 0.18, 1.6)  # centro do cilindro (o eixo é o X do lugar, a boca olha +X)
+# centro do cilindro (o eixo é o X do lugar, a boca olha +X). Em 2026-11-20 saiu de dentro da base (pedido do
+# usuário): fica à esquerda, para fora da laje, num pedaço de laje próprio e debaixo do telheiro, que cresceu
+# para esse lado; desceu quase ao chão para caber debaixo dos caibros.
+const C_CIL := Vector3(-12.2, R_CIL + 0.04, 2.6)
 const MEIO_CIL := 3.2  # metade do comprimento
 const ESCALA_FAISCA := 0.66  # perto de 1 m de pé: o usuário pediu mais uns 15 a 20% menor que o robô do jogador
 
 static var t_base := Transform3D()  # do lugar da base para o mundo (os cilindros dos robôs usam)
+
+
+## Chão limpo em volta do cilindro de melhorias, onde o capim da clareira não nasce: 1 colado nele, 0 a partir
+## de uns 3 m, rareando no meio. Calcula pelo lugar da base (`Ruinas.BASE`), então serve antes de a base existir.
+static func limpo_cilindro(x: float, z: float) -> float:
+	var t := Transform3D(Basis(Vector3.UP, Ruinas.BASE.z), Vector3(Ruinas.BASE.x, 0.0, Ruinas.BASE.y))
+	var l := t.affine_inverse() * Vector3(x, 0.0, z)
+	var d := maxf(absf(l.x - C_CIL.x) - (MEIO_CIL + 1.4), absf(l.z - C_CIL.z) - (R_CIL + 1.2))
+	return 1.0 - smoothstep(0.0, 1.6, d)
+
+
 static var posto_drone := Vector3.INF  # no mundo: onde o drone fica parado
 static var cilindro_t := Transform3D()  # no mundo: o centro do cilindro, com o X apontando para a boca
 static var boca_cilindro := Vector3.INF  # no mundo: o meio da boca do cilindro
@@ -80,15 +94,15 @@ static func montar(o: Ruinas.Obra) -> void:
 	_peca(o, "Prop_Barrel_Large", Vector3(10.6, cy, 0.4), 0.4, 1.2, 0.8, 0.5)
 	_peca(o, "Prop_Shelves_WideTall", Vector3(-5.7, cy, 5.75), 0.0, 1.0, 0.6, 0.3)
 	_peca(o, "Prop_SatelliteDish", Vector3(10.4, o.chao(10.4, 7.6), 7.6), 2.4, 1.2, 0.5, 0.45)
-	_peca(o, "Prop_Crate_Tarp_Large", Vector3(-12.6, o.chao(-12.6, -2.8), -2.8), 1.3, 1.0, 0.3, 0.6)
+	_peca(o, "Prop_Crate_Tarp_Large", Vector3(-18.4, o.chao(-18.4, -2.2), -2.2), 1.3, 1.0, 0.3, 0.6)
 	# entulho e mato tomando as beiras
-	o.entulho(Vector2(-11.0, 6.5), Vector2(2.0, 1.6), 6, 0.4, 1.0)
+	o.entulho(Vector2(-14.6, 7.4), Vector2(2.2, 0.8), 6, 0.4, 1.0)
 	o.entulho(Vector2(10.8, -3.8), Vector2(1.8, 1.4), 5, 0.4, 0.9)
 	o.entulho(Vector2(-4.0, -5.6), Vector2(2.2, 0.8), 4, 0.3, 0.7)
-	for p: Vector3 in [Vector3(-10.6, 0, 5.6), Vector3(9.4, 0, 6.2), Vector3(11.2, 0, 2.0), Vector3(-11.6, 0, -4.4), Vector3(6.4, 0, -5.6), Vector3(-6.2, 0, 7.6)]:
+	for p: Vector3 in [Vector3(-17.8, 0, 6.2), Vector3(9.4, 0, 6.2), Vector3(11.2, 0, 2.0), Vector3(-11.6, 0, -4.4), Vector3(6.4, 0, -5.6), Vector3(-6.2, 0, 7.6)]:
 		o.arbusto(Vector3(p.x, o.chao(p.x, p.z), p.z), 1.0 + 0.5 * absf(sin(p.x)))
 	for p2: Array in [["q_samambaia", Vector3(6.6, 0, 5.8), 1.5], 
-			["q_samambaia", Vector3(-10.4, 0, -0.9), 1.4], 
+			["q_samambaia", Vector3(-17.4, 0, -1.6), 1.4],
 			["q_planta_b", Vector3(-4.9, 0, -3.8), 1.2], ["q_moita", Vector3(9.9, 0, -1.6), 1.0], 
 			["q_planta_d", Vector3(7.9, 0, 6.0), 1.2], ["q_samambaia", Vector3(-7.6, 0, -2.6), 1.2]]:
 		_planta(o, p2[0], p2[1], p2[2])
@@ -295,6 +309,8 @@ static func _tubo(st: SurfaceTool, x0: float, x1: float, r0: float, r1: float, p
 static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	var c := C_CIL + Vector3(0, cy, 0)
 	var ri := R_CIL - 0.2
+	# o pedaço de laje onde ele assenta, fora da laje do hangar
+	o.bloco(Vector3(c.x - 0.7, cy - 0.6, c.z + 0.7), Vector3(8.8, 1.2, 7.6), Basis.IDENTITY, "ruina")
 	var casca := SurfaceTool.new()
 	casca.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_tubo(casca, -MEIO_CIL, MEIO_CIL, R_CIL, R_CIL, true)
@@ -336,10 +352,10 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	mp.name = "PortaDoCilindro"
 	mp.mesh = porta.commit()
 	mp.mesh.surface_set_material(0, _mat_cor(Color(0.22, 0.22, 0.19), 0.9, 0.4, tex))
-	# a porta foi tirada das dobradiças e encostada na parede, atrás do cilindro (aberta, ela tomava o
-	# meio da base, onde hoje é o cantinho de descanso)
-	var giro := Basis(Vector3.RIGHT, 0.1) * Basis(Vector3.UP, PI * 0.5)
-	var centro_porta := Vector3(c.x - 0.6, cy + R_CIL + 0.12, 5.55)
+	# a porta foi tirada das dobradiças e encostada na tampa do fundo do cilindro, por fora (aberta, ela
+	# tomava o meio da base)
+	var giro := Basis(Vector3.BACK, -0.2) * Basis(Vector3.UP, PI)  # o lado do aro para fora, o topo apoiado na tampa
+	var centro_porta := Vector3(c.x - MEIO_CIL - 0.62, cy + (R_CIL + 0.1) * cos(0.2) + 0.04, c.z)
 	mp.transform = o.t * Transform3D(giro, centro_porta)
 	o.v.add_child(mp)
 	# os raios da porta
@@ -377,9 +393,9 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 		o.bloco(c + Vector3(1.1, 0.55, lado * 0.62), Vector3(0.16, 0.95, 0.16), Basis.from_euler(Vector3(lado * 0.5, 0, -0.3)), "ferrugem", false)
 		o.bloco(c + Vector3(1.25, 0.08, lado * 0.42), Vector3(0.3, 0.12, 0.34), Basis.from_euler(Vector3(0, lado * 0.4, 0)), "junta", false)
 	_peca(o, "Prop_Computer", c + Vector3(-2.6, -ri + 0.5, -0.5), PI * 0.5, 1.0, 0.2, 0.0, false)
-	_peca(o, "Prop_AccessPoint", c + Vector3(MEIO_CIL + 1.0, -c.y + cy, -R_CIL - 0.3), -0.7, 1.4, 0.4, 0.3)
-	_peca(o, "Prop_Cable_3", Vector3(c.x + MEIO_CIL + 0.4, cy + 0.04, 0.3), PI * 0.5 + 0.25, 1.0, 0.2, 0.3, false)
-	_peca(o, "Prop_Cable_1", Vector3(c.x + MEIO_CIL + 1.2, cy + 0.04, 2.6), 0.9, 1.3, 0.2, 0.3, false)
+	_peca(o, "Prop_AccessPoint", c + Vector3(MEIO_CIL + 1.7, -c.y + cy, -R_CIL - 0.5), -0.7, 1.4, 0.4, 0.3)
+	_peca(o, "Prop_Cable_3", Vector3(c.x + MEIO_CIL + 0.9, cy + 0.04, c.z - 1.3), PI * 0.5 + 0.25, 1.0, 0.2, 0.3, false)
+	_peca(o, "Prop_Cable_1", Vector3(c.x + MEIO_CIL + 1.7, cy + 0.04, c.z + 1.0), 0.9, 1.3, 0.2, 0.3, false)
 	var luz := OmniLight3D.new()
 	luz.light_color = Color(0.4, 0.95, 0.8)
 	luz.light_energy = 1.1

@@ -1,15 +1,20 @@
 extends SceneTree
-## Fotos dos robôs inimigos do projeto (InimigoVisual) num estúdio liso, em cada pose.
+## Fotos dos robôs inimigos (InimigoVisual) num estúdio liso, em cada pose: os cinco comuns numa fila e os três
+## chefes noutra, com o nosso robô ao lado para comparar o tamanho.
 ## godot --path . -s tools/vitrine_inimigos.gd      (as fotos vão para tools/capturas/inimigos/)
 
 var cam: Camera3D
 var comuns: Array[InimigoVisual] = []
 var chefes: Array[InimigoVisual] = []
+const DE_C := Vector3(-0.9, 1.35, -10.0)
+const EM_C := Vector3(-0.9, 0.8, 0.0)
+const DE_CH := Vector3(11.9, 2.4, -14.0)
+const EM_CH := Vector3(11.9, 1.45, 0.0)
 
 
 func _initialize() -> void:
-	root.size = Vector2i(1280, 720)
-	DisplayServer.window_set_size(Vector2i(1280, 720))
+	root.size = Vector2i(1600, 720)
+	DisplayServer.window_set_size(Vector2i(1600, 720))
 	var amb := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
@@ -17,6 +22,7 @@ func _initialize() -> void:
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.8, 0.84, 0.88)
 	e.ambient_light_energy = 0.7
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	amb.environment = e
 	root.add_child(amb)
 	var sol := DirectionalLight3D.new()
@@ -39,25 +45,29 @@ func _initialize() -> void:
 	_rodar()
 
 
-func _por(tipo: String, arma: String, onde: Vector3, alt: float, chefe: bool) -> InimigoVisual:
-	InimigoVisual.forcar = arma
+func _por(tipo: String, onde: Vector3, chefe: bool) -> InimigoVisual:
 	InimigoVisual.forcar_modelo = tipo
-	var v := InimigoVisual.montar(comuns.size() * 5 + chefes.size() * 3 + 2, alt, null, chefe)
-	InimigoVisual.forcar = ""
+	var v := InimigoVisual.montar(comuns.size() * 5 + chefes.size() * 3 + 2, 1.6, null, chefe)
 	InimigoVisual.forcar_modelo = ""
 	root.add_child(v)
 	v.position = onde
+	v.alvo_mira = onde + Vector3(0, 0.75, -2.6)
 	return v
 
 
+## O nosso robô, de frente para a câmera, para comparar o tamanho.
 func _jogador(onde: Vector3) -> void:
-	var cena: PackedScene = load("res://assets/vale/robo_v2.glb")
-	var r := cena.instantiate() as Node3D
+	var r := ArmaduraVisual.new()
 	root.add_child(r)
-	var cx := BaseVale._caixa(r)
-	r.scale = Vector3.ONE * 1.2 / cx.size.y
+	r.preparar()
+	r.scale = Vector3.ONE * 1.25 / maxf(0.01, BaseVale._caixa(r.modelo).size.y)
 	r.position = onde
-	# o modelo olha para +Z: assim ele fica de frente para os inimigos
+	r.yaw_forcado = 0.0
+	var pose := PoseInimigo.new()
+	pose.altura = BaseVale._caixa(r.modelo).size.y
+	r.set_meta("pose", pose)
+	for i in 30:
+		r.atualizar(0.2, pose)
 
 
 func _esp(n: int) -> void:
@@ -69,69 +79,120 @@ func _foto(nome: String, de: Vector3, alvo: Vector3) -> void:
 	cam.position = de
 	cam.look_at(alvo)
 	await process_frame
+	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://tools/capturas/inimigos/%s.png" % nome)
+	root.get_texture().get_image().save_png("res://tools/capturas/inimigos/v2_%s.png" % nome)
+
+
+## As duas filas, com o tempo parado (o meio de uma animação).
+func _fotos(nome: String) -> void:
+	Engine.time_scale = 0.0
+	await _foto(nome + "_comuns", DE_C, EM_C)
+	await _foto(nome + "_chefes", DE_CH, EM_CH)
+	Engine.time_scale = 1.0
+
+
+## Cada robô de perto, de três quartos pelo lado do braço da arma (o direito), com o tempo parado.
+func _de_perto(nome: String, de_lado := false) -> void:
+	Engine.time_scale = 0.0
+	for v in _todos():
+		var h := v.altura
+		var de := v.position + (Vector3(h * 0.7, h * 0.95, -h * 1.5) if de_lado else Vector3(h * 1.1, h * 0.7, -h * 1.9))
+		await _foto("%s_%s" % [nome, v.tipo], de, v.position + Vector3(0, h * (0.2 if de_lado else 0.5), -h * 0.25))
+	Engine.time_scale = 1.0
 
 
 func _todos() -> Array[InimigoVisual]:
 	return comuns + chefes
 
 
+func _vel(v: Vector3) -> void:
+	for i in _todos():
+		i.vel_vitrine = v * (1.6 if i in chefes else 1.0)
+
+
 func _rodar() -> void:
+	await process_frame
+	Armadura.porte = 0.48  # como no vale
 	DirAccess.make_dir_recursive_absolute("res://tools/capturas/inimigos")
-	var alts := {"lata": 1.8, "guarda": 1.9, "barril": 1.6}
-	var fam := 0
-	for tipo: String in InimigoVisual.FAMILIAS:
-		var k := 0
-		for arma: String in ["bala", "corpo", "missil"]:
-			comuns.append(_por(tipo, arma, Vector3((fam * 3 + k) * 1.7 - 6.8 + fam * 0.6, 0, 0), alts[tipo], false))
-			k += 1
-		fam += 1
-	for i in 3:
-		chefes.append(_por(InimigoVisual.CHEFES[i], "", Vector3(i * 4.2 + 24.0, 0, 0), 3.0, true))
-	for v in comuns:
-		_jogador(v.position + Vector3(0, 0, -2.0))
-		v.alvo_mira = v.position + Vector3(0, 0.6, -2.0)
-	for v in chefes:
-		_jogador(v.position + Vector3(0, 0, -2.6))
-		v.alvo_mira = v.position + Vector3(0, 0.6, -2.6)
-	var de_c := Vector3(-2.0, 2.0, -9.5)
-	var em_c := Vector3(-5.1, 0.85, 0.0)
-	var de_c2 := Vector3(3.0, 2.0, -11.5)
-	var em_c2 := Vector3(3.4, 0.85, 0.0)
-	var de_ch := Vector3(25.0, 3.6, -15.5)
-	var em_ch := Vector3(28.2, 1.5, 0.0)
-	await _esp(30)
-	await _foto("1_comuns_parados_1", de_c, em_c)
-	await _foto("1_comuns_parados_2", de_c2, em_c2)
-	await _foto("1_chefes_parados", de_ch, em_ch)
+	var k := 0
+	for tipo: String in InimigoVisual.COMUNS:
+		comuns.append(_por(tipo, Vector3(k * 1.9 - 3.8, 0, 0), false))
+		k += 1
+	k = 0
+	for tipo: String in InimigoVisual.CHEFES:
+		chefes.append(_por(tipo, Vector3(k * 4.2 + 9.0, 0, 0), true))
+		k += 1
+	_jogador(Vector3(-5.9, 0, 0))
+	_jogador(Vector3(6.4, 0, 0))
+	_vel(Vector3.ZERO)
+	await _esp(40)
+	await _fotos("1_parados")
+	_vel(Vector3(0, 0, -1.6))
+	await _esp(45)
+	await _fotos("2_andando")
+	_vel(Vector3(0, 0, -5.5))
+	await _esp(45)
+	await _fotos("3_correndo")
+	_vel(Vector3.ZERO)
+	await _esp(40)
+	# o ataque em três tempos: armando, o meio (o tiro sai, a lâmina passa na frente) e o fim
 	for v in _todos():
-		v.tocar("Run", 1.0)
-	await _esp(34)
-	await _foto("2_comuns_correndo_1", de_c, em_c)
-	await _foto("2_comuns_correndo_2", de_c2, em_c2)
-	await _foto("2_chefes_correndo", de_ch, em_ch)
-	for v in _todos():
-		v.tocar("Idle")
-	await _esp(30)
-	# o ataque em três tempos: começo, meio (quando o tiro sai ou a lâmina passa) e fim
-	for v in _todos():
+		v.olho(1.0)
 		v.tocar("Shoot")
-	var vistos := 0.0
-	for passo: Array in [[0.24, "a"], [0.42, "b"], [0.62, "c"]]:
+	for passo: Array in [[0.3, "a"], [0.42, "b"], [0.56, "c"]]:
 		while comuns[0].tempo_ataque < float(passo[0]):
 			await process_frame
-		await _foto("3_comuns_ataque_%s_1" % passo[1], de_c, em_c)
-		await _foto("3_comuns_ataque_%s_2" % passo[1], de_c2, em_c2)
-		await _foto("3_chefes_ataque_%s" % passo[1], de_ch, em_ch)
-	await _foto("4_comuns_ataque_lado", Vector3(-13.0, 1.5, -1.0), Vector3(-5.0, 0.9, -1.0))
-	await _foto("4_chefes_ataque_lado", Vector3(18.0, 2.2, -1.3), Vector3(26.0, 1.5, -1.3))
+		await _fotos("4_ataque_" + String(passo[1]))
+		if passo[1] == "b":
+			await _de_perto("12_ataque")
+	Engine.time_scale = 0.0
+	await _foto("5_ataque_lado_comuns", Vector3(-10.5, 1.4, -1.6), Vector3(-0.5, 0.85, -0.8))
+	await _foto("5_ataque_lado_chefes", Vector3(2.0, 2.4, -2.4), Vector3(13.0, 1.6, -0.6))
+	Engine.time_scale = 1.0
+	# o Guardião de longe atira com o braço da lâmina
+	var g := chefes[2]
+	g.ataque = "tiro"
+	g.tocar("Idle")
+	await _esp(4)
+	g.tocar("Shoot")
+	await _esp(40)
+	Engine.time_scale = 0.0
+	await _foto("6_guardiao_atirando", g.position + Vector3(-4.6, 2.2, -5.4), g.position + Vector3(0, 1.5, -0.5))
+	Engine.time_scale = 1.0
+	g.ataque = "corpo"
+	for v in _todos():
+		v.olho(0.0)
+		v.tocar("Idle")
+	await _esp(30)
+	# pulo e esquiva
+	for v in _todos():
+		v.no_ar = true
+	await _esp(30)
+	await _fotos("7_pulo")
+	for v in _todos():
+		v.no_ar = false
+		v.pousando = 0.25
+	await _esp(4)
+	await _fotos("8_pouso")
+	_vel(Vector3(7.0, 0, 0))
+	for v in _todos():
+		v.esquivando = 0.32
+	await _esp(12)
+	await _fotos("9_esquiva")
+	_vel(Vector3.ZERO)
+	for v in _todos():
+		v.esquivando = 0.0
+	await _esp(30)
 	for v in _todos():
 		v.tocar("Death")
 		v.apagar(1.0)
 		v.olho(0.0)
-	await _esp(90)
-	await _foto("5_comuns_desligados_1", de_c, em_c)
-	await _foto("5_comuns_desligados_2", de_c2, em_c2)
-	await _foto("5_chefes_desligados", de_ch, em_ch)
+	await _esp(120)
+	await _fotos("10_desligados")
+	await _de_perto("13_desligado", true)
+	for v in _todos():
+		v.desbotar(1.0)
+	await _esp(4)
+	await _fotos("11_velhos")
 	quit(0)

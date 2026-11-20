@@ -15,6 +15,13 @@ const VELOCIDADE := 130.0  # m/s do projétil (as máquinas atiram bala rápida;
 const TRAVA_ANGULO := deg_to_rad(6.5)  # mirando, a máquina a menos disso do centro da mira fica travada
 const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângulo (não fica trocando)
 const TRAVA_ALCANCE := 130.0
+## A rajada esquenta (pedido do usuário, 2026-11-20: sem isso dava para atirar sem parar). Cada tiro enche um
+## pedaço; cheia, ela trava até esfriar. A tela desenha a curva ao lado da mira.
+const RAJADA_ENCHE := 1.0 / 26.0  # 26 tiros seguidos (uns 2,2 s de gatilho) enchem
+const RAJADA_ESFRIA := 0.55  # por segundo, sem atirar
+const RAJADA_ESFRIA_QUENTE := 0.4  # por segundo, travada
+const RAJADA_PAUSA := 0.25  # s depois do último tiro até começar a esfriar
+const RAJADA_VOLTA := 0.25  # travada, volta a atirar abaixo disto
 
 var armadura: Armadura
 var hud: Hud
@@ -25,6 +32,10 @@ var disparos := 0
 var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela desenha o colchete nela
 
 var _espera := 0.0
+var calor_rajada := 0.0  # 0 a 1 (a tela desenha)
+var rajada_quente := false  # cheia: não atira até esfriar
+var rajada_travou := 0  # vezes em que encheu (testes)
+var _rajada_parada := 0.0
 var _pedido := 0.0  # tempo que um aperto do gatilho ainda vale
 var carga := 0.0  # 0 a 1: o canhão carregando (a tela desenha)
 var _som_carga: AudioStreamPlayer3D  # o som de carregar, para cortar quando solta o gatilho
@@ -73,26 +84,31 @@ func _ready() -> void:
 
 
 ## Um colega (grupo "amigos") perto da linha da mira, antes de qualquer obstáculo.
-func _amigo_na_mira() -> bool:
+func _amigo_na_mira() -> Node3D:
 	var cam := armadura.camera
 	if cam == null:
-		return false
+		return null
 	var de: Vector3 = cam.global_position
 	var dir: Vector3 = cam.mira()
 	var ate := _ponto_de_impacto().distance_to(de)
 	for n in get_tree().get_nodes_in_group("amigos"):
-		var v: Vector3 = (n as Node3D).global_position - de
+		var no := n as Node3D
+		if not no.is_visible_in_tree():
+			continue
+		# os robozinhos têm a origem nos pés: a conta é feita no meio do corpo
+		var v: Vector3 = no.global_position + Vector3(0, float(no.get_meta("meio_altura", 0.0)), 0) - de
 		var t := v.dot(dir)
 		if t < 0.5 or t > ate + 0.8:
 			continue
 		if (v - dir * t).length() < 0.8 + t * 0.012:
-			return true
-	return false
+			return no
+	return null
 
 
 func _physics_process(delta: float) -> void:
 	_espera = maxf(0.0, _espera - delta)
 	_aviso_amigo = maxf(0.0, _aviso_amigo - delta)
+	_esfriar_rajada(delta)
 	if armadura == null or not is_instance_valid(armadura):
 		return
 	_atualizar_trava()
@@ -108,6 +124,10 @@ func _physics_process(delta: float) -> void:
 	match String(modo["gatilho"]):
 		"segura":
 			quer = Input.is_action_pressed("atirar")
+			if quer and rajada_quente:
+				quer = false
+				if Input.is_action_just_pressed("atirar"):
+					Som.toque3d(self, "sem_municao", armadura.global_position, -6.0)
 		"carga":
 			if Input.is_action_pressed("atirar") and _pode_atirar():
 				if carga <= 0.0:
@@ -152,20 +172,45 @@ func _physics_process(delta: float) -> void:
 		return
 	if not _pode_atirar() or _espera > 0.0:
 		return
-	# regra: não se atira em colega (o drone da base). Com ele na mira o tiro não sai
-	if _amigo_na_mira():
+	# regra: não se atira em colega (o drone da base e os robozinhos). Com ele na mira o tiro não sai, e ele
+	# leva um susto
+	var amigo := _amigo_na_mira()
+	if amigo:
 		poupados += 1
 		_espera = float(modo["cadencia"])
 		if _aviso_amigo <= 0.0:
 			if hud:
 				hud.avisar("colega na mira", "o tiro não sai")
 			_aviso_amigo = 4.0
-			get_tree().call_group("amigos", "levou_mira")
+		if amigo.has_method("levou_mira"):
+			amigo.call("levou_mira")
+		elif amigo.has_meta("levou_mira"):
+			(amigo.get_meta("levou_mira") as Callable).call(amigo)
 		return
 	_espera = float(modo["cadencia"])
 	_pedido = 0.0
 	armadura.atirando = 0.6
 	_disparar(modo, forca)
+	if String(modo["gatilho"]) == "segura":
+		_aquecer_rajada()
+
+
+func _aquecer_rajada() -> void:
+	_rajada_parada = 0.0
+	calor_rajada = minf(1.0, calor_rajada + RAJADA_ENCHE)
+	if calor_rajada >= 1.0 and not rajada_quente:
+		rajada_quente = true
+		rajada_travou += 1
+		Som.toque3d(self, "sem_municao", armadura.global_position, -3.0)  # sem texto: a curva piscando já diz
+
+
+func _esfriar_rajada(delta: float) -> void:
+	_rajada_parada += delta
+	if _rajada_parada < RAJADA_PAUSA:
+		return
+	calor_rajada = maxf(0.0, calor_rajada - (RAJADA_ESFRIA_QUENTE if rajada_quente else RAJADA_ESFRIA) * delta)
+	if rajada_quente and calor_rajada <= RAJADA_VOLTA:
+		rajada_quente = false
 
 
 ## Os mísseis: segurando o gatilho, as máquinas à frente (num cone de 32°, até 130 m, com a vista livre)
@@ -624,9 +669,11 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	# nasciam em cima do antebraço)
 	origem += (impacto - origem).normalized() * 0.2 * armadura.altura_corpo()
 	var espalha := float(modo.get("espalha", 0.0))
-	if espalha > 0.0 and not guiado:
+	if espalha > 0.0 and (not guiado or bool(modo.get("solto", false))):
 		var dist := origem.distance_to(impacto)
 		impacto += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * dist * espalha
+		# o tiro duplo é "solto": mesmo com a mira travada ele mira na máquina mas não a segue, e pode errar
+		guiado = false
 	# algo sólido entre a mão e o ponto (tronco, copa, rocha, parede): o tiro para ali, travado ou não
 	var fora: Array[RID] = [armadura.get_rid()]
 	if guiado and travado.get("_acerto") is CollisionObject3D:

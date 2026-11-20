@@ -169,13 +169,30 @@ def casca(*a, **k):
 # VARIANTE=mergulhador faz o robô da Represa (robo_v3.glb): o mesmo corpo em amarelo e verde-petróleo, com
 # escotilha redonda no lugar do visor, sem crista nem antena, dois cilindros de ar nas costas e pés de pato.
 MERG = os.environ.get("VARIANTE") == "mergulhador"
-BRANCA = mat_pbr("placa_clara", (0.62, 0.40, 0.03) if MERG else (0.50, 0.51, 0.51), 0.0, 0.45)
-AZUL = mat_pbr("detalhe", (0.01, 0.13, 0.15) if MERG else (0.008, 0.07, 0.36), 0.05, 0.4)
-LARANJA = mat_pbr("laranja", (0.55, 0.56, 0.55) if MERG else (0.9, 0.2, 0.01), 0.0, 0.45)
+# VARIANTE=<inimigo> faz um dos inimigos (2026-11-20, ideia do usuário): o nosso robô com outra pintura e outras
+# peças, o mesmo esqueleto (o jogo anima igual ao robô do jogador). Cinco comuns e três chefes; sem jatos nem
+# abas nas costas (eles não voam). Cores: placa, detalhe, faixas e olhos.
+VAR = os.environ.get("VARIANTE", "")
+INIMIGOS = {
+    "sentinela": ((0.17, 0.18, 0.19), (0.42, 0.05, 0.03), (0.85, 0.42, 0.04), (1.0, 0.16, 0.06)),
+    "espadachim": ((0.09, 0.09, 0.11), (0.50, 0.03, 0.09), (0.75, 0.75, 0.72), (1.0, 0.08, 0.22)),
+    "couraca": ((0.23, 0.24, 0.15), (0.10, 0.10, 0.09), (0.85, 0.52, 0.04), (1.0, 0.5, 0.08)),
+    "batedor": ((0.60, 0.45, 0.05), (0.07, 0.07, 0.08), (0.12, 0.12, 0.12), (1.0, 0.22, 0.08)),
+    "artilheiro": ((0.11, 0.19, 0.21), (0.48, 0.18, 0.03), (0.85, 0.42, 0.04), (1.0, 0.32, 0.04)),
+    "capataz": ((0.07, 0.07, 0.08), (0.55, 0.36, 0.06), (0.60, 0.05, 0.03), (1.0, 0.12, 0.04)),
+    "canhoneiro": ((0.30, 0.09, 0.05), (0.09, 0.09, 0.10), (0.85, 0.62, 0.14), (1.0, 0.45, 0.06)),
+    "guardiao": ((0.19, 0.19, 0.23), (0.28, 0.07, 0.42), (0.85, 0.70, 0.28), (0.85, 0.2, 1.0)),
+}
+CHEFES = ("capataz", "canhoneiro", "guardiao")
+INIM = VAR in INIMIGOS
+_PAL = INIMIGOS.get(VAR)
+BRANCA = mat_pbr("placa_clara", _PAL[0] if INIM else ((0.62, 0.40, 0.03) if MERG else (0.50, 0.51, 0.51)), 0.25 if INIM else 0.0, 0.45)
+AZUL = mat_pbr("detalhe", _PAL[1] if INIM else ((0.01, 0.13, 0.15) if MERG else (0.008, 0.07, 0.36)), 0.05, 0.4)
+LARANJA = mat_pbr("laranja", _PAL[2] if INIM else ((0.55, 0.56, 0.55) if MERG else (0.9, 0.2, 0.01)), 0.0, 0.45)
 JUNTA = mat_pbr("placa_escura", (0.035, 0.04, 0.045), 0.1, 0.6)
 VIDRO = mat_pbr("vidro", (0.008, 0.012, 0.02), 0.0, 0.12)
-OLHOS = mat_luz("olhos", (0.35, 0.9, 1.0), 2.2)
-LAMINA = mat_luz("lamina", (0.1, 0.8, 1.0), 3.0)
+OLHOS = mat_luz("olhos", _PAL[3] if INIM else (0.35, 0.9, 1.0), 2.6 if INIM else 2.2)
+LAMINA = mat_luz("lamina", (1.0, 0.22, 0.08) if INIM else (0.1, 0.8, 1.0), 3.0)
 
 
 def esfera(nome, centro, raios, mat, pai, u=28, v=16):
@@ -303,6 +320,136 @@ for s, lado in ((1, "E"), (-1, "D")):
     cil("brasa_pe", (s * 0.10, 0.02, 0.0015), 0.038, 0.038, 0.004, CALOR, to, bevel=0, segs=8)
     CHAMAS.append(cil("chama_pe", (s * 0.10, 0.02, -0.15), 0.042, 0.0, 0.30, CHAMA, to, rot=(180, 0, 0), bevel=0, segs=12))
 
+# ---------- os inimigos (VARIANTE=<inimigo>) ----------
+def _tirar(*nomes):
+    for ob in list(bpy.data.objects):
+        if ob.name.split(".")[0] in nomes:
+            bpy.data.objects.remove(ob)
+
+
+def _olhos(forma):
+    for lado in "ED":
+        for ch in list(J["olho" + lado].children):
+            bpy.data.objects.remove(ch)
+    for s, lado in ((1, "E"), (-1, "D")):
+        jo = J["olho" + lado]
+        if forma == "fenda":  # uma fenda só, de lado a lado (metade em cada junta)
+            caixa("olho", (s * 0.064, -0.2015, 0.935), (0.128, 0.006, 0.03), OLHOS, jo, bevel=0)
+        elif forma == "bravo":  # inclinados para o meio
+            caixa("olho", (s * 0.072, -0.2015, 0.93), (0.075, 0.006, 0.034), OLHOS, jo, rot=(0, s * 24, 0), bevel=0)
+        elif forma == "pontos":  # dois pontos atrás da grade
+            caixa("olho", (s * 0.06, -0.2015, 0.94), (0.042, 0.006, 0.042), OLHOS, jo, bevel=0)
+        elif forma == "redondo":
+            cil("olho", (s * 0.072, -0.2015, 0.93), 0.05, 0.05, 0.006, OLHOS, jo, rot=(90, 0, 0), segs=18, bevel=0)
+        elif forma == "monoculo":
+            if s > 0:
+                cil("olho", (0.058, -0.2015, 0.935), 0.072, 0.072, 0.006, OLHOS, jo, rot=(90, 0, 0), segs=20, bevel=0)
+                cil("aro_monoculo", (0.058, -0.194, 0.935), 0.09, 0.09, 0.016, LARANJA, jo, rot=(90, 0, 0), segs=20, bevel=0.003)
+            else:
+                caixa("olho", (-0.085, -0.2015, 0.915), (0.05, 0.006, 0.022), OLHOS, jo, bevel=0)
+        elif forma == "triplo":  # três luzes em V (o chefe de capa)
+            caixa("olho", (s * 0.075, -0.2015, 0.945), (0.05, 0.006, 0.026), OLHOS, jo, rot=(0, s * 18, 0), bevel=0)
+            if s > 0:
+                caixa("olho", (0.0, -0.2015, 0.9), (0.03, 0.006, 0.03), OLHOS, jo, bevel=0)
+
+
+def _ombreiras(camadas, mat):
+    for s, lado in ((1, "E"), (-1, "D")):
+        om = J["ombro" + lado]
+        for c in range(camadas):
+            caixa("ombreira", (s * (0.24 + c * 0.03), 0, 0.70 - c * 0.05), (0.18 + c * 0.02, 0.2 - c * 0.02, 0.055),
+                  mat if c == 0 else BRANCA, om, topo=(0.8, 0.85), rot=(0, -s * (16 + c * 12), 0), bevel=0.016)
+
+
+def _casulos(n):  # lança-mísseis nas costas, com as pontas aparecendo
+    for s, lado in ((1, "E"), (-1, "D")):
+        pai = J["pod" + lado]
+        caixa("casulo", (s * 0.12, 0.19, 0.67), (0.10, 0.11, 0.15), AZUL, pai, topo=(0.9, 0.9), bevel=0.016)
+        for kx in range(n):
+            for ky in range(2):
+                cil("missil", (s * 0.12 + (kx - (n - 1) * 0.5) * 0.042, 0.19 + (ky - 0.5) * 0.045, 0.755),
+                    0.016, 0.003, 0.04, LARANJA, pai, segs=8, bevel=0)
+
+
+def _canhoes(lados, grosso):
+    for s, lado in lados:
+        lu = J["luva" + lado]
+        cil("canhao", (s * 0.262, -0.105, 0.40), grosso, grosso, 0.2, BOCAL, lu, segs=12, bevel=0.006)
+        cil("boca_canhao", (s * 0.262, -0.105, 0.295), grosso * 1.2, grosso * 1.2, 0.03, AZUL, lu, segs=12, bevel=0.004)
+        cil("luz_canhao", (s * 0.262, -0.105, 0.279), grosso * 0.6, grosso * 0.6, 0.004, OLHOS, lu, segs=12, bevel=0)
+
+
+def _emissor(lados):  # a base da lâmina de luz (a lâmina é do jogo)
+    for s, lado in lados:
+        caixa("emissor", (s * 0.262, -0.09, 0.41), (0.05, 0.035, 0.13), AZUL, J["luva" + lado], topo=(0.8, 1), bevel=0.008)
+        caixa("emissor_luz", (s * 0.262, -0.108, 0.36), (0.03, 0.006, 0.05), LAMINA, J["luva" + lado], bevel=0)
+
+
+if INIM:
+    # eles não voam: saem os jatos das costas, as abas e as chamas
+    _tirar("estabilizador", "bocal_estab", "brasa_estab", "chama_estab", "aba", "radiador", "mochila_azul", "chama_pe", "brasa_pe",
+           "antena", "ponta_antena", "aro_laranja")
+    CHAMAS.clear()
+    if VAR not in ("espadachim", "guardiao"):
+        bpy.data.objects.remove(crista)
+    if VAR == "sentinela":
+        _olhos("fenda")
+        for s in (1, -1):
+            cil("antena_lado", (s * 0.19, 0.03, 1.04), 0.008, 0.005, 0.17, JUNTA, cabeca, rot=(0, s * -14, 0), segs=6, bevel=0)
+            caixa("ponta_antena", (s * 0.21, 0.03, 1.125), (0.018, 0.018, 0.018), OLHOS, cabeca, bevel=0)
+        caixa("faixa_peito", (0, -0.1, 0.6), (0.05, 0.02, 0.15), AZUL, tronco, bevel=0.005)
+    elif VAR == "espadachim":
+        _olhos("bravo")
+        caixa("pluma", (0, 0.07, 1.16), (0.026, 0.30, 0.10), AZUL, cabeca, topo=(1, 0.55), rot=(-14, 0, 0), bevel=0.008)
+        _emissor(((-1, "D"),))
+        for s, lado in ((1, "E"), (-1, "D")):
+            caixa("ombreira", (s * 0.235, 0.02, 0.69), (0.12, 0.2, 0.04), AZUL, J["ombro" + lado], topo=(0.6, 0.9), rot=(-20, -s * 22, 0), bevel=0.012)
+    elif VAR == "couraca":
+        _olhos("pontos")
+        for k in range(5):
+            caixa("grade", (-0.12 + k * 0.06, -0.207, 0.915), (0.018, 0.014, 0.21), BRANCA, cabeca, bevel=0.004)
+        _ombreiras(1, AZUL)
+        for s in (1, -1):
+            caixa("peitoral", (s * 0.08, -0.098, 0.6), (0.1, 0.03, 0.15), AZUL, tronco, base=(0.85, 1), bevel=0.01)
+        for s, lado in ((1, "E"), (-1, "D")):
+            caixa("caneleira", (s * 0.10, -0.085, 0.16), (0.11, 0.03, 0.15), AZUL, J["joelho" + lado], bevel=0.01)
+    elif VAR == "batedor":
+        _olhos("redondo")
+        cil("haste", (0.13, 0.08, 1.17), 0.006, 0.006, 0.14, JUNTA, cabeca, segs=6, bevel=0)
+        cil("prato", (0.13, 0.07, 1.25), 0.055, 0.02, 0.025, LARANJA, cabeca, rot=(28, 0, 0), segs=14, bevel=0.003)
+        caixa("radio", (0.0, 0.18, 0.62), (0.12, 0.05, 0.12), AZUL, costas, bevel=0.01)
+        cil("antena_radio", (0.045, 0.19, 0.8), 0.005, 0.003, 0.26, JUNTA, costas, segs=6, bevel=0)
+        for s, lado in ((1, "E"), (-1, "D")):
+            caixa("faixa_braco", (s * 0.228, 0, 0.6), (0.05, 0.05, 0.03), AZUL, J["ombro" + lado], bevel=0.004)
+    elif VAR == "artilheiro":
+        _olhos("monoculo")
+        _casulos(2)
+        _canhoes(((-1, "D"),), 0.035)
+    elif VAR == "capataz":
+        _olhos("bravo")
+        for s in (1, -1):
+            caixa("chifre", (s * 0.22, 0.02, 1.07), (0.06, 0.06, 0.13), LARANJA, cabeca, topo=(0.75, 0.75), rot=(0, s * 35, 0), bevel=0.01)
+            caixa("chifre", (s * 0.27, 0.02, 1.17), (0.045, 0.045, 0.11), LARANJA, cabeca, topo=(0.3, 0.3), rot=(0, s * 8, 0), bevel=0.006)
+        _ombreiras(2, AZUL)
+        _emissor(((1, "E"), (-1, "D")))
+        for s in (1, -1):
+            caixa("peitoral", (s * 0.08, -0.098, 0.6), (0.1, 0.03, 0.15), AZUL, tronco, base=(0.85, 1), bevel=0.01)
+    elif VAR == "canhoneiro":
+        _olhos("fenda")
+        for dx in (-0.09, 0.0, 0.09):
+            caixa("coroa", (dx, -0.06, 1.13), (0.04, 0.035, 0.1 if dx == 0 else 0.075), LARANJA, cabeca, topo=(0.4, 0.6), rot=(-12, 0, 0), bevel=0.006)
+        _ombreiras(1, AZUL)
+        _casulos(3)
+        _canhoes(((1, "E"), (-1, "D")), 0.05)
+    elif VAR == "guardiao":
+        _olhos("triplo")
+        caixa("pluma", (0, 0.12, 1.2), (0.03, 0.42, 0.13), LARANJA, cabeca, topo=(1, 0.5), rot=(-18, 0, 0), bevel=0.008)
+        _ombreiras(2, AZUL)
+        _emissor(((-1, "D"),))
+        for k in (-1, 0, 1):
+            caixa("capa", (k * 0.078, 0.2, 0.38), (0.075, 0.02, 0.42), AZUL, costas, base=(1.15, 1), topo=(0.9, 1), rot=(10, 0, k * -5), bevel=0.008)
+            caixa("capa_borda", (k * 0.078, 0.212, 0.18), (0.08, 0.02, 0.03), LARANJA, costas, rot=(10, 0, k * -5), bevel=0.004)
+
 # pessoa de referência (1,75 m), escondida fora do painel de escala
 pessoa = bpy.data.objects.new("pessoa_raiz", None)
 col.objects.link(pessoa)
@@ -317,6 +464,9 @@ bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=12, radius=0.115, matrix=Matrix.Translation((1.0, 0, 1.63)))
 PESSOA_OBJS.append(malha("cabeca_p", bm, PESSOA, pessoa, 0, 1))
 PESSOA_OBJS[-1].scale = (1, 1, 1)
+
+# ---------- vitrine dos inimigos (VITRINE=pasta): duas fotos, de pé e golpeando ----------
+VITRINE = os.environ.get("VITRINE")
 
 # ---------- exportar para a Godot (EXPORTAR=caminho.glb) ----------
 EXPORTAR = os.environ.get("EXPORTAR")
@@ -453,6 +603,22 @@ def render(nome):
     bpy.ops.render.render(write_still=True)
     return caminho
 
+
+if VITRINE:
+    mostrar_pessoa(False)
+    pose("pe")
+    for l in LAMINAS:
+        l.hide_render = True
+    mirar((-5.2, -8.4, 2.2), (0, 0, 1.05), lente=60)
+    scene.render.filepath = os.path.join(VITRINE, VAR + "_1.png")
+    bpy.ops.render.render(write_still=True)
+    pose("acao")
+    for l in LAMINAS:
+        l.hide_render = VAR not in ("espadachim", "capataz", "guardiao")
+    mirar((-2.4, -4.0, 1.9), (-0.15, -0.2, 1.2), lente=50)
+    scene.render.filepath = os.path.join(VITRINE, VAR + "_2.png")
+    bpy.ops.render.render(write_still=True)
+    os._exit(0)
 
 PAINEIS = []
 mostrar_pessoa(False)

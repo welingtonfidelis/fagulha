@@ -15,7 +15,7 @@ const SEQUENCIAS := {
 	"basico": [
 		["olhar", "{olhar}", "Olhe em volta"],
 		["andar", "{mover}", "Ande até o aro"],
-		["correr", "{correr}  +  {mover}", "Corra até o aro"],
+		["correr", "{mover}  até o fim", "Empurre até o fim para correr até o aro"],
 		["pular", "{pular}   {pular}", "Pule, e pule de novo no ar"],
 		["decolar", "segure  {pular}", "Segure para decolar"],
 		["voar", "{mover}  {olhar}", "Voe por dentro dos três aros"],
@@ -24,10 +24,10 @@ const SEQUENCIAS := {
 	],
 	"voo": [
 		["decolar", "segure  {pular}", "Decole"],
-		["pairar", "{pairar}", "Voando, pare no ar"],
-		["arrancada", "{correr}", "Voando, dê uma arrancada"],
+		["pairar", "{pular}", "Voando, um toque freia e para no ar"],
+		["arrancada", "{mover}  para a frente", "Voando, empurre todo para a frente: arrancada"],
 		["manobra", "{soltar}", "Voando, gire para o lado"],
-		["planar", "segure  {voar}", "Voando, segure para abrir as asas"],
+		["planar", "segure  {pular}", "Voando, segure para abrir as asas"],
 		["mergulho", "{golpe}", "Do alto, mergulhe até o chão"],
 	],
 	"combate": [

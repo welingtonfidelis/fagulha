@@ -16,6 +16,7 @@ const PERDER := 70.0
 const VEL_RONDA := 1.2
 const RAIO_RONDA := 14.0
 const TEMPO_AVISO := 0.65
+const TEMPO_AVISO_GOLPE := 0.55  # corpo a corpo: o aviso antes da lâmina (a varrida começa junto)
 
 # o que muda de uma máquina para outra (a Mecha acerta estes pela ficha do sorteio)
 var modelo := "george"
@@ -31,6 +32,7 @@ var _rajada_resta := 0
 var _rajada_t := 0.0
 var corpo_a_corpo := false  # em vez de atirar, chega junto e bate (espada ou martelo)
 var forca_golpe := 7.0
+var alcance_golpe := 0.0  # corpo a corpo: até onde o golpe pega, do meio do corpo (0: dist_tiro * 1.25)
 var rodeia := false  # em vez de ficar parado na distância de tiro, corre em volta do robô
 var motor := "carrapato_loop"
 
@@ -128,15 +130,57 @@ func _ponto_ronda() -> Vector3:
 var desvios := 0  # quadros em que andou por um rumo diferente do que queria, por obstáculo (testes)
 var destravou := 0  # vezes em que ficou preso e mudou de plano (testes)
 var furou := 0  # vezes em que desistiu de dar a volta e atravessou o obstáculo (testes)
-var _prog_t := 0.0
-var _prog_desvio := 0.0
-var _prog_p1 := Vector3.INF  # onde estava há 2 s
-var _prog_p2 := Vector3.INF  # e há 4 s
+var voltas_cortadas := 0  # vezes em que percebeu que rodava em volta de alguma coisa (testes)
+var esperas := 0  # vezes em que desistiu de chegar no robô e ficou esperando (testes)
+var _espera_t := 0.0
+var _espera_de := Vector3.INF  # onde o robô estava quando ele desistiu
+var _meta_estado := -1
+var _meta_melhor := INF  # a menor distância até onde quer ir, na janela de agora
+var _meta_t := 0.0
+var _meta_desvio := 0.0
+var _meta_p := Vector3.ZERO  # onde a janela começou
 var _sem_avanco := 0
 var _atravessa_t := 0.0
 var _lado_desvio := 1.0
 var _trava_t := 0.0
 var _trava_p := Vector3.ZERO
+
+
+## Não dá para chegar onde quer (dando voltas pelos dois lados). Caçando, o robô está num lugar onde ele não
+## chega (em cima de alguma coisa, ou fechado por obstáculos): fica parado de frente para ele até o robô sair de
+## lá. Na ronda escolhe outro ponto e na procura desiste da pista. Só voltando para casa ele atravessa.
+func _nao_chega() -> void:
+	match estado:
+		Estado.CACA:
+			_espera_t = 8.0  # ou até o robô sair de lá
+			_espera_de = alvo.global_position if alvo else global_position
+			esperas += 1
+		Estado.RONDA:
+			_destino = _ponto_ronda()
+		Estado.PROCURA:
+			procura_t = VigiaArvore.OLHAR
+		_:
+			_atravessa_t = 1.6
+			furou += 1
+
+
+## Corpo a corpo: até onde a lâmina pega, do meio do corpo.
+func alcance() -> float:
+	return alcance_golpe if alcance_golpe > 0.0 else dist_tiro * 1.25
+
+
+## Onde ele quer chegar agora (para saber se está chegando): o robô na caça, a pista, a casa ou o ponto da ronda.
+func _meta() -> Vector3:
+	match estado:
+		Estado.CACA:
+			return alvo.global_position if alvo else Vector3.INF
+		Estado.PROCURA:
+			return pista
+		Estado.VOLTA:
+			return casa
+		Estado.RONDA:
+			return _destino
+	return Vector3.INF
 
 
 func _pisavel(x: float, z: float) -> bool:
@@ -201,9 +245,17 @@ func _process(delta: float) -> void:
 			else:
 				if dist > 0.3:
 					_rumo = Vector3(para_alvo.x, 0, para_alvo.z).normalized()
+				var dy := (alvo.global_position.y - global_position.y) if alvo else 0.0
 				# chega até a distância de tiro; perto demais, recua de frente para o robô
 				if _aviso <= 0.0 and _tiro_t <= 0.0:
-					if dist > dist_tiro * 1.25:
+					if corpo_a_corpo:
+						# a lâmina: chega junto, até ficar bem dentro do alcance dela (antes parava na beira e
+						# começava o golpe de longe, sem chegar: a lâmina passava no ar, visto pelo usuário)
+						if dist > alcance() * 0.7:
+							vel = vel_caca
+						elif dist < alcance() * 0.3:
+							vel = -vel_caca * 0.5
+					elif dist > dist_tiro * 1.25:
 						vel = vel_caca
 					elif dist < dist_tiro * 0.55:
 						vel = -vel_caca * 0.6
@@ -211,6 +263,16 @@ func _process(delta: float) -> void:
 						# corre em volta do robô, de lado para ele, e para na hora de atirar
 						_rumo = _rumo.cross(Vector3.UP) * _lado
 						vel = vel_caca
+				elif corpo_a_corpo and _aviso > 0.0 and dist > alcance() * 0.5:
+					# armando o golpe ele ainda avança: um passo do robô para trás não deixa a lâmina no ar
+					vel = vel_caca * 1.15
+				if _espera_t > 0.0:
+					# o robô está onde ele não chega: espera de frente, até o robô sair de lá
+					_espera_t -= delta
+					if alvo and alvo.global_position.distance_to(_espera_de) > 1.5:
+						_espera_t = 0.0
+					elif vel > 0.0:
+						vel = 0.0
 				_recarga -= delta
 				if (_aviso > 0.0 or _tiro_t > 0.0) and dist > 0.3:
 					_rumo = Vector3(para_alvo.x, 0, para_alvo.z).normalized()
@@ -222,15 +284,15 @@ func _process(delta: float) -> void:
 						disparos += 1
 						_tiro_t = maxf(_tiro_t, 0.5)
 						if corpo_a_corpo:
-							# o golpe só pega se o robô ainda estiver ao alcance
-							if para_alvo.length() < dist_tiro * 1.6 and alvo and not alvo.em_pane:
+							# o golpe só pega se o robô ainda estiver ao alcance (e não muito acima ou abaixo)
+							if dist < alcance() * 1.2 and absf(dy) < altura_m and alvo and not alvo.em_pane:
 								alvo.levar_golpe(_rumo, forca_golpe)
 								golpes_dados += 1
 						else:
 							_rajada_resta = rajada
 							_rajada_t = 0.0
-				elif _recarga <= 0.0 and ve and para_alvo.length() < dist_tiro * 2.2:
-					_aviso = TEMPO_AVISO
+				elif _recarga <= 0.0 and ve and (dist < alcance() and absf(dy) < altura_m if corpo_a_corpo else para_alvo.length() < dist_tiro * 2.2):
+					_aviso = TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO
 					_recarga = tempo_tiro
 		Estado.VOLTA:
 			var para := casa - global_position
@@ -280,7 +342,6 @@ func _process(delta: float) -> void:
 			_atravessa_t -= delta
 			anda = quer
 		if anda != Vector3.ZERO and anda.dot(quer) < 0.99:
-			_prog_desvio += delta
 			desvios += 1
 			_lado_desvio = 1.0 if quer.cross(anda).y > 0.0 else -1.0  # segue a volta pelo lado em que começou
 		if anda == Vector3.ZERO:
@@ -289,25 +350,48 @@ func _process(delta: float) -> void:
 			global_position += anda * absf(vel) * delta
 			if vel > 0.0 and estado != Estado.CACA and estado != Estado.RECUA:
 				_rumo = anda  # na caça ele continua de frente para o robô, andando de lado se for preciso
-		# rodando em volta da mesma coisa: a cada 2 s confere onde estava 4 s atrás. Desviando o tempo todo e
-		# ainda a menos de 3 m daquele ponto, está dando voltas (na forja as máquinas ficavam rodando numa planta
-		# ou numa esteira com o robô do outro lado, visto pelo usuário em 2026-11-18). Primeiro troca o lado da
-		# volta; se continuar, atravessa. Contornar uma parede comprida não conta: aí ele se afasta do ponto.
-		_prog_t += delta
-		if _prog_t >= 2.0:
-			if _prog_desvio > 1.1 and global_position.distance_to(_prog_p2) < 3.0:
-				_sem_avanco += 1
-				_lado_desvio = -_lado_desvio
-				if _sem_avanco >= 2:
-					_atravessa_t = 1.6
-					_sem_avanco = 0
-					furou += 1
-			else:
+		# rodando em volta da mesma coisa: desviando quase o tempo todo, sem chegar mais perto de onde quer ir
+		# e sem sair de perto de onde estava. Na forja as máquinas ficavam rodando numa planta ou numa esteira
+		# com o robô do outro lado (visto pelo usuário em 2026-11-18). O primeiro teste comparava a posição
+		# com a de 4 s antes, e quem corre em volta da coluna do guindaste dá uma volta e meia nesse tempo e
+		# fica do outro lado do círculo: continuava rodando (visto de novo em 2026-11-20). Primeiro troca o
+		# lado da volta; se continuar, atravessa. Contornar uma parede comprida não conta: aí ele vai longe.
+		var meta := _meta()
+		# o robô em cima de alguma coisa (dentro de um obstáculo, no chão) e o caminho direto fechado: nem tenta a
+		# volta, espera ali
+		if estado == Estado.CACA and vel > 0.0 and _espera_t <= 0.0 and anda.dot(quer) < 0.99 and alvo \
+				and Vector2(meta.x - global_position.x, meta.z - global_position.z).length() < 6.0 \
+				and not Obstaculos.livre(mapa, meta.x, meta.z, 0.3):
+			_nao_chega()
+		if vel > 0.0 and meta.is_finite() and int(estado) == _meta_estado:
+			var dm := Vector2(meta.x - global_position.x, meta.z - global_position.z).length()
+			_meta_t += delta
+			if anda.dot(quer) < 0.99:
+				_meta_desvio += delta
+			if dm < _meta_melhor - 0.6:
+				_meta_melhor = dm
+				_meta_t = 0.0
+				_meta_desvio = 0.0
+				_meta_p = global_position
 				_sem_avanco = 0
-			_prog_t = 0.0
-			_prog_desvio = 0.0
-			_prog_p2 = _prog_p1
-			_prog_p1 = global_position
+			elif _meta_t >= 1.8:
+				if _meta_desvio > _meta_t * 0.6 and global_position.distance_to(_meta_p) < 5.5:
+					_sem_avanco += 1
+					voltas_cortadas += 1
+					_lado_desvio = -_lado_desvio
+					if _sem_avanco >= 2:
+						_sem_avanco = 0
+						_nao_chega()
+				_meta_melhor = dm
+				_meta_t = 0.0
+				_meta_desvio = 0.0
+				_meta_p = global_position
+		elif vel > 0.0:
+			_meta_estado = int(estado)
+			_meta_melhor = INF
+			_meta_t = 0.0
+			_meta_desvio = 0.0
+			_meta_p = global_position
 		# destravar: quer andar e não sai do lugar
 		_trava_t += delta
 		if _trava_t >= 1.2:

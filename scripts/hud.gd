@@ -263,6 +263,7 @@ var _mira_vista := 0.0
 var _calor_visto := 0.0
 var _frio_visto := 0.0
 var _missil_visto := 0.0
+var _rajada_vista := 0.0
 var _missil_fica := 0.0  # segundos que o contador de mísseis ainda fica depois de um disparo
 var _misseis_antes := -1
 var _granada_vista := 0.0
@@ -411,13 +412,17 @@ func _desenhar_conselho() -> void:
 
 
 func _desenhar_dica() -> void:
-	if dica == "":
+	# o convite de sentar (perto de um sofá, poltrona ou banco) vem do robô e só aparece sem outro convite
+	var d := dica
+	if d == "" and alvo and alvo.convite_assento != "":
+		d = alvo.convite_assento
+	if d == "":
 		return
 	# `{acao}` no texto vira a imagem do botão no aparelho em uso (Botoes)
-	var w := Botoes.largura(dica, _fonte, 20)
+	var w := Botoes.largura(d, _fonte, 20)
 	var p := Vector2(size.x * 0.5 - w * 0.5, size.y - 120.0)
 	draw_rect(Rect2(p.x - 18.0, p.y - 30.0, w + 36.0, 46.0), Color(0, 0, 0, 0.45))
-	Botoes.desenhar(self, _fonte, p, dica, 20, Color(1, 1, 1, 0.95))
+	Botoes.desenhar(self, _fonte, p, d, 20, Color(1, 1, 1, 0.95))
 
 
 func _draw() -> void:
@@ -508,6 +513,25 @@ func _draw() -> void:
 		var wn := _fonte.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		var onde_n := c + Vector2(cos(float(lado_m[3])), 0.0) * (raio_m + 16.0) + Vector2(-wn * 0.5, 5.0)
 		draw_string(_fonte, onde_n, num, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, (0.75 if int(lado_m[1]) > 0 else 0.45) * vis))
+	# a rajada esquentando: uma curva à direita da mira, como a do motor (pedido do usuário, 2026-11-20). Enche
+	# de baixo para cima; cheia, pisca em vermelho e a rajada para até esfriar
+	var q_r := float(tiro_no.get("calor_rajada")) if tiro_no else 0.0
+	var quente_r: bool = tiro_no != null and bool(tiro_no.get("rajada_quente"))
+	var quer_r: bool = Arsenal.modo == "rajada" and (q_r > 0.02 or quente_r)
+	_rajada_vista = move_toward(_rajada_vista, 1.0 if quer_r else 0.0, dt * (8.0 if quer_r else 2.0))
+	if _rajada_vista > 0.01:
+		var ar := _rajada_vista
+		var raio_r := 46.0  # um pouco por fora das contas de munição (raio 40)
+		var abre_r := deg_to_rad(40.0)
+		var cor_r := Color(0.4, 0.9, 0.95).lerp(Color(1.0, 0.62, 0.15), smoothstep(0.45, 0.75, q_r))
+		cor_r = cor_r.lerp(Color(1.0, 0.18, 0.12), smoothstep(0.82, 0.98, q_r))
+		if quente_r:
+			cor_r = Color(1.0, 0.15, 0.1) if fmod(Time.get_ticks_msec() * 0.001, 0.4) < 0.2 else Color(0.5, 0.08, 0.05)
+		draw_arc(c, raio_r, -abre_r, abre_r, 24, Color(0, 0, 0, 0.55 * ar), 10.0, true)  # o trilho escuro
+		if q_r > 0.01:
+			draw_arc(c, raio_r, abre_r - 2.0 * abre_r * q_r, abre_r, 24, Color(cor_r, 0.95 * ar), 5.5, true)
+		var a_fim := -abre_r - deg_to_rad(2.0)
+		draw_line(c + Vector2.from_angle(a_fim) * (raio_r - 7.0), c + Vector2.from_angle(a_fim) * (raio_r + 7.0), Color(1.0, 0.25, 0.18, (0.9 if q_r > 0.8 else 0.45) * ar), 3.0, true)
 	# máquina travada pela mira assistida: quatro cantos em volta dela
 	if alvo.mirando_agora() and tiro and tiro.travado and is_instance_valid(tiro.travado) and cam:
 		var pt: Vector3 = tiro.travado.call("ponto_de_trava")
@@ -570,11 +594,19 @@ func _draw() -> void:
 			# da esquerda para a direita (o ângulo cresce para a esquerda na parte de baixo do círculo)
 			var a_ini := meio + (total * 0.5 - k) * passo
 			draw_arc(centro, raio - 13.0, a_ini - passo + vao, a_ini, 8, Color(cor_d, cor_d.a * _dano_visto), 5.0, true)
-	# o escudo de energia: um arco fino por baixo, só enquanto recarrega
+	# o escudo de energia: um arco fino por baixo. Gasto em parte, três pedaços (os que restam acesos);
+	# quebrado, enche enquanto recarrega
 	if Arsenal.tem("escudo") and alvo.escudo_t > 0.0:
 		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
 		draw_arc(centro, raio + 9.0, meio - abre, meio + abre, 30, Color(0, 0, 0, 0.3), 2.0, true)
 		draw_arc(centro, raio + 9.0, meio + abre - abre * 2.0 * pronto, meio + abre, 30, Color(0.35, 0.95, 0.85, 0.85), 2.0, true)
+	elif Arsenal.tem("escudo") and alvo.escudo_cargas < Arsenal.ESCUDO_CARGAS:
+		var n_e := Arsenal.ESCUDO_CARGAS
+		var passo_e := abre * 2.0 / n_e
+		for k_e in n_e:
+			var a_e := meio + abre - (k_e + 1) * passo_e
+			var cheio_e: bool = k_e < alvo.escudo_cargas
+			draw_arc(centro, raio + 9.0, a_e + deg_to_rad(0.6), a_e + passo_e - deg_to_rad(0.6), 8, Color(0.35, 0.95, 0.85, 0.85) if cheio_e else Color(0, 0, 0, 0.3), 3.0 if cheio_e else 2.0, true)
 	# velocidade e altura: só enquanto voa (no chão a tela fica limpa)
 	var voando: bool = alvo.em_voo() or alvo.estado == Armadura.Estado.PAIRAR
 	_voo_visto = move_toward(_voo_visto, 1.0 if voando else 0.0, dt * (4.0 if voando else 1.2))

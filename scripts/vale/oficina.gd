@@ -495,7 +495,7 @@ func sair() -> void:
 	armadura.visual.vestir_melhorias()
 	_de = armadura.global_position
 	# sai pela rampa até o chão, 2,5 m à frente da boca
-	_para = BaseVale.cilindro_t * Vector3(BaseVale.MEIO_CIL + 2.5, -(BaseVale.R_CIL + 0.18) + 0.05, 0.0)
+	_para = BaseVale.cilindro_t * Vector3(BaseVale.MEIO_CIL + 2.5, -BaseVale.C_CIL.y + 0.05, 0.0)
 	var e := _eixo()
 	armadura.visual.yaw_forcado = atan2(-e.x, -e.z)
 
@@ -530,6 +530,7 @@ func _physics_process(delta: float) -> void:
 				armadura.avaria = 0
 				armadura.set("_dano_frac", 0.0)
 				armadura.escudo_t = 0.0
+				armadura.escudo_cargas = Arsenal.ESCUDO_CARGAS
 				recargas += 1
 				if hud:
 					hud.avisar("Base", "munição e vida recarregadas")

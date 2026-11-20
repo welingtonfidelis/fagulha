@@ -17,7 +17,7 @@ const PISO := 86.0
 const SAIU := 84.0  # passando disto do centro, a rodada para
 const ATIVOS := 7  # robôs ligados ao mesmo tempo, no máximo
 const T_CONTAGEM := 5.0
-const T_PERIGO := 30.0  # segundos dentro do galpão até a horda começar
+const T_PERIGO := 18.0  # segundos dentro do galpão até a horda começar (era 30; pedido do usuário, 2026-11-20)
 const T_RESPIRO := 15.0
 const CHEFE_A_CADA := 5
 const T_AVISO_CHEFE := 2.6  # s de aviso antes de o minichefe sair da porta
@@ -893,9 +893,9 @@ static func montar(v: Vale) -> void:
 	# robôs velhos, tomados pelo tempo: caídos pelos cantos, apagados
 	var k := 0
 	for dados in [[-16.0, 16.0, 0.8], [10.0, -18.0, 2.4], [30.0, 28.0, 4.0], [-32.0, -8.0, 1.5], [4.0, 6.0, 5.2], [-28.0, 32.0, 3.1]]:
-		# robôs do próprio projeto (InimigoVisual), um de cada família, deitados de costas ou de bruços
-		InimigoVisual.forcar_modelo = InimigoVisual.FAMILIAS[k % 3]
-		var velho := InimigoVisual.montar(4400 + k * 13, [1.8, 1.9, 1.6][k % 3], _tex)
+		# robôs inimigos do próprio projeto (InimigoVisual), um de cada tipo comum, deitados de costas ou de bruços
+		InimigoVisual.forcar_modelo = InimigoVisual.COMUNS[k % InimigoVisual.COMUNS.size()]
+		var velho := InimigoVisual.montar(4400 + k * 13, 1.6, _tex)
 		InimigoVisual.forcar_modelo = ""
 		raiz.add_child(velho)
 		velho.tocar("Death")
@@ -913,7 +913,8 @@ static func montar(v: Vale) -> void:
 				menor = minf(menor, pv.y)
 		if menor != INF:
 			velho.global_position.y += raiz.to_global(aqui(dados[0], 0.0, dados[1])).y + 0.01 - menor
-		_tufo(raiz, aqui(float(dados[0]) + 0.5, 0.2, float(dados[1]) - 0.4), 1.3)
+		# um tufo de musgo ao lado (os robôs novos são finos: em cima, o tufo os escondia)
+		_tufo(raiz, aqui(float(dados[0]) + 1.2, 0.05, float(dados[1]) - 1.0), 0.55)
 		# a colisão segue o corpo caído, peça por peça, em cascos simples (são pequenos e não se mexem)
 		for casco_v in MalhaCorpo.cascos(velho, null):
 			corpo.add_child(casco_v)
@@ -970,17 +971,18 @@ func _dist() -> float:
 ## Quantos robôs a onda tem, quanto cada um aguenta e com que arma vem. Para a dificuldade subir aos
 ## poucos (pedido do usuário), as três primeiras ondas são só de ataque de perto (espada e martelo); da 4ª
 ## em diante entram os fuzis de um tiro, da 7ª os canhões e da 10ª os mísseis, sempre em minoria no começo.
-## A cada 5, um minichefe com escolta menor.
+## A cada 5, um minichefe com escolta menor. Só os nossos robôs (Mecha, `InimigoVisual`): o Stan, o Trilobite
+## e o QuadShell saíram das ondas (pedido do usuário, 2026-11-20).
 static func receita(numero: int) -> Array[Dictionary]:
 	var lista: Array[Dictionary] = []
 	var chefe := numero % CHEFE_A_CADA == 0
 	var quantos := mini(2 + numero, 14)
 	if chefe:
 		quantos = 2 + int(numero / CHEFE_A_CADA)
-		# os minichefes se revezam: o Stan (atira de longe) nas ondas 5, 15, 25...; o Trilobite (corre e bate)
-		# nas 10, 20, 30...
+		# os minichefes se revezam: o Canhoneiro (dois tiros de canhão, de longe) nas ondas 5, 20, 35...; o
+		# Capataz (lâmina, pula e esquiva) nas 10, 25...; o Guardião (atira de longe e bate de perto) nas 15, 30...
 		lista.append({"chefe": true, "resistencia": 1.0 + numero / float(CHEFE_A_CADA) * 0.5, "semente": 9100 + numero,
-			"arma": "", "tipo": "stan" if int(numero / CHEFE_A_CADA) % 2 == 1 else "trilobite"})
+			"arma": arma_do_chefe(numero)})
 	var balas := 0 if numero < 4 else clampi(int((numero - 2) / 2.0), 1, quantos - 2)
 	var pesados := 0 if numero < 7 else clampi(int((numero - 5) / 3.0), 1, 3)
 	var misseis := 0 if numero < 10 else clampi(int((numero - 8) / 3.0), 1, 3)
@@ -993,14 +995,21 @@ static func receita(numero: int) -> Array[Dictionary]:
 			arma = "pesado"
 		elif i < misseis + pesados + balas:
 			arma = "bala"
-		# da 4ª onda em diante, metade dos atiradores de fuzil são QuadShells (pequenos, de quatro patas)
-		var tipo := "quadshell" if arma == "bala" and (i - misseis - pesados) % 2 == 0 else "mecha"
-		lista.append({"chefe": false, "resistencia": 1.0 + (numero - 1) * 0.1, "semente": 9000 + numero * 37 + i, "arma": arma, "tipo": tipo})
+		lista.append({"chefe": false, "resistencia": 1.0 + (numero - 1) * 0.1, "semente": 9000 + numero * 37 + i, "arma": arma})
 	# os de perto saem primeiro; os de arma, por último
 	lista.reverse()
 	if chefe:
 		lista.push_front(lista.pop_back())
 	return lista
+
+
+## A arma do minichefe da onda: "pesado" (Canhoneiro), "corpo" (Capataz) e "bala" (Guardião), em roda.
+static func arma_do_chefe(numero: int) -> String:
+	return ["pesado", "corpo", "bala"][posmod(int(numero / CHEFE_A_CADA) - 1, 3)]
+
+
+static func nome_do_chefe(numero: int) -> String:
+	return String(InimigoVisual.NOMES[InimigoVisual.POR_ARMA[arma_do_chefe(numero)][1]])
 
 
 func ligar() -> void:
@@ -1031,7 +1040,7 @@ func _comecar_onda() -> void:
 			sons._toque("chefe_aviso", -2.0, 0.0)
 			sons._toque("porta_abre", -4.0, 0.0)
 	if hud:
-		hud.avisar("Onda %d" % onda, ("minichefe: %s" % MaquinaPacote.TITULOS[_fila[0]["tipo"]]) if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
+		hud.avisar("Onda %d" % onda, ("minichefe: %s" % nome_do_chefe(onda)) if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
 
 
 func _soltar(dados: Dictionary) -> void:
@@ -1039,15 +1048,8 @@ func _soltar(dados: Dictionary) -> void:
 	# todos nascem no breu atrás da porta, em fila, e andam reto até passar da fresta
 	_portao += 1
 	var de := aqui(0.0, 0.2, -MZ - 5.0 - (_portao % 4) * 3.2)
-	var mc: Vigia
-	if String(dados.get("tipo", "mecha")) == "mecha":
-		var me := Mecha.new()
-		me.arma_forcada = dados["arma"]
-		mc = me
-	else:
-		var mp := MaquinaPacote.new()
-		mp.tipo = dados["tipo"]
-		mc = mp
+	var mc := Mecha.new()
+	mc.arma_forcada = dados["arma"]
 	mc.mapa = mapa
 	mc.alvo = armadura
 	# a "casa" é um ponto perto do meio: dali eles já enxergam o robô em quase todo o galpão
@@ -1066,7 +1068,7 @@ func _soltar(dados: Dictionary) -> void:
 	if chefe:
 		chefe_vivo = mc
 		if hud:
-			hud.chefe_nome = MaquinaPacote.TITULOS.get(String(dados.get("tipo", "")), "Minichefe")
+			hud.chefe_nome = nome_do_chefe(onda)
 
 
 ## Uma caixa sai da forja pela esteira (as forjas ainda fabricam): "municao" enche as granadas e os mísseis,
@@ -1132,6 +1134,7 @@ func _andar_caixas(delta: float) -> void:
 				armadura.avaria = 0
 				armadura.set("_dano_frac", 0.0)
 				armadura.escudo_t = 0.0
+				armadura.escudo_cargas = Arsenal.ESCUDO_CARGAS
 				if hud:
 					hud.avisar("Robô consertado", "os acertos foram apagados")
 			caixas_pegas += 1
@@ -1273,8 +1276,8 @@ func _physics_process(delta: float) -> void:
 	var d := _dist()
 	if fase == Fase.PARADA:
 		# Não há mais botão para ligar (pedido do usuário, 2026-11-20). Quem entra no galpão recebe um aviso,
-		# sem parar o jogo; ficando mais de 30 s lá dentro, os robôs hostis começam a vir e a horda começa.
-		# Sair zera a contagem.
+		# sem parar o jogo; ficando mais de 18 s lá dentro (eram 30), os robôs hostis começam a vir e a horda
+		# começa. Sair zera a contagem.
 		var la_dentro := dentro_do_galpao(armadura.global_position) and not armadura.em_pane and not armadura.travado
 		if la_dentro:
 			if perigo_t <= 0.0 or perigo_t > T_PERIGO:
@@ -1310,7 +1313,12 @@ func _physics_process(delta: float) -> void:
 		_parar("A Fundição venceu desta vez", "metade dos materiais da rodada ficou lá", perdeu)
 		return
 	if d > SAIU:
-		_parar("Fundição desligada", "você saiu da cratera")
+		# saiu no meio da horda: ela zera e, na volta, começa da onda 1 de novo, mesmo depois de um minichefe
+		# (pedido do usuário, 2026-11-20). O ponto de volta só vale para quem fica e perde lá dentro.
+		Arsenal.ponto_volta = 1
+		Arsenal.guardar()
+		_parar("Fundição desligada", "você saiu da cratera; a horda recomeça na onda 1")
+		onda = 0
 		return
 	match fase:
 		Fase.CONTAGEM:

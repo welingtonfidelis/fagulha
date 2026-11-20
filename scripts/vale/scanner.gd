@@ -116,7 +116,9 @@ func _candidatos() -> Array:
 		for no in get_tree().get_nodes_in_group(grupo):
 			if no is Node3D and (no as Node3D).is_visible_in_tree():
 				var alto := 0.5
-				if no is Vigia:
+				if (no as Node3D).has_meta("meio_altura"):
+					alto = float((no as Node3D).get_meta("meio_altura"))
+				elif no is Vigia:
 					alto = (no as Vigia).altura_m * 0.6
 				elif no is Cervo:
 					alto = 0.9
@@ -167,6 +169,9 @@ func _ficha(o) -> Dictionary:
 	if o is DroneColega:
 		return {"nome": "Drone colega", "tipo": "máquina · amigo",
 			"linhas": ["Mora no posto da base.", "Busca o robô quando ele desliga.", "Ninguém atira nele."]}
+	if o is Node3D and (o as Node3D).has_meta("robozinho"):
+		return {"nome": "Robozinho", "tipo": "robô · amigo",
+			"linhas": ["Mora na base e brinca no pátio.", "De vez em quando senta para jogar videogame.", "Ninguém atira neles."]}
 	if o is Cervo:
 		return {"nome": "Cervo", "tipo": "bicho · manso", "linhas": ["Pasta nas clareiras.", "Foge de quem chega correndo.", "Com o robô sentado, chega perto."]}
 	if o is Coelho:

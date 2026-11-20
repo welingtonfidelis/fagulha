@@ -24,25 +24,25 @@ const DICAS := [
 const COMANDOS := [
 	["NO CHÃO", "", ""],
 	["Andar · olhar", "{@al} · {@ar}", "{@k_w}{@k_a}{@k_s}{@k_d} · {@m}"],
-	["Correr", "{@l3}", "{@k_shift}"],
+	["Correr", "{@al} até o fim", "{@k_shift}"],
 	["Pular · pulo duplo", "{@x} · {@x} no ar", "{@k_espaco}"],
 	["Esquiva", "{@o}", "{@k_c}"],
 	["Apreciar a vista (parado)", "{@esq}", "{@k_ctrl}"],
 	["NO AR", "", ""],
-	["Decolar", "segurar {@x}", "segurar {@k_espaco}"],
-	["Ligar o voo · desligar e cair", "{@l3} no ar · toque em {@l3}", "{@k_shift} no ar"],
-	["Acelerar e segurar", "{@al}", "{@k_w} · {@k_s}"],
-	["Planar · voltar ao jato (asas)", "segurar {@l3} ou {@x}", "segurar {@k_shift}"],
-	["Parar no ar", "{@l2} · {@r3}", "{@k_f}"],
+	["Voar (do chão ou do ar)", "segurar {@x}", "segurar {@k_espaco}"],
+	["Parar no ar · voltar a voar", "toque em {@x}", "toque em {@k_espaco}"],
+	["Desligar os jatos e cair", "parado: segurar {@x} · voando: {@l3}", "parado: segurar {@k_espaco} · voando: {@k_shift}"],
+	["Arrancada · frear", "{@al} para a frente · para trás", "{@k_w} · {@k_s}"],
+	["Planar · voltar ao jato (asas)", "segurar {@x}", "segurar {@k_espaco}"],
 	["Manobra (giro para o lado)", "{@o}", "{@k_c}"],
 	["Mergulho com impacto", "{@tri}", "{@k_v}"],
 	["COMBATE", "", ""],
 	["Mirar · atirar", "{@l2} · {@r2}", "{@m_dir} · {@m_esq}"],
 	["Trocar de arma", "toque em {@l1} · segurar: roda", "{@k_r} · {@k_1} a {@k_6}"],
 	["Granada", "segurar e soltar {@r1}", "{@k_g}"],
-	["Espada de laser", "{@r3} no chão", "{@k_x}"],
+	["Espada de laser", "{@quad} no chão", "{@k_x}"],
 	["OUTROS", "", ""],
-	["Oficina · acordar e trocar de robô", "{@quad}", "{@k_e}"],
+	["Oficina · sentar · acordar e trocar de robô", "{@tri} no chão, perto", "{@k_e}"],
 	["Luz · scanner (melhorias)", "{@cima} · {@dir}", "{@k_l} · {@k_t}"],
 	["Marcar um ponto", "{@baixo}", "{@k_q}"],
 	["Nadar: subir · descer", "{@x} · {@o}", "{@k_espaco} · {@k_c}"],
@@ -127,7 +127,9 @@ func _ready() -> void:
 	_botao_novo.visible = false
 	if na_simulacao:
 		_botao_mundo = _botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false))
-	_botao_voltar = _botao(_inicio, "Voltar ao começo" if na_simulacao else "Voltar à base", "reaparece no começo" if na_simulacao else "reaparece na base", _voltar)
+	# "Voltar à base" saiu da pausa do jogo (pedido do usuário, 2026-11-20); na simulação fica o "Voltar ao começo"
+	if na_simulacao:
+		_botao_voltar = _botao(_inicio, "Voltar ao começo", "reaparece no começo", _voltar)
 	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos)
 	if not na_simulacao:
 		_botao_caderno = _botao(_inicio, "Caderno", "lugares, memórias e o que o scanner leu", _abrir_caderno)
@@ -572,9 +574,10 @@ func _abrir() -> void:
 	# desligado (em pane), o robô não volta à base pela pausa: quem o leva é o drone, e a derrota na Fundição
 	# custa metade dos materiais
 	var em_pane := armadura != null and armadura.em_pane
-	_botao_voltar.disabled = em_pane
-	_botao_voltar.text = "Voltar à base (robô desligado: aguarde o drone)" if em_pane else ("Voltar ao começo" if na_simulacao else "Voltar à base")
-	(_botao_voltar.get_node("explica") as Label).visible = not em_pane
+	if _botao_voltar:
+		_botao_voltar.disabled = em_pane
+		_botao_voltar.text = "Voltar ao começo (robô desligado: aguarde o drone)" if em_pane else "Voltar ao começo"
+		(_botao_voltar.get_node("explica") as Label).visible = not em_pane
 	_primeiro.grab_focus()
 	_dica.text = "Dica: " + DICAS[(aberturas - 1) % DICAS.size()]
 	# o cartão chega com um movimento curto

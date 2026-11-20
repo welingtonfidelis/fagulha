@@ -16,6 +16,7 @@ uniform float escala = 0.11;
 uniform vec2 vento = vec2(0.0016, 0.0007);
 uniform float volume = 0.0;  // visual novo: nuvens de borda firme, com a barriga lilás
 uniform vec3 cor_barriga : source_color = vec3(0.70, 0.70, 0.95);
+uniform float fechado = 0.0;  // chuva: o teto de nuvens cobre o céu todo (e o sol)
 
 void sky() {
 	float ang = acos(clamp(EYEDIR.y, -1.0, 1.0));
@@ -38,6 +39,7 @@ void sky() {
 		vec2 uv = EYEDIR.xz / (EYEDIR.y + 0.16) * escala + TIME * vento;
 		float n = texture(nuvens, uv).r * 0.72 + texture(nuvens, uv * 2.7 + 0.37).r * 0.28;
 		float nuvem = smoothstep(nuvem_de, nuvem_ate, n) * 0.95 * smoothstep(0.015, 0.16, EYEDIR.y);
+		nuvem = max(nuvem, fechado * smoothstep(-0.02, 0.1, EYEDIR.y));
 		if (volume > 0.0) {
 			// a nuvem tapa o céu (em vez de somar luz) e tem a parte de baixo mais escura e lilás: a "espessura"
 			// vem de comparar o ruído com o de um ponto um pouco mais para o lado do sol

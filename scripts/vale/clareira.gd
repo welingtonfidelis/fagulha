@@ -17,7 +17,7 @@ const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
 const LAGOA_FUNDO := 3.4  # metros a mais de fundura no meio
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
-const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2)]  # os três últimos: o chão batido da base, o da horta e o da fogueira (BaseLar)
+const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2), Vector3(-13.36, 43.75, 5.0), Vector3(-9.27, 44.72, 5.0)]  # os cinco últimos: o chão batido da base, o da horta, o da fogueira (BaseLar) e o do cilindro, que saiu para o lado (2026-11-20)
 const MIRANTE := Vector2(-46.0, 22.0)
 
 var cervos_em: Array[Vector3] = []
@@ -796,6 +796,10 @@ func _capim() -> void:
 				continue
 			var r := Vector2(px, pz).length()
 			if r > 116.0 or (r > 80.0 and rng.randf() > 0.45):
+				continue
+			# em volta do cilindro de melhorias o chão fica limpo (sorteio por posição, sem gastar o rng: o resto
+			# do capim continua nascendo no mesmo lugar)
+			if r < 60.0 and BaseVale.limpo_cilindro(px, pz) > fposmod(sin(px * 12.9898 + pz * 78.233) * 43758.5453, 1.0):
 				continue
 			var chave := Vector2i(floori(px / 32.0), floori(pz / 32.0))
 			if not blocos.has(chave):

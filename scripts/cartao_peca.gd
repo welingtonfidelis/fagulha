@@ -14,9 +14,9 @@ const PECAS := {
 	"antena": ["Antena de busca", "A bússola mostra as peças que estiverem por perto.", "", "", "bussola"],
 	"radiador": ["Radiador de aletas", "O motor esquenta mais devagar: dá para voar mais tempo.", "", "", "calor"],
 	"radiador2": ["Radiador duplo", "O motor quase não esquenta: voa três vezes mais.", "", "", "calor2"],
-	"bocais": ["Bocais largos", "A arrancada no ar fica mais rápida.", "{@l3}", "{@k_shift}", "veloz"],
-	"asas": ["Asas de planar", "No voo, segure para desligar o jato e planar. Planando o motor esfria.", "segurar {@l3}", "segurar {@k_shift}", "asas"],
-	"barbatanas": ["Barbatanas", "O nado rápido fica mais veloz e vence a correnteza.", "{@l3}", "{@k_shift}", "agua"],
+	"bocais": ["Bocais largos", "A arrancada no ar fica mais rápida.", "{@al} para a frente", "{@k_w}", "veloz"],
+	"asas": ["Asas de planar", "No voo, segure para desligar o jato e planar. Planando o motor esfria.", "segurar {@x}", "segurar {@k_shift}", "asas"],
+	"barbatanas": ["Barbatanas", "O nado rápido fica mais veloz e vence a correnteza.", "{@al} até o fim", "{@k_shift}", "agua"],
 	"amortecedores": ["Molas", "Pula mais alto e pousa sem tranco.", "{@x}", "{@k_espaco}", "pulo"],
 	"farol": ["Luz do peito", "Acende e apaga uma luz para a noite e para as cavernas.", "{@cima}", "{@k_l}", "luz"],
 	"celulas": ["Células de reserva", "No chão, o motor esfria mais depressa.", "", "", "frio"],
@@ -28,7 +28,7 @@ const PECAS := {
 	"duplo": ["Tiro duplo", "Um gatilho para cada braço.", "{@l2} · {@r2}", "{@m_dir} · {@m_esq}", "tiros"],
 	"misseis": ["Mísseis", "Segure para marcar até quatro máquinas e solte.", "segurar e soltar {@r2}", "segurar e soltar {@m_esq}", "missil"],
 	"granadas": ["Granadas", "Segure para ver o arco e solte para lançar.", "segurar e soltar {@r1}", "{@k_g}", "bola"],
-	"escudo": ["Escudo de energia", "Engole um acerto e depois recarrega sozinho.", "", "", "escudo"],
+	"escudo": ["Escudo de energia", "Engole três acertos e depois recarrega sozinho.", "", "", "escudo"],
 	"vida": ["Vida extra", "O robô aguenta um acerto a mais antes de desligar.", "", "", "coracao"],
 }
 

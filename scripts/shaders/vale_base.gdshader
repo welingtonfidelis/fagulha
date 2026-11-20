@@ -10,6 +10,7 @@ uniform vec3 tinta : source_color = vec3(1.0);
 uniform float corte = 0.0;  // recorte pelo alfa da textura (0: peça inteira)
 uniform float ferrugem = 0.0;
 uniform float musgo = 0.0;
+uniform float sujeira = 0.0;  // móveis velhos: a cor desbota para o sépia, manchas de umidade e pó por cima
 uniform sampler2D luz : source_color, filter_linear_mipmap, repeat_enable, hint_default_black;
 uniform float luz_forca = 0.0;  // quanto a textura de luz acende (telas, olho do drone)
 uniform vec3 aceso : source_color = vec3(0.0);  // cor acesa na peça toda (lâmpadas)
@@ -43,6 +44,24 @@ void fragment() {
 	float r1 = texture(ruido, pl * 0.05 + vec2(0.37, 0.11)).r;
 	float r2 = texture(ruido, pl * 0.21 + vec2(0.13, 0.71)).r;
 	float tempo = 0.0;
+	if (sujeira > 0.0) {
+		// desbotado: perde parte da cor e puxa para um amarelado velho
+		float cinza = dot(c, vec3(0.3, 0.59, 0.11));
+		c = mix(c, vec3(cinza) * vec3(1.05, 0.97, 0.84), 0.3 * sujeira);
+		// manchas de umidade e encardido do tamanho de um móvel (o ruído das paredes é largo demais: um sofá
+		// inteiro caía dentro ou fora de uma mancha só), mais embaixo
+		float s1 = texture(ruido, pl * 0.55 + vec2(0.61, 0.29)).r;
+		float s2 = texture(ruido, pl * 1.6 + vec2(0.23, 0.83)).r;
+		float mancha = smoothstep(0.45, 0.78, s1 * 0.65 + s2 * 0.35 + (1.0 - n.y) * 0.06 + (r1 - 0.5) * 0.2);
+		c = mix(c, c * vec3(0.62, 0.55, 0.46), mancha * 0.75 * sujeira);
+		// grão miúdo de sujeira em tudo
+		float grao = texture(ruido, pl * 1.7 + vec2(0.5, 0.2)).r;
+		c *= 1.0 - (grao - 0.5) * 0.22 * sujeira;
+		// pó nas faces de cima
+		float po = smoothstep(0.55, 0.95, n.y) * (0.45 + 0.55 * r2);
+		c = mix(c, vec3(0.5, 0.46, 0.39), po * 0.35 * sujeira);
+		c *= 1.0 - 0.12 * sujeira;
+	}
 	if (ferrugem > 0.0) {
 		// a ferrugem vem de duas texturas (Poly Haven, CC0), projetadas pelo mundo para emendar de uma peça
 		// para a outra: a grossa dá a cor e o grão; a de chapa pintada dá as pintas, que esfarelam a borda

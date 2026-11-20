@@ -30,6 +30,13 @@ static var fogueira := Vector3.INF  # no mundo
 static var bancada := Vector3.INF  # no mundo: o meio do tampo
 static var horta := Vector3.INF  # no mundo: o meio dos canteiros
 static var sofa := Vector3.INF  # no mundo: o assento do sofá
+static var giz: MeshInstance3D  # a amarelinha (escondida até os robozinhos chegarem)
+## Onde os robozinhos jogam videogame (MiniRobos), no mundo: {assento, frente, pe, via: [pontos], tipo: "tv" ou
+## "portatil"}. `assento` é onde a bacia apoia; `pe` é o chão na frente do móvel; `via` o caminho até lá.
+static var lugares_minis: Array = []
+static var tela_tv: ShaderMaterial  # a tela da TV de tubo (troca de quadro quando alguém joga)
+static var quadros_tv: Array = []
+static var _sujar := 0.0
 static var _mat_movel: ShaderMaterial
 static var _cenas := {}
 static var _bolinha: SphereMesh
@@ -50,6 +57,8 @@ static func assento_em(o: Ruinas.Obra, pos: Vector3, frente: Vector3, sai: float
 
 static func montar(o: Ruinas.Obra, cy: float) -> void:
 	Armadura.assentos.clear()
+	lugares_minis.clear()
+	quadros_tv.clear()
 	moveis = 0
 	luzinhas = 0
 	canteiros = 0
@@ -70,7 +79,7 @@ static func caixa(o: Ruinas.Obra, centro: Vector3, tam: Vector3, cor: Color, gir
 	var bm := BoxMesh.new()
 	bm.size = tam
 	mi.mesh = bm
-	mi.material_override = BaseVale._mat_cor(cor, fer, mus, o.v._tex)
+	mi.material_override = BaseVale._mat_cor(cor, fer, mus, o.v._tex) if _sujar <= 0.0 else _mat_sujo(o, cor, fer)
 	mi.transform = o.t * Transform3D(giro, centro)
 	o.v.add_child(mi)
 	if colide:
@@ -78,6 +87,26 @@ static func caixa(o: Ruinas.Obra, centro: Vector3, tam: Vector3, cor: Color, gir
 		cx.size = tam
 		o.forma(cx, Transform3D(giro, centro))
 	return mi
+
+
+## Uma cor só, desbotada e encardida como os móveis (a TV, o rádio e o videogame).
+static func _mat_sujo(o: Ruinas.Obra, cor: Color, fer: float) -> ShaderMaterial:
+	var chave := "sujo|%s|%.2f|%.2f" % [cor.to_html(), fer, _sujar]
+	if BaseVale._mats.has(chave):
+		return BaseVale._mats[chave]
+	var m := BaseVale._mat_cor(cor, fer, 0.0, o.v._tex).duplicate() as ShaderMaterial
+	m.set_shader_parameter("sujeira", _sujar)
+	BaseVale._mats[chave] = m
+	return m
+
+
+## Um lugar de jogar para os robozinhos (medida do lugar): `assento` onde a bacia apoia, `frente` para onde
+## olham, `pe` o chão na frente do móvel e `via` os pontos do caminho, a partir da frente do telheiro.
+static func lugar_mini(o: Ruinas.Obra, assento: Vector3, frente: Vector3, pe: Vector3, via: Array, tipo: String) -> void:
+	var pontos: Array = []
+	for p: Vector3 in via:
+		pontos.append(o.t * p)
+	lugares_minis.append({"assento": o.t * assento, "frente": (o.t.basis * frente).normalized(), "pe": o.t * pe, "via": pontos, "tipo": tipo})
 
 
 ## Uma cor que acende sozinha (tela, brasa, o vidro das luzinhas).
@@ -133,8 +162,11 @@ static func _vestir(o: Ruinas.Obra, raiz: Node) -> void:
 		_mat_movel.shader = load("res://scripts/shaders/vale_base.gdshader")
 		_mat_movel.set_shader_parameter("ruido", o.v._tex)
 		_mat_movel.set_shader_parameter("tex", load(MOVEIS + "furniturebits_texture.png"))
-		_mat_movel.set_shader_parameter("tinta", Color(0.78, 0.76, 0.72))
-		_mat_movel.set_shader_parameter("ferrugem", 0.0)
+		# os móveis também são velhos (2026-11-20, pedido do usuário: destoavam do hangar): desbotados,
+		# encardidos e com pó, e uma pinta de ferrugem nas ferragens
+		_mat_movel.set_shader_parameter("tinta", Color(0.74, 0.71, 0.66))
+		_mat_movel.set_shader_parameter("sujeira", 1.0)
+		_mat_movel.set_shader_parameter("ferrugem", 0.06)
 		_mat_movel.set_shader_parameter("musgo", 0.0)
 	for mi: MeshInstance3D in raiz.find_children("*", "MeshInstance3D", true, false) + ([raiz] if raiz is MeshInstance3D else []):
 		mi.material_override = _mat_movel
@@ -175,51 +207,66 @@ static func varal(o: Ruinas.Obra, a: Vector3, b: Vector3, barriga: float, passo 
 # ---------------------------------------------------------------- o telheiro
 
 static func _telheiro(o: Ruinas.Obra, cy: float) -> void:
-	var x0 := -11.6
-	var larg := 2.65
+	# as chapas, da esquerda (o lado do cilindro) para a direita. As duas primeiras são o puxado que cobre o
+	# cilindro (2026-11-20), um pouco mais largas, de chapas mais novas e mais claras.
+	var largs := [2.8, 2.8, 2.65, 2.65, 2.65, 2.65, 2.65, 2.65, 2.65, 2.65]
+	var x0 := -11.6 - 5.6
+	var x1 := x0
+	for l: float in largs:
+		x1 += l
+	var meio_x := (x0 + x1) * 0.5
+	var vao := x1 - x0
 	var z0 := Z_FRENTE - 0.35  # o beiral da frente
 	var ang := atan(CAIMENTO)
 	var giro := Basis(Vector3.RIGHT, ang)
 	var comp := (Z_FUNDO - z0) / cos(ang)
 	var zc := (z0 + Z_FUNDO) * 0.5
 	var yc := cy + teto_y(zc)
-	# a viga da frente, em três postes com sapata e mão-francesa; no canto do cilindro ela apoia nele
+	# a viga da frente, em postes com sapata e mão-francesa (no puxado, um poste de cada lado do cilindro)
 	var y_viga := cy + Y_FRENTE - 0.3
-	o.bloco(Vector3(-1.0, y_viga, Z_FRENTE), Vector3(21.3, 0.34, 0.3), Basis.IDENTITY, "casco", false)
-	for px: float in [-11.35, 3.4, 9.35]:
-		var alto := Y_FRENTE - 0.47
+	o.bloco(Vector3(meio_x, y_viga, Z_FRENTE), Vector3(vao + 0.1, 0.34, 0.3), Basis.IDENTITY, "casco", false)
+	var alto := Y_FRENTE - 0.47
+	for px: float in [x0 + 0.3, BaseVale.C_CIL.x + BaseVale.MEIO_CIL + 0.9, 3.4, 9.35]:
 		o.bloco(Vector3(px, cy + alto * 0.5, Z_FRENTE), Vector3(0.28, alto, 0.28), Basis.IDENTITY, "casco")
 		o.bloco(Vector3(px, cy + 0.14, Z_FRENTE), Vector3(0.56, 0.28, 0.56), Basis.IDENTITY, "ruina", false)
 		for lado: float in [-1.0, 1.0]:
-			if px + lado * 1.0 < -11.5 or px + lado * 1.0 > 9.5:
+			if px + lado * 1.0 < x0 + 0.1 or px + lado * 1.0 > 9.5:
 				continue
 			o.bloco(Vector3(px + lado * 0.5, y_viga - 0.62, Z_FRENTE), Vector3(0.11, 1.35, 0.11), Basis(Vector3.BACK, -lado * 0.78), "ferrugem", false)
-	o.bloco(Vector3(BaseVale.C_CIL.x, cy + 4.74, Z_FRENTE), Vector3(0.6, 0.36, 0.4), Basis.IDENTITY, "ferrugem", false)
-	# a viga do fundo, deitada em cima da parede
-	o.bloco(Vector3(-1.0, cy + teto_y(6.75) - 0.22, 6.75), Vector3(21.3, 0.26, 0.3), Basis.IDENTITY, "casco", false)
+	# a viga do fundo, deitada em cima da parede; no puxado, sem parede, ela tem postes próprios
+	var y_fundo := cy + teto_y(6.75) - 0.22
+	o.bloco(Vector3(meio_x, y_fundo, 6.75), Vector3(vao + 0.1, 0.26, 0.3), Basis.IDENTITY, "casco", false)
+	for px2: float in [x0 + 0.3, BaseVale.C_CIL.x + 0.4]:
+		var alto2 := y_fundo - 0.13 - cy
+		o.bloco(Vector3(px2, cy + alto2 * 0.5, 6.75), Vector3(0.24, alto2, 0.24), Basis.IDENTITY, "casco")
+		o.bloco(Vector3(px2, cy + 0.12, 6.75), Vector3(0.5, 0.24, 0.5), Basis.IDENTITY, "ruina", false)
 	# os caibros
-	for k in 8:
-		var x := -11.35 + k * (20.7 / 7.0)
+	var n_caibros := 10
+	for k in n_caibros:
+		var x := x0 + 0.25 + k * ((vao - 0.5) / (n_caibros - 1))
 		o.bloco(Vector3(x, yc - 0.13, zc), Vector3(0.14, 0.2, comp), giro, "ferrugem", false)
 	# as telhas: chapas de cores e idades diferentes, uma lona no lugar da que faltava e meia chapa caída
 	# sobre a baia (por onde entra um facho de sol)
-	var mats := ["casco", "casco_claro", "casco", "ferrugem", "", "casco", "casco_claro", "casco"]
-	for k in 8:
-		var x := x0 + (k + 0.5) * larg
+	var mats := ["casco_claro", "casco", "casco", "casco_claro", "casco", "ferrugem", "", "casco", "casco_claro", "casco"]
+	var xa := x0
+	for k in largs.size():
+		var larg: float = largs[k]
+		var x := xa + larg * 0.5
+		xa += larg
 		var sobe := 0.03 + 0.012 * (k % 3)
 		if mats[k] == "":
 			caixa(o, Vector3(x, yc + 0.05, zc), Vector3(larg + 0.2, 0.04, comp * 0.97), LONA, giro)
 			for ponta: float in [-1.0, 1.0]:  # as ripas que seguram a lona
 				caixa(o, Vector3(x + ponta * (larg * 0.5 + 0.02), yc + 0.08, zc), Vector3(0.09, 0.05, comp * 0.97), MADEIRA, giro)
-		elif k == 6:
+		elif k == 8:
 			var parte := comp * 0.62
 			var zf := Z_FUNDO - parte * 0.5 * cos(ang)
 			o.bloco(Vector3(x, cy + teto_y(zf) + sobe, zf), Vector3(larg - 0.04, 0.06, parte), giro, mats[k], false)
 		else:
 			o.bloco(Vector3(x, yc + sobe, zc), Vector3(larg - 0.04, 0.06, comp), giro, mats[k], false)
 	var cob := BoxShape3D.new()
-	cob.size = Vector3(21.2, 0.22, comp)
-	o.forma(cob, Transform3D(giro, Vector3(-1.0, yc, zc)))
+	cob.size = Vector3(vao - 0.1, 0.22, comp)
+	o.forma(cob, Transform3D(giro, Vector3(meio_x, yc, zc)))
 	# as luzinhas: na beira do telheiro, por dentro do cantinho, e um fio comprido até a fogueira
 	var yl := y_viga - 0.2
 	varal(o, Vector3(-5.2, yl, Z_FRENTE - 0.2), Vector3(3.4, yl, Z_FRENTE - 0.2), 0.42)
@@ -242,6 +289,14 @@ static func _cantinho(o: Ruinas.Obra, cy: float) -> void:
 		assento_em(o, Vector3(meio + lado, cy + ALTO_SOFA, zs - 0.08), Vector3(0, 0, -1), 0.95, cy)
 	var frente_polt := Basis(Vector3.UP, -1.95) * Vector3(0, 0, 1)
 	assento_em(o, Vector3(meio + 2.25, cy + ALTO_SOFA, zs - 1.35) + frente_polt * 0.06, frente_polt, 0.95, cy)
+	# os robozinhos jogam no portátil sentados no sofá e na poltrona (a mesinha fica no meio: o caminho dá a volta)
+	var entrada := Vector3(-0.9, cy, 2.2)
+	for lado2: float in [-0.45, 0.45]:
+		var sx := meio + lado2
+		lugar_mini(o, Vector3(sx, cy + ALTO_SOFA + 0.02, zs - 0.12), Vector3(0, 0, -1), Vector3(sx, cy, zs - 0.75),
+			[entrada, Vector3(meio + 1.15, cy, zs - 1.0), Vector3(sx, cy, zs - 0.95)], "portatil")
+	var ap := Vector3(meio + 2.25, cy + ALTO_SOFA + 0.02, zs - 1.35) + frente_polt * 0.08
+	lugar_mini(o, ap, frente_polt, ap + frente_polt * 0.62 - Vector3(0, ALTO_SOFA + 0.02, 0), [entrada], "portatil")
 	# a luminária de pé, a única luz quente e forte da base
 	var lx := meio - 1.5
 	movel(o, "lamp_standing", Vector3(lx, cy, zs + 0.1), 0.0, ESC, false)
@@ -275,10 +330,15 @@ static func _bancada(o: Ruinas.Obra, cy: float) -> void:
 	movel(o, "desk_large", Vector3(bx, cy, bz), PI)
 	var tampo := cy + 1.0 * ESC
 	bancada = o.t * Vector3(bx, tampo, bz)
-	movel(o, "chair_stool_wood", Vector3(bx - 0.55, cy, bz - 0.95), 0.3)
+	var banco := movel(o, "chair_stool_wood", Vector3(bx - 0.55, cy, bz - 0.95), 0.3)
+	var alto_banco := BaseVale._caixa(banco.get_child(0) as Node3D).size.y * ESC
+	# o banquinho é o lugar de jogar na TV (o videogame); o robozinho sobe nele de frente para a tela
+	lugar_mini(o, Vector3(bx - 0.55, cy + alto_banco, bz - 0.95), Vector3(0, 0, 1), Vector3(bx - 0.55, cy, bz - 1.5),
+		[Vector3(0.3, cy, 2.2), Vector3(bx - 0.55, cy, bz - 1.75)], "tv")
 	movel(o, "cactus_small_A", Vector3(bx + 1.0, tampo, bz + 0.12), 1.1, 0.5, false)
 	movel(o, "mug_A", Vector3(bx + 0.12, tampo, bz - 0.22), 2.2, 0.5, false)
 	movel(o, "book_set", Vector3(bx + 0.62, tampo + 0.0, bz - 0.26), 0.25, 0.42, false)
+	_sujar = 0.8
 	_tv(o, Vector3(bx - 0.55, tampo, bz + 0.08))
 	_radio(o, Vector3(bx + 0.5, tampo, bz + 0.16))
 	# o videogame: a caixa, o cartucho espetado, o fio até a TV e o controle na beira da bancada
@@ -289,6 +349,7 @@ static func _bancada(o: Ruinas.Obra, cy: float) -> void:
 	caixa(o, vg + Vector3(-0.11, 0.085, -0.08), Vector3(0.05, 0.012, 0.03), Color(0.7, 0.2, 0.14))
 	caixa(o, vg + Vector3(0.14, 0.02, 0.2), Vector3(0.012, 0.012, 0.22), FIO)
 	caixa(o, vg + Vector3(-0.33, 0.012, -0.02), Vector3(0.012, 0.012, 0.2), FIO, Basis(Vector3.UP, 0.9))
+	_sujar = 0.0
 	movel(o, "gameconsole_handheld", Vector3(vg.x - 0.42, tampo, vg.z - 0.06), -0.5, 0.26, false)
 	# uma luzinha de tela, fraca, para o canto não ficar morto de noite
 	var luz := OmniLight3D.new()
@@ -300,8 +361,9 @@ static func _bancada(o: Ruinas.Obra, cy: float) -> void:
 	o.v.add_child(luz)
 
 
-## A tela do joguinho: uma navinha, três invasores e as estrelas, em pontos grandes.
-static func _tela_do_jogo() -> ImageTexture:
+## A tela do joguinho: uma navinha, três invasores e as estrelas, em pontos grandes. `quadro` anda a
+## partida (a navinha vai de um lado para o outro, os invasores balançam e o tiro sobe).
+static func _tela_do_jogo(quadro := 0) -> ImageTexture:
 	var img := Image.create(64, 48, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0.02, 0.03, 0.09))
 	var ponto := func(x: int, y: int, cor: Color) -> void:
@@ -311,18 +373,20 @@ static func _tela_do_jogo() -> ImageTexture:
 	for k in 22:
 		ponto.call((k * 37 + 5) % 32, (k * 53 + 3) % 24, Color(0.5, 0.55, 0.7))
 	var nave := ["..#..", ".###.", "#####", "#.#.#"]
+	var nx: int = 14 + int([0, 2, 4, 5, 4, 2, 0, -2, -4, -5, -4, -2][quadro % 12])
+	var bx_ := int(quadro / 3.0) % 2
 	for j in nave.size():
 		for i in 5:
 			if nave[j][i] == "#":
-				ponto.call(14 + i, 18 + j, Color(0.4, 1.0, 0.75))
+				ponto.call(nx + i, 18 + j, Color(0.4, 1.0, 0.75))
 	var bicho := ["#...#", ".###.", "##.##", ".#.#."]
 	for b in 3:
 		for j in bicho.size():
 			for i in 5:
 				if bicho[j][i] == "#":
-					ponto.call(5 + b * 9 + i, 4 + (b % 2) * 2 + j, [Color(1.0, 0.45, 0.35), Color(1.0, 0.8, 0.3), Color(0.9, 0.45, 1.0)][b])
+					ponto.call(5 + b * 9 + i + bx_, 4 + (b % 2) * 2 + j, [Color(1.0, 0.45, 0.35), Color(1.0, 0.8, 0.3), Color(0.9, 0.45, 1.0)][b])
 	for y in [15, 12, 9]:
-		ponto.call(16, y, Color(1.0, 1.0, 0.8))
+		ponto.call(nx + 2 if quadro > 0 else 16, y - (quadro % 4) * 2, Color(1.0, 1.0, 0.8))
 	return ImageTexture.create_from_image(img)
 
 
@@ -345,6 +409,10 @@ static func _tv(o: Ruinas.Obra, pe: Vector3) -> void:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://scripts/shaders/vale_base.gdshader")
 	var tex := _tela_do_jogo()
+	quadros_tv = [tex]
+	for f in range(1, 12):
+		quadros_tv.append(_tela_do_jogo(f))
+	tela_tv = m
 	m.set_shader_parameter("ruido", o.v._tex)
 	m.set_shader_parameter("tex", tex)
 	m.set_shader_parameter("luz", tex)
@@ -426,6 +494,9 @@ static func _giz(o: Ruinas.Obra, cy: float) -> void:
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.transform = o.t * Transform3D(Basis(Vector3.UP, 0.35), Vector3(-5.3, cy + 0.035, -2.9))
+	# quem risca são os robozinhos: o giz só aparece depois que eles vêm morar na base (MiniRobos)
+	mi.visible = false
+	giz = mi
 	o.v.add_child(mi)
 
 

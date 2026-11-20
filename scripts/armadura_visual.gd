@@ -47,6 +47,14 @@ var _malhas: Array[MeshInstance3D] = []
 var _pontos: Array[PackedVector3Array] = []
 const ABAIXA_DESCE := 0.42  # quanto a bacia desce abaixado, em alturas de armadura de 1 m de porte
 const SENTA_DESCE := 1.1
+# Para os robôs inimigos (InimigoVisual, 2026-11-20), que são o nosso robô com outra pintura: outro modelo,
+# sem melhorias, e quem dirige não é a Armadura e sim um PoseInimigo com os mesmos campos.
+var caminho_modelo := ""  # vazio: o MODELO do jogador
+var re_forcado := false  # anda de costas (a passada roda ao contrário)
+var sobrepor := {}  # junta -> Vector3 em graus: troca a pose calculada daquela junta (poses que o jogador não tem)
+var espada_desce := 0.0  # graus que o braço da espada desce abaixo do peito (inimigo alto alcançando o robô)
+var cor_lamina := Color(0.3, 0.9, 1.0)
+var escala_lamina := 1.0
 
 
 ## O modelo em uso tem o corpo novo (o robô redesenhado ou uma variante dele, como o mergulhador)?
@@ -55,7 +63,15 @@ static func corpo_novo() -> bool:
 
 
 func _ready() -> void:
-	var cena: PackedScene = load(MODELO)
+	preparar()
+
+
+## Carrega o modelo e acha as juntas (o `_ready` chama; quem precisa do modelo antes de entrar na cena, como
+## o InimigoVisual, chama direto). Só faz uma vez.
+func preparar() -> void:
+	if modelo != null:
+		return
+	var cena: PackedScene = load(caminho_modelo if caminho_modelo != "" else MODELO)
 	modelo = cena.instantiate()
 	modelo.rotation.y = PI
 	add_child(modelo)
@@ -89,7 +105,7 @@ func _ready() -> void:
 			j["luva" + lado] = luva
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
-	if MODELO.ends_with("robo_v1.glb") or corpo_novo():
+	if caminho_modelo == "" and (MODELO.ends_with("robo_v1.glb") or corpo_novo()):
 		MelhoriasVisual.preparar(self)
 		vestir_melhorias()
 
@@ -292,6 +308,97 @@ const ERGUER := [
 const ERGUER_TEMPOS := [0.0, 0.34, 0.68, 1.0]
 
 
+## Os pontos de cada peça que servem para achar a mais baixa do corpo (`_levanta` e `_cadeira_ajuste`): de
+## cada uma ficam os pontos mais salientes em 60 direções (a caixa em volta exagerava com a perna dobrada e
+## o robô flutuava). `_perna` marca as peças das pernas, que num móvel pendem para fora do assento.
+func _medir_malhas() -> void:
+	var dirs: Array[Vector3] = []
+	for i in 60:
+		var yy := 1.0 - 2.0 * (i + 0.5) / 60.0
+		var rr := sqrt(1.0 - yy * yy)
+		dirs.append(Vector3(cos(i * 2.39996) * rr, yy, sin(i * 2.39996) * rr))
+	var quadris: Array = []
+	for nome: String in ["quadrilE", "quadrilD"]:
+		if j.get(nome) != null:
+			quadris.append(j[nome])
+	for n in modelo.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or (mi in chamas) or (mi in chamas_pequenas):
+			continue
+		var faces := mi.mesh.get_faces()
+		if faces.is_empty():
+			continue
+		var pts := PackedVector3Array()
+		for d in dirs:
+			var melhor := faces[0]
+			var md := -INF
+			for v in faces:
+				var x := v.dot(d)
+				if x > md:
+					md = x
+					melhor = v
+			if not pts.has(melhor):
+				pts.append(melhor)
+		_malhas.append(mi)
+		_pontos.append(pts)
+		var perna := false
+		for q: Node in quadris:
+			if q.is_ancestor_of(mi):
+				perna = true
+		_perna.append(perna)
+
+
+## Sentar num móvel (sofá, poltrona, banco): coxas na horizontal, canelas pendendo, mãos nos joelhos.
+## Sentando, dobra os joelhos com os braços à frente e leva o peso para trás até o assento; levantando,
+## joga o tronco à frente, empurra com as pernas e estica o corpo. A última coluna é o peso: 0 de pé, 1 com
+## a bacia no assento. Devolve a altura da bacia (em alturas de armadura de 1 m de porte).
+const CADEIRA := [
+	# quadril x, quadril z, joelho, tornozelo, raiz, tronco, cabeça, ombro x, ombro z, cotovelo, peso
+	[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # de pé
+	[-64.0, 7.0, 82.0, -22.0, 0.0, 30.0, -18.0, -52.0, 8.0, -12.0, 0.4],  # agachando, braços à frente
+	[-90.0, 8.0, 86.0, 2.0, 0.0, -4.0, -2.0, -26.0, 10.0, -44.0, 1.0],  # sentado, mãos nos joelhos
+	[-104.0, 9.0, 104.0, -12.0, 0.0, 40.0, -22.0, -46.0, 10.0, -18.0, 1.0],  # tronco à frente, pés embaixo
+	[-46.0, 5.0, 58.0, -22.0, 0.0, 22.0, -12.0, -20.0, 8.0, -14.0, 0.45],  # meio de pé, empurrando
+]
+const CADEIRA_DESCE := 0.77  # quanto a bacia desce sentada, antes do acerto medido (`_cadeira_ajuste`)
+var _cadeira_ajuste := 0.0
+var _perna: Array[bool] = []
+
+
+func _cadeira(a) -> float:
+	var seq: Array
+	var tempos: Array
+	match a.assento_fase:
+		0:
+			seq = [CADEIRA[0], CADEIRA[1], CADEIRA[2]]
+			tempos = [0.0, 0.5, 1.0]
+		2:
+			seq = [CADEIRA[2], CADEIRA[3], CADEIRA[4], CADEIRA[0]]
+			tempos = [0.0, 0.3, 0.65, 1.0]
+		_:
+			seq = [CADEIRA[2], CADEIRA[2]]
+			tempos = [0.0, 1.0]
+	var p: float = a.assento_p if a.assento_fase != 1 else 1.0
+	var i := 0
+	while i < seq.size() - 2 and p > float(tempos[i + 1]):
+		i += 1
+	var k := smoothstep(0.0, 1.0, (p - float(tempos[i])) / maxf(0.001, float(tempos[i + 1]) - float(tempos[i])))
+	var q: Array = []
+	for n in 11:
+		q.append(lerpf(seq[i][n], seq[i + 1][n], k))
+	_lados("quadril", q[0], q[1])
+	_lados("joelho", q[2], 0.0)
+	_lados("tornozelo", q[3], 0.0)
+	_alvo("raiz", q[4])
+	# sentado, olha em volta devagar
+	var olha := sin(Time.get_ticks_msec() * 0.0004) * 14.0 if a.assento_fase == 1 else 0.0
+	_alvo("tronco", q[5])
+	_alvo("cabeca", q[6], olha)
+	_lados("ombro", q[7], q[8])
+	_lados("cotovelo", q[9], 0.0)
+	return float(q[10]) * (-CADEIRA_DESCE + _cadeira_ajuste)
+
+
 func _erguer(p: float) -> float:
 	var i := 0
 	while i < 2 and p > ERGUER_TEMPOS[i + 1]:
@@ -336,7 +443,8 @@ func _lados(nome: String, x: float, z_esq: float) -> void:
 	_alvo(nome + "D", x, 0.0, -z_esq)
 
 
-func atualizar(delta: float, a: Armadura) -> void:
+## `a` é a Armadura do jogador, ou um PoseInimigo (os inimigos), que tem os mesmos campos.
+func atualizar(delta: float, a) -> void:
 	if modelo == null:
 		return
 	_alvos.clear()
@@ -348,7 +456,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 	var pitch_alvo := 0.0
 	var roll_alvo := 0.0
 	var torcao_alvo := 0.0
-	_re = false
+	_re = re_forcado
 	if (a.estado == Armadura.Estado.PAIRAR or a.mirando_agora() or (maxf(a.atirando, a.atirando_e) > 0.0 and not a.em_voo())) and a.camera:
 		yaw_alvo = a.camera.yaw
 		if a.estado == Armadura.Estado.CHAO and hv > 0.5:
@@ -378,7 +486,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 	elif hv > 0.5:
 		yaw_alvo = atan2(-a.velocity.x, -a.velocity.z)
 	_torcao = lerp_angle(_torcao, torcao_alvo, 1.0 - exp(-10.0 * delta))
-	var no_chao := a.estado == Armadura.Estado.CHAO
+	var no_chao: bool = a.estado == Armadura.Estado.CHAO
 	if delta > 0.0:
 		_acel = lerpf(_acel, (hv - _hv_ant) / delta if no_chao else 0.0, 1.0 - exp(-8.0 * delta))
 	_hv_ant = hv
@@ -397,7 +505,7 @@ func atualizar(delta: float, a: Armadura) -> void:
 	# a manobra do círculo no voo: uma volta inteira em torno do nariz, para o lado pedido
 	var volta := 0.0
 	if a.manobra > 0.0 and a.manobra_lado != 0.0:
-		var k_m := 1.0 - a.manobra / Armadura.MANOBRA_TEMPO
+		var k_m: float = 1.0 - a.manobra / Armadura.MANOBRA_TEMPO
 		volta = -a.manobra_lado * TAU * (k_m * k_m * (3.0 - 2.0 * k_m))
 	rotation = Vector3(lerpf(rotation.x, pitch_alvo, tc), _yaw, _rolagem + volta)
 	# a volta é em torno do meio do corpo, não dos pés: sem isto o robô varria um arco largo em vez de girar no
@@ -571,10 +679,12 @@ func atualizar(delta: float, a: Armadura) -> void:
 			aletas = 1.0
 	# abaixado ou sentado (só no chão): soma à pose de pé ou de passada
 	_abaixa = lerpf(_abaixa, 1.0 if a.postura == 1 else 0.0, 1.0 - exp(-9.0 * delta))
-	_senta = lerpf(_senta, 1.0 if a.postura == 2 else 0.0, 1.0 - exp(-6.0 * delta))
-	if a.erguendo > 0.0:
-		_senta = 0.0  # levantando: a pose vem de _erguer
-	if a.estado == Armadura.Estado.CHAO and not a.em_pane:
+	_senta = lerpf(_senta, 1.0 if a.postura == 2 and not a.no_assento else 0.0, 1.0 - exp(-6.0 * delta))
+	if a.erguendo > 0.0 or a.no_assento:
+		_senta = 0.0  # levantando do chão: a pose vem de _erguer; num móvel, de _cadeira
+	if a.no_assento and not a.em_pane:
+		bob = _cadeira(a) * Armadura.porte
+	elif a.estado == Armadura.Estado.CHAO and not a.em_pane:
 		if _abaixa > 0.01:
 			_soma_lados("quadril", -58.0 * _abaixa, 3.0 * _abaixa)
 			_soma_lados("joelho", 96.0 * _abaixa, 0.0)
@@ -599,12 +709,12 @@ func atualizar(delta: float, a: Armadura) -> void:
 			bob = (-SENTA_DESCE * s + _levanta) * Armadura.porte
 		if a.erguendo > 0.0:
 			bob = _erguer(1.0 - a.erguendo / Ajustes.ERGUER_TEMPO) * Armadura.porte
-	var no_chao_baixo := a.estado == Armadura.Estado.CHAO and not a.em_pane and (_abaixa > 0.01 or _senta > 0.01 or a.erguendo > 0.0)
+	var no_chao_baixo: bool = a.estado == Armadura.Estado.CHAO and not a.em_pane and not a.no_assento and (_abaixa > 0.01 or _senta > 0.01 or a.erguendo > 0.0)
 	if not no_chao_baixo:
 		_levanta = 0.0
 	# mirando: o braço direito aponta para onde a câmera olha (sem arma ainda)
 	if (a.mirando_agora() or (a.atirando > 0.0 and a.atirando > a.atirando_e - 10.0 and not a.em_voo() and not a.em_pane)) and a.camera and not (a.atirando <= 0.0 and a.atirando_e > 0.0):
-		var p := rad_to_deg(a.camera.pitch)
+		var p: float = rad_to_deg(a.camera.pitch)
 		_alvo("ombroD", -88.0 - p, 0.0, -4.0)
 		_alvo("cotoveloD", -4.0)
 		_alvo("cabeca", -p * 0.5)
@@ -616,11 +726,11 @@ func atualizar(delta: float, a: Armadura) -> void:
 		_alvo("cabeca", -pe * 0.5)
 	# golpe de espada: o braço direito varre de um lado ao outro, na altura do peito, e o tronco acompanha
 	if a.espada_t > 0.0 and not a.em_pane:
-		var fe := 1.0 - a.espada_t / float(Arsenal.ESPADA["tempo"])
-		var giro := lerpf(-85.0, 85.0, smoothstep(0.0, 1.0, fe)) * a.espada_lado
-		_alvo("ombroD", -84.0, -giro, -6.0)
+		var fe: float = 1.0 - a.espada_t / float(Arsenal.ESPADA["tempo"])
+		var giro: float = lerpf(-85.0, 85.0, smoothstep(0.0, 1.0, fe)) * a.espada_lado
+		_alvo("ombroD", -84.0 + espada_desce, -giro, -6.0)
 		_alvo("cotoveloD", -6.0)
-		_alvo("tronco", 0.0, -giro * 0.3, 0.0)
+		_alvo("tronco", espada_desce * 0.25, -giro * 0.3, 0.0)
 	_lamina(a.espada_t > 0.0 and not a.em_pane)
 	# chegando ao chão: corpo em pé, pernas armadas para baixo e braços abertos para equilibrar
 	if a.chegando_ao_chao() and not a.em_pane:
@@ -652,6 +762,9 @@ func atualizar(delta: float, a: Armadura) -> void:
 	# propulsores das costas inclinados (bocal para baixo e para trás), como na maquete
 	_alvo("podE", 14.0, 0.0, -10.0)
 	_alvo("podD", 14.0, 0.0, 10.0)
+	for k in sobrepor:
+		var g: Vector3 = sobrepor[k]
+		_alvos[k] = Vector3(deg_to_rad(g.x), deg_to_rad(g.y), deg_to_rad(g.z))
 	# juntas vão até o alvo
 	# andando as juntas seguem de perto (senão a suavização come a passada); nas outras poses, mais macio
 	var t := 1.0 - exp(-lerpf(12.0, 34.0, _passada) * delta)
@@ -672,40 +785,16 @@ func atualizar(delta: float, a: Armadura) -> void:
 		var ab := smoothstep(0.0, 1.0, abertura_aletas)
 		for lado in ["E", "D"]:
 			var s := 1.0 if lado == "E" else -1.0
-			(j["aleta" + lado] as Node3D).rotation = Vector3(0, 0, deg_to_rad(78.0 * s * ab))
+			if j.get("aleta" + lado) is Node3D:  # os inimigos não têm as abas
+				(j["aleta" + lado] as Node3D).rotation = Vector3(0, 0, deg_to_rad(78.0 * s * ab))
 			for i in 3:
-				(j["aleta%s%d" % [lado, i]] as Node3D).rotation = Vector3(deg_to_rad(i * 10.0 * ab), 0, deg_to_rad(i * 9.0 * s * ab))
+				if j.get("aleta%s%d" % [lado, i]) is Node3D:
+					(j["aleta%s%d" % [lado, i]] as Node3D).rotation = Vector3(deg_to_rad(i * 10.0 * ab), 0, deg_to_rad(i * 9.0 * s * ab))
 	# abaixado, sentado ou levantando: mede a peça mais baixa do corpo e sobe a bacia até ela encostar no
 	# chão, sem entrar (abaixado, os pés afundavam)
+	if (no_chao_baixo or a.no_assento) and not esqueleto and _malhas.is_empty():
+		_medir_malhas()
 	if no_chao_baixo and not esqueleto:
-		if _malhas.is_empty():
-			# de cada peça ficam os pontos mais salientes em 60 direções: a caixa em volta dela exagerava com a
-			# perna dobrada e o robô flutuava
-			var dirs: Array[Vector3] = []
-			for i in 60:
-				var yy := 1.0 - 2.0 * (i + 0.5) / 60.0
-				var rr := sqrt(1.0 - yy * yy)
-				dirs.append(Vector3(cos(i * 2.39996) * rr, yy, sin(i * 2.39996) * rr))
-			for n in modelo.find_children("*", "MeshInstance3D", true, false):
-				var mi := n as MeshInstance3D
-				if mi.mesh == null or (mi in chamas) or (mi in chamas_pequenas):
-					continue
-				var faces := mi.mesh.get_faces()
-				if faces.is_empty():
-					continue
-				var pts := PackedVector3Array()
-				for d in dirs:
-					var melhor := faces[0]
-					var md := -INF
-					for v in faces:
-						var x := v.dot(d)
-						if x > md:
-							md = x
-							melhor = v
-					if not pts.has(melhor):
-						pts.append(melhor)
-				_malhas.append(mi)
-				_pontos.append(pts)
 		var baixo := INF
 		for i in _malhas.size():
 			var gt := _malhas[i].global_transform
@@ -713,6 +802,18 @@ func atualizar(delta: float, a: Armadura) -> void:
 				baixo = minf(baixo, gt.basis.y.y * v.y + gt.basis.x.y * v.x + gt.basis.z.y * v.z + gt.origin.y)
 		var folga := (baixo - global_position.y) / Armadura.porte
 		_levanta = clampf(_levanta - folga * 0.4, 0.0, 0.6)
+	# sentado num móvel (parado, já assentado): mede a peça mais baixa da bacia e do tronco (as pernas pendem
+	# para fora do assento e não contam) e acerta a altura até ela encostar no assento
+	if a.no_assento and a.assento_fase == 1 and not a.em_pane and not esqueleto and not _malhas.is_empty():
+		var baixo_b := INF
+		for i in _malhas.size():
+			if _perna[i]:
+				continue
+			var gt := _malhas[i].global_transform
+			for v in _pontos[i]:
+				baixo_b = minf(baixo_b, gt.basis.y.y * v.y + gt.basis.x.y * v.x + gt.basis.z.y * v.z + gt.origin.y)
+		if baixo_b < INF:
+			_cadeira_ajuste = clampf(_cadeira_ajuste - (baixo_b - global_position.y) / Armadura.porte * 0.4, -0.6, 0.6)
 	if not pecas.is_empty():
 		MelhoriasVisual.animar(self, a, delta)
 	# chamas e brilho do calor
@@ -728,8 +829,9 @@ func atualizar(delta: float, a: Armadura) -> void:
 	if mat_chama_tiro:
 		var base_mao := mat_chama_fraca.albedo_color.a if _chama_tamanho > 0.08 else 0.0
 		mat_chama_tiro.albedo_color.a = clampf(maxf(base_mao, a.clarao_tiro), 0.0, 1.0)
-	var q := a.calor / 100.0
-	var brilho := lerpf(lerpf(0.6, 3.2, noite), 7.0, q * q)
+	var q: float = a.calor / 100.0
+	# o núcleo do peito: de noite acendia a 3,2 e parecia a luz do peito ligada (2026-11-20); agora só um ponto
+	var brilho := lerpf(lerpf(0.6, 1.3, noite), 7.0, q * q)
 	if a.superaquecido:
 		brilho = 8.0 if fmod(Time.get_ticks_msec() * 0.001, 0.3) < 0.15 else 2.0
 	if a.em_pane:
@@ -753,7 +855,7 @@ var _pisca_t := 0.0
 var _olho_tempo := 0.0
 
 
-func _olhos(delta: float, a: Armadura) -> void:
+func _olhos(delta: float, a) -> void:
 	if _olho_nos.is_empty():
 		for lado: String in ["E", "D"]:
 			_olho_nos[lado] = modelo.find_child("olho" + lado, true, false)
@@ -805,7 +907,7 @@ func _olhos(delta: float, a: Armadura) -> void:
 var _luva_k := {"E": 1.0, "D": 1.0}
 
 
-func _torcer_luvas(delta: float, a: Armadura) -> void:
+func _torcer_luvas(delta: float, a) -> void:
 	for lado: String in ["E", "D"]:
 		var no := modelo.find_child("luva" + lado, true, false) as Node3D if not _luvas.has(lado) else _luvas[lado] as Node3D
 		_luvas[lado] = no
@@ -842,14 +944,14 @@ func _lamina(acesa: bool) -> void:
 		_lamina_no = MeshInstance3D.new()
 		var cm := CapsuleMesh.new()
 		# lâmina de pulso de 80 cm (pedido do usuário, 2026-11-20; a de 35 cm ficou curta demais). Era uma de 1,25 m
-		cm.radius = 0.03
-		cm.height = 0.8
+		cm.radius = 0.03 * escala_lamina
+		cm.height = 0.8 * escala_lamina
 		_lamina_no.mesh = cm
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(0.75, 1.0, 1.0)
+		m.albedo_color = cor_lamina.lerp(Color.WHITE, 0.6)
 		m.emission_enabled = true
-		m.emission = Color(0.3, 0.9, 1.0)
+		m.emission = cor_lamina
 		m.emission_energy_multiplier = 4.0
 		_lamina_no.material_override = m
 		_lamina_no.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -859,9 +961,9 @@ func _lamina(acesa: bool) -> void:
 		# mão. As medidas são em metros do mundo, desfeita a escala do modelo
 		var h := ALTURA_ALVO * Armadura.porte
 		var esc := maxf(0.001, punho.global_basis.get_scale().y)
-		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.42) / esc, 0))
+		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.42) * escala_lamina / esc, 0))
 		var luz := OmniLight3D.new()
-		luz.light_color = Color(0.3, 0.9, 1.0)
+		luz.light_color = cor_lamina
 		luz.light_energy = 0.4
 		luz.omni_range = 1.6
 		luz.shadow_enabled = false

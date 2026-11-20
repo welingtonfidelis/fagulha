@@ -2775,3 +2775,177 @@ misturadas**, com três chefes.
 - Com isso o fim do jogo (acender o Farol) passa a pedir onze memórias, e o caderno da pausa conta "de 11".
 - Pedido do usuário no mesmo dia: **não rodar testes antes de ele dizer que a mudança está boa**. Estas duas
   mudanças e a dos gigantes de pé ficaram sem a bateria completa.
+
+## 124. Revisão dos controles (2026-11-20)
+
+O usuário pediu uma revisão "como gamer e game designer". O problema achado: as duas ações mais usadas (voar
+e bater com a espada) dependiam do clique dos analógicos (L3 e R3), que é desconfortável, entorta a direção
+ou a câmera sem querer e é difícil para criança. Ele aprovou a proposta e acrescentou a de parar no ar.
+
+| Ação | Antes | Agora |
+|---|---|---|
+| Ligar o voo no ar | L3 | segurar X (acima de 4 m do chão liga direto; mais baixo, decola como antes) |
+| Correr | L3 alterna | empurrar o analógico esquerdo até o fim (acima de 93%) |
+| Nadar rápido | L3 alterna | idem, o analógico até o fim |
+| Parar no ar | L2 ou R3 | também: puxar o analógico todo para trás por 0,22 s, o oposto da arrancada (ideia dele) |
+| Espada | R3 no chão | quadrado |
+| Oficina, acordar e trocar de robô | quadrado | triângulo no chão (no ar o triângulo segue sendo o mergulho) |
+
+- O L3 e o R3 continuam fazendo o que faziam (correr, cortar os jatos, parar no ar); só deixaram de ser
+  obrigatórios. O teclado não mudou.
+- `Armadura.analogico()` lê o analógico esquerdo do controle, sem o teclado (no teclado andar seria sempre
+  correr). `Armadura.analogico_teste` deixa os testes fingirem a inclinação.
+- Depois de parar no ar puxando para trás, o analógico só volta a mexer o robô quando é solto.
+- A lista de comandos da pausa, as janelas de peça nova e as lições do tutorial foram reescritas.
+- **Sem testes:** as baterias não rodaram depois desta mudança (pedido do usuário: só depois de ele aprovar).
+
+## 125. Leva de ajustes da base, do voo e da chuva (2026-11-20)
+
+Pedidos do usuário depois de jogar:
+
+- **Parar o voo com o X** (substitui o puxar o analógico para trás da §124, que saiu): voando para a frente
+  (com ou sem turbo), um toque no X dispara os jatos para a frente e o robô para no ar (`Estado.FREAR`, depois
+  `PAIRAR`); parado no ar, um toque no X volta a voar e segurar o X corta os jatos e o robô cai. Com asas,
+  segurar o X no voo continua alternando planar e jato. O L3 ainda corta os jatos e o L2/R3 ainda param.
+- **Sentar nos móveis com o triângulo** (perto do sofá, da poltrona ou dos bancos da fogueira, aparece
+  "△ sentar"). O sentar agora tem pose de cadeira (`ArmaduraVisual._cadeira`): coxas na horizontal, canelas
+  pendendo e mãos nos joelhos, com a bacia assentada pela peça mais baixa do tronco (antes ele usava a pose de
+  sentar no chão, de pernas esticadas, e parecia flutuar). Sentar e levantar são animados
+  (`Armadura.assento_fase`): chega à frente do móvel, dobra os joelhos e leva o peso para trás; para levantar,
+  joga o tronco à frente e empurra com as pernas.
+- **Os robozinhos**: a amarelinha do pátio só aparece quando eles vão para a base. De vez em quando um vai
+  jogar videogame (`MiniRobos._jogando`): no banquinho da TV (a tela anima uma partida de navinha em 12
+  quadros) ou com o portátil no sofá e na poltrona, de 16 a 34 s. São **colegas** (grupo `amigos`): com um
+  deles na mira o tiro não sai, como com o drone, e o mirado leva um susto (pula com os braços para cima e
+  balança a cabeça). O scanner os reconhece.
+- **Móveis velhos**: o `vale_base.gdshader` ganhou `sujeira` (desbota para o sépia, manchas de umidade do
+  tamanho de um móvel, grão e pó por cima), usada nos móveis da base.
+- **Chuva**: com chuva o céu fecha de nuvens escuras (`fechado` no `vale_ceu.gdshader`), o sol cai para um
+  quarto e a luz ambiente, a exposição e a névoa escurecem.
+- **O cilindro de melhorias saiu de dentro da base**: fica à esquerda, num pedaço de laje próprio, debaixo
+  do telheiro, que cresceu só para esse lado. O capim da clareira não nasce em volta dele
+  (`BaseVale.limpo_cilindro`).
+- **A pausa não tem mais "Voltar à base"** (só na simulação, como "Voltar ao começo").
+- **O brilho do peito à noite**: o halo dos leds (`Noite._lanterna`) ficava a um palmo do peito e o
+  estourava de branco, como se a luz do peito estivesse ligada; subiu para cima da cabeça e ficou mais fraco.
+  O núcleo laranja do peito acende menos à noite (1,3 em vez de 3,2).
+- **Sem testes:** as baterias não rodaram (só depois de o usuário aprovar).
+
+## 126. Os inimigos são o nosso robô com outra pintura (2026-11-20)
+
+O usuário aprovou a proposta de fazer os inimigos sobre o robô jogável e pediu para trocar os da §121. A Lata,
+o Guarda, o Barril e os chefes de 3 m saíram do jogo (os glb em `assets/vale/inimigos/` e o
+`tools/vale/inimigos.py` ficaram sem uso).
+
+- **Modelos**: `tools/vale/robo_v2.py` com `VARIANTE=<nome>` exporta para `assets/vale/robos_inimigos/`. Cada um
+  tem pintura, olhos e peças próprias, com as mesmas juntas do robô. **Comuns**: Sentinela (fuzil), Espadachim
+  (lâmina de luz), Couraça (canhão, aguenta mais), Batedor (metralha, o menor e o mais rápido) e Artilheiro
+  (mísseis dos casulos das costas). **Chefes**, de 2,8 a 3 m: Capataz (lâmina), Canhoneiro (dois canhões) e
+  Guardião (atira de longe e bate de lâmina de perto).
+- **Animados pelo código do jogador**: o `InimigoVisual` hospeda um `ArmaduraVisual` com o modelo do inimigo
+  (`caminho_modelo`, sem as melhorias do robô) e o dirige com um `PoseInimigo`, que finge ser a `Armadura`.
+  Assim os inimigos andam, correm, pulam, pousam, esquivam, miram de braço estendido, golpeiam de lâmina em arco
+  e caem de joelhos, desligados, como o robô em pane. A velocidade vem do quanto o corpo andou de verdade e é
+  medida no espaço do modelo, para a passada não escorregar. Para o golpe, quem é alto desce o braço
+  (`espada_desce`); para os mísseis, o corpo se apruma e abre os braços (`sobrepor`).
+- **As mecânicas do robô, menos voar e nadar** (`Mecha._mexer`, por cima da IA do Vigia):
+  - os ágeis esquivam de lado quando o robô mira neles ou acaba de acertar um tiro;
+  - os de lâmina saltam em cima do robô, de 3,5 a 9 m, e já chegam golpeando;
+  - quem fica preso no caminho pula por cima.
+  A ficha de cada um (`InimigoVisual.FICHAS`) diz arma, armadura, porte, altura, agilidade e se é misto.
+- **Fundição**: os seis robôs velhos caídos são agora os cinco comuns, desbotados. O tufo de musgo foi para o
+  lado, porque em cima ele escondia o corpo, que é mais fino que o dos modelos antigos.
+- Vitrine: `godot --path . -s tools/vitrine_inimigos.gd` fotografa os oito em cada pose, com o nosso robô ao
+  lado para comparar.
+- **Sem testes:** as baterias não rodaram (só depois de o usuário aprovar).
+
+## 127. A lâmina chega junto e ninguém roda em volta da coluna (2026-11-20)
+
+O usuário jogou no PC (ainda com os inimigos da §121) e viu duas coisas: os de lâmina golpeavam de longe, sem
+alcançar, e às vezes ficavam rodando em volta de uma planta dentro da Fundição. Ele também perguntou se a
+Beehave funciona: funciona. A árvore (`VigiaArvore`) decide o estado a cada quadro; a prova está nos testes,
+quando o robô cai em pane os inimigos passam para "procura", e só a árvore faz essa troca.
+
+- **A lâmina golpeava no ar**: o golpe começava a até 4,8 m (`dist_tiro * 2.2`, a mesma conta dos tiros) e a
+  máquina parava de andar enquanto golpeava, mas o golpe só pegava até 3,5 m. Agora (`Vigia.alcance()`, que a
+  Mecha acerta pela altura, 1,45 vezes):
+  - ele chega até 70% do alcance antes de armar;
+  - só arma com o robô dentro do alcance e não muito acima ou abaixo;
+  - enquanto arma, ainda avança.
+  Medido na Fundição: o golpe começa a 1 a 2 m e acerta. Os de lâmina ficaram mais rápidos (andam até 6,5 m/s e
+  golpeiam a cada 1,1 a 1,7 s, conforme a agilidade). O aviso antes do golpe ficou em 0,55 s.
+- **As voltas**: a planta não é obstáculo, mas a coluna invisível do guindaste, logo atrás, é. O teste de
+  "dando voltas" comparava a posição com a de 4 s antes, e correndo em volta da coluna ele dá uma volta e meia
+  nesse tempo e cai do outro lado do círculo. O teste novo olha o progresso: se em 1,8 s ele não chega mais
+  perto de onde quer ir, está desviando quase o tempo todo e não saiu de perto, ele troca o lado da volta; na
+  segunda vez desiste (`_nao_chega`):
+  - caçando, fica parado de frente para o robô até o robô sair de onde está;
+  - na ronda, escolhe outro ponto;
+  - na procura, larga a pista;
+  - só voltando para casa ele ainda atravessa.
+  Se o robô está em cima de um obstáculo e o caminho direto está fechado, ele já espera, sem tentar a volta. No
+  teste com o robô em cima da coluna, antes ele deu duas voltas e entrou na coluna; agora para em 1 s e espera.
+- **Sem testes:** as baterias não rodaram (só depois de o usuário aprovar).
+
+## 128. Rajada que esquenta, tiro duplo mais cedo, a Fundição só com os nossos robôs, escudo de três e menos videogame (2026-11-20)
+
+O usuário achou as lutas fáceis demais com a rajada comprada logo nas primeiras hordas, e pediu também
+mudanças na Fundição.
+
+- **A ordem das armas** (`Arsenal.ORDEM` e `RECEITAS`): o tiro duplo passou para o lugar da rajada, com nível
+  1 e 10 de sucata. A rajada foi para o nível 4, com 45 de sucata e 2 núcleos.
+- **O tiro duplo erra mais que a pistola**: cada tiro espalha um pouco (`espalha` 0,03), mesmo com a mira
+  assistida (`solto`: a trava não acerta o rumo dele). A pistola segue certeira.
+- **A rajada esquenta** (`Tiro.calor_rajada`):
+  - cada tiro enche 1/26;
+  - cheia, ela trava (`rajada_quente`) até esfriar abaixo de 25%;
+  - esfria 0,55 por segundo, ou 0,4 travada, começando 0,25 s depois do último tiro.
+
+  Medido: 27 tiros em 3,4 s de gatilho enchem, e a trava dura uns 2 s.
+
+  A tela desenha uma curva à direita da mira, no jeito da curva do motor:
+  - enche de baixo para cima, de azul a laranja e depois vermelho;
+  - um risco vermelho marca o topo;
+  - cheia, pisca em vermelho.
+
+  A curva some quando esfria. Apertar com ela travada dá o som de "vazio", sem texto.
+- **A horda vem mais cedo**: 18 s dentro do galpão (eram 30). O aviso de "saia em 10 segundos" continua.
+- **Sair zera a horda**: saindo da cratera no meio da rodada (contagem, onda ou respiro), o ponto de volta
+  volta para 1. Na volta, a horda começa da onda 1, mesmo depois de um minichefe vencido. O resumo mostra
+  "Recomeça na onda 1". Perder lá dentro continua como antes.
+- **Só os nossos robôs**: o Stan, o Trilobite e os QuadShells saíram das ondas. O "aracnídeo" que o usuário
+  pediu para tirar era um dos dois de pernas. Todos são
+  `Mecha`, e os minichefes se revezam:
+  - Canhoneiro nas ondas 5, 20, 35...;
+  - Capataz nas 10, 25...;
+  - Guardião nas 15, 30...
+
+  Isso fica em `Fundicao.arma_do_chefe`; o nome vai no aviso e na barra de vida. `MaquinaPacote` e
+  `mech_pacote` não entram mais nas ondas; o arquivo fica até o usuário decidir.
+- **O escudo aguenta três acertos** (`Arsenal.ESCUDO_CARGAS`, `Armadura.escudo_cargas`; era um):
+  - cada golpe ou tiro gasta uma carga;
+  - no terceiro ele quebra e recarrega em 20 s;
+  - gasto em parte, enche de novo depois de 20 s sem levar acerto;
+  - as caixas de conserto e a oficina o enchem.
+
+  Na tela, o arco fino por baixo mostra três pedaços (os que restam acesos) e, quebrado, enche enquanto
+  recarrega. Medido: três golpes sem avaria, e o quarto já conta.
+- **Os robozinhos jogam menos videogame** (`MiniRobos`):
+  - chance de 4% a cada escolha (eram 16%);
+  - no máximo dois ao mesmo tempo;
+  - depois de um sair para jogar, nenhum outro sai antes de 35 a 70 s;
+  - a partida dura de 12 a 24 s (eram 16 a 34).
+
+  Medido em 10 minutos de jogo:
+  - antes das mudanças, 22 partidas e, em média, 1,2 robozinho no videogame;
+  - agora, 8 partidas, 0,45 em média e nunca mais de um.
+- **Fotos** em `tools/capturas/rajada_fundicao/`: a curva a 50%, a 85%, travada e já fria; os três minichefes
+  saindo da porta com a barra; o resumo ao sair; a barra do escudo com 2, com 1 e quebrado.
+- **Testes:** as baterias não rodaram (só depois de o usuário aprovar). Já acertados em `testes_vale`, sem
+  rodar:
+  - o minichefe da onda 5 é o Canhoneiro;
+  - saindo da cratera a horda volta para a onda 1;
+  - o escudo engole três;
+  - um ponto novo da rajada esquentando e travando.
+
+  O `capturas_vale` ainda fotografa o Stan, o Trilobite e o QuadShell (as classes continuam no projeto).

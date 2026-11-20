@@ -1,7 +1,11 @@
 class_name Controles
 extends RefCounted
 ## Ações de teclado, mouse e controle. Os nomes de botão seguem o controle de Xbox; no DualSense:
-## A = X, B = círculo, LEFT_STICK = L3, START = Options, BACK = Create/Share.
+## A = X, B = círculo, X = quadrado, Y = triângulo, LEFT_STICK = L3, START = Options, BACK = Create/Share.
+##
+## Revisão de 2026-11-20 (para depender menos do clique dos analógicos): voar é segurar o X (do chão ou do
+## ar), correr é empurrar o analógico até o fim, parar no ar é puxá-lo todo para trás, a espada foi para o
+## quadrado e o "interagir" para o triângulo. O L3 e o R3 continuam fazendo o que faziam.
 
 static var _feito := false
 
@@ -43,11 +47,11 @@ static func configurar() -> void:
 	_tecla("golpe", [KEY_V])
 	_botao("golpe", JOY_BUTTON_Y)
 	# Abaixar: R3 no chão / Ctrl. Um toque abaixa, segurar senta. (No ar o R3 é parar no ar.)
-	# Sentar: seta para a esquerda / Ctrl (agachar saiu do jogo). Espada de laser: R3 no chão / X.
+	# Apreciar a vista e sentar nos móveis: seta para a esquerda / Ctrl. Espada de laser: quadrado / X.
 	_tecla("sentar", [KEY_CTRL])
 	_botao("sentar", JOY_BUTTON_DPAD_LEFT)
 	_tecla("espada", [KEY_X])
-	_botao("espada", JOY_BUTTON_RIGHT_STICK)
+	_botao("espada", JOY_BUTTON_X)  # quadrado (era o R3 no chão, que mexia a câmera na hora do golpe)
 	# No voo, freia e desliga o motor; no chão, no ar e pairando, esquiva.
 	_tecla("soltar", [KEY_C])
 	_botao("soltar", JOY_BUTTON_B)
@@ -71,9 +75,9 @@ static func configurar() -> void:
 	# A luz do peito (melhoria): seta para cima / L.
 	_tecla("luz", [KEY_L])
 	_botao("luz", JOY_BUTTON_DPAD_UP)
-	# Entrar na oficina da base: quadrado / E. Scanner (melhoria): seta para a direita / T.
+	# Entrar na oficina da base e acordar robôs: triângulo no chão / E. Scanner (melhoria): seta para a direita / T.
 	_tecla("agir", [KEY_E])
-	_botao("agir", JOY_BUTTON_X)
+	_botao("agir", JOY_BUTTON_Y)  # triângulo no chão (no ar o triângulo é o mergulho com impacto)
 	_tecla("scanner", [KEY_T])
 	_botao("scanner", JOY_BUTTON_DPAD_RIGHT)
 	# Pausa e medidor de desempenho.

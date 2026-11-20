@@ -142,14 +142,20 @@ func _aplicar() -> void:
 	var luz_dia := clampf(lerpf(a[6], b[6], t), 0.0, 1.2)
 	var nev: Color = (a[7] as Color).lerp(b[7], t)
 	var claro := clampf(luz_dia, 0.25, 1.0)  # de noite a chuva não clareia o céu
-	ceu.set_shader_parameter("topo", topo.lerp(cinza * 0.75 * claro, nublado * 0.85))
-	ceu.set_shader_parameter("horizonte", horiz.lerp(cinza * 1.2 * claro, nublado * 0.85))
-	ceu.set_shader_parameter("cor_nuvens", ((a[11] as Color).lerp(b[11], t)).lerp(cinza * 1.1 * claro, nublado))
-	ceu.set_shader_parameter("nuvem_de", lerpf(0.55, 0.28, nublado))
-	ceu.set_shader_parameter("nuvem_ate", lerpf(0.66, 0.6, nublado))
+	# chovendo, o céu fecha inteiro com nuvens escuras e a luz cai (2026-11-20, pedido do usuário: antes as
+	# nuvens ficavam cinza-claro e espalhadas, e a luz quase não mudava)
+	topo = topo.lerp(cinza * 0.5 * claro, nublado * 0.92)
+	horiz = horiz.lerp(cinza * 0.85 * claro, nublado * 0.92)
+	ceu.set_shader_parameter("topo", topo)
+	ceu.set_shader_parameter("horizonte", horiz)
+	ceu.set_shader_parameter("cor_nuvens", ((a[11] as Color).lerp(b[11], t)).lerp(cinza * 0.6 * claro, nublado))
+	ceu.set_shader_parameter("cor_barriga", Color(0.70, 0.70, 0.95).lerp(Color(0.6, 0.62, 0.68), nublado))
+	ceu.set_shader_parameter("nuvem_de", lerpf(0.55, 0.05, nublado))
+	ceu.set_shader_parameter("nuvem_ate", lerpf(0.66, 0.4, nublado))
+	ceu.set_shader_parameter("fechado", smoothstep(0.35, 1.0, nublado))
 	env.ambient_light_color = amb.lerp(cinza * claro, nublado * 0.6)
-	env.ambient_light_energy = lerpf(a[4], b[4], t) * lerpf(1.0, 1.1, nublado)
-	env.fog_light_color = nev.lerp(cinza * 1.15 * claro, nublado * 0.8)
+	env.ambient_light_energy = lerpf(a[4], b[4], t) * lerpf(1.0, 0.72, nublado)
+	env.fog_light_color = nev.lerp(cinza * 0.85 * claro, nublado * 0.85)
 	var dens := lerpf(a[8], b[8], t) + nublado * 0.007
 	if nevoa_longe:
 		# quanto mais densa a hora (manhã, chuva), mais perto a névoa fecha
@@ -171,7 +177,7 @@ func _aplicar() -> void:
 	else:
 		env.fog_density = dens
 	env.adjustment_saturation = lerpf(a[9], b[9], t) * lerpf(1.0, 0.8, nublado)
-	env.tonemap_exposure = lerpf(a[10], b[10], t)
+	env.tonemap_exposure = lerpf(a[10], b[10], t) * lerpf(1.0, 0.88, nublado)
 	# sol de dia, lua de noite (a mesma luz)
 	var dia := hora > NASCER and hora < POR
 	var ang := 0.0
@@ -186,7 +192,7 @@ func _aplicar() -> void:
 		az = lerpf(250.0, 110.0, k2)
 	sol.rotation_degrees = Vector3(-ang, az, 0.0)
 	sol.light_color = ((a[5] as Color).lerp(b[5], t)).lerp(Color(0.8, 0.84, 0.9), nublado * 0.8)
-	sol.light_energy = lerpf(a[6], b[6], t) * lerpf(1.0, 0.45, nublado)
+	sol.light_energy = lerpf(a[6], b[6], t) * lerpf(1.0, 0.26, nublado)
 	if estilo_novo:
 		_estilo(luz_dia, nublado, topo, horiz)
 
@@ -194,7 +200,7 @@ func _aplicar() -> void:
 ## O visual novo por cima das cores da hora: sombra azul-violeta, sol mais quente, a distância azulando,
 ## céu mais saturado com nuvens de borda firme, mais brilho e mais cor.
 func _estilo(luz_dia: float, nublado: float, topo: Color, horiz: Color) -> void:
-	var dia := clampf(luz_dia, 0.0, 1.0) * (1.0 - nublado * 0.7)
+	var dia := clampf(luz_dia, 0.0, 1.0) * (1.0 - nublado * 0.95)
 	# (com 0,6 e um violeta mais forte os paredões na sombra ficavam roxos)
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.42, 0.46, 0.80), 0.4 * dia)
 	env.ambient_light_energy *= lerpf(1.0, 1.12, dia)
@@ -208,8 +214,8 @@ func _estilo(luz_dia: float, nublado: float, topo: Color, horiz: Color) -> void:
 	ceu.set_shader_parameter("topo", topo.lerp(Color(0.13, 0.24, 0.80), 0.55 * dia))
 	ceu.set_shader_parameter("horizonte", horiz.lerp(Color(0.70, 0.76, 0.98), 0.4 * dia))
 	ceu.set_shader_parameter("volume", 1.0)
-	ceu.set_shader_parameter("nuvem_de", lerpf(0.53, 0.28, nublado))
-	ceu.set_shader_parameter("nuvem_ate", lerpf(0.56, 0.5, nublado))
+	ceu.set_shader_parameter("nuvem_de", lerpf(0.53, 0.05, nublado))
+	ceu.set_shader_parameter("nuvem_ate", lerpf(0.56, 0.4, nublado))
 	ceu.set_shader_parameter("escala", 0.075)
 	env.adjustment_saturation *= 1.1
 	env.adjustment_contrast = 1.07
