@@ -893,26 +893,29 @@ static func montar(v: Vale) -> void:
 	# robôs velhos, tomados pelo tempo: caídos pelos cantos, apagados
 	var k := 0
 	for dados in [[-16.0, 16.0, 0.8], [10.0, -18.0, 2.4], [30.0, 28.0, 4.0], [-32.0, -8.0, 1.5], [4.0, 6.0, 5.2], [-28.0, 32.0, 3.1]]:
-		var velho := Mech00Visual.montar(4400 + k * 13, 1.9, _tex)
+		# robôs do próprio projeto (InimigoVisual), um de cada família, deitados de costas ou de bruços
+		InimigoVisual.forcar_modelo = InimigoVisual.FAMILIAS[k % 3]
+		var velho := InimigoVisual.montar(4400 + k * 13, [1.8, 1.9, 1.6][k % 3], _tex)
+		InimigoVisual.forcar_modelo = ""
 		raiz.add_child(velho)
-		velho.position = aqui(dados[0], 0.0, dados[1])
-		velho.rotation.y = dados[2]
-		velho.tocar("Death", 1.0, 0.0)
-		velho.anim.seek(velho.anim.current_animation_length, true)  # a pose final já, parada: a colisão é feita em cima dela
-		velho.anim.pause()
+		velho.tocar("Death")
+		velho._process(10.0)  # a pose de desligado já, e parada: a colisão é feita em cima dela
+		velho.set_process(false)
 		velho.apagar(1.0)
 		velho.olho(0.0)
+		velho.desbotar(0.8)
+		var deita := -PI * 0.5 if k % 2 == 0 else PI * 0.5
+		velho.transform = Transform3D(Basis(Vector3.UP, float(dados[2])) * Basis(Vector3.RIGHT, deita) * Basis(Vector3.BACK, 0.3 * sin(k * 2.1)), aqui(dados[0], 0.0, dados[1]))
+		# assenta: a peça mais baixa encosta no piso
+		var menor := INF
+		for peca_v: PackedVector3Array in MalhaCorpo.por_peca(velho, null):
+			for pv: Vector3 in peca_v:
+				menor = minf(menor, pv.y)
+		if menor != INF:
+			velho.global_position.y += raiz.to_global(aqui(dados[0], 0.0, dados[1])).y + 0.01 - menor
 		_tufo(raiz, aqui(float(dados[0]) + 0.5, 0.2, float(dados[1]) - 0.4), 1.3)
-		# a colisão segue o corpo caído, peça por peça, em cascos simples (são pequenos e não se mexem: o
-		# usuário dispensou o detalhe; a malha inteira dava 24 mil triângulos para seis robôs de 1,9 m)
-		# antes, o ajuste que ergue o mecha caído até encostar no piso (MechVisual._process) roda aqui até
-		# assentar, e é desligado: depois da colisão pronta o corpo não pode mais se mexer
-		velho.esqueleto.force_update_all_bone_transforms()
-		for volta in 4:
-			velho._process(10.0)
-			velho.esqueleto.force_update_all_bone_transforms()
-		velho.set_process(false)
-		for casco_v in MalhaCorpo.cascos(velho, velho.esqueleto):
+		# a colisão segue o corpo caído, peça por peça, em cascos simples (são pequenos e não se mexem)
+		for casco_v in MalhaCorpo.cascos(velho, null):
 			corpo.add_child(casco_v)
 			caidos_pecas += 1
 		Obstaculos.registrar(aqui(dados[0], 0.0, dados[1]).x, aqui(dados[0], 0.0, dados[1]).z, 1.3)

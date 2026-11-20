@@ -37,12 +37,6 @@ func rodar(main: Node) -> void:
 	if "--efeitos-tiro" in args:
 		await _efeitos_tiro()
 		return
-	if "--mechas-tiro" in args:
-		await _mechas_tiro()
-		return
-	if "--mechas" in args:
-		await _mechas()
-		return
 	if "--plantas" in args:
 		await _plantas()
 		return
@@ -1648,8 +1642,8 @@ func _largo() -> void:
 	if "--gigantes" in OS.get_cmdline_user_args():
 		# quanto o corpo desenhado agora difere da colisão calculada na montagem
 		for gi2 in MarcosLeste.gigantes.size():
-			var gg := MarcosLeste.gigantes[gi2] as Mech00Visual
-			var agora := MalhaCorpo.faces(gg, gg.esqueleto)
+			var gg := MarcosLeste.gigantes[gi2] as Node3D
+			var agora := MalhaCorpo.faces(gg, null)
 			var antes: PackedVector3Array = MarcosLeste.malhas[gi2]
 			var pior := 0.0
 			var soma_d := Vector3.ZERO
@@ -2104,137 +2098,6 @@ func _plantas() -> void:
 	get_tree().quit()
 
 
-## Uma fileira de mechs sorteados, parados e andando, para conferir a montagem (`--mechas`).
-func _mechas() -> void:
-	await _esperar(2.5)
-	m.hud.visible = false
-	for n in c.find_children("*", "MultiMeshInstance3D", true, false):
-		if (n as MultiMeshInstance3D).visibility_range_end > 0.0 and (n as MultiMeshInstance3D).visibility_range_end < 100.0:
-			(n as Node3D).visible = false
-	var livre := Camera3D.new()
-	m.add_child(livre)
-	livre.fov = 34.0
-	livre.make_current()
-	var claro := Clareira.CLAROS[0]
-	var base := Vector3(claro.x, c.altura(claro.x, claro.y), claro.y)
-	a.teleportar(base + Vector3(0, 0.3, 30), Armadura.Estado.CHAO)
-	var lista: Array[Mech00Visual] = []
-	for i in 8:
-		var v := Mech00Visual.montar(40 + i, 1.8, c._tex)
-		m.add_child(v)
-		var x := (i % 4 - 1.5) * 3.6
-		var z := -3.0 if i < 4 else 2.5
-		v.global_position = Vector3(base.x + x, c.altura(base.x + x, base.z + z), base.z + z)
-		v.rotation.y = PI  # de frente para a câmera (+Z)
-		lista.append(v)
-		print("mech ", 40 + i, ": ", v.ficha)
-	await _esperar(1.0)
-	livre.global_position = base + Vector3(-7.0, 3.6, 12.0)
-	livre.look_at(base + Vector3(0, 0.9, 0))
-	await _foto("a_fileira")
-	livre.global_position = base + Vector3(-9.0, 2.2, -8.0)
-	livre.look_at(base + Vector3(0, 0.9, 0))
-	await _foto("b_costas")
-	for i in lista.size():
-		lista[i].tocar(["Walk", "Run", "Shoot", "Death"][i % 4])
-	await _esperar(0.45)
-	livre.global_position = base + Vector3(-7.0, 3.6, 12.0)
-	livre.look_at(base + Vector3(0, 0.9, 0))
-	await _foto("c_animando")
-	livre.fov = 20.0
-	livre.global_position = lista[1].global_position + Vector3(1.6, 1.3, 4.6)
-	livre.look_at(lista[1].global_position + Vector3(0, 0.9, 0))
-	await _foto("d_perto")
-	get_tree().quit()
-
-
-## O momento do ataque de cada jeito de mecha (uma bolinha branca marca de onde o tiro sai) e dois caídos:
-## um numa ladeira e outro na beira do riacho (`--mechas-tiro`).
-func _mechas_tiro() -> void:
-	await _esperar(2.5)
-	m.hud.visible = false
-	for n in c.find_children("*", "MultiMeshInstance3D", true, false):
-		if (n as MultiMeshInstance3D).visibility_range_end > 0.0 and (n as MultiMeshInstance3D).visibility_range_end < 100.0:
-			(n as Node3D).visible = false
-	var livre := Camera3D.new()
-	m.add_child(livre)
-	livre.fov = 30.0
-	livre.make_current()
-	var claro := Clareira.CLAROS[0]
-	var base := Vector3(claro.x, c.altura(claro.x, claro.y), claro.y)
-	a.teleportar(base + Vector3(0, 0.3, 40), Armadura.Estado.CHAO)
-	# acha uma semente de cada jeito: arma na mão direita, braço-canhão esquerdo, costas e espada
-	var achados := {}
-	for sem in range(1, 400):
-		var t := Mech00Visual.montar(sem, 1.9, c._tex)
-		var f: Dictionary = t.ficha
-		var chave := String(f["arma"])
-		if f["mao"] == "canhão":
-			chave = "canhao_" + String(f["lado"])
-		if not achados.has(chave):
-			achados[chave] = sem
-		t.free()
-		if achados.size() >= 5:
-			break
-	print("sementes: ", achados)
-	var marca := MeshInstance3D.new()
-	var bm := SphereMesh.new()
-	bm.radius = 0.09
-	bm.height = 0.18
-	marca.mesh = bm
-	var mm := StandardMaterial3D.new()
-	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mm.no_depth_test = true
-	marca.material_override = mm
-	m.add_child(marca)
-	for chave: String in achados:
-		var v := Mech00Visual.montar(achados[chave], 1.9, c._tex)
-		m.add_child(v)
-		v.global_position = base
-		v.rotation.y = PI
-		await _esperar(0.4)
-		v.tocar("Shoot")
-		await _esperar(v.tempo_do_tiro())
-		marca.global_position = v.ponto_tiro()
-		livre.global_position = base + Vector3(3.2, 1.6, 6.0)
-		livre.look_at(base + Vector3(0, 1.1, 0))
-		await _foto("t_" + chave)
-		v.queue_free()
-	marca.visible = false
-	# caídos: procura uma ladeira e a beira do riacho
-	var ladeira := Vector3.INF
-	for r in range(30, 110, 6):
-		for k in 24:
-			var q := Vector2(cos(k * TAU / 24.0), sin(k * TAU / 24.0)) * float(r)
-			var ny := c.normal_em(q.x, q.y).y
-			if ny > 0.86 and ny < 0.93 and c.agua(q.x, q.y) == -INF and ladeira == Vector3.INF:
-				ladeira = Vector3(q.x, c.altura(q.x, q.y), q.y)
-	var beira := Vector3.INF
-	for rp in Clareira.RIACHO:
-		for d: Vector2 in [Vector2(3.5, 0), Vector2(-3.5, 0), Vector2(0, 3.5), Vector2(0, -3.5)]:
-			var q := Vector2(rp.x, rp.y) + d
-			if c.agua(q.x, q.y) == -INF and beira == Vector3.INF and q.length() > 30.0:
-				beira = Vector3(q.x, c.altura(q.x, q.y), q.y)
-	var k2 := 0
-	for lugar: Vector3 in [ladeira, beira]:
-		if lugar == Vector3.INF:
-			continue
-		var mc := Mecha.new()
-		mc.mapa = c
-		mc.casa = lugar
-		mc.semente = 31 + k2
-		m.add_child(mc)
-		mc.global_position = lugar
-		mc.pose_foto = 0
-		await _esperar(0.3)
-		mc.pose_foto = -1
-		mc.desligar()
-		await _esperar(2.5)
-		livre.global_position = lugar + Vector3(4.5, 2.4, 5.5)
-		livre.look_at(lugar + Vector3(0, 0.3, 0))
-		await _foto("c_caido_%d" % k2)
-		k2 += 1
-	get_tree().quit()
 
 
 ## Os efeitos dos tiros de perto (`--efeitos-tiro`): clarão e rastro de cada projétil, impacto e a explosão.

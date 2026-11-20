@@ -7,7 +7,7 @@ extends Node3D
 ## (o tronco e a raiz inclinam para a frente); Z positivo abre o lado esquerdo (+X) para fora.
 
 ## O modelo e o estilo são escolhidos pelo mapa antes de criar a armadura.
-static var MODELO := "res://assets/armadura/robo_teste_v1.glb"  # modelo do usuário (Tripo + Mixamo); v1 e v2 são registro
+static var MODELO := "res://assets/vale/robo_v2.glb"  # o robô do jogo; `robo_v1` é o anterior e `robo_v3` o mergulhador
 static var noite := 0.0  # 0 a 1: de noite as luzes do robô acendem mais
 static var toon := false  # estilo do vale: peças com luz em faixas
 const JUNTAS := ["raiz", "tronco", "cabeca", "costas"]

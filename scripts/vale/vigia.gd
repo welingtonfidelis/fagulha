@@ -328,6 +328,7 @@ func _process(delta: float) -> void:
 	global_position.y = mapa.altura(global_position.x, global_position.z)
 	rotation.y = lerp_angle(rotation.y, atan2(-_rumo.x, -_rumo.z), 1.0 - exp(-6.0 * delta))
 	if mech:
+		mech.alvo_mira = alvo_p if alvo else Vector3.INF
 		if _tiro_t > 0.0:
 			mech.tocar("Shoot", 1.0, 0.05)
 		elif absf(vel) > 2.0:

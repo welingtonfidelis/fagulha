@@ -1,6 +1,7 @@
 class_name Memorias
 extends Node3D
-## As memórias (2026-11-18): nos dez lugares que não têm peça, um pequeno cristal âmbar guarda uma lembrança.
+## As memórias (2026-11-18): nos dez lugares que não têm peça, e no Sono dos Gigantes (a décima primeira,
+## de 2026-11-20), um pequeno cristal âmbar guarda uma lembrança.
 ## Tocando nele o jogo para, a tela escurece e aparece um texto curto sobre o lugar, com uma música leve.
 ## A história é a que o usuário contou (doc §87): gente boa tentando melhorar o mundo, sem vilão; os humanos
 ## se foram, a natureza tomou o lugar, e o Faísca passou a consciência ao robô que jogamos.
@@ -34,6 +35,8 @@ const TEXTOS := {
 		"Não era para achar nada de útil. Construíram porque alguém disse que um lugar que só olha para os próprios problemas acaba ficando triste.\n\nNas noites limpas a ilha inteira subia o morro. Os robôs também vinham, e ficavam olhando sem entender bem o quê.\n\nO telescópio ainda aponta para a última estrela que escolheram."],
 	"casco": ["O último barco",
 		"Este navio trazia peças e levava gente. Na última viagem veio vazio e ninguém embarcou.\n\nFaísca esperou no cais por muitas marés. Depois puxou o barco para a areia, para o mar não o levar, e sentou ao lado.\n\nFoi aqui que ele decidiu continuar. Havia uma ilha inteira para cuidar, e alguém precisava se lembrar deles."],
+	"gigantes": ["Os que carregavam o pesado",
+		"Estes quatro ergueram a represa, o cais e as torres. Trabalhavam devagar, para não assustar os bichos, e paravam a obra inteira quando aparecia um ninho no caminho.\n\nQuando o último serviço acabou, ninguém teve coragem de desmontá-los. Trouxeram os quatro para este campo, onde bate sol o dia todo, e desligaram um por um, agradecendo.\n\nDois pediram para ficar de pé. Dizem que era para continuar vendo o mar."],
 	"robo_mergulhador": ["O que segurava a comporta",
 		"Este cuidava da represa por baixo d'água, onde ninguém mais descia. Abria e fechava a comporta do fundo, tirava galho, media a parede com a mão.\n\nNo dia em que a rachadura abriu, ele desceu e segurou a comporta para a água sair devagar. Deu certo: a lagoa não desceu de uma vez, e o vale lá embaixo não se assustou.\n\nFicou segurando. A água ainda corre forte por ali, e ele ainda está com a mão na roda.\n\nJá pode soltar. O drone leva para a base."],
 	"ave_grande": ["A dona do vento",
@@ -46,7 +49,7 @@ const TEXTOS := {
 	"robo_antigo": ["O que vinha olhar",
 		"Este robô subia o morro quase toda noite. Não tinha tarefa nenhuma aqui: vinha porque gostava.\n\nSentava sempre neste mesmo lugar, ao pé do telescópio, e ficava olhando pela fenda até o céu clarear. Quem trabalhava aqui deixava a porta aberta para ele.\n\nQuando todos se foram, ele continuou vindo. Numa dessas noites a bateria acabou no meio do caminho das estrelas, e ele ficou.\n\nAinda dá para acordá-lo. O drone leva para a base."],
 }
-const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco"]
+const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco", "gigantes"]
 
 var armadura: Armadura
 var mapa: Vale
@@ -94,6 +97,16 @@ func _ready() -> void:
 	# no salão do Sumidouro, onde a luz do peito faz falta
 	var salao := pecas._no_salao()
 	onde["sumidouro"] = salao if salao.is_finite() else pecas._assentar(Sumidouro.saida)
+	# no Sono dos Gigantes (2026-11-20, ideia do usuário): em cima do peito da Escavadeira deitada, ao lado
+	# da cabine. O ponto sai do próprio modelo e um raio acha a chapa.
+	onde["gigantes"] = pecas._assentar(MarcosLeste.GIGANTES)
+	if not MarcosLeste.gigantes.is_empty():
+		var deitada := MarcosLeste.gigantes[0] as Node3D
+		var modelo_g := deitada.get_child(0) as Node3D
+		var no_peito: Vector3 = modelo_g.global_transform * Vector3(0.16, 1.46, 0.3)
+		var raio := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(no_peito + Vector3(0, 9.0, 0), no_peito - Vector3(0, 9.0, 0), 1))
+		if not raio.is_empty():
+			onde["gigantes"] = raio["position"]
 	for chave: String in ORDEM:
 		var no := _cristal(lidas.has(chave))
 		no.position = onde[chave]

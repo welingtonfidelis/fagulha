@@ -16,9 +16,9 @@ const FAROL_ALTURA := 62.0
 const FAROL_PE := 7.6  # raio da torre no pé
 const FAROL_ALTO := 4.5  # e no alto
 const GIGANTES := Vector2(470.0, 400.0)
-## cada gigante: [x, z a partir do meio, giro, altura do modelo, postura, quanto afunda]
+## cada gigante: [x, z a partir do meio, giro, altura do modelo, postura, (sem uso: os de pé já não afundam)]
 ## (na primeira versão tinham 22 a 34 m e sumiam entre as árvores: não eram colossais)
-const DORMINDO := [[-70.0, -40.0, 0.6, 62.0, "deitado", 4.0], [44.0, 6.0, 2.5, 74.0, "de_pe", 31.0], [10.0, 88.0, 4.3, 54.0, "deitado", 3.5],
+const DORMINDO := [[-70.0, -40.0, 0.6, 62.0, "deitado", 4.0], [44.0, 6.0, 2.5, 74.0, "de_pe", 19.0], [10.0, 88.0, 4.3, 54.0, "deitado", 3.5],
 	[-96.0, 56.0, 1.4, 50.0, "de_pe", 22.0]]
 
 static var farol_topo := Vector3.INF
@@ -324,8 +324,8 @@ static func _farol(o: Ruinas.Obra) -> void:
 
 # ---------------------------------------------------------------- O Sono dos Gigantes
 
-## Robôs colossais de terraplanagem, desligados há tanto tempo que o mato tomou conta: dois deitados, meio
-## enterrados, e dois de pé, enterrados até a cintura. Costas e braços viram plataformas para pousar.
+## Robôs colossais de obra (a Escavadeira, o Guindaste e o Bate-estaca), desligados há tanto tempo que o mato
+## tomou conta: dois deitados, meio enterrados, e dois de pé, em cima do chão. Costas e braços viram plataformas para pousar.
 static func _gigantes(v: Vale) -> void:
 	var corpo := StaticBody3D.new()
 	corpo.name = "Gigantes"
@@ -339,31 +339,20 @@ static func _gigantes(v: Vale) -> void:
 		var c := GIGANTES + Vector2(g[0], g[1])
 		var alt: float = g[3]
 		var deitado: bool = g[4] == "deitado"
-		var gigante := Mech00Visual.montar(9100 + k * 17, alt, v._tex)
+		var gigante := _montar_gigante(v, String(MODELOS_GIGANTES[k % MODELOS_GIGANTES.size()]), alt)
 		v.add_child(gigante)
-		gigante.position = Vector3(c.x, v._fora(c.x, c.y), c.y)
-		gigante.rotation.y = g[2]
-		gigante.tocar("Death" if deitado else "Idle", 1.0, 0.0)
-		# a pose final já, e parada: os ossos dão o lugar de cada parte do corpo
-		gigante.anim.seek(gigante.anim.current_animation_length if deitado else 0.0, true)
-		gigante.anim.pause()
-		# O mecha caído se ergue sozinho a cada quadro até o osso mais baixo encostar no chão
-		# (MechVisual._process). Aqui o corpo é assentado à mão, logo abaixo; com o ajuste ligado ele subia até
-		# 4 m depois de a colisão estar calculada, e o usuário atravessava o que via.
-		gigante.set_process(false)
-		gigante.olho(0.0)
-		# a tinta de fábrica já se foi: ferrugem e pó, com as cores quase apagadas
-		gigante.mat.set_shader_parameter("tinta", Color(0.8, 0.76, 0.72))
-		gigante.mat.set_shader_parameter("desbotado", 0.85)
-		gigante.apagar(0.35)
+		# de pé: em cima do chão. Deitado: de costas, com a lança ou a torre para o céu, um pouco
+		# virado de lado
+		var giro_g := Basis(Vector3.UP, float(g[2]))
+		if deitado:
+			giro_g = giro_g * Basis(Vector3.RIGHT, -PI * 0.5) * Basis(Vector3.BACK, 0.24 * (1.0 if k % 2 == 0 else -1.0))
+		gigante.global_transform = Transform3D(giro_g, Vector3(c.x, v._fora(c.x, c.y), c.y))
 		gigantes.append(gigante)
-		var esq := gigante.esqueleto
-		esq.force_update_all_bone_transforms()
 		if deitado:
 			# O corpo cai para um lado a partir dos pés, e o chão ali é ladeira: apoiado só na altura dos pés,
 			# o resto ficava no ar (o usuário viu um com "a bunda flutuando"). Aqui o corpo se inclina com o
 			# chão que tem debaixo dele e desce até encostar.
-			var pts := _ossos(esq)
+			var pts := _pontos(gigante)
 			var meio := Vector2.ZERO
 			for q: Vector3 in pts:
 				meio += Vector2(q.x, q.z)
@@ -375,21 +364,27 @@ static func _gigantes(v: Vale) -> void:
 			var eixo_g := Vector3(meio.x, v._fora(meio.x, meio.y), meio.y)
 			var inclina := Transform3D(Basis(Quaternion(Vector3.UP, nrm)), Vector3.ZERO)
 			gigante.global_transform = Transform3D(Basis.IDENTITY, eixo_g) * inclina * Transform3D(Basis.IDENTITY, -eixo_g) * gigante.global_transform
-			esq.force_update_all_bone_transforms()
-		# desce até um quarto dos ossos ficar abaixo do chão (os de pé: enterrados até a cintura)
+		# os deitados descem até um quarto do corpo ficar abaixo do chão
 		var folgas: Array[float] = []
-		for q: Vector3 in _ossos(esq):
+		for q: Vector3 in _pontos(gigante):
 			folgas.append(q.y - v._fora(q.x, q.z))
 		folgas.sort()
-		var desce := folgas[int(folgas.size() * 0.25)] + alt * 0.035 if deitado else float(g[5])
+		var desce := folgas[int(folgas.size() * 0.25)] + alt * 0.02
+		if not deitado:
+			# de pé, em cima do chão (o usuário não quis mais os enterrados até a cintura): as esteiras descem
+			# só até o ponto mais baixo do terreno debaixo delas, para nenhuma ficar no ar na ladeira
+			var baixo := v._fora(c.x, c.y)
+			for ia in 12:
+				for raio_p: float in [alt * 0.1, alt * 0.2]:
+					baixo = minf(baixo, v._fora(c.x + cos(ia * TAU / 12.0) * raio_p, c.y + sin(ia * TAU / 12.0) * raio_p))
+			desce = v._fora(c.x, c.y) - baixo + alt * 0.012
 		gigante.global_position.y -= desce
 		if not deitado:
-			gigante.rotation.x = 0.07 * (1.0 if k % 2 == 0 else -1.0)  # um pouco tombado
-		esq.force_update_all_bone_transforms()
-		# A colisão é a própria malha do corpo, calculada na pose em que ele dorme: o que se vê é o que barra
-		# e o que sustenta. (Antes foram duas caixas largas, que faziam parede invisível, e depois cápsulas
-		# por osso, que deixavam atravessar chapas e barravam em vãos: o usuário pediu a física real.)
-		var faces := MalhaCorpo.faces(gigante, esq)
+			gigante.rotate_object_local(Vector3.RIGHT, 0.07 * (1.0 if k % 2 == 0 else -1.0))  # um pouco tombado
+		# A colisão é a própria malha do corpo, na pose em que ele dorme: o que se vê é o que barra e o que
+		# sustenta. (Antes foram duas caixas largas, que faziam parede invisível, e depois cápsulas por osso,
+		# que deixavam atravessar chapas e barravam em vãos: o usuário pediu a física real.)
+		var faces := MalhaCorpo.faces(gigante, null)
 		malhas.append(faces)
 		corpo.add_child(MalhaCorpo.forma(faces))
 		triangulos += faces.size() / 3
@@ -423,14 +418,43 @@ static func _gigantes(v: Vale) -> void:
 		k += 1
 
 
-## Onde está cada osso do corpo, no mundo (sem os de controle, que ficam longe do corpo).
-static func _ossos(esq: Skeleton3D) -> Array[Vector3]:
+## Os gigantes são robôs de obra do próprio projeto (`tools/vale/gigantes.py`): a ordem segue `DORMINDO`.
+const MODELOS_GIGANTES := ["escavadeira", "guindaste", "bate_estaca", "escavadeira"]
+const ALTURA_MODELO_G := 2.06  # do chão ao capacete, nas unidades do modelo
+## A tinta que sobrou, já sem brilho: [cor, ferrugem, musgo] por material do modelo.
+const TINTAS_GIGANTE := {
+	"amarelo": [Color(0.46, 0.34, 0.08), 0.48, 0.42], "amarelo_velho": [Color(0.40, 0.32, 0.12), 0.5, 0.42],
+	"laranja": [Color(0.46, 0.18, 0.05), 0.48, 0.42], "branco": [Color(0.42, 0.41, 0.37), 0.45, 0.48],
+	"preto": [Color(0.045, 0.045, 0.05), 0.35, 0.35], "grafite": [Color(0.11, 0.115, 0.12), 0.55, 0.4],
+	"aco": [Color(0.21, 0.21, 0.21), 0.75, 0.35], "vidro": [Color(0.035, 0.06, 0.07), 0.2, 0.3],
+	"ferrugem": [Color(0.22, 0.11, 0.06), 0.9, 0.35], "lente": [Color(0.07, 0.06, 0.05), 0.3, 0.2],
+}
+
+
+## Um gigante de pé na origem, com `alt` metros do chão ao capacete, já com a tinta velha, a ferrugem e o
+## musgo (o `vale_base.gdshader`, o mesmo da base e da Fundição).
+static func _montar_gigante(v: Vale, nome: String, alt: float) -> Node3D:
+	var g := Node3D.new()
+	g.name = "Gigante_" + nome
+	var modelo := (load("res://assets/vale/gigantes/%s.glb" % nome) as PackedScene).instantiate() as Node3D
+	modelo.scale = Vector3.ONE * alt / ALTURA_MODELO_G
+	g.add_child(modelo)
+	for mi: MeshInstance3D in modelo.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var m0 := mi.mesh.surface_get_material(s)
+			var t: Array = TINTAS_GIGANTE.get(String(m0.resource_name) if m0 else "", TINTAS_GIGANTE["grafite"])
+			mi.set_surface_override_material(s, BaseVale._mat_cor(t[0], t[1], t[2], v._tex))
+	return g
+
+
+## Pontos do corpo no mundo (um a cada poucos vértices), para medir onde ele encosta no chão.
+static func _pontos(gigante: Node3D) -> Array[Vector3]:
 	var pts: Array[Vector3] = []
-	for i in esq.get_bone_count():
-		var nome_o := esq.get_bone_name(i).to_lower()
-		if nome_o.contains("ik") or nome_o.contains("pole") or nome_o.contains("dummy") or nome_o.contains("attach"):
-			continue
-		pts.append(esq.global_transform * esq.get_bone_global_pose(i).origin)
+	var faces := MalhaCorpo.faces(gigante, null)
+	var k := 0
+	while k < faces.size():
+		pts.append(faces[k])
+		k += 5
 	return pts
 
 

@@ -1,6 +1,6 @@
 class_name MechVisual
 extends Node3D
-## A base do corpo animado das máquinas (quem monta o corpo é Mech00Visual): tocar uma animação pelo nome
+## A base do corpo animado das máquinas (quem monta o corpo é o InimigoVisual, ou o MechPacote nas máquinas de pacote da Fundição): tocar uma animação pelo nome
 ## comum (Idle, Walk, Run, Shoot, Death...), e os efeitos.
 ## A frente fica em -Z e os pés na origem. `olho` acende uma luz vermelha na cabeça (o aviso de ataque),
 ## `clarao` pisca o corpo ao levar tiro e `apagar` escurece a máquina desligada.
@@ -15,6 +15,7 @@ var altura := 1.0
 var atual := ""
 var chao: Callable  # (x, z) -> altura do terreno; sem ele vale o plano da origem
 var boca: Node3D  # de onde sai o tiro (a arma); sem ela, a cabeça
+var alvo_mira := Vector3.INF  # no mundo: onde está quem a máquina ataca (o InimigoVisual aponta o braço para lá)
 var margem_caido := 0.09  # caído (Death), o osso mais baixo fica a esta fração da altura acima do chão
 var _esq: Skeleton3D
 var _raiz: Node3D

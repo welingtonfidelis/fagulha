@@ -2055,8 +2055,8 @@ func _ponto_33() -> void:
 	# (o ajuste que ergue mecha caído chegou a levantar os deitados até 4 m depois da colisão pronta)
 	var desvio_g := 0.0
 	for gi in MarcosLeste.gigantes.size():
-		var gg := MarcosLeste.gigantes[gi] as Mech00Visual
-		var agora_g := MalhaCorpo.faces(gg, gg.esqueleto)
+		var gg := MarcosLeste.gigantes[gi] as Node3D
+		var agora_g := MalhaCorpo.faces(gg, null)
 		var antes_g: PackedVector3Array = MarcosLeste.malhas[gi]
 		if agora_g.size() != antes_g.size():
 			desvio_g = INF
@@ -2213,7 +2213,7 @@ func _ponto_33() -> void:
 	var abriu_m: bool = me.aberta == "torres" and get_tree().paused and me._camada.visible
 	me.fechar()
 	await _esperar(0.3)
-	_ok(me.onde.size() == 10 and Memorias.ORDEM.size() == 10 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
+	_ok(me.onde.size() == 11 and Memorias.ORDEM.size() == 11 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
 		"memórias: %d cristais e %d textos, nenhum em cima de uma peça (%s); tocar abre o texto e para o jogo (%s); fechar devolve o controle" % [me.onde.size(), Memorias.TEXTOS.size(), longe_das_pecas, abriu_m])
 	_zerar()
 
@@ -2443,7 +2443,7 @@ func _ponto_36() -> void:
 		Input.action_release("pular")
 	await _esperar(0.3)
 	var fechou: bool = not get_tree().paused and (farol.get("_gira") as Node3D).visible and not m.hud.destino_final.is_finite()
-	_ok(not antes_f and depois_f and perto_base == 0 and perto_molas == 0 and perto_arcos == 0 and no_patio == 2 and botoes_mem == 2 and contas.contains("Memórias: 2 de 10")
+	_ok(not antes_f and depois_f and perto_base == 0 and perto_molas == 0 and perto_arcos == 0 and no_patio == 2 and botoes_mem == 2 and contas.contains("Memórias: 2 de 11")
 			and sem_convite and convite and pagina and fechou,
 		"relatórios: a Fundição só entra na bússola depois da visita (%s, %s); máquinas a menos de 150 m da base %d, perto da peça das molas %d, perto da memória dos Arcos %d, no Pátio %d; caderno com %d memórias (%s); farol sem convite antes (%s), com convite e rumo depois (%s), acende e para o jogo (%s), fecha e fica girando (%s)"
 			% [not antes_f, depois_f, perto_base, perto_molas, perto_arcos, no_patio, botoes_mem, contas, sem_convite, convite, pagina, fechou])
@@ -3070,7 +3070,9 @@ func _ponto_45() -> void:
 	var hora0: float = m.ciclo.hora
 	var parado0: bool = m.ciclo.parado
 	var chuva0: float = m.ciclo.chuva
+	var chovendo0: bool = m.ciclo.chovendo
 	m.ciclo.parado = true
+	m.ciclo.chovendo = false  # num teste comprido a chuva do ciclo pode estar no meio
 	m.ciclo.chuva = 0.0
 	m.ciclo.hora = 13.0
 	await _esperar(2.5)
@@ -3078,9 +3080,11 @@ func _ponto_45() -> void:
 	m.ciclo.hora = 22.0
 	await _esperar(3.5)
 	var de_noite_acesa: bool = fogo != null and fogo.acesa and fogo.forca > 0.9
+	m.ciclo.chovendo = true
 	m.ciclo.chuva = 1.0
 	await _esperar(2.5)
 	var na_chuva_apagada: bool = fogo != null and not fogo.acesa and fogo.forca < 0.05
+	m.ciclo.chovendo = chovendo0
 	m.ciclo.chuva = chuva0
 	m.ciclo.hora = hora0
 	m.ciclo.parado = parado0

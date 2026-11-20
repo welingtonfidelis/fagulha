@@ -159,7 +159,7 @@ func _ficha(o) -> Dictionary:
 		return {"nome": MaquinaPacote.TITULOS[mp.tipo], "tipo": "máquina · minichefe" if mp.chefe else "máquina · hostil", "linhas": _linhas_maquina(mp)}
 	if o is Mecha:
 		var m := o as Mecha
-		return {"nome": "Mecha chefe" if m.chefe else "Mecha", "tipo": "máquina · hostil", "linhas": _linhas_maquina(m)}
+		return {"nome": String(m.ficha.get("nome", "Mecha")), "tipo": ("máquina chefe · hostil" if m.chefe else "máquina · hostil"), "linhas": _linhas_maquina(m)}
 	if o is Vigia:
 		return {"nome": "Vigia", "tipo": "máquina · hostil", "linhas": _linhas_maquina(o as Vigia)}
 	if o is MaquinaPequena:
@@ -183,21 +183,21 @@ func _linhas_maquina(v: Vigia) -> Array:
 	var linhas := []
 	var ataque := ""
 	if v.corpo_a_corpo:
-		ataque = "chega junto e bate"
+		ataque = "chega junto e corta em arco"
 	else:
 		match v.tipo_tiro:
 			"missil": ataque = "mísseis lentos que perseguem (dá para fugir)"
-			"pesado": ataque = "canhão das costas, de longe"
-			_: ataque = "tiros de mão, um de cada vez"
+			"pesado": ataque = "canhão da luva, de braço estendido"
+			_: ataque = "tiros da luva, de braço estendido"
 		if v.rajada > 1:
 			ataque += " · %d por vez" % v.rajada
-	var equip := "arma de mão"
+	var equip := "cano na luva"
 	if v.corpo_a_corpo:
-		equip = "martelo" if v.forca_golpe >= 8.0 else "espada"
+		equip = "lâmina de luz no pulso"
 	elif v.tipo_tiro == "missil":
-		equip = "mísseis nas costas"
+		equip = "mísseis nos ombros"
 	elif v.tipo_tiro == "pesado":
-		equip = "canhão nas costas"
+		equip = "canhão na luva"
 	linhas.append("Equipamento: " + equip)
 	linhas.append("Ataque: " + ataque)
 	linhas.append("Distância de ataque: %d m · enxerga a %d m" % [int(v.dist_tiro), int(Vigia.VER)])

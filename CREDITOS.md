@@ -51,13 +51,32 @@ Os peixes do mar, dos rios e das lagoas são do *Cute Fish Pack* (fevereiro de 2
 Os cervos, os veados de galhada, as raposas e os lobos são do *Ultimate Animated Animals*, também de
 [Quaternius](https://quaternius.com) e em domínio público (CC0), com as animações do pacote.
 
-Os mechas sorteados usam o *Mech_00* e a expansão *Mech_00(A)*, de [jimmys7777](https://jimmys7777.itch.io/): uso
-livre em jogos, sem redistribuir os arquivos (por isso o repositório do jogo é privado).
+Os mechas do pacote *Mech_00* (jimmys7777), que não podiam ser redistribuídos, **saíram do jogo em 2026-11-20**:
+os inimigos, os robôs caídos da Fundição e os gigantes passaram a ser modelos do próprio projeto. Os arquivos
+continuam no histórico antigo do git (ver o fim deste arquivo).
 
 ## Base do robô
 
 - **Sci-Fi Essentials Kit** e **Modular SciFi MegaKit**, de Quaternius (https://quaternius.com), CC0 1.0. Peças do hangar, caixas, antena e o drone colega (`assets/vale/base/`).
 - **Faísca**, o robô da Ilha Cafuné (jogo do mesmo autor), em `assets/faisca/faisca.scn`.
+
+## Robôs inimigos e gigantes
+
+A Lata, o Guarda, o Barril e os chefes (o Colosso, a Lâmina e o Artilheiro), em `assets/vale/inimigos/`
+(`lata.glb`, `guarda.glb`, `barril.glb`, `colosso.glb`, `lamina.glb`, `artilheiro.glb`), são do próprio projeto,
+modelados por script no Blender (`tools/vale/inimigos.py`).
+
+Os gigantes de obra do Sono dos Gigantes (a Escavadeira, o Guindaste e o Bate-estaca, em
+`assets/vale/gigantes/`) também são do próprio projeto (`tools/vale/gigantes.py`).
+
+## O robô do jogador
+
+Os três robôs jogáveis (`assets/vale/robo_v1.glb`, `robo_v2.glb` e `robo_v3.glb`) são do próprio projeto,
+modelados por script no Blender (`tools/vale/robo.py` e `tools/vale/robo_v2.py`).
+
+O robô provisório dos primeiros dias (gerado no Tripo, com esqueleto e animações do Mixamo) **saiu do jogo e do
+repositório em 2026-11-20**: os termos do Tripo para aquele modelo não estavam conferidos e o material do Mixamo
+(Adobe) não pode ser redistribuído solto. Ele continua no histórico antigo do git (ver o fim deste arquivo).
 
 ## Factory Kit (Kenney)
 
@@ -110,3 +129,15 @@ Creative Commons Zero (CC0).
 
 A cabeça das máquinas usa a Beehave 2.9.3, de bitbrain (https://github.com/bitbrain/beehave), licença MIT
 (`addons/beehave/`, com a licença em `addons/beehave/LICENSE`).
+
+## O repositório é público (2026-11-20)
+
+Tudo o que está no jogo é CC0, CC-BY (sons, com o crédito na tabela do começo), MIT (Beehave) ou do próprio
+autor. O que é do projeto está sob a licença MIT (`LICENSE`).
+
+Para abrir, o histórico do git foi reescrito sem as três coisas que não podiam ser redistribuídas: os mechas
+*Mech_00* (`assets/vale/mech00/`), o robô provisório gerado no Tripo com esqueleto do Mixamo (`assets/armadura/`)
+e a cópia dele em `vendor/robot-test-v1.glb`. Por isso os commits têm identificadores novos: os que a
+documentação cita de antes dessa data já não existem.
+
+Os sons CC-BY pedem o crédito junto do jogo: o `CREDITOS.md` vai ao lado da build.

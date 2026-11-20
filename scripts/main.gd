@@ -113,7 +113,7 @@ func _ready() -> void:
 	# andar e correr um pouco acima do que eram (2,1 e 6,3 m/s), pedido de 2026-11-19
 	Armadura.vel_andar = 3.0 if vale else 0.0
 	Armadura.vel_correr = 7.5 if vale else 0.0
-	ArmaduraVisual.MODELO = "res://assets/vale/robo_v2.glb" if vale else "res://assets/armadura/robo_teste_v1.glb"
+	ArmaduraVisual.MODELO = "res://assets/vale/robo_v2.glb"  # o robô provisório (Tripo + Mixamo) saiu do jogo em 2026-11-20
 	ArmaduraVisual.toon = vale
 	ilha.name = "Mapa"
 	add_child(ilha)

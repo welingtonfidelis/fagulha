@@ -40,6 +40,12 @@ A build de Linux sai com:
 godot --headless --path . --export-release "Linux" build/linux/JogoVoo.x86_64
 ```
 
+O `CREDITOS.md` vai junto da build (os sons CC-BY pedem o crédito ao lado do jogo):
+
+```bash
+cp CREDITOS.md build/linux/
+```
+
 ## Testes e fotos
 
 As duas baterias rodam sem janela. A do vale leva de 5 a 9 minutos.
@@ -83,4 +89,8 @@ Tudo o que foi decidido, feito, medido e deixado para depois está em [docs/JOGO
 
 ## Créditos
 
-Sons, modelos e texturas de terceiros estão listados em [CREDITOS.md](CREDITOS.md), com autor e licença. Parte dos modelos não pode ser redistribuída, por isso o repositório é privado.
+Sons, modelos e texturas de terceiros estão listados em [CREDITOS.md](CREDITOS.md), com autor e licença.
+
+## Licença
+
+O que é do próprio projeto (código, robôs, gigantes, músicas e textos) está sob a licença MIT: veja [LICENSE](LICENSE). O material de terceiros segue as licenças dele (CC0, CC-BY e MIT).

@@ -2690,3 +2690,88 @@ pelo usuário: "telhado aberto", a bancada de passatempos debaixo da cobertura, 
   fora do editor enchia o registro de erros).
 - Bateria: `VALE_SO_PONTO=45 godot --headless --path . -- --teste-vale` roda só um ponto. O ponto 45 cobre a
   base nova e a árvore.
+
+## 120. Limpeza de modelos e registro das licenças (2026-11-20)
+
+O usuário quer abrir o repositório. Vai procurar outros robôs para o lugar dos mechas; por ora:
+
+- **Saiu o robô provisório** (Tripo + Mixamo): `assets/armadura/` e `vendor/robot-test-v1.glb`. O modo de teste
+  fora do vale (`-- --teste`) passou a usar o `robo_v2.glb`, como o jogo. Uma cópia dos dois arquivos ficou em
+  `Projects/others/bibliotecas/faisca2-robo-provisorio/`. O caminho de esqueleto do `ArmaduraVisual` continua
+  no código, sem uso.
+- **Saíram modelos que o jogo não carregava**: 9 peças do hangar (`assets/vale/base/`), 27 do Factory Kit
+  (`assets/vale/fundicao/`), 7 móveis copiados a mais (`assets/vale/moveis/`) e uma imagem de partícula. Só saiu
+  o que falhou em duas conferências: nome não citado em nenhum script, e nenhum carregamento nas três baterias
+  rodadas com `--verbose` (que lista cada `Loading resource`). Sons, peixes, ícones de botão e as árvores de
+  longe têm o nome montado em código ou só carregam em certos momentos: ficaram todos.
+- **Licenças** (`CREDITOS.md`): o texto da licença do *Mech_00*, a nota do robô provisório, a seção dos robôs
+  do próprio projeto e, no fim, a lista do que falta para abrir o repositório: trocar os mechas, reescrever o
+  histórico do git (os mechas e o robô provisório continuam nele) e escolher uma licença para o projeto.
+- O `CREDITOS.md` vai ao lado da build (os sons CC-BY pedem o crédito junto do jogo).
+
+## 121. Robôs inimigos do próprio projeto (2026-11-20)
+
+Para abrir o repositório os mechas de pacote (*Mech_00*) têm de sair. O usuário pediu inimigos feitos como o
+robô do jogador; viu a folha de estudo (`tools/vale/inimigos_estudo.py`) e escolheu **as três famílias
+misturadas**, com três chefes.
+
+- **Modelos** (`tools/vale/inimigos.py` → `assets/vale/inimigos/*.glb`): a **Lata** (1,8 m, tronco quadrado,
+  cabeça em cúpula com uma lente âmbar), o **Guarda** (1,9 m, magro, joelho invertido, visor vermelho) e o
+  **Barril** (1,6 m, um tambor com um olho ciano). Chefes de 3 m: o **Colosso** (da Lata, dois canos em cada
+  luva), a **Lâmina** (do Guarda, duas lâminas) e o **Artilheiro** (do Barril, quatro pernas e quatro casulos
+  de mísseis). Cada glb traz as juntas como nós (raiz, tronco, cabeca, ombro, cotovelo, boca, quadril,
+  joelho) e as três armas como peças `arma_*`; o jogo mostra a que vale.
+- **`InimigoVisual`** (`scripts/vale/inimigo_visual.gd`, herda de `MechVisual`): sorteia família, cor (três
+  por família) e arma pela semente, e anima girando as juntas, sem esqueleto: parado, andando, correndo,
+  atacando e desligado (arria nas pernas, tronco e cabeça caem, a chapa escurece).
+- **Armas, as do jogador** (pedido do usuário):
+  - **cano na luva**: para atirar o braço estende na direção do robô (sobe ou desce com ele) e o tiro sai
+    da boca do cano. Fuzil, metralha ou canhão mudam só a cadência e o tipo do tiro;
+  - **lâmina de luz**: só aparece no golpe e varre em arco de um lado ao outro, como a espada do jogador.
+    Quem é alto desce o braço até a lâmina passar na altura do robô (`MechVisual.alvo_mira`, que o `Vigia`
+    atualiza a cada quadro). O martelo saiu;
+  - **mísseis** nos ombros.
+- **`Mecha`** passou a usar o `InimigoVisual`; os números de luta são os de antes. O scanner mostra o nome
+  da família ou do chefe.
+- **Ainda no pacote antigo**: os gigantes do Sono dos Gigantes, os seis robôs caídos da Fundição (os dois
+  usam `Mech00Visual` deitado, com colisão tirada do esqueleto) e as máquinas de pacote da Fundição (Stan,
+  Trilobite e QuadShell, que são CC0 e podem ficar). Enquanto os dois primeiros não forem trocados, a pasta
+  `assets/vale/mech00/` não pode ser apagada.
+- Vitrine: `godot --path . -s tools/vitrine_inimigos.gd` fotografa todos, em cada pose, num estúdio liso.
+
+## 122. Gigantes de obra e o fim do pacote de mechas (2026-11-20)
+
+- **Os gigantes** do Sono dos Gigantes agora são robôs colossais de obra do próprio projeto
+  (`tools/vale/gigantes.py` → `assets/vale/gigantes/`): a **Escavadeira** (lança e caçamba de dentes), o
+  **Guindaste** (lança treliçada, cabo e gancho, contrapeso) e o **Bate-estaca** (torre, martelo e estaca).
+  Esteiras nos pés, faixa de perigo na cintura e a cabeça é uma cabine de operador com capacete. A Betoneira
+  do rascunho saiu a pedido do usuário. Rascunho: `tools/vale/gigantes_estudo.py`.
+- **No lugar** (`MarcosLeste._gigantes`, na ordem de `DORMINDO`): Escavadeira deitada (62 m), Guindaste de pé
+  (74 m, a lança passa dos 100), Bate-estaca deitado (54 m) e Escavadeira de pé
+  (50 m). Os deitados ficam de costas, com a lança ou a torre para o céu.
+- **Tinta velha**: cada material do modelo ganha a cor desbotada, ferrugem e musgo do `vale_base.gdshader`
+  (`MarcosLeste.TINTAS_GIGANTE`), o mesmo da base e da Fundição.
+- **De pé, em cima do chão** (pedido do usuário depois de ver as fotos: "estão enfiados no solo"): os dois de
+  pé não ficam mais enterrados até a cintura. As esteiras descem só até o ponto mais baixo do terreno
+  debaixo delas, para nenhuma ficar no ar na ladeira. O Guindaste de pé passa dos 100 m com a lança.
+- **Chão**: os deitados inclinam com a ladeira debaixo deles e descem até um quarto do corpo ficar enterrado
+  (a mesma regra de antes, medida agora pelos vértices do corpo e não pelos ossos).
+- **Colisão**: a própria malha de cada gigante, na pose final (`MalhaCorpo.faces(gigante, null)`, 15,5 mil
+  triângulos nos quatro). O robô solto em cima de cada um para de pé na chapa.
+- **Robôs caídos da Fundição**: seis `InimigoVisual` (dois de cada família), deitados de costas ou de
+  bruços, apagados e desbotados, assentados no piso pela peça mais baixa, com um casco de colisão por peça.
+- **O pacote *Mech_00* saiu do jogo**: `assets/vale/mech00/` e `Mech00Visual` foram apagados, e as fotos
+  antigas `--mechas` e `--mechas-tiro` do `capturas_vale.gd` também (a vitrine nova é
+  `tools/vitrine_inimigos.gd`). Para abrir o repositório falta reescrever o histórico do git e escolher uma
+  licença.
+
+## 123. A peça e a memória do Sono dos Gigantes (2026-11-20)
+
+- **A peça (bocais)** continua no maior gigante de pé, o Guindaste: o raio vindo de cima a assenta em cima do
+  capacete dele, a 72 m do chão (antes, com ele enterrado, eram 41 m). O robô solto ao lado para de pé ali.
+- **Memória nova, "Os que carregavam o pesado"** (ideia do usuário): a décima primeira de `Memorias.ORDEM`,
+  em cima do peito da Escavadeira deitada, ao lado da cabine, a 11 m do chão. O ponto sai do próprio modelo
+  (`MarcosLeste.gigantes[0]`) e um raio acha a chapa. O texto é meu e espera a revisão dele, como os outros.
+- Com isso o fim do jogo (acender o Farol) passa a pedir onze memórias, e o caderno da pausa conta "de 11".
+- Pedido do usuário no mesmo dia: **não rodar testes antes de ele dizer que a mudança está boa**. Estas duas
+  mudanças e a dos gigantes de pé ficaram sem a bateria completa.
