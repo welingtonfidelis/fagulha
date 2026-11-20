@@ -227,6 +227,40 @@ func apagar(v: float) -> void:
 		m.emission_energy_multiplier = lerpf(1.6, 0.03, v)
 
 
+var _brilho: MeshInstance3D
+var _mat_brilho: StandardMaterial3D
+const COR_CARGA := Color(1.0, 0.5, 0.16)
+
+
+## O aviso de ataque na arma: uma bola de luz laranja na boca do cano (ou na mão da lâmina) que cresce e
+## tremula enquanto ele arma o golpe ou o tiro. `f` de 0 (apagada) a 1 (vai sair).
+func carga(f: float) -> void:
+	if f <= 0.0:
+		if _brilho:
+			_brilho.visible = false
+		return
+	if _brilho == null:
+		_brilho = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.5
+		sm.height = 1.0
+		sm.radial_segments = 12
+		sm.rings = 6
+		_brilho.mesh = sm
+		_mat_brilho = StandardMaterial3D.new()
+		_mat_brilho.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_mat_brilho.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_mat_brilho.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_brilho.material_override = _mat_brilho
+		_brilho.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_brilho)
+	_brilho.visible = true
+	_brilho.global_position = ponto_tiro()
+	var treme := 1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.05)
+	_brilho.scale = Vector3.ONE * lerpf(0.22, 0.6, f) * treme * altura / 1.55
+	_mat_brilho.albedo_color = Color(COR_CARGA, 0.35 + 0.55 * f)
+
+
 ## Tira a cor e puxa para a ferrugem (os robôs velhos caídos na Fundição).
 func desbotar(v: float) -> void:
 	_desbotado = v

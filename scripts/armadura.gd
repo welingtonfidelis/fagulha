@@ -235,6 +235,10 @@ func altura_do_chao() -> float:
 	return global_position.y - ilha.altura(global_position.x, global_position.z)
 
 
+var golpe_de := Vector3.ZERO  # para onde o último acerto empurrou (do atacante para o robô)
+var golpe_n := 0  # acertos recebidos, contando os do escudo (o HUD vê quando muda)
+var golpe_no_escudo := false
+
 ## Para os testes e as fotos: põe a armadura num lugar, num estado e com uma velocidade.
 ## Golpe de uma máquina: empurra e esquenta. Com Ajustes.PANE_GOLPES acertos seguidos o robô entra em pane:
 ## desliga, o dia avança e ele religa no mesmo lugar (não há vida nem morte). Os acertos saram com o tempo.
@@ -243,6 +247,10 @@ func altura_do_chao() -> float:
 func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 	if em_pane or graca_pane > 0.0:
 		return
+	# o HUD mostra de que lado veio (uma seta vermelha; azul se o escudo engoliu)
+	golpe_de = direcao
+	golpe_n += 1
+	golpe_no_escudo = Arsenal.tem("escudo") and escudo_t <= 0.0
 	# o escudo de energia (fabricável) engole três acertos (eram um; pedido do usuário, 2026-11-20) e, quebrado,
 	# leva um tempo para recarregar
 	if Arsenal.tem("escudo") and escudo_t <= 0.0:

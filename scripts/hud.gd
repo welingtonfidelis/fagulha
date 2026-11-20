@@ -360,6 +360,68 @@ func _desenhar_chefe() -> void:
 
 
 ## A arma em uso e as granadas, no canto de baixo à direita (só quando há mais que a pistola de fábrica).
+var perigo := -1.0  # a Fundição: 0 a 1 do tempo parado lá dentro até a horda (negativo: sem contagem)
+var _golpe_n_visto := 0
+var _golpe_t := 0.0
+var _golpe_dir := Vector3.ZERO
+var _golpe_escudo := false
+
+
+## O tempo até a horda, por figura (para quem não lê): seis barras vermelhas embaixo da bússola, iguais às
+## lâmpadas sobre a porta, que acendem uma a uma; a próxima pisca.
+func _desenhar_perigo() -> void:
+	if perigo < 0.0 or simples:
+		return
+	var n := 6
+	var w := 22.0
+	var h := 9.0
+	var vao := 7.0
+	var x0 := size.x * 0.5 - (n * w + (n - 1) * vao) * 0.5
+	var y := 74.0
+	var cheias := perigo * n
+	var pisca := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.014)
+	for i in n:
+		var r := Rect2(x0 + i * (w + vao), y, w, h)
+		draw_rect(r.grow(2.0), Color(0, 0, 0, 0.5))
+		var f := 1.0 if i < floori(cheias) else (pisca if i == floori(cheias) else 0.0)
+		draw_rect(r, Color(0.25, 0.08, 0.06, 0.85).lerp(Color(1.0, 0.3, 0.2, 1.0), f))
+
+
+## De que lado veio o último acerto: um arco com uma ponta em volta do meio da tela, virado para o atacante
+## (a frente da câmera fica em cima). Vermelho; branco quando o escudo engoliu (azul sumia na bolha do escudo).
+## Some em 1,3 s.
+func _desenhar_golpe() -> void:
+	if alvo == null:
+		return
+	if alvo.golpe_n != _golpe_n_visto:
+		_golpe_n_visto = alvo.golpe_n
+		_golpe_t = 1.3
+		_golpe_dir = -alvo.golpe_de
+		_golpe_escudo = alvo.golpe_no_escudo
+	_golpe_t = maxf(0.0, _golpe_t - get_process_delta_time())
+	var cam := get_viewport().get_camera_3d()
+	var plano := Vector3(_golpe_dir.x, 0, _golpe_dir.z)
+	if _golpe_t <= 0.0 or cam == null or plano.length() < 0.01:
+		return
+	var frente := -cam.global_basis.z
+	frente = Vector3(frente.x, 0, frente.z).normalized()
+	var direita := Vector3(-frente.z, 0, frente.x)
+	plano = plano.normalized()
+	var a := -PI * 0.5 + atan2(plano.dot(direita), plano.dot(frente))
+	var c := size * 0.5
+	var raio := minf(size.x, size.y) * 0.2
+	var al := clampf(_golpe_t / 0.5, 0.0, 1.0)
+	var cor := Color(1.0, 1.0, 1.0) if _golpe_escudo else Color(1.0, 0.3, 0.2)
+	var fora := Vector2(cos(a), sin(a))
+	var lado := Vector2(-fora.y, fora.x)
+	draw_arc(c, raio, a - 0.4, a + 0.4, 18, Color(0, 0, 0, 0.45 * al), 15.0, true)
+	draw_arc(c, raio, a - 0.38, a + 0.38, 18, Color(cor, 0.9 * al), 10.0, true)
+	# a ponta, para fora, no meio do arco
+	var tri := PackedVector2Array([c + fora * (raio + 26.0), c + fora * (raio - 2.0) + lado * 15.0, c + fora * (raio - 2.0) - lado * 15.0])
+	draw_colored_polygon(PackedVector2Array([c + fora * (raio + 29.0), c + fora * (raio - 4.0) + lado * 18.0, c + fora * (raio - 4.0) - lado * 18.0]), Color(0, 0, 0, 0.45 * al))
+	draw_colored_polygon(tri, Color(cor, 0.95 * al))
+
+
 func _desenhar_arma() -> void:
 	if alvo == null:
 		return
@@ -433,6 +495,8 @@ func _draw() -> void:
 	_desenhar_placar()
 	_desenhar_arma()
 	_desenhar_chefe()
+	_desenhar_perigo()
+	_desenhar_golpe()
 	_desenhar_resumo()
 	if alvo == null:
 		return

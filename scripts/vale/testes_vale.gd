@@ -1627,7 +1627,7 @@ func _ponto_30() -> void:
 	_ok(largou and not sc.ligado and not cam.primeira and a.visual.visible, "virando a câmera o Faísca sai do círculo; apertando de novo volta à terceira pessoa")
 
 
-## 34. A Fundição: a cratera é chata e sem árvores; o painel liga a onda, os robôs saem dos portões, vencidos
+## 34. A Fundição: a cratera é chata e sem árvores; ficar 18 s dentro liga a onda, os robôs saem da porta, vencidos
 ## dão experiência e sucata, a onda seguinte vem depois do respiro e sair da cratera para tudo. E a pistola:
 ## segurando o gatilho sai um tiro só.
 func _ponto_31() -> void:
@@ -1687,7 +1687,7 @@ func _ponto_31() -> void:
 	_ok(f.fase == Fundicao.Fase.RESPIRO and Arsenal.xp > xp0 and Arsenal.sucata >= esperado and m.hud.placar != "",
 		"robôs vencidos: experiência %d, sucata %d, e o respiro começa" % [Arsenal.xp, Arsenal.sucata])
 	a.calor = 0.0
-	await _esperar(Fundicao.T_RESPIRO + 1.0)
+	await _esperar(Fundicao.respiro_de(1) + 1.0)  # o respiro da 1ª é curto (6 s); esperar 16 s deixava a onda 2 derrubar o robô
 	var segunda: bool = f.fase == Fundicao.Fase.ONDA and f.onda == 2
 	a.teleportar(Vector3(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, v.altura(Fundicao.CENTRO.x + Fundicao.SAIU + 12.0, Fundicao.CENTRO.y) + 0.5, Fundicao.CENTRO.y), Armadura.Estado.CHAO)
 	await _esperar(0.6)

@@ -2,9 +2,9 @@ class_name Fundicao
 extends Node3D
 ## A Fundição (doc §66): a arena de ondas ao lado do Pátio das Máquinas. Um galpão de fábrica fechado e
 ## arruinado, de chão chato: uma única porta grande de onde os robôs saem, forjas ainda acesas, escombros e
-## paredes quebradas de proteção, robôs velhos caídos, fios pendurados e o painel de partida no meio.
-## A ilha continua de paz: aqui só há luta quando o jogador liga o painel (quadrado / E). As ondas crescem;
-## de 5 em 5 vem um minichefe. Toda horda começa da onda 1 (2026-11-20: não há mais ponto de volta). Saindo
+## muretas de proteção, robôs velhos caídos e fios pendurados; duas brechas nos lados (doc §130).
+## A ilha continua de paz: aqui só há luta quando o jogador fica mais de 18 s dentro do galpão (o painel de
+## partida do meio saiu em 2026-11-20: não ligava mais nada). As ondas crescem; de 5 em 5 vem um minichefe. Toda horda começa da onda 1 (2026-11-20: não há mais ponto de volta). Saindo
 ## da cratera a rodada para. Robô
 ## vencido desliga e afunda no chão (ninguém é destruído); deixa experiência e materiais (Arsenal).
 ## `cavar` aplaina o relevo antes de o chão ser montado; `montar` põe as peças; o nó cuida das ondas.
@@ -44,10 +44,12 @@ var _fila: Array[Dictionary] = []
 var _t := 0.0
 var _solta_t := 0.0
 var _portao := 0
+var _abrindo := [0.0, 0.0, 0.0]  # por entrada: s que faltam piscando antes de abrir (só as brechas)
+var _aberta := [0.0, 0.0, 0.0]  # por entrada: s que ela ainda fica aberta depois do último robô
+var saidas := [0, 0, 0]  # robôs que saíram por cada entrada (testes)
 var _caidos: Array[Dictionary] = []
 static var caidos_pecas := 0  # peças com casco de colisão nos robôs velhos caídos
 var _espolios: Array[Dictionary] = []
-var _painel_luz: OmniLight3D
 var chefe_vivo: Vigia
 var _chefe_t := 0.0
 var _caixas: Array[Dictionary] = []
@@ -56,7 +58,6 @@ var _caixa_t := 25.0
 var subidas := 0  # vezes que subiu de nível na arena (testes)
 var caixas_soltas := 0  # testes
 var caixas_pegas := 0
-var _mat_painel: StandardMaterial3D
 
 
 # ---------------------------------------------------------------- o lugar
@@ -76,6 +77,10 @@ static func cavar(v: Vale) -> void:
 			var lz := z - CENTRO.y
 			if absf(lx) > MX + 40.0:
 				continue
+			# o chão de luta fica limpo: o capim só nasce ao pé das paredes e na frente aberta (5: o chão comum,
+			# sem capim). Antes ele subia pelas frestas do meio todo e escondia os robôs pequenos
+			if absf(lx) < MX - 6.0 and lz > -MZ + 3.0 and lz < MZ - 3.0:
+				v._cob[gz * n + gx] = 5
 			var d := Vector2(maxf(absf(lx) - (MX + 5.0), 0.0), maxf(maxf((-MZ - 3.0) - lz, lz - (MZ + 24.0)), 0.0)).length()
 			# o corredor do túnel, atrás da porta
 			var dt := Vector2(maxf(absf(lx) - 12.5, 0.0), maxf(maxf((-MZ - 22.0) - lz, lz + MZ), 0.0)).length()
@@ -107,6 +112,19 @@ static var bracos_forja: Array[Node3D] = []
 static var lampadas: Array[Dictionary] = []
 static var luz_porta: OmniLight3D
 static var esteiras: Array = []  # [boca, fim] de cada esteira das forjas, no mundo: por onde saem as caixas
+## As entradas dos robôs: a porta grande (0) e as duas brechas dos lados (1 oeste, 2 leste). Cada uma tem uma
+## fila de lâmpadas em cima ("lampadas", os materiais) e uma luz vermelha ("luz"), ou null na porta, que usa
+## a `luz_porta`.
+static var entradas: Array[Dictionary] = []
+
+## As brechas: buracos na parede do arco, atrás das forjas, no vão entre elas (x, z no lugar). Da onda 3 em
+## diante parte dos robôs comuns sai por elas; a porta fica para o começo e para o minichefe.
+const BRECHAS := [Vector2(-47.4, -11.0), Vector2(47.4, 1.0)]
+const BRECHA_LARG := 6.0
+const BRECHA_ALT := 4.4
+const LUZES_FILA := 6
+const COR_ENTRADA := Color(1.0, 0.28, 0.18)
+const T_ABRE_BRECHA := 1.6  # s piscando antes de o primeiro robô sair por uma brecha
 
 
 static func _mat(cor: Color, fer := 0.35, mus := 0.3) -> ShaderMaterial:
@@ -154,30 +172,6 @@ static func _caixa(v: Node3D, corpo: StaticBody3D, tam: Vector3, xf: Transform3D
 		corpo.add_child(cs)
 		if desvia:
 			Obstaculos.registrar_forma(f, xf, PISO)
-	return mi
-
-
-static func _cilindro(v: Node3D, corpo: StaticBody3D, raio: float, alt: float, xf: Transform3D, mat: Material, colide := true) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = raio
-	cm.bottom_radius = raio
-	cm.height = alt
-	cm.radial_segments = 20
-	mi.mesh = cm
-	mi.material_override = mat
-	mi.transform = xf
-	mi.visible = mat != null  # sem material: só a colisão
-	v.add_child(mi)
-	if colide:
-		var cs := CollisionShape3D.new()
-		var f := CylinderShape3D.new()
-		f.radius = raio
-		f.height = alt
-		cs.shape = f
-		cs.transform = xf
-		corpo.add_child(cs)
-		Obstaculos.registrar(xf.origin.x, xf.origin.z, raio + 0.4)
 	return mi
 
 
@@ -272,17 +266,65 @@ static func _tufo(v: Node3D, p: Vector3, raio: float) -> void:
 	v.add_child(tufo)
 
 
-## Um pedaço de parede que ficou em pé: três lajes de alturas diferentes, encostadas.
-static func _parede_quebrada(v: Node3D, corpo: StaticBody3D, rng: RandomNumberGenerator, p: Vector3, giro: float) -> void:
+## Uma fila de lâmpadas sobre uma entrada, ao longo de `eixo`: acendem uma a uma enquanto a contagem de
+## perigo corre e piscam antes de os robôs saírem por ali. Devolve os materiais, um por lâmpada.
+static func _fila_de_luzes(v: Node3D, corpo: StaticBody3D, meio: Vector3, eixo: Vector3, comp: float) -> Array:
+	var mats := []
+	var b := Basis(Vector3.UP, atan2(-eixo.z, eixo.x))
+	var passo := comp / LUZES_FILA
+	for i in LUZES_FILA:
+		var m := _luz(COR_ENTRADA, 0.0)
+		_caixa(v, corpo, Vector3(passo * 0.72, 0.42, 0.42), Transform3D(b, meio + eixo * ((i + 0.5) * passo - comp * 0.5)), m, false)
+		mats.append(m)
+		acender(m, 0.0)
+	return mats
+
+
+## Uma lâmpada da fila: 0 apagada (vidro escuro), 1 acesa forte.
+static func acender(m: StandardMaterial3D, f: float) -> void:
+	m.albedo_color = Color(0.16, 0.07, 0.06).lerp(COR_ENTRADA, f)
+	m.emission_energy_multiplier = lerpf(0.0, 4.0, f)
+
+
+## As muretas de proteção: [x, z, comprimento, giro, altura], no lugar. Seis num anel de 13 m em volta do
+## meio, quatro mais altas num anel de 23 m, e a barricada na frente da porta. Os vãos entre elas ficam
+## de frente para a porta e para as duas brechas dos lados.
+const MURETAS := [
+	[0.0, -27.0, 9.0, 0.0, 2.1],
+	[11.26, -6.5, 6.0, -1.047, 1.8], [11.26, 6.5, 6.0, 1.047, 1.8], [0.0, 13.0, 6.0, 0.0, 1.8],
+	[-11.26, 6.5, 6.0, -1.047, 1.8], [-11.26, -6.5, 6.0, 1.047, 1.8], [0.0, -13.0, 6.0, 0.0, 1.8],
+	[11.5, -19.9, 7.0, -0.524, 2.4], [11.5, 19.9, 7.0, 0.524, 2.4], [-11.5, 19.9, 7.0, -0.524, 2.4], [-11.5, -19.9, 7.0, 0.524, 2.4],
+]
+
+
+## O ponto (no lugar) fica no caminho dos robôs: a saída da porta ou o corredor de uma brecha?
+static func _no_caminho(q: Vector3) -> bool:
+	if absf(q.x) < 10.0 and q.z < -MZ + 10.0:
+		return true
+	for br: Vector2 in BRECHAS:
+		if signf(q.x) == signf(br.x) and absf(q.x) > 30.0 and absf(q.z - br.y) < BRECHA_LARG * 0.5 + 2.5:
+			return true
+	return false
+
+
+## Uma mureta: uma caixa só de colisão, reta e convexa (os robôs contornam sem prender em quina), desenhada
+## como barreira de obra: a base larga, o alto mais estreito, uma tira de ferro no topo e as pontas lascadas.
+static func _mureta(v: Node3D, corpo: StaticBody3D, p: Vector3, comp: float, giro: float, alt: float) -> void:
 	var b := Basis(Vector3.UP, giro)
-	var x := -3.2
-	for i in 3:
-		var w := rng.randf_range(1.8, 2.6)
-		var h := rng.randf_range(1.6, 4.4)
-		_caixa(v, corpo, Vector3(w, h, 0.9), Transform3D(b * Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.05), 0, rng.randf_range(-0.06, 0.06))), p + b * Vector3(x + w * 0.5, h * 0.5 - 0.2, 0)),
-			_mat(CONCRETO.lightened(0.04), 0.2, 0.5), true, true)
-		x += w
-	_caixa(v, corpo, Vector3(5.5, 0.5, 1.4), Transform3D(b, p + b * Vector3(0, 0.12, 0.5)), _mat(Color(0.22, 0.45, 0.17), 0.0, 1.0), false)
+	var cs := CollisionShape3D.new()
+	var f := BoxShape3D.new()
+	f.size = Vector3(comp, alt, 1.2)
+	cs.shape = f
+	cs.transform = Transform3D(b, p + Vector3(0, alt * 0.5 - 0.1, 0))
+	corpo.add_child(cs)
+	Obstaculos.registrar_forma(f, cs.transform, PISO)
+	var cor := CONCRETO.lightened(0.16)
+	_caixa(v, corpo, Vector3(comp, alt * 0.42, 1.2), Transform3D(b, p + Vector3(0, alt * 0.21 - 0.1, 0)), _mat(cor.darkened(0.06), 0.18, 0.12), false)
+	_caixa(v, corpo, Vector3(comp - 0.25, alt * 0.62, 0.8), Transform3D(b, p + Vector3(0, alt * 0.69 - 0.1, 0)), _mat(cor, 0.12, 0.05), false)
+	_caixa(v, corpo, Vector3(comp - 0.15, 0.12, 0.88), Transform3D(b, p + Vector3(0, alt - 0.1, 0)), _mat(FERRO, 0.6, 0.1), false)
+	# as pontas lascadas: um dente mais baixo em cada ponta, por cima da base
+	for s: float in [-1.0, 1.0]:
+		_caixa(v, corpo, Vector3(0.5, alt * 0.25, 1.24), Transform3D(b, p + b * Vector3(s * (comp * 0.5 - 0.25), alt * 0.42 + alt * 0.125 - 0.1, 0)), _mat(cor.darkened(0.12), 0.25, 0.2), false)
 
 
 # Peças prontas (em vez de caixas): o Factory Kit do Kenney (CC0) para máquinas, esteiras, braços, tubos,
@@ -435,11 +477,12 @@ static func _forja(v: Node3D, corpo: StaticBody3D, p: Vector3, giro: float) -> v
 ## cabos pendurados e mato.
 static func _decorar(v: Vale, raiz: Node3D, corpo: StaticBody3D, rng: RandomNumberGenerator) -> void:
 	var ferro := Color(0.98, 0.86, 0.74)
-	# engrenagens: umas em pé, meio enterradas, outras deitadas
+	# engrenagens: umas em pé, meio enterradas e encostadas na parede dos fundos, outras deitadas pelos cantos
+	# (fora do chão de luta)
 	var cogs := ["cog-a", "cog-b", "cog-c", "cog-d", "cog-e"]
-	for dados in [[-4.0, -10.0, 5.2, true], [16.0, 18.0, 4.0, true], [-30.0, 14.0, 3.0, false], [34.0, -18.0, 3.4, false], [6.0, 30.0, 2.6, false], [-18.0, -28.0, 4.4, true]]:
+	for dados in [[-17.0, -35.6, 4.4, true], [21.0, -35.6, 4.0, true], [22.0, 35.0, 3.0, false], [34.0, -20.5, 3.4, false], [-4.0, 35.0, 2.6, false]]:
 		var em_pe: bool = dados[3]
-		var base := Basis.from_euler(Vector3(PI * 0.5 - 0.3, rng.randf() * TAU, 0)) if em_pe else Basis.from_euler(Vector3(rng.randf_range(-0.12, 0.12), rng.randf() * TAU, 0.08))
+		var base := Basis.from_euler(Vector3(PI * 0.5 - 0.3, rng.randf_range(-0.2, 0.2), 0)) if em_pe else Basis.from_euler(Vector3(rng.randf_range(-0.12, 0.12), rng.randf() * TAU, 0.08))
 		var esc: float = dados[2]
 		_kit(raiz, cogs[rng.randi() % cogs.size()], Transform3D(base.scaled(Vector3.ONE * esc), aqui(dados[0], esc * 0.38 if em_pe else 0.25, dados[1])), Color(0.7, 0.5, 0.32), 0.7, 0.3, null if em_pe else corpo)
 		if em_pe:
@@ -450,10 +493,8 @@ static func _decorar(v: Vale, raiz: Node3D, corpo: StaticBody3D, rng: RandomNumb
 			cs.transform = Transform3D(Basis(Vector3.UP, base.get_euler().y), aqui(dados[0], esc * 0.4, dados[1]))
 			corpo.add_child(cs)
 			Obstaculos.registrar_forma(f, cs.transform, PISO)
-	# dois guindastes de chão, e ganchos e um ímã pendurados das treliças
-	for dados in [[0.4, 3.2, -26.0, -30.0], [2.6, 2.8, 30.0, 30.0]]:
-		_kit(raiz, "crane", _esc(dados[0], dados[1], aqui(dados[2], 0, dados[3])), ferro, 0.5, 0.3)
-		_cilindro(raiz, corpo, 1.5, 9.0, Transform3D(Basis.IDENTITY, aqui(dados[2], 4.5, dados[3])), null)
+	# ganchos e um ímã pendurados das treliças (os dois guindastes de chão saíram na reforma: eram colunas
+	# finas onde os robôs rodavam em volta)
 	for dados in [[-14.0, -17.0, "crane-magnet"], [12.0, 16.0, "crane-lift"], [28.0, -6.0, "crane-lift"], [-30.0, 27.0, "crane-magnet"]]:
 		var alto := teto(dados[0]) - 0.6
 		if String(dados[2]) == "crane-magnet":
@@ -472,7 +513,7 @@ static func _decorar(v: Vale, raiz: Node3D, corpo: StaticBody3D, rng: RandomNumb
 	for i in 4:
 		_megakit(raiz, "Column_MetalSupport" if i % 2 == 0 else "Column_Pipes", Transform3D(Basis(Vector3.UP, -PI * 0.5).scaled(Vector3(2.4, 3.2, 2.4)), aqui(-36.0 + i * 24.0, 0, -MZ + 1.6)), 0.55, 0.35, corpo)
 	# barris e caixas largados pelos cantos
-	for dados in [[-34.0, -32.0], [32.0, -33.0], [-36.0, 31.0], [36.0, 2.0], [14.0, -32.0], [-12.0, 33.0], [30.0, 33.0]]:
+	for dados in [[-34.0, -32.0], [32.0, -33.0], [-36.0, 31.0], [14.0, -32.0], [-12.0, 33.0], [30.0, 33.0]]:
 		for i in rng.randi_range(2, 4):
 			var nome: String = ["Prop_Barrel1", "Prop_Barrel_Large", "Prop_Crate", "Prop_Crate_Large", "Prop_Crate_Tarp", "Prop_Barrel2_Open"][rng.randi() % 6]
 			var q := aqui(float(dados[0]) + rng.randf_range(-3.5, 3.5), 0, float(dados[1]) + rng.randf_range(-3.0, 3.0))
@@ -483,27 +524,23 @@ static func _decorar(v: Vale, raiz: Node3D, corpo: StaticBody3D, rng: RandomNumb
 		_kit(raiz, "screen-hanging-wide", _esc(dados[2], 3.4, aqui(dados[0], 8.5, dados[1])), ferro, 0.4, 0.2, corpo)
 	for dados in [[-10.5, -MZ + 7.0], [10.5, -MZ + 7.0], [-11.0, -MZ + 13.0], [11.0, -MZ + 13.0]]:
 		_kit(raiz, "warning-orange", _esc(rng.randf(), 2.2, aqui(dados[0], 0, dados[1])), Color(0.9, 0.75, 0.55), 0.45, 0.2, corpo)
+	# os cones marcam a saída da porta pelos lados, sem ficar no caminho dos robôs
 	for i in 6:
-		_kit(raiz, "cone", Transform3D(Basis.from_euler(Vector3(PI * 0.5 if i % 3 == 0 else 0.0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * 2.4), aqui(rng.randf_range(-9.0, 9.0), 0.35 if i % 3 == 0 else 0.0, -MZ + rng.randf_range(4.0, 12.0))), Color(0.95, 0.8, 0.6), 0.3, 0.2, corpo)
-	# o painel de partida: uma mesa de tela, uma alavanca e o botão de chão
-	_kit(raiz, "screen-panel-wide", _esc(PI, 2.2, aqui(0, 0, -2.2)), ferro, 0.35, 0.15, corpo)
-	_kit(raiz, "lever-single", _esc(0.4, 2.4, aqui(2.4, 0, -1.2)), ferro, 0.35, 0.15, corpo)
-	_kit(raiz, "button-floor-round", _esc(0.0, 5.2, aqui(0, 0, 0)), Color(0.8, 0.8, 0.75), 0.3, 0.1)
-	# mato: nas frestas do piso, ao pé das paredes, em volta dos escombros e debaixo do rombo do telhado
-	for i in 46:
-		_mato(v, rng, aqui(rng.randf_range(-MX + 3.0, MX - 3.0), 0, rng.randf_range(-MZ + 3.0, MZ - 3.0)), 2.2, rng.randi_range(2, 4))
-	for i in 26:
+		var lado_c := -1.0 if i < 3 else 1.0
+		_kit(raiz, "cone", Transform3D(Basis.from_euler(Vector3(PI * 0.5 if i % 3 == 2 else 0.0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * 2.4), aqui(lado_c * (7.0 + (i % 3) * 0.9), 0.35 if i % 3 == 2 else 0.0, -MZ + 3.0 + (i % 3) * 2.6)), Color(0.95, 0.8, 0.6), 0.3, 0.2, corpo)
+	# mato só ao pé das paredes e nos cantos (reforma de 2026-11-20: o mato do meio, a moita grande em volta do
+	# meio e as árvores secas saíram; escondiam os robôs e as árvores eram colunas finas no caminho). Fora
+	# das brechas dos lados e da saída da porta
+	for i in 30:
 		var s := 1.0 if rng.randf() < 0.5 else -1.0
+		var q := Vector3.ZERO
 		if rng.randf() < 0.5:
-			_mato(v, rng, aqui(s * (MX - 6.0), 0, rng.randf_range(-MZ + 3.0, MZ - 3.0)), 1.4, 3)
+			q = Vector3(s * (MX - 4.5), 0, rng.randf_range(-MZ + 3.0, MZ - 3.0))
 		else:
-			_mato(v, rng, aqui(rng.randf_range(-MX + 3.0, MX - 3.0), 0, s * (MZ - 2.4)), 1.4, 3)
-	_mato(v, rng, aqui(2.0, 0, -3.0), 11.0, 26)
-	for i in 5:
-		if v._malhas.has("q_seca_a"):
-			var pa := aqui(rng.randf_range(-12.0, 16.0), 0, rng.randf_range(-13.0, 8.0))
-			v._por(["q_seca_a", "q_seca_b", "q_seca_c"][i % 3], Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.9, 1.5)), pa))
-			_cilindro(raiz, corpo, 0.45, 5.0, Transform3D(Basis.IDENTITY, pa + Vector3(0, 2.5, 0)), null)
+			q = Vector3(rng.randf_range(-MX + 3.0, MX - 3.0), 0, s * (MZ - 2.4))
+		if _no_caminho(q):
+			continue
+		_mato(v, rng, aqui(q.x, 0, q.z), 1.4, 3)
 
 
 ## Um fio pendurado entre dois pontos, com barriga; ou solto, caindo reto (ate igual a de).
@@ -699,15 +736,21 @@ static func montar(v: Vale) -> void:
 	corpo.collision_layer = 1
 	corpo.collision_mask = 0
 	raiz.add_child(corpo)
-	# o piso: lajes de concreto rachadas, com frestas por onde o chão e o mato aparecem. O topo fica 3,5 cm
-	# acima do chão (mais alto, o robô e as mechas afundavam os pés nelas)
+	# o piso: lajes de concreto claras e inteiras, com juntas finas e escuras (uma tira por baixo, que só
+	# aparece nas frestas; sem ela o chão do vale brilhava verde entre as lajes). O topo fica 3,5 cm acima do
+	# chão (mais alto, o robô e as mechas afundavam os pés nelas). Reforma de 2026-11-20: o chão escuro,
+	# musgoso e furado escondia os robôs; agora eles se destacam nele
+	var junta := _mat(Color(0.09, 0.09, 0.085), 0.2, 0.05)
+	for k in range(1, 10):
+		_caixa(raiz, corpo, Vector3(0.8, 0.04, MZ * 2.0), Transform3D(Basis.IDENTITY, aqui(-MX + k * 10.0, 0.0, 0.0)), junta, false)
+	for k in range(1, 8):
+		_caixa(raiz, corpo, Vector3(MX * 2.0, 0.04, 0.8), Transform3D(Basis.IDENTITY, aqui(0.0, 0.0, -MZ + k * 9.5)), junta, false)
 	for ix in 10:
 		for iz in 8:
-			if rng.randf() < 0.16:
-				continue
-			_caixa(raiz, corpo, Vector3(9.5 - rng.randf() * 0.9, 0.3, 9.0 - rng.randf() * 0.9),
-				Transform3D(Basis(Vector3.UP, rng.randf_range(-0.03, 0.03)), aqui(-MX + 5.0 + ix * 10.0, -0.115, -MZ + 4.75 + iz * 9.5)),
-				_mat(CONCRETO.darkened(0.3 + rng.randf() * 0.12), 0.25, 0.08 + rng.randf() * 0.16), false)
+			var beira := ix == 0 or ix == 9 or iz == 7
+			_caixa(raiz, corpo, Vector3(9.85 - rng.randf() * 0.35, 0.3, 9.35 - rng.randf() * 0.35),
+				Transform3D(Basis(Vector3.UP, rng.randf_range(-0.012, 0.012)), aqui(-MX + 5.0 + ix * 10.0, -0.115, -MZ + 4.75 + iz * 9.5)),
+				_mat(CONCRETO.darkened(0.12 + rng.randf() * 0.08), 0.14, (0.12 if beira else 0.03) + rng.randf() * 0.05), false)
 	# a parede dos fundos, encostada no morro: tiras de concreto que sobem até o arco, com o vão da porta
 	for i in 12:
 		var x0 := -MX + i * (MX * 2.0 / 12.0)
@@ -766,7 +809,10 @@ static func montar(v: Vale) -> void:
 	luz_porta.shadow_enabled = false
 	luz_porta.position = aqui(0, 5.0, -MZ + 2.5)
 	raiz.add_child(luz_porta)
-	_caixa(raiz, corpo, Vector3(PORTA_LARG - 3.0, 0.35, 0.35), Transform3D(Basis.IDENTITY, aqui(0, PORTA_ALT + 0.4, -MZ + 1.7)), _luz(Color(1.0, 0.3, 0.2), 3.0), false)
+	# a fila de lâmpadas sobre a porta: enche enquanto alguém fica no galpão parado (o tempo até a horda) e
+	# fica acesa durante as ondas (antes era uma tira acesa sempre)
+	entradas.clear()
+	entradas.append({"luz": null, "lampadas": _fila_de_luzes(raiz, corpo, aqui(0, PORTA_ALT + 0.4, -MZ + 1.75), Vector3.RIGHT, PORTA_LARG - 3.0)})
 	# o vão fechado para o jogador (as mechas andam por conta própria e passam)
 	var tranca := CollisionShape3D.new()
 	var ft := BoxShape3D.new()
@@ -879,21 +925,53 @@ static func montar(v: Vale) -> void:
 		lamp.position = pl + Vector3(0, -0.6, 0)
 		raiz.add_child(lamp)
 		lampadas.append({"luz": lamp, "vidro": vidro, "pisca": n_lamp % 4 == 2})
+	# a luz de serviço: quatro luzes brancas e largas sobre o chão de luta, sem sombra, para os robôs se lerem
+	# de longe (antes o meio ficava num verde-amarelado escuro, só com as lâmpadas fracas e o sol do rombo)
+	for dados in [[-15.0, -15.0], [15.0, -15.0], [-15.0, 15.0], [15.0, 15.0]]:
+		var servico := OmniLight3D.new()
+		servico.light_color = Color(0.93, 0.95, 1.0)
+		servico.light_energy = 0.75
+		servico.omni_range = 30.0
+		servico.omni_attenuation = 0.7
+		servico.shadow_enabled = false
+		servico.position = aqui(dados[0], 12.0, dados[1])
+		raiz.add_child(servico)
 	# as forjas, ainda acesas: três na parede oeste e duas na leste
 	for z: float in [-22.0, 0.0, 22.0]:
 		_forja(raiz, corpo, aqui(-MX + 12.0, 0, z), -PI * 0.5)
 	for z: float in [-12.0, 14.0]:
 		_forja(raiz, corpo, aqui(MX - 12.0, 0, z), PI * 0.5)
-	# proteção: paredes quebradas e montes de escombros
-	for dados in [[-12.0, -14.0, 0.2], [14.0, -8.0, -0.4], [-20.0, 8.0, 1.2], [8.0, 12.0, 0.1], [24.0, 20.0, -0.9], [-6.0, 24.0, 0.5]]:
-		_parede_quebrada(raiz, corpo, rng, aqui(dados[0], 0, dados[1]), dados[2])
-	for dados in [[-26.0, -22.0, 1.6], [22.0, -22.0, 1.9], [-10.0, 2.0, 1.3], [26.0, 4.0, 1.5], [-24.0, 24.0, 1.8], [12.0, 28.0, 1.4], [30.0, -4.0, 1.2], [-2.0, 34.0, 2.0], [20.0, 36.0, 1.7]]:
+	# as duas brechas dos lados, no vão entre as forjas: um buraco escuro na parede do arco, com moldura de ferro
+	# e a fila de lâmpadas em cima, virada para o meio
+	for br: Vector2 in BRECHAS:
+		var s := signf(br.x)
+		_caixa(raiz, corpo, Vector3(0.4, BRECHA_ALT + 0.6, BRECHA_LARG + 0.4), Transform3D(Basis.IDENTITY, aqui(br.x + s * 1.3, (BRECHA_ALT + 0.6) * 0.5 - 0.1, br.y)), breu, false)
+		for lado: float in [-1.0, 1.0]:
+			_caixa(raiz, corpo, Vector3(1.0, BRECHA_ALT + 0.5, 0.8), Transform3D(Basis.IDENTITY, aqui(br.x + s * 0.6, (BRECHA_ALT + 0.5) * 0.5, br.y + lado * (BRECHA_LARG * 0.5 + 0.4))), ferro)
+			# escombros do rombo no pé da moldura, do lado de fora do caminho
+			_caixa(raiz, corpo, Vector3(1.4, 0.7, 1.1), Transform3D(Basis(Vector3.UP, 0.4 * lado), aqui(br.x - s * 0.4, 0.25, br.y + lado * (BRECHA_LARG * 0.5 + 1.5))), _mat(CONCRETO.darkened(0.1), 0.3, 0.4), false)
+		_caixa(raiz, corpo, Vector3(1.2, 0.9, BRECHA_LARG + 1.6), Transform3D(Basis.IDENTITY, aqui(br.x + s * 0.6, BRECHA_ALT + 0.45, br.y)), ferro)
+		var luz_b := OmniLight3D.new()
+		luz_b.light_color = COR_ENTRADA
+		luz_b.light_energy = 0.0
+		luz_b.omni_range = 14.0
+		luz_b.shadow_enabled = false
+		luz_b.position = aqui(br.x - s * 2.5, 3.2, br.y)
+		raiz.add_child(luz_b)
+		# a fila enche da esquerda para a direita de quem olha de dentro, como as barras do HUD e a da porta
+		entradas.append({"luz": luz_b, "lampadas": _fila_de_luzes(raiz, corpo, aqui(br.x - s * 0.05, BRECHA_ALT + 0.45, br.y), Vector3.BACK * s, BRECHA_LARG)})
+	# proteção desenhada (reforma de 2026-11-20; antes eram paredes quebradas e escombros sorteados, cheios de
+	# quinas onde os robôs se enroscavam): muretas retas em dois anéis em volta do meio, com vãos entre elas,
+	# e uma barricada na frente da porta. O meio fica num círculo livre de uns 10 m
+	for dados in MURETAS:
+		var pm := Vector3(dados[0], 0.0, dados[1])
+		_mureta(raiz, corpo, aqui(pm.x, 0, pm.z), dados[2], dados[3], dados[4])
+	# escombros só encostados nas paredes, fora do chão de luta
+	for dados in [[-27.0, -35.0, 1.5], [41.0, 33.0, 1.6], [-21.0, 35.5, 1.3]]:
 		_escombros(raiz, corpo, rng, aqui(dados[0], 0, dados[1]), dados[2])
-	# uma viga caída, encostada na parede
-	_caixa(raiz, corpo, Vector3(0.9, 0.9, 22.0), Transform3D(Basis.from_euler(Vector3(0.5, 0.5, 0)), aqui(26.0, 5.0, 24.0)), ferro, true, true)
-	# robôs velhos, tomados pelo tempo: caídos pelos cantos, apagados
+	# robôs velhos, tomados pelo tempo: caídos pelos cantos, apagados, longe dos caminhos
 	var k := 0
-	for dados in [[-16.0, 16.0, 0.8], [10.0, -18.0, 2.4], [30.0, 28.0, 4.0], [-32.0, -8.0, 1.5], [4.0, 6.0, 5.2], [-28.0, 32.0, 3.1]]:
+	for dados in [[-44.0, -31.0, 0.8], [44.0, -27.0, 2.4], [44.0, 27.0, 4.0], [-44.0, 11.0, 1.5], [14.0, 34.5, 5.2], [-30.0, 34.0, 3.1]]:
 		# robôs inimigos do próprio projeto (InimigoVisual), um de cada tipo comum, deitados de costas ou de bruços
 		InimigoVisual.forcar_modelo = InimigoVisual.COMUNS[k % InimigoVisual.COMUNS.size()]
 		var velho := InimigoVisual.montar(4400 + k * 13, 1.6, _tex)
@@ -940,22 +1018,6 @@ static func montar(v: Vale) -> void:
 # ---------------------------------------------------------------- as ondas
 
 func _ready() -> void:
-	var meio := Vector3(CENTRO.x, PISO, CENTRO.y)
-	_mat_painel = _luz(AGUA, 2.0)
-	var tampo := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 1.0
-	cm.bottom_radius = 1.0
-	cm.height = 0.1
-	tampo.mesh = cm
-	tampo.material_override = _mat_painel
-	tampo.position = meio + Vector3(0, 0.82, 0)
-	add_child(tampo)
-	_painel_luz = OmniLight3D.new()
-	_painel_luz.light_color = AGUA
-	_painel_luz.omni_range = 9.0
-	_painel_luz.position = meio + Vector3(0, 2.2, 0)
-	add_child(_painel_luz)
 	onda = 0
 
 
@@ -976,6 +1038,13 @@ func _dist() -> float:
 ## e o QuadShell saíram das ondas (pedido do usuário, 2026-11-20).
 static func receita(numero: int) -> Array[Dictionary]:
 	var lista: Array[Dictionary] = []
+	var tema := tema_da_onda(numero)
+	if tema >= 0:
+		var tm: Dictionary = TEMAS[tema]
+		for i in clampi(2 + numero + int(tm["mais"]), 3, 16):
+			lista.append({"chefe": false, "resistencia": (1.0 + (numero - 1) * 0.1) * float(tm["forca"]), "semente": 9000 + numero * 37 + i,
+				"arma": tm["arma"], "modelo": tm["modelo"]})
+		return lista
 	var chefe := numero % CHEFE_A_CADA == 0
 	var quantos := mini(2 + numero, 14)
 	if chefe:
@@ -1002,6 +1071,33 @@ static func receita(numero: int) -> Array[Dictionary]:
 	if chefe:
 		lista.push_front(lista.pop_back())
 	return lista
+
+
+## Os pontos livres (no lugar) para onde os robôs da porta se espalham, fora das muretas.
+const SAIDAS_PORTA := [Vector2(-20.0, -28.0), Vector2(-6.0, -21.0), Vector2(6.0, -21.0), Vector2(20.0, -28.0), Vector2(0.0, -19.0)]
+
+## As ondas com tema, da 6ª em diante, de três em três (sem ser a do minichefe): todos do mesmo robô. As
+## lâminas vêm em bando, os batedores em rajada e as couraças em poucas, lentas e duras.
+const TEMAS := [
+	{"nome": "lâminas", "modelo": "espadachim", "arma": "corpo", "mais": 2, "forca": 0.85},
+	{"nome": "batedores", "modelo": "batedor", "arma": "bala", "mais": 1, "forca": 0.85},
+	{"nome": "couraças", "modelo": "couraca", "arma": "pesado", "mais": -5, "forca": 1.25},
+]
+
+
+## O tema da onda (índice em TEMAS), ou -1 para uma onda misturada.
+static func tema_da_onda(numero: int) -> int:
+	if numero < 6 or numero % 3 != 0 or numero % CHEFE_A_CADA == 0:
+		return -1
+	return posmod(int(numero / 3) - 2, TEMAS.size())
+
+
+## O respiro depois da onda: curto nas três primeiras (6 s, para engatar logo), 10 s no meio e 15 s antes e
+## depois de um minichefe, para fabricar, pegar as caixas e se ajeitar.
+static func respiro_de(numero: int) -> float:
+	if (numero + 1) % CHEFE_A_CADA == 0 or numero % CHEFE_A_CADA == 0:
+		return T_RESPIRO
+	return 6.0 if numero <= 3 else 10.0
 
 
 ## A arma do minichefe da onda: "pesado" (Canhoneiro), "corpo" (Capataz) e "bala" (Guardião), em roda.
@@ -1033,6 +1129,8 @@ func _comecar_onda() -> void:
 	fase = Fase.ONDA
 	_fila = receita(onda)
 	_solta_t = 0.0
+	_abrindo = [0.0, 0.0, 0.0]
+	_aberta = [0.0, 0.0, 0.0]
 	chefe_vivo = null
 	if onda % CHEFE_A_CADA == 0:
 		# o minichefe é anunciado: buzina, a luz da porta pulsa, o chão treme, e só então ele sai
@@ -1041,16 +1139,48 @@ func _comecar_onda() -> void:
 			sons._toque("chefe_aviso", -2.0, 0.0)
 			sons._toque("porta_abre", -4.0, 0.0)
 	if hud:
-		hud.avisar("Onda %d" % onda, ("minichefe: %s" % nome_do_chefe(onda)) if onda % CHEFE_A_CADA == 0 else "%d robôs vindo da porta" % _fila.size())
+		var sub := "%d robôs vindo da porta" % _fila.size()
+		if onda % CHEFE_A_CADA == 0:
+			sub = "minichefe: %s" % nome_do_chefe(onda)
+		elif tema_da_onda(onda) >= 0:
+			sub = "%d %s · pela porta e pelas brechas" % [_fila.size(), TEMAS[tema_da_onda(onda)]["nome"]]
+		elif onda >= 3:
+			sub = "%d robôs · pela porta e pelas brechas" % _fila.size()
+		hud.avisar("Onda %d" % onda, sub)
 
 
-func _soltar(dados: Dictionary) -> void:
+## Por onde sai o próximo robô: o minichefe e as duas primeiras ondas pela porta; da 3ª em diante os comuns se
+## revezam em pares entre a porta e as duas brechas, e o jogador precisa olhar para os lados também.
+func _entrada_de(dados: Dictionary) -> int:
+	if dados["chefe"] or onda < 3:
+		return 0
+	return int(_portao / 2) % 3
+
+
+func _soltar(dados: Dictionary, entrada := 0) -> void:
 	var chefe: bool = dados["chefe"]
-	# todos nascem no breu atrás da porta, em fila, e andam reto até passar da fresta
 	_portao += 1
-	var de := aqui(0.0, 0.2, -MZ - 5.0 - (_portao % 4) * 3.2)
+	var de := Vector3.ZERO
+	var guia := Vector3.ZERO
+	var espalha := Vector3.ZERO
+	if entrada == 0:
+		# pela porta: nascem no breu atrás dela, em fila, andam reto até passar da fresta e então se abrem em
+		# leque, cada um para um ponto livre diferente (saindo todos em fila reta, uma arma de tiro rápido
+		# pegava a fila inteira)
+		de = aqui(0.0, 0.2, -MZ - 5.0 - (_portao % 4) * 3.2)
+		guia = aqui(randf_range(-1.0, 1.0), 0.0, -MZ + 4.5)
+		var sp: Vector2 = SAIDAS_PORTA[_portao % SAIDAS_PORTA.size()]
+		espalha = aqui(sp.x + randf_range(-1.5, 1.5), 0.0, sp.y + randf_range(-1.5, 1.5))
+	else:
+		# por uma brecha: saem do buraco escuro, atravessam o vão entre as forjas e se espalham na boca dele
+		var br: Vector2 = BRECHAS[entrada - 1]
+		var s := signf(br.x)
+		de = aqui(br.x - s * 0.3, 0.2, br.y + randf_range(-1.6, 1.6))
+		guia = aqui(br.x - s * 10.0, 0.0, br.y + randf_range(-1.2, 1.2))
+		espalha = aqui(s * randf_range(16.0, 21.0), 0.0, br.y + randf_range(-4.0, 4.0))
 	var mc := Mecha.new()
 	mc.arma_forcada = dados["arma"]
+	mc.modelo_forcado = String(dados.get("modelo", ""))
 	mc.mapa = mapa
 	mc.alvo = armadura
 	# a "casa" é um ponto perto do meio: dali eles já enxergam o robô em quase todo o galpão
@@ -1060,11 +1190,8 @@ func _soltar(dados: Dictionary) -> void:
 	mc.resistencia = dados["resistencia"]
 	add_child(mc)
 	mc.global_position = de
-	# passam pela fresta da porta e então se abrem em leque, cada um para um ponto diferente da largura do
-	# galpão (saindo todos em fila reta, uma arma de tiro rápido pegava a fila inteira)
-	mc.guiado = aqui(randf_range(-1.0, 1.0), 0.0, -MZ + 4.5)
-	var leque := (_portao % 5 - 2) * 11.0 + randf_range(-4.0, 4.0)
-	mc.set_meta("espalha", aqui(leque, 0.0, -MZ + randf_range(11.0, 22.0)))
+	mc.guiado = guia
+	mc.set_meta("espalha", espalha)
 	vivos.append(mc)
 	if chefe:
 		chefe_vivo = mc
@@ -1206,6 +1333,8 @@ func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 		(cx["no"] as Node3D).queue_free()
 	_caixas.clear()
 	onda = 0  # a próxima horda começa da onda 1, tenha saído ou perdido
+	_abrindo = [0.0, 0.0, 0.0]
+	_aberta = [0.0, 0.0, 0.0]
 	fase = Fase.PARADA
 	for mc in vivos:
 		if is_instance_valid(mc):
@@ -1261,17 +1390,13 @@ func _physics_process(delta: float) -> void:
 	# a luz da porta: calma em paz, pulsando forte enquanto o minichefe é anunciado
 	if luz_porta:
 		luz_porta.light_energy = (4.0 + 5.0 * absf(sin(agora * 9.0))) if _chefe_t > 0.0 else 2.4
+	_luzes_das_entradas(agora)
 	# a barra de vida do minichefe (o quanto falta para ele desligar)
 	if hud:
 		if chefe_vivo and is_instance_valid(chefe_vivo) and not chefe_vivo.desligada and fase == Fase.ONDA:
 			hud.chefe_vida = 1.0 - chefe_vivo.calor / 100.0
 		else:
 			hud.chefe_vida = -1.0
-	var pulso := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.004)
-	_mat_painel.emission = AGUA if fase == Fase.PARADA else LARANJA
-	_mat_painel.emission_energy_multiplier = lerpf(0.8, 2.6, pulso) if fase == Fase.PARADA else 1.2
-	_painel_luz.light_color = _mat_painel.emission
-	_painel_luz.light_energy = 0.6 + pulso * 0.6
 	_andar_caixas(delta)
 	var d := _dist()
 	if fase == Fase.PARADA:
@@ -1298,6 +1423,8 @@ func _physics_process(delta: float) -> void:
 				ligar()
 		else:
 			perigo_t = T_PERIGO + 1.0
+		if hud:
+			hud.perigo = (T_PERIGO - perigo_t) / T_PERIGO if fase == Fase.PARADA and perigo_t <= T_PERIGO else -1.0
 		return
 	# a rodada: saiu da cratera ou desligou, para tudo
 	if armadura.em_pane:
@@ -1347,8 +1474,27 @@ func _physics_process(delta: float) -> void:
 				_solta_t = 0.2
 			_solta_t -= delta
 			if not _fila.is_empty() and vivos.size() < ATIVOS and _solta_t <= 0.0:
-				_soltar(_fila.pop_front())
-				_solta_t = 1.1
+				var ent := _entrada_de(_fila.front())
+				if ent > 0 and _aberta[ent] <= 0.0:
+					# a brecha ainda fechada: as lâmpadas dela piscam e a luz pulsa por um tempo; só então sai o
+					# robô (o jogador vê de onde ele vem antes de ele aparecer)
+					if _abrindo[ent] <= 0.0:
+						_abrindo[ent] = T_ABRE_BRECHA
+						var br: Vector2 = BRECHAS[ent - 1]
+						Som.toque3d(self, "porta_abre", aqui(br.x, 2.0, br.y), -1.0, 20.0, 110.0)
+				else:
+					_soltar(_fila.pop_front(), ent)
+					saidas[ent] += 1
+					_aberta[ent] = 5.0
+					# as três primeiras ondas soltam os robôs mais juntos: curtas e rápidas
+					_solta_t = 0.6 if onda <= 3 else 1.1
+			for k in 3:
+				if _abrindo[k] > 0.0:
+					_abrindo[k] -= delta
+					if _abrindo[k] <= 0.0:
+						_aberta[k] = 5.0
+				elif _aberta[k] > 0.0:
+					_aberta[k] -= delta
 			if _fila.is_empty() and vivos.is_empty():
 				_vencer_onda()
 		Fase.RESPIRO:
@@ -1357,6 +1503,7 @@ func _physics_process(delta: float) -> void:
 				onda += 1
 				_comecar_onda()
 	if hud and fase != Fase.PARADA:
+		hud.perigo = -1.0
 		hud.placar_total = 0
 		hud.placar2 = ""
 		match fase:
@@ -1372,6 +1519,46 @@ func _physics_process(delta: float) -> void:
 				hud.placar2 = "nível %d (%d de %d)   sucata %d   núcleos %d   chips %d" % [Arsenal.nivel(), b.x, b.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips]
 
 
+## As lâmpadas das entradas (o aviso por figura, para quem não lê). Parado, com o robô lá dentro: enchem uma
+## a uma até a horda começar, a próxima piscando. Na contagem, piscam todas. Nas ondas a fila da porta fica
+## acesa; a brecha que vai abrir pisca e a luz dela pulsa, e fica acesa enquanto solta robôs.
+func _luzes_das_entradas(agora: float) -> void:
+	var pisca := 0.5 + 0.5 * sin(agora * 14.0)
+	var cheias := -1.0
+	if fase == Fase.PARADA and perigo_t <= T_PERIGO:
+		cheias = (T_PERIGO - perigo_t) / T_PERIGO * LUZES_FILA
+	for k in entradas.size():
+		var lamps: Array = entradas[k]["lampadas"]
+		for i in lamps.size():
+			var f := 0.0
+			match fase:
+				Fase.PARADA:
+					if cheias >= 0.0:
+						f = 1.0 if i < floori(cheias) else (pisca if i == floori(cheias) else 0.0)
+				Fase.CONTAGEM:
+					f = pisca
+				_:
+					if k == 0:
+						f = 0.8
+					elif _abrindo[k] > 0.0:
+						f = pisca
+					elif _aberta[k] > 0.0:
+						f = 1.0
+			acender(lamps[i], f)
+		var luz_e = entradas[k]["luz"]
+		if luz_e is OmniLight3D:
+			var forca := 0.0
+			if cheias >= 0.0:
+				forca = cheias / LUZES_FILA * 1.5
+			elif fase == Fase.CONTAGEM:
+				forca = 2.5 * pisca
+			elif _abrindo[k] > 0.0:
+				forca = 1.0 + 2.6 * pisca
+			elif _aberta[k] > 0.0:
+				forca = 1.6
+			(luz_e as OmniLight3D).light_energy = forca
+
+
 func _vencer_onda() -> void:
 	Arsenal.recorde = maxi(Arsenal.recorde, onda)
 	conta["ondas"] += 1
@@ -1383,9 +1570,11 @@ func _vencer_onda() -> void:
 	var chefe := onda % CHEFE_A_CADA == 0
 	Arsenal.guardar()
 	fase = Fase.RESPIRO
-	_t = T_RESPIRO
+	_t = respiro_de(onda)
+	_abrindo = [0.0, 0.0, 0.0]
+	_aberta = [0.0, 0.0, 0.0]
 	if hud:
-		hud.avisar("Onda %d vencida" % onda, ("minichefe desligado · respiro de %d s" if chefe else "respiro de %d s") % int(T_RESPIRO))
+		hud.avisar("Onda %d vencida" % onda, ("minichefe desligado · respiro de %d s" if chefe else "respiro de %d s") % int(_t))
 	if sons:
 		sons._toque("chefe_cai" if chefe else "onda_vencida", -3.0, 0.0)
 	onda_vencida.emit(onda)

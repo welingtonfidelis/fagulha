@@ -10,9 +10,11 @@ extends Vigia
 
 var ficha := {}
 var arma_forcada := ""  # "corpo", "bala", "pesado" ou "missil" (InimigoVisual.forcar); "" sorteia
+var modelo_forcado := ""  # o robô da ficha ("batedor", "couraca"...; InimigoVisual.forcar_modelo): as ondas com tema
 var agil := 0.3  # 0 a 1: quanto pula e esquiva
 var misto := false  # atira de longe e, de perto, bate de lâmina (o Guardião)
 var pulos := 0  # testes
+var pulos_altos := 0  # testes: saltos altos contra o robô pairando logo acima
 var esquivas := 0  # testes
 const PERTO_MISTO := 4.5
 const GRAVIDADE := 18.0
@@ -36,8 +38,10 @@ func _init() -> void:
 
 func _montar_corpo() -> void:
 	InimigoVisual.forcar = arma_forcada
+	InimigoVisual.forcar_modelo = modelo_forcado
 	var v := InimigoVisual.montar(semente, altura_m, (mapa as Clareira)._tex if mapa is Clareira else null, chefe)
 	InimigoVisual.forcar = ""
+	InimigoVisual.forcar_modelo = ""
 	_vis = v
 	altura_m = v.altura
 	_acerto.position.y = altura_m * 0.6
@@ -133,6 +137,10 @@ func _process(delta: float) -> void:
 	if pose_foto >= 0 or _vis == null:
 		return
 	_mexer(delta)
+	# o aviso na arma: uma bola de luz na boca do cano (ou na mão da lâmina) que cresce enquanto ele arma o
+	# ataque, além dos olhos (dá para ver quem vai atirar antes do tiro)
+	var t_aviso := TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO
+	_vis.carga(0.15 + 0.85 * clampf(1.0 - _aviso / t_aviso, 0.0, 1.0) if _aviso > 0.0 and not desligada else 0.0)
 
 
 ## Pulo e esquiva, por cima do andar do Vigia (que põe o corpo no chão a cada quadro): a altura do pulo e o
@@ -157,8 +165,18 @@ func _mexer(delta: float) -> void:
 	var atacando := _aviso > 0.0 or _tiro_t > 0.0
 	if combate and not no_ar and not atacando:
 		var levou := calor > _calor_visto + 1.0
+		var alto := alvo.global_position.y - global_position.y
+		# o robô pairando logo acima, fora do alcance da lâmina: salta alto e golpeia no topo do salto (pairar a
+		# 2–4 m do chão deixava o robô intocável pelos de lâmina). O topo chega junto com o fim do aviso
+		if corpo_a_corpo and _espera_pulo <= 0.0 and dist < 7.0 and _recarga < 0.6 and alto > altura_m * 0.7 and alto < 4.8:
+			_empurrar(para.normalized() * maxf(0.0, dist - 1.0) / TEMPO_AVISO_GOLPE, TEMPO_AVISO_GOLPE, GRAVIDADE * TEMPO_AVISO_GOLPE)
+			_aviso = TEMPO_AVISO_GOLPE
+			_recarga = tempo_tiro
+			pulos += 1
+			pulos_altos += 1
+			_espera_pulo = lerpf(4.5, 2.2, agil) + _rng.randf_range(0.0, 1.0)
 		# esquiva: o robô mirando nele (ou um tiro que acabou de pegar) e ele é ágil
-		if _espera_esquiva <= 0.0 and dist > 2.0 and (levou or _mirado()) and _rng.randf() < agil:
+		elif _espera_esquiva <= 0.0 and dist > 2.0 and (levou or _mirado()) and _rng.randf() < agil:
 			var lado := para.normalized().cross(Vector3.UP) * (1.0 if _rng.randf() < 0.5 else -1.0)
 			_empurrar(lado * lerpf(6.0, 9.0, agil), 0.32, 3.2)
 			_vis.esquivando = 0.32

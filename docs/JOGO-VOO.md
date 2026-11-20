@@ -2979,3 +2979,83 @@ mudanças na Fundição.
     - a roda passa da pistola para o tiro duplo;
     - perto do móvel, senta-se com o triângulo, e levantar leva um instante;
     - um toque no X voando ou planando freia e para no ar.
+
+## 130. A Fundição reformada: arena desenhada, três entradas, ritmo e avisos por figura (2026-11-20)
+
+O usuário aprovou a proposta da avaliação "como jogador e como game designer": reformar o miolo do galpão,
+sem refazer a casca (o arco, a porta, as forjas e o morro ficam). Fotos de antes e depois em
+`tools/capturas/fundicao_reforma/` (ignorada pelo git).
+
+- **A arena (o chão de luta).**
+  - O chão ficou limpo:
+    - o capim do vale não nasce mais no miolo (`cavar` marca a cobertura 5, "chão sem capim", até 6 m das
+      paredes);
+    - o mato espalhado, a moita grande em volta do painel e as cinco árvores secas saíram;
+    - o mato só fica ao pé das paredes, fora dos caminhos dos robôs (`_no_caminho`).
+  - O piso agora é de lajes claras e inteiras, com juntas escuras: uma tira por baixo, que só aparece nas
+    frestas. Sem ela, o chão do vale brilhava em verde-limão entre as lajes.
+  - A proteção sorteada deu lugar a muretas desenhadas (`MURETAS`, `_mureta`):
+    - antes: seis paredes quebradas de três lajes tortas e nove montes de escombros, cheios de quinas;
+    - agora: seis muretas de 1,8 m num anel de 13 m em volta do meio, quatro de 2,4 m num anel de 23 m e
+      uma barricada de 2,1 m na frente da porta;
+    - cada mureta é uma caixa só de colisão, convexa, registrada nos `Obstaculos`;
+    - os vãos entre elas ficam de frente para a porta e para as brechas;
+    - o meio fica num círculo livre de uns 10 m.
+  - Saíram também as colunas finas onde os robôs rodavam: os dois guindastes de chão e as árvores secas.
+  - **O painel de partida do meio saiu** (pedido do usuário): a mesa de tela, a alavanca, o botão de chão e o
+    tampo aceso com a luz dele. Ele não ligava mais nada desde que a horda passou a começar sozinha (18 s
+    dentro do galpão).
+  - Mudaram de lugar, para os cantos e as paredes, longe dos caminhos:
+    - as engrenagens em pé;
+    - os robôs velhos caídos (um estava colado no meio);
+    - os cones;
+    - os barris que tampavam o vão entre as forjas do leste.
+  - A luz de serviço: quatro luzes brancas e largas sem sombra sobre o chão de luta. Os robôs se leem de longe,
+    com os olhos acesos; o vermelho fica na porta e nas brechas.
+- **Três entradas.**
+  - Duas brechas na parede do arco, atrás das forjas, no vão entre elas (`BRECHAS`: oeste em z −11, leste em
+    z +1): um buraco escuro com moldura de ferro, fila de lâmpadas e uma luz vermelha.
+  - Da onda 3 em diante os robôs comuns se revezam em pares entre a porta e as brechas (`_entrada_de`). O
+    minichefe e as ondas 1 e 2 saem só pela porta.
+  - Uma brecha fechada pisca as lâmpadas e pulsa a luz por 1,6 s (`T_ABRE_BRECHA`), com o som da porta, antes
+    de soltar o primeiro robô. Depois fica acesa enquanto solta.
+  - Os robôs da porta se espalham para cinco pontos livres fixos (`SAIDAS_PORTA`), não mais para pontos
+    sorteados que podiam cair dentro de uma proteção. Os das brechas atravessam o vão e se espalham na boca
+    dele.
+- **Ritmo.**
+  - As três primeiras ondas soltam um robô a cada 0,6 s (antes 1,1).
+  - O respiro (`respiro_de`):
+    - 6 s depois das ondas 1 a 3;
+    - 10 s no meio;
+    - 15 s antes e depois de um minichefe, para fabricar e pegar as caixas.
+  - **Ondas com tema** (`TEMAS`, `tema_da_onda`): da 6ª em diante, de três em três e sem ser a do minichefe,
+    todos do mesmo robô:
+    - lâminas: Espadachins, em bando;
+    - batedores: em rajada;
+    - couraças: poucas, lentas e duras.
+
+    A Mecha ganhou `modelo_forcado`, que passa para `InimigoVisual.forcar_modelo`. O aviso da onda diz o tema
+    e "pela porta e pelas brechas".
+- **Avisos por figura** (o filho pequeno joga sem ler).
+  - O tempo até a horda (18 s parado lá dentro) aparece nas lâmpadas:
+    - a fila de seis sobre a porta e as das duas brechas acendem uma a uma, a próxima piscando, da esquerda
+      para a direita de quem olha de dentro;
+    - seis barras vermelhas iguais aparecem no HUD, embaixo da bússola (`hud.perigo`);
+    - na contagem, todas piscam.
+  - A arma acende antes do ataque: uma bola de luz laranja na boca do cano, ou na mão da lâmina, cresce e
+    tremula durante o aviso (`InimigoVisual.carga`), junto com os olhos. Dá para ver quem vai atirar.
+  - Uma seta mostra de onde veio o acerto: um arco com ponta em volta do meio da tela, virado para o atacante
+    (a frente da câmera fica em cima). É vermelho, ou branco quando o escudo engoliu (o azul sumia na bolha).
+    A Armadura guarda `golpe_de`, `golpe_n` e `golpe_no_escudo`.
+  - A dica do drone dizia "30 segundos"; agora diz 18.
+- **Pairar baixo não protege mais da lâmina.**
+  - Antes, pairando a 1,5–4 m do chão, o robô ficava fora do alcance (o golpe exige menos de uma altura de
+    diferença), e os de lâmina ficavam parados embaixo.
+  - Agora o de lâmina, com o robô logo acima (de 0,7 da altura dele até 4,8 m), salta alto (`pulos_altos`). O
+    topo do salto chega junto com o fim do aviso, e o golpe pega.
+  - Na foto, pairando a 2,6 m sobre um Espadachim, foram dois saltos altos e dois acertos em 15 s.
+- **Ficou de fora:** a crista de escombros dos lados, que encolheria o chão de luta para uns 60 m; as forjas e
+  as esteiras já fecham os lados.
+- **Testes:** só compilação e fotos, como o usuário pede (as baterias rodam depois do "está bom"). O teste da
+  Fundição espera `T_RESPIRO + 1` pela onda 2, e o respiro depois da 1ª agora é de 6 s: continua passando.
+  A receita da onda 9 virou toda de batedores; os testes de armas por onda (4, 7, 8, 9, 11) continuam valendo.
