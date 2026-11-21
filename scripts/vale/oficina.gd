@@ -19,6 +19,11 @@ const LARANJA := Color(1.0, 0.62, 0.3)
 const AGUA := Color(0.35, 0.95, 0.85)
 # de que lado cada peça aparece melhor: de costas ou de frente
 const DE_COSTAS := ["radiador", "radiador2", "asas", "amortecedores", "celulas", "bocais"]
+## As armas de fábrica, que só sobem de degrau: [título, o que fazem]
+const DE_FABRICA := {
+	"pistola": ["Pistola", "A arma de fábrica: um tiro por aperto."],
+	"espada": ["Espada de laser", "A lâmina curta do pulso, de fábrica: um golpe em arco, de perto, que alterna de lado."],
+}
 
 var armadura: Armadura
 var camera: CameraVoo
@@ -27,11 +32,11 @@ var sons: Sons
 var drone: DroneColega
 var fase := Fase.FORA
 var perto := false
-const ABAS := ["Peças da ilha", "Armas", "Defesa"]
+const ABAS := ["Peças da ilha", "Armas", "Defesa", "Rastro"]
 var aba := 0
-var _abas_txt: Array[Label] = []
 var entradas := 0  # testes
 var recargas := 0
+var melhoradas := 0  # degraus de arma feitos aqui (testes)
 var _t := 0.0
 var _de := Vector3.ZERO
 var _para := Vector3.ZERO
@@ -44,12 +49,6 @@ var _escolhida := ""
 var _tinha_energia := true
 var _guardar_t := 0.0
 var _tela: CanvasLayer
-var _lista: VBoxContainer
-var _barra: ProgressBar
-var _energia_txt: Label
-var _titulo: Label
-var _efeito: Label
-var _estado: Label
 var _botoes := {}
 
 
@@ -182,22 +181,35 @@ func _por_bracos(f: float, trabalho: float) -> void:
 		(nos[5] as OmniLight3D).light_energy = 2.4 * brilho
 
 
-# ------------------------------------------------------------------ a tela
+# ------------------------------------------------------------------ a tela: o tablet dobrável (doc §136)
+# O usuário achou a lista escura feia e pouco amiga; dos rascunhos, aprovou o tablet dobrável (2026-11-21).
+# Na tela da esquerda, as abas em pílulas e a lista; na da direita, a planta azul do item em foco, a trilha de
+# lâmpadas das melhorias, os carimbos do custo e o botão de segurar X (segurar evita gastar sem querer).
 
-func _caixa(cor: Color, raio: int, margem: int) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = cor
-	sb.set_corner_radius_all(raio)
-	sb.set_content_margin_all(margem)
-	return sb
+const T_SEGURAR := 0.55  # segundos segurando X para instalar, fabricar ou melhorar
+const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["rastro", "Rastro"]]
+const ARMAS := ["pistola", "espada", "duplo", "canhao", "precisao", "rajada", "misseis", "granadas"]
+const DEFESA := ["mira", "escudo", "vida"]
+## Os nomes curtos dos quadradinhos de peça.
+const CURTO := {"antena": "Antena", "radiador": "Radiador", "radiador2": "Radiador 2", "bocais": "Bocais", "asas": "Asas",
+	"barbatanas": "Barbatanas", "amortecedores": "Molas", "farol": "Luz", "celulas": "Células", "scanner": "Scanner",
+	"corrida": "Bocal", "couraca": "Couraça", "cano": "Cano", "nucleo": "Núcleo"}
+## O que cada luz da trilha dá, em figura e número (o último míssil trava cinco máquinas).
+const TRILHA := {"pistola": ["dano", "+15%"], "espada": ["dano", "+15%"], "duplo": ["mira", "certeiro"], "canhao": ["estouro", "+8%"],
+	"precisao": ["dano", "+15%"], "rajada": ["mira", "certeira"], "misseis": ["misseis", "+2"], "granadas": ["granadas", "+1"]}
+const MATERIAL_COR := {"sucata": Color(0.88, 0.48, 0.15), "nucleos": Color(0.08, 0.58, 0.55), "chips": Color(0.48, 0.36, 0.8)}
 
-
-func _texto(t: String, tamanho: int, cor: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.add_theme_font_size_override("font_size", tamanho)
-	l.add_theme_color_override("font_color", cor)
-	return l
+var _casca: TabletCasca
+var _lista: Control
+var _pilulas: Array[BotaoTablet] = []
+var _botao_segurar: BotaoTablet
+var _segura := 0.0  # 0 a 1: o anel do botão de segurar
+var _mouse_segura := false
+var _soltar := false  # depois de fazer, espera soltar o X para não repetir
+var _aviso := ""  # o recado curto da tela da direita ("Instalado!", "ainda não dá")
+var _aviso_cor := Tablet.OK
+var _aviso_t := 0.0
+var _fazendo := ""  # "Melhorando…" etc. enquanto os braços trabalham
 
 
 func _montar_tela() -> void:
@@ -205,111 +217,55 @@ func _montar_tela() -> void:
 	_tela.layer = 6
 	_tela.visible = false
 	add_child(_tela)
-	var cartao := PanelContainer.new()
-	cartao.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.93), 8, 24))
-	cartao.anchor_left = 1.0
-	cartao.anchor_right = 1.0
-	cartao.anchor_top = 0.0
-	cartao.anchor_bottom = 1.0
-	cartao.offset_left = -620.0
-	cartao.offset_right = -28.0
-	cartao.offset_top = 28.0
-	cartao.offset_bottom = -28.0
-	_tela.add_child(cartao)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
-	cartao.add_child(col)
-	col.add_child(_texto("Oficina", 24, TINTA))
-	# as abas: peças achadas na ilha, armas e defesa (L1 / R1 trocam), com os materiais à direita
-	var topo := HBoxContainer.new()
-	topo.add_theme_constant_override("separation", 26)
-	col.add_child(topo)
-	for i in ABAS.size():
-		var la := _texto(ABAS[i], 16, APAGADO)
-		topo.add_child(la)
-		_abas_txt.append(la)
-	# os materiais ficam numa linha própria (ao lado das abas, alargavam o cartão para fora da tela)
-	_energia_txt = _texto("", 13, AGUA)
-	_energia_txt.clip_text = true
-	col.add_child(_energia_txt)
-	var fio := ColorRect.new()
-	fio.color = Color(0.2, 0.3, 0.31)
-	fio.custom_minimum_size = Vector2(0, 1)
-	col.add_child(fio)
-	_barra = ProgressBar.new()
-	_barra.max_value = 100.0
-	_barra.show_percentage = false
-	_barra.custom_minimum_size = Vector2(0, 14)
-	_barra.add_theme_stylebox_override("background", _caixa(Color(0.12, 0.18, 0.19), 7, 0))
-	_barra.add_theme_stylebox_override("fill", _caixa(AGUA, 7, 0))
-	_barra.visible = false  # a energia da base saiu: instala quando quiser
-	col.add_child(_barra)
-	_lista = VBoxContainer.new()
-	_lista.add_theme_constant_override("separation", 4)
-	col.add_child(_lista)
-	var vao := Control.new()
-	vao.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(vao)
-	var fio2 := ColorRect.new()
-	fio2.color = Color(0.2, 0.3, 0.31)
-	fio2.custom_minimum_size = Vector2(0, 1)
-	col.add_child(fio2)
-	_titulo = _texto("", 19, LARANJA)
-	col.add_child(_titulo)
-	_efeito = _texto("", 15, TINTA)
-	_efeito.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_efeito)
-	_estado = _texto("", 14, AGUA)
-	_estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_estado)
-	col.add_child(_texto("X  instalar ou fabricar      L1 / R1  trocar de aba      O  sair", 13, APAGADO))
+	_casca = TabletCasca.new()
+	_casca.barra = false  # a barra de cima da oficina é própria (nível e experiência)
+	_casca.anchor_left = 1.0
+	_casca.anchor_right = 1.0
+	_casca.anchor_top = 0.5
+	_casca.anchor_bottom = 0.5
+	_casca.offset_left = -Tablet.TAM.x - 8.0
+	_casca.offset_right = -8.0
+	_casca.offset_top = -Tablet.TAM.y * 0.5
+	_casca.offset_bottom = Tablet.TAM.y * 0.5
+	_casca.pintor = _pintar
+	_tela.add_child(_casca)
+	_lista = Control.new()
+	_lista.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lista.size = Tablet.TAM
+	_casca.add_child(_lista)
+	var L := Tablet.ESQ
+	var cores := [Tablet.VERDE, Tablet.LARANJA_V, Tablet.AZUL, Tablet.LILAS]
+	for i in PILULAS.size():
+		var p := BotaoTablet.new()
+		p.estilo = "pilula"
+		p.icone = PILULAS[i][0]
+		p.text = PILULAS[i][1]
+		p.cor = cores[i]
+		p.focus_mode = Control.FOCUS_NONE
+		p.position = Vector2(L.position.x + 18 + i * 96, L.position.y + 58)
+		p.size = Vector2(96, 38)
+		p.pressed.connect(func() -> void: _mudar_aba(i - aba))
+		_casca.add_child(p)
+		_pilulas.append(p)
+	# o botão de segurar, para o mouse (o desenho é da tela da direita)
+	_botao_segurar = BotaoTablet.new()
+	_botao_segurar.estilo = "livre"
+	_botao_segurar.focus_mode = Control.FOCUS_NONE
+	_botao_segurar.position = Tablet.DIR.position + Vector2(28, 638)
+	_botao_segurar.size = Vector2(360, 84)
+	_botao_segurar.button_down.connect(func() -> void: _mouse_segura = true)
+	_botao_segurar.button_up.connect(func() -> void: _mouse_segura = false)
+	_casca.add_child(_botao_segurar)
 
 
-## Uma linha da lista: ícone de traço, nome, custo no meio e estado à direita. A linha em foco ganha um
-## contorno laranja (sem bloco cheio).
-func _linha(nome: String, icone: String, titulo: String, custo: String, estado: String, cor: Color, cor_estado: Color) -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 44)
-	b.add_theme_stylebox_override("normal", _caixa(Color(0.085, 0.13, 0.14), 4, 0))
-	b.add_theme_stylebox_override("hover", _caixa(Color(0.1, 0.155, 0.165), 4, 0))
-	b.add_theme_stylebox_override("pressed", _caixa(Color(0.16, 0.13, 0.09), 4, 0))
-	var foco := _caixa(Color(0.16, 0.13, 0.09, 0.0), 4, 0)
-	foco.border_color = LARANJA
-	foco.set_border_width_all(1)
-	b.add_theme_stylebox_override("focus", foco)
-	var linha := HBoxContainer.new()
-	linha.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	linha.offset_left = 12.0
-	linha.offset_right = -14.0
-	linha.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	linha.add_theme_constant_override("separation", 12)
-	b.add_child(linha)
-	var ic := Icones.no(icone, 30.0, cor)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	linha.add_child(ic)
-	var l1 := _texto(titulo, 17, cor)
-	l1.custom_minimum_size = Vector2(180, 0)
-	l1.clip_text = true
-	linha.add_child(l1)
-	var l2 := _texto(custo, 13, APAGADO)
-	l2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l2.clip_text = true
-	linha.add_child(l2)
-	var l3 := _texto(estado, 13, cor_estado)
-	linha.add_child(l3)
-	for l: Control in [l1, l2, l3]:
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.pressed.connect(func() -> void: instalar(nome))
-	b.focus_entered.connect(func() -> void:
-		l1.add_theme_color_override("font_color", LARANJA)
-		ic.set_meta("cor", LARANJA)
-		ic.queue_redraw()
-		_escolher(nome))
-	b.focus_exited.connect(func() -> void:
-		l1.add_theme_color_override("font_color", cor)
-		ic.set_meta("cor", cor)
-		ic.queue_redraw())
+## Um item da lista: um botão de verdade (foco, mouse, teclado) que se desenha com o `pintor`.
+func _item(nome: String, r: Rect2, pintor: Callable) -> BotaoTablet:
+	var b := BotaoTablet.new()
+	b.estilo = "livre"
+	b.position = r.position
+	b.size = r.size
+	b.pintor = pintor
+	b.focus_entered.connect(func() -> void: _escolher(nome))
 	b.mouse_entered.connect(b.grab_focus)
 	b.set_meta("nome", nome)
 	_lista.add_child(b)
@@ -318,6 +274,8 @@ func _linha(nome: String, icone: String, titulo: String, custo: String, estado: 
 
 
 func _mudar_aba(passo: int) -> void:
+	if passo == 0:
+		return
 	aba = wrapi(aba + passo, 0, ABAS.size())
 	_escolhida = ""
 	_refazer_lista()
@@ -325,97 +283,562 @@ func _mudar_aba(passo: int) -> void:
 		sons._toque("roda_troca", -8.0, 0.0)
 
 
-## A lista da aba em uso: as peças achadas na ilha, as armas ou a defesa (as duas últimas se fabricam com
-## os materiais da Fundição).
+## A lista da aba em uso: as peças achadas na ilha, as armas, a defesa ou as cores de rastro.
 func _refazer_lista() -> void:
 	for f in _lista.get_children():
+		_lista.remove_child(f)
 		f.queue_free()
 	_botoes.clear()
-	for i in _abas_txt.size():
-		_abas_txt[i].add_theme_color_override("font_color", LARANJA if i == aba else APAGADO)
-	var bx := Arsenal.barra()
-	_energia_txt.text = "nível %d (%d de %d)   ·   sucata %d   ·   núcleos %d   ·   chips %d" % [Arsenal.nivel(), bx.x, bx.y, Arsenal.sucata, Arsenal.nucleos, Arsenal.chips]
-	var primeiro: Button = null
+	for i in _pilulas.size():
+		_pilulas[i].ativa = i == aba
 	var bom: Button = null
-	if aba == 0:
-		for nome: String in Melhorias.NOMES:
-			var b: Button
-			if Melhorias.instaladas.has(nome):
-				b = _linha(nome, nome, Melhorias.TITULOS[nome], "", "instalada", TINTA, AGUA)
-			elif Melhorias.achadas.has(nome):
-				b = _linha(nome, nome, Melhorias.TITULOS[nome], "achada na ilha", "instalar", TINTA, LARANJA)
-				if bom == null:
-					bom = b
-			else:
-				b = _linha(nome, "cadeado", "Peça não encontrada", "em algum lugar da ilha", "", Color(0.3, 0.37, 0.36), APAGADO)
-			if primeiro == null:
-				primeiro = b
-	else:
-		var nomes := ["rajada", "canhao", "precisao", "duplo", "misseis", "granadas"] if aba == 1 else ["mira", "escudo", "vida"]
-		if aba == 1:
-			primeiro = _linha("pistola", "pistola", "Pistola", "de fábrica", "instalada", TINTA, AGUA)
-		for nome: String in nomes:
-			var rc: Dictionary = Arsenal.RECEITAS[nome]
-			var custo := Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "")
-			var b: Button
-			if Arsenal.fabricados.has(nome):
-				b = _linha(nome, nome, rc["titulo"], "", "instalada", TINTA, AGUA)
-			elif Arsenal.nivel() < int(rc["nivel"]):
-				b = _linha(nome, nome, rc["titulo"], custo, "nível %d" % int(rc["nivel"]), Color(0.3, 0.37, 0.36), Color(0.3, 0.37, 0.36))
-			elif Arsenal.falta(nome) == "":
-				b = _linha(nome, nome, rc["titulo"], custo, "fabricar", TINTA, LARANJA)
-				if bom == null:
-					bom = b
-			else:
-				b = _linha(nome, nome, rc["titulo"], custo, "falta material", TINTA, APAGADO)
-			if primeiro == null:
-				primeiro = b
-	if bom:
-		primeiro = bom
+	match aba:
+		0:
+			bom = _lista_pecas()
+		1:
+			bom = _lista_armas()
+		2:
+			bom = _lista_defesa()
+		3:
+			bom = _lista_rastro()
 	if _escolhida != "" and _botoes.has(_escolhida):
-		primeiro = _botoes[_escolhida]
-	if primeiro:
-		primeiro.grab_focus.call_deferred()
+		bom = _botoes[_escolhida]
+	if bom == null and _lista.get_child_count() > 0:
+		bom = _lista.get_child(0) as Button
+	if bom:
+		bom.grab_focus.call_deferred()
 
 
-## A peça em foco aparece no corpo do robô (se ele já achou ou já tem), virado para o lado em que ela se vê.
+func _lista_pecas() -> Button:
+	var L := Tablet.ESQ
+	var bom: Button = null
+	var tw := 124.0
+	var th := 92.0
+	var y0 := L.position.y + 116.0
+	for i in Melhorias.NOMES.size():
+		var nome: String = Melhorias.NOMES[i]
+		var r := Rect2(L.position.x + 14 + (i % 3) * (tw + 8), y0 + (i / 3) * (th + 8), tw, th)
+		var b := _item(nome, r, _pintar_peca.bind(nome))
+		if bom == null and Melhorias.achadas.has(nome):
+			bom = b
+	# os prêmios (das rotas e dos procurados) só aparecem depois de ganhos, numa fileira menor
+	var premios: Array = []
+	for nome: String in Melhorias.PREMIOS:
+		if Melhorias.achadas.has(nome) or Melhorias.instaladas.has(nome):
+			premios.append(nome)
+	var pw := (L.size.x - 28 - 3 * 8) / 4.0
+	for i in premios.size():
+		var nome: String = premios[i]
+		var r := Rect2(L.position.x + 14 + i * (pw + 8), y0 + 4 * (th + 8) + 30, pw, 84)
+		var b := _item(nome, r, _pintar_peca.bind(nome))
+		if bom == null and Melhorias.achadas.has(nome):
+			bom = b
+	return bom
+
+
+func _lista_armas() -> Button:
+	var L := Tablet.ESQ
+	var bom: Button = null
+	for i in ARMAS.size():
+		var nome: String = ARMAS[i]
+		var y := L.position.y + 116.0 + i * 70.0
+		var b := _item(nome, Rect2(L.position.x + 12, y + 4, L.size.x - 24, 60), _pintar_arma.bind(nome))
+		if bom == null and _pode(nome):
+			bom = b
+	return bom
+
+
+func _lista_defesa() -> Button:
+	var L := Tablet.ESQ
+	var bom: Button = null
+	for i in DEFESA.size():
+		var nome: String = DEFESA[i]
+		var b := _item(nome, Rect2(L.position.x + 14, L.position.y + 116 + i * 112, L.size.x - 28, 100), _pintar_defesa.bind(nome))
+		if bom == null and _pode(nome):
+			bom = b
+	return bom
+
+
+func _lista_rastro() -> Button:
+	var L := Tablet.ESQ
+	var bom := _item("rastro_", Rect2(L.position.x + 14, L.position.y + 116, L.size.x - 28, 64), _pintar_rastro.bind(""))
+	var tw := (L.size.x - 28 - 10) / 2.0
+	for i in Rotas.ROTAS.size():
+		var id: String = Rotas.ROTAS[i]["id"]
+		var b := _item("rastro_" + id, Rect2(L.position.x + 14 + (i % 2) * (tw + 10), L.position.y + 194 + (i / 2) * 106, tw, 96), _pintar_rastro.bind(id))
+		if Rotas.rastro == id:
+			bom = b
+	return bom
+
+
+# ------------------------------------------------------------------ o estado de cada item
+
+## Uma arma (ou o escudo) pronta que sobe de degrau?
+func _de_degrau(nome: String) -> bool:
+	return DE_FABRICA.has(nome) or (Arsenal.fabricados.has(nome) and Arsenal.MELHORA.has(nome))
+
+
+## Segurar X faz alguma coisa com este item agora?
+func _pode(nome: String) -> bool:
+	if nome == "":
+		return false
+	if nome.begins_with("rastro_"):
+		var id := nome.substr(7)
+		return Rotas.rastro != id and (id == "" or int(Rotas.feitas.get(id, 0)) >= 1)
+	if _de_degrau(nome):
+		return Arsenal.falta_degrau(nome) == ""
+	if Arsenal.RECEITAS.has(nome):
+		return not Arsenal.fabricados.has(nome) and Arsenal.falta(nome) == ""
+	return Melhorias.achadas.has(nome) and not Melhorias.instaladas.has(nome)
+
+
+## As luzes acesas da trilha: os degraus das armas; no escudo, a fabricação acende a primeira.
+func _acesas(nome: String) -> int:
+	if nome == "escudo":
+		return (1 + Arsenal.degrau("escudo")) if Arsenal.fabricados.has("escudo") else 0
+	return Arsenal.degrau(nome)
+
+
+func _titulo_de(nome: String) -> String:
+	match nome:
+		"pistola":
+			return "Pistola"
+		"espada":
+			return "Espada"
+		"duplo":
+			return "Tiro duplo"
+		"misseis":
+			return "Mísseis"
+		"granadas":
+			return "Granadas"
+	return String(Arsenal.RECEITAS[nome]["titulo"])
+
+
+func _custo_receita(nome: String) -> Dictionary:
+	var r: Dictionary = Arsenal.RECEITAS[nome]
+	return {"sucata": r["sucata"], "nucleos": r["nucleos"], "chips": r["chips"], "nivel": r["nivel"]}
+
+
+func _avisar(t: String, cor := Tablet.OK) -> void:
+	_aviso = t
+	_aviso_cor = cor
+	_aviso_t = 2.4
+
+
+# ------------------------------------------------------------------ pintores da lista
+
+func _pintar_arma(b: Control, r: Rect2, foco: bool, sobre: bool, nome: String) -> void:
+	var feita := _de_degrau(nome)
+	var travada := not feita and Arsenal.nivel() < int(Arsenal.RECEITAS[nome]["nivel"])
+	var apagada := travada or (not feita and Arsenal.falta(nome) != "")
+	var tinta := Color(Tablet.TINTA, 0.42) if apagada else Tablet.TINTA
+	if foco:
+		Tablet.caixa(b, r, Color(1.0, 0.72, 0.3, 0.32), 14)
+		Tablet.caixa(b, Rect2(0, 10, 5, 40), Color(0.95, 0.5, 0.15), 3)
+	elif sobre:
+		Tablet.caixa(b, r, Color(Tablet.TINTA, 0.05), 14)
+	Icones.desenhar(b, nome, Vector2(38, 30), 0.95, tinta, 2.0)
+	Tablet.texto(b, Vector2(70, 38), _titulo_de(nome), 20, tinta, foco)
+	if not feita:
+		Tablet.caixa(b, Rect2(256, 16, 92, 28), Color(Tablet.LARANJA_V, 0.07 if apagada else 0.18), 14)
+		Tablet.texto(b, Vector2(256, 36), "a fazer", 15, Color(0.85, 0.42, 0.12, 0.45 if apagada else 1.0), true, HORIZONTAL_ALIGNMENT_CENTER, 92)
+	else:
+		var dg := Arsenal.degrau(nome)
+		var trava := Arsenal.falta_degrau(nome).begins_with("pede")
+		for k in Arsenal.DEGRAUS:
+			Tablet.lampada(b, Vector2(268 + k * 34, 26), 9.0, 1 if k < dg else (2 if k == dg and not trava else 0))
+	if travada or (feita and Arsenal.falta_degrau(nome).begins_with("pede")):
+		Icones.desenhar(b, "cadeado", Vector2(r.size.x - 10, 26), 0.42, Color(Tablet.TINTA, 0.5), 1.6)
+
+
+func _pintar_peca(b: Control, r: Rect2, foco: bool, sobre: bool, nome: String) -> void:
+	var tem := Melhorias.instaladas.has(nome)
+	var achou := Melhorias.achadas.has(nome) and not tem
+	var pequeno := r.size.y < 90.0
+	var ic := "radiador" if nome == "radiador2" else nome
+	if tem or achou:
+		var borda := Tablet.LARANJA if foco else (Color(Tablet.LARANJA, 0.5) if achou else Color(0, 0, 0, 0))
+		var fundo := Color(1.0, 0.72, 0.3, 0.22) if achou else Color(Tablet.TINTA, 0.06 + (0.04 if sobre else 0.0))
+		Tablet.caixa(b, r, fundo, 14, borda, 3 if foco else (1 if achou else 0))
+		Icones.desenhar(b, ic, r.get_center() - Vector2(0, 12), 0.9 if pequeno else 1.05, Tablet.LARANJA if achou else Tablet.TINTA, 2.2)
+		Tablet.texto(b, Vector2(0, r.size.y - 14), CURTO.get(nome, nome), 14, Tablet.TINTA, foco, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		if tem:
+			Tablet.visto(b, Vector2(r.size.x - 16, 16), 9)
+		else:
+			Tablet.brilhinho(b, Vector2(r.size.x - 16, 16), 10, Tablet.LARANJA)
+		return
+	# não achada: o contorno tracejado e a interrogação
+	var tinta := Tablet.LARANJA if foco else Color(Tablet.TINTA, 0.25)
+	var lw := 2.5 if foco else 1.5
+	var px := 6.0
+	while px < r.size.x - 10:
+		b.draw_line(Vector2(px, 0), Vector2(px + 6, 0), tinta, lw)
+		b.draw_line(Vector2(px, r.size.y), Vector2(px + 6, r.size.y), tinta, lw)
+		px += 12.0
+	var py := 6.0
+	while py < r.size.y - 10:
+		b.draw_line(Vector2(0, py), Vector2(0, py + 6), tinta, lw)
+		b.draw_line(Vector2(r.size.x, py), Vector2(r.size.x, py + 6), tinta, lw)
+		py += 12.0
+	Tablet.texto(b, Vector2(0, r.size.y * 0.5 + 14), "?", 40, Color(Tablet.TINTA, 0.25), true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+
+
+func _pintar_defesa(b: Control, r: Rect2, foco: bool, sobre: bool, nome: String) -> void:
+	var rc: Dictionary = Arsenal.RECEITAS[nome]
+	var feito := Arsenal.fabricados.has(nome)
+	var travado := not feito and Arsenal.nivel() < int(rc["nivel"])
+	var fundo := Color(1.0, 0.72, 0.3, 0.3) if foco else Color(Tablet.TINTA, 0.05 + (0.04 if sobre else 0.0))
+	Tablet.caixa(b, r, fundo, 16, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	b.draw_circle(Vector2(50, 50), 32, Color(Tablet.TINTA, 0.08))
+	Icones.desenhar(b, nome, Vector2(50, 50), 1.15, Color(Tablet.TINTA, 0.4) if travado else Tablet.TINTA, 2.2)
+	Tablet.texto(b, Vector2(96, 44), String(rc["titulo"]), 20, Color(Tablet.TINTA, 0.45) if travado else Tablet.TINTA, true)
+	var cargas := Arsenal.escudo_cargas() if feito else 1
+	var curto := {"mira": "aponta sozinha", "escudo": "segura %d %s" % [cargas, "acerto" if cargas == 1 else "acertos"], "vida": "um acerto a mais"}
+	Tablet.texto(b, Vector2(96, 70), curto[nome], 15, Color(Tablet.TINTA, 0.6))
+	if nome == "escudo" and feito:
+		# a trilha pequena: a primeira luz acende ao fabricar
+		var trava := Arsenal.falta_degrau("escudo").begins_with("pede")
+		for k in Arsenal.ESCUDO_CARGAS:
+			Tablet.lampada(b, Vector2(r.size.x - 98 + k * 30, 64), 8.0, 1 if k < cargas else (2 if k == cargas and not trava else 0))
+	elif feito:
+		Tablet.visto(b, Vector2(r.size.x - 30, 50), 13)
+	elif travado:
+		Icones.desenhar(b, "cadeado", Vector2(r.size.x - 30, 44), 0.5, Color(Tablet.TINTA, 0.5), 1.8)
+		Tablet.texto(b, Vector2(r.size.x - 70, 78), "nível %d" % int(rc["nivel"]), 13, Color(Tablet.TINTA, 0.5), false, HORIZONTAL_ALIGNMENT_CENTER, 80)
+	else:
+		Tablet.caixa(b, Rect2(r.size.x - 96, 36, 82, 28), Color(Tablet.LARANJA, 0.18), 14)
+		Tablet.texto(b, Vector2(r.size.x - 96, 56), "a fazer", 14, Tablet.LARANJA, true, HORIZONTAL_ALIGNMENT_CENTER, 82)
+
+
+func _pintar_rastro(b: Control, r: Rect2, foco: bool, sobre: bool, id: String) -> void:
+	var fundo := Color(Tablet.TINTA, 0.05 + (0.04 if sobre and not foco else 0.0))
+	Tablet.caixa(b, r, fundo, 16, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	if id == "":
+		b.draw_arc(Vector2(36, 32), 16, 0, TAU, 24, Color(Tablet.TINTA, 0.4), 2.0, true)
+		b.draw_line(Vector2(25, 43), Vector2(47, 21), Color(Tablet.TINTA, 0.4), 2.0)
+		Tablet.texto(b, Vector2(66, 40), "Sem rastro", 18, Tablet.TINTA)
+		if Rotas.rastro == "":
+			Tablet.visto(b, Vector2(r.size.x - 26, 32), 11)
+		return
+	var bc := Vector2(38, 40)
+	if int(Rotas.feitas.get(id, 0)) >= 1:
+		var cor: Color = Rotas.CORES[id]
+		Tablet.brilho(b, bc, 18, cor, 1.6)
+		b.draw_circle(bc, 18, cor.darkened(0.08))
+		b.draw_arc(bc, 18, 0, TAU, 24, cor.darkened(0.4), 1.5, true)
+		var palavras := String(Rotas.NOMES_COR[id]).split(" ", false, 1)
+		Tablet.texto(b, Vector2(66, 38), palavras[0].left(1).to_upper() + palavras[0].substr(1), 17, Tablet.TINTA, true)
+		Tablet.texto(b, Vector2(66, 58), palavras[1] if palavras.size() > 1 else "", 13, Color(Tablet.TINTA, 0.6))
+		if Rotas.rastro == id:
+			Tablet.visto(b, Vector2(r.size.x - 18, 18), 10)
+		if int(Rotas.feitas.get(id, 0)) >= 2:
+			Icones.desenhar(b, "coroa", Vector2(r.size.x - 18, r.size.y - 18), 0.38, Tablet.LARANJA, 1.6)
+	else:
+		b.draw_circle(bc, 18, Color(Tablet.TINTA, 0.08))
+		Icones.desenhar(b, "aro", bc, 0.55, Color(Tablet.TINTA, 0.35), 1.8)
+		Tablet.texto(b, Vector2(66, 38), "?", 20, Color(Tablet.TINTA, 0.3), true)
+		Tablet.paragrafo(b, Vector2(66, 60), Rotas.titulo(id), r.size.x - 74, 12, Color(Tablet.TINTA, 0.45), 2)
+
+
+# ------------------------------------------------------------------ o tablet inteiro
+
+func _pintar(c: Control, telas: Array) -> void:
+	var L: Rect2 = telas[0]
+	var R: Rect2 = telas[1]
+	# a barra de cima: o nome à esquerda; o nível, a experiência e a bateria à direita
+	c.draw_circle(Vector2(L.position.x + 26, L.position.y + 21), 6, Tablet.LARANJA_V)
+	Tablet.texto(c, Vector2(L.position.x + 44, L.position.y + 27), "Oficina", 15, Tablet.TINTA, true)
+	Tablet.texto(c, Vector2(R.end.x - 150, R.position.y + 27), "nível %d" % Arsenal.nivel(), 15, Tablet.TINTA, true)
+	var bx := Arsenal.barra()
+	Tablet.anel(c, Vector2(R.end.x - 78, R.position.y + 21), 9, float(bx.x) / float(bx.y))
+	Tablet.bateria(c, Vector2(R.end.x - 56, R.position.y + 14))
+	# o trilho das pílulas (as pílulas são botões, para o mouse)
+	Tablet.caixa(c, Rect2(L.position.x + 14, L.position.y + 54, L.size.x - 28, 46), Color(Tablet.TINTA, 0.07), 23)
+	match aba:
+		0:
+			_esq_pecas(c, L)
+			_dir_peca(c, R)
+		1:
+			Tablet.caixa(c, Rect2(L.position.x + 14, L.end.y - 82, L.size.x - 28, 56), Color(Tablet.TINTA, 0.07), 16)
+			Tablet.bolso(c, Vector2(L.position.x + 44, L.end.y - 46), 122.0, 22)
+			_dir_arma(c, R)
+		2:
+			_esq_defesa(c, L)
+			_dir_defesa(c, R)
+		3:
+			_dir_rastro(c, R)
+	Tablet.rodape(c, R, [["o", "sair"], ["l1", "{@r1} trocar de aba"]])
+
+
+func _esq_pecas(c: Control, L: Rect2) -> void:
+	var achadas := 0
+	for nome: String in Melhorias.NOMES:
+		if Melhorias.achadas.has(nome) or Melhorias.instaladas.has(nome):
+			achadas += 1
+	var y0 := L.position.y + 116.0
+	for nome: String in Melhorias.PREMIOS:
+		if Melhorias.achadas.has(nome) or Melhorias.instaladas.has(nome):
+			var yp := y0 + 4 * 100.0 + 18
+			Icones.desenhar(c, "coroa", Vector2(L.position.x + 28, yp - 4), 0.45, Tablet.LARANJA, 1.8)
+			Tablet.texto(c, Vector2(L.position.x + 44, yp + 2), "prêmios", 15, Tablet.LARANJA, true)
+			break
+	var by := L.end.y - 82.0
+	Tablet.caixa(c, Rect2(L.position.x + 14, by, L.size.x - 28, 56), Color(Tablet.TINTA, 0.07), 16)
+	Icones.desenhar(c, "peca", Vector2(L.position.x + 42, by + 28), 0.6, Tablet.TINTA, 2.0)
+	Tablet.texto(c, Vector2(L.position.x + 64, by + 35), "%d de %d" % [achadas, Melhorias.NOMES.size()], 20, Tablet.TINTA, true)
+	for k in Melhorias.NOMES.size():
+		Tablet.caixa(c, Rect2(L.position.x + 160 + k * 23, by + 22, 18, 12), Tablet.LARANJA if k < achadas else Color(Tablet.TINTA, 0.15), 4)
+
+
+func _esq_defesa(c: Control, L: Rect2) -> void:
+	# o robô agora: os corações, o escudo e a mira
+	var by := L.position.y + 470.0
+	var tinta_viva := Color(0.08, 0.58, 0.55)
+	Tablet.caixa(c, Rect2(L.position.x + 14, by, L.size.x - 28, 220), Color(Tablet.TINTA, 0.06), 18)
+	Tablet.texto(c, Vector2(L.position.x + 34, by + 36), "Seu robô agora", 18, Tablet.TINTA, true)
+	var golpes := Arsenal.golpes_pane()
+	for k in golpes:
+		Tablet.coracao(c, Vector2(L.position.x + 50 + k * 42, by + 82), 15, Color(0.92, 0.32, 0.38), true)
+	var n_cor := golpes
+	if not Arsenal.fabricados.has("vida"):
+		Tablet.coracao(c, Vector2(L.position.x + 50 + golpes * 42, by + 82), 15, Color(Tablet.TINTA, 0.25), false)
+		n_cor += 1
+	Tablet.texto(c, Vector2(L.position.x + 34 + n_cor * 42 + 8, by + 90), "acertos", 15, Color(Tablet.TINTA, 0.6))
+	var tem_escudo := Arsenal.fabricados.has("escudo")
+	var cargas := Arsenal.escudo_cargas() if tem_escudo else 0
+	for k in Arsenal.ESCUDO_CARGAS:
+		Icones.desenhar(c, "escudo", Vector2(L.position.x + 50 + k * 42, by + 138), 0.8, tinta_viva if k < cargas else Color(Tablet.TINTA, 0.22), 2.2)
+	Tablet.texto(c, Vector2(L.position.x + 34 + Arsenal.ESCUDO_CARGAS * 42 + 8, by + 146), "escudo" if tem_escudo else "sem escudo", 15, Color(Tablet.TINTA, 0.6))
+	var tem_mira := Arsenal.fabricados.has("mira")
+	Icones.desenhar(c, "mira", Vector2(L.position.x + 50, by + 192), 0.8, tinta_viva if tem_mira else Color(Tablet.TINTA, 0.22), 2.2)
+	Tablet.texto(c, Vector2(L.position.x + 76, by + 200), "mira que aponta sozinha" if tem_mira else "sem mira assistida", 15, Color(Tablet.TINTA, 0.6))
+
+
+## A trilha de três lâmpadas da tela da direita, com o que cada uma dá embaixo.
+## `rotulos` é [[figura, texto], ...]; `proxima` -1 quando nenhuma é a próxima; `trava` põe o cadeado nela.
+func _trilha(c: Control, R: Rect2, ys: float, acesas: int, proxima: int, trava: bool, rotulos: Array) -> void:
+	var xs := [R.position.x + 74, R.position.x + 209, R.position.x + 344]
+	for k in 2:
+		var x0: float = xs[k] + 26
+		while x0 < xs[k + 1] - 26:
+			c.draw_line(Vector2(x0, ys), Vector2(x0 + 6, ys), Color(Tablet.TINTA, 0.6 if k < acesas else 0.3), 2.0)
+			x0 += 12.0
+	for k in 3:
+		var travada := trava and k == proxima
+		Tablet.lampada(c, Vector2(xs[k], ys), 20.0, 1 if k < acesas else (2 if k == proxima and not travada else 0))
+		if travada:
+			c.draw_circle(Vector2(xs[k] + 18, ys - 18), 12, Color(0.85, 0.82, 0.75))
+			Icones.desenhar(c, "cadeado", Vector2(xs[k] + 18, ys - 18), 0.38, Tablet.TINTA, 1.6)
+		var tr: Array = rotulos[k]
+		var vivo := Color(Tablet.TINTA, 1.0 if k <= maxi(acesas, proxima) else 0.5)
+		Tablet.ganho(c, tr[0], Vector2(xs[k] - 20, ys + 60), vivo)
+		Tablet.texto(c, Vector2(xs[k] - 4, ys + 66), tr[1], 16, vivo, k == proxima)
+
+
+## O pé da tela da direita: o custo em carimbos, o que falta e o botão de segurar (ou o selo de pronto).
+func _custo_e_botao(c: Control, R: Rect2, titulo: String, custo: Dictionary, faz: String, nivel_txt: String) -> void:
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 480), titulo, 19, Tablet.TINTA, true)
+	Tablet.carimbos(c, R.position.x + 64, R.position.y + 540, custo)
+	var ft := Tablet.falta(custo)
+	if Arsenal.nivel() < int(custo.get("nivel", 1)):
+		ft = [nivel_txt % int(custo["nivel"]), Color(Tablet.TINTA, 0.6), false]
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 612), ft[0], 17, ft[1], true)
+	_segurar(c, R, ft[2], "segure para " + faz if ft[2] else "ainda não dá")
+
+
+func _segurar(c: Control, R: Rect2, pode: bool, s: String) -> void:
+	var centro := Vector2(R.position.x + 70, R.position.y + 680)
+	if fase == Fase.INSTALANDO:
+		Tablet.segurar(c, centro, true, _fazendo, clampf(_t / T_INSTALAR, 0.0, 1.0))
+		return
+	if _aviso_t > 0.0:
+		if _aviso_cor == Tablet.OK:
+			Tablet.feito(c, centro, _aviso)
+		else:
+			Tablet.segurar(c, centro, false, _aviso)
+		return
+	Tablet.segurar(c, centro, pode, s, _segura)
+
+
+func _dir_arma(c: Control, R: Rect2) -> void:
+	var n := _escolhida
+	if not ARMAS.has(n):
+		return
+	var feita := _de_degrau(n)
+	var dg := Arsenal.degrau(n)
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), _titulo_de(n), 32, Tablet.TINTA, true)
+	var rotulo := "a fazer" if not feita else ("no máximo" if dg >= Arsenal.DEGRAUS else "%d de 3 luzes acesas" % dg)
+	if feita and n == "misseis":
+		rotulo = "%d mísseis no ombro" % Arsenal.misseis_max()
+	elif feita and n == "granadas":
+		rotulo = "%d granadas" % Arsenal.granadas_max()
+	Tablet.planta(c, Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 200), n, rotulo, false, 5.0)
+	var rotulos: Array = []
+	for k in 3:
+		rotulos.append(["maquina", "5 alvos"] if n == "misseis" and k == 2 else TRILHA[n])
+	var trava := feita and Arsenal.falta_degrau(n).begins_with("pede")
+	_trilha(c, R, R.position.y + 360.0, dg, dg if feita and dg < Arsenal.DEGRAUS else -1, trava, rotulos)
+	if not feita:
+		_custo_e_botao(c, R, "Para fabricar", _custo_receita(n), "fabricar", "chega no nível %d para fazer")
+		return
+	if dg >= Arsenal.DEGRAUS:
+		var cc := Vector2(R.get_center().x, R.position.y + 548)
+		Tablet.brilho(c, cc, 44, Color(1.0, 0.8, 0.3), 1.6)
+		c.draw_circle(cc, 46, Color(1.0, 0.84, 0.42))
+		c.draw_arc(cc, 46, 0, TAU, 40, Color(0.8, 0.5, 0.12), 3.0, true)
+		Icones.desenhar(c, "coroa", cc, 1.6, Color(0.55, 0.32, 0.08), 3.0)
+		Tablet.texto(c, Vector2(R.position.x, R.position.y + 634), "Todas as luzes acesas!", 24, Color(0.22, 0.52, 0.3), true, HORIZONTAL_ALIGNMENT_CENTER, R.size.x)
+		var ganho := "+%d%% de dano desde a fábrica" % roundi(float(Arsenal.MELHORA[n].get("dano", 0.0)) * Arsenal.DEGRAUS * 100.0)
+		if n == "misseis":
+			ganho = "%d mísseis, trava %d máquinas" % [Arsenal.misseis_max(), Arsenal.alvos_misseis()]
+		elif n == "granadas":
+			ganho = "%d granadas, estouro maior" % Arsenal.granadas_max()
+		var w := Tablet.largura(ganho, 16, true) + 70
+		Tablet.caixa(c, Rect2(R.get_center().x - w * 0.5, R.position.y + 660, w, 48), Color(Tablet.TINTA, 0.07), 24)
+		Tablet.ganho(c, TRILHA[n][0], Vector2(R.get_center().x - w * 0.5 + 34, R.position.y + 684), Tablet.TINTA)
+		Tablet.texto(c, Vector2(R.get_center().x - w * 0.5 + 56, R.position.y + 690), ganho, 16, Tablet.TINTA, true)
+		return
+	_custo_e_botao(c, R, "Para acender a %dª luz" % (dg + 1), Arsenal.custo_degrau(n), "acender", "chega no nível %d para acender")
+
+
+func _dir_defesa(c: Control, R: Rect2) -> void:
+	var n := _escolhida
+	if not DEFESA.has(n):
+		return
+	var rc: Dictionary = Arsenal.RECEITAS[n]
+	var feito := Arsenal.fabricados.has(n)
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), String(rc["titulo"]), 30, Tablet.TINTA, true)
+	Tablet.planta(c, Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 200), n, "defesa")
+	if n == "escudo":
+		# o escudo em três luzes (pedido do usuário, 2026-11-21): 1, 2 e 3 acertos; a primeira acende ao fabricar
+		var acesas := _acesas("escudo")
+		var cheio := acesas >= Arsenal.ESCUDO_CARGAS
+		var trava := feito and Arsenal.falta_degrau("escudo").begins_with("pede")
+		_trilha(c, R, R.position.y + 360.0, acesas, -1 if cheio else acesas, trava, [["escudo", "1 acerto"], ["escudo", "2 acertos"], ["escudo", "3 acertos"]])
+		if not feito:
+			_custo_e_botao(c, R, "Para fabricar", _custo_receita(n), "fabricar", "chega no nível %d para fazer")
+		elif not cheio:
+			_custo_e_botao(c, R, "Para acender a %dª luz" % (acesas + 1), Arsenal.custo_degrau("escudo"), "acender", "chega no nível %d para acender")
+		else:
+			Tablet.ficha(c, Vector2(R.position.x + 22, R.position.y + 470), 230, func(p: Vector2) -> void: Tablet.relogio(c, p, Tablet.TINTA), "volta em %d s" % int(Arsenal.ESCUDO_RECARGA))
+			_segurar(c, R, false, "")
+			if _aviso_t <= 0.0 and fase != Fase.INSTALANDO:
+				Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Escudo completo")
+		return
+	Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 340), String(rc["efeito"]), R.size.x - 52, 18, Tablet.TINTA, 3)
+	var yi := R.position.y + 400.0
+	match n:
+		"vida":
+			Tablet.ficha(c, Vector2(R.position.x + 22, yi), 200, func(p: Vector2) -> void: Tablet.coracao(c, p, 11, Color(0.92, 0.32, 0.38), true), "+1 acerto")
+		"mira":
+			Tablet.ficha(c, Vector2(R.position.x + 22, yi), 230, func(p: Vector2) -> void: Icones.desenhar(c, "mira", p, 0.6, Tablet.TINTA, 2.0), "trava na máquina")
+	if feito:
+		if _aviso_t > 0.0 or fase == Fase.INSTALANDO:
+			_segurar(c, R, false, "")
+		else:
+			Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Fabricado")
+	else:
+		_custo_e_botao(c, R, "Para fabricar", _custo_receita(n), "fabricar", "chega no nível %d para fazer")
+
+
+func _dir_peca(c: Control, R: Rect2) -> void:
+	var n := _escolhida
+	if n == "" or not CURTO.has(n):
+		return
+	var tem := Melhorias.instaladas.has(n)
+	var achou := Melhorias.achadas.has(n) and not tem
+	var conhece := tem or achou
+	var titulo := String(Melhorias.TITULOS[n]) if conhece else "Peça não encontrada"
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), titulo, 30, Tablet.TINTA, true)
+	var ic := "radiador" if n == "radiador2" else n
+	Tablet.planta(c, Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 200), ic, "prêmio" if Melhorias.PREMIOS.has(n) else "peça da ilha", not conhece)
+	var ef := "Está em algum lugar da ilha."
+	if conhece:
+		ef = String(Melhorias.EFEITOS[n])
+		ef = ef.left(1).to_upper() + ef.substr(1) + "."
+	Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 350), ef, R.size.x - 52, 20, Tablet.TINTA, 3)
+	if conhece:
+		var cy := R.position.y + 480.0
+		Tablet.caixa(c, Rect2(R.position.x + 22, cy - 40, R.size.x - 44, 80), Color(Tablet.TINTA, 0.06), 16)
+		Icones.desenhar(c, ic, Vector2(R.position.x + 62, cy), 0.8, Tablet.TINTA, 2.0)
+		Tablet.texto(c, Vector2(R.position.x + 96, cy - 4), "com o robô" if achou else "no robô", 17, Tablet.TINTA, true)
+		var onde := "segure X para instalar agora" if achou else ("veja nas costas dele" if n in DE_COSTAS else "veja nele, ao lado")
+		Tablet.texto(c, Vector2(R.position.x + 96, cy + 18), onde, 15, Color(Tablet.TINTA, 0.6))
+	if tem:
+		if _aviso_t > 0.0:
+			_segurar(c, R, false, "")
+		else:
+			Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Instalada")
+	elif achou:
+		_segurar(c, R, true, "segure para instalar")
+	elif Melhorias.instaladas.has("antena"):
+		Tablet.caixa(c, Rect2(R.position.x + 22, R.position.y + 440, R.size.x - 44, 80), Color(Tablet.TINTA, 0.06), 16)
+		Icones.desenhar(c, "antena", Vector2(R.position.x + 62, R.position.y + 480), 0.8, Tablet.TINTA, 2.0)
+		Tablet.paragrafo(c, Vector2(R.position.x + 96, R.position.y + 474), "a antena mostra na bússola quando estiver perto", R.size.x - 130, 16, Tablet.TINTA, 2)
+
+
+func _dir_rastro(c: Control, R: Rect2) -> void:
+	if not _escolhida.begins_with("rastro_"):
+		return
+	var sel := _escolhida.substr(7)
+	var ganha := sel == "" or int(Rotas.feitas.get(sel, 0)) >= 1
+	var nome := "Sem rastro"
+	if sel != "":
+		nome = ("Rastro " + String(Rotas.NOMES_COR[sel]).split(" ")[0]) if ganha else "Rastro não ganho"
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), nome, 30, Tablet.TINTA, true)
+	# o céu de noite com as duas fitas de luz
+	var ceu := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 240)
+	Tablet.caixa(c, ceu, Color(0.07, 0.1, 0.22), 14)
+	for k in 8:
+		c.draw_rect(Rect2(ceu.position.x, ceu.end.y - 16 - k * 14, ceu.size.x, 14), Color(0.35, 0.2, 0.45, 0.03 * (8 - k)))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for k in 40:
+		c.draw_circle(Vector2(rng.randf_range(ceu.position.x + 10, ceu.end.x - 10), rng.randf_range(ceu.position.y + 10, ceu.end.y - 40)), rng.randf_range(0.6, 1.6), Color(1, 1, 1, rng.randf_range(0.3, 0.8)))
+	c.draw_colored_polygon(PackedVector2Array([Vector2(ceu.position.x, ceu.end.y), Vector2(ceu.position.x, ceu.end.y - 30), Vector2(ceu.position.x + 90, ceu.end.y - 52),
+		Vector2(ceu.position.x + 180, ceu.end.y - 34), Vector2(ceu.position.x + 280, ceu.end.y - 60), Vector2(ceu.end.x, ceu.end.y - 38), Vector2(ceu.end.x, ceu.end.y)]), Color(0.04, 0.06, 0.12))
+	if sel != "" and ganha:
+		var cor: Color = Rotas.CORES[sel]
+		var cabeca := Vector2(ceu.end.x - 80, ceu.position.y + 70)
+		Tablet.fita(c, Vector2(ceu.position.x + 20, ceu.position.y + 170), cabeca + Vector2(-6, 4), 22, cor, 0.0)
+		Tablet.fita(c, Vector2(ceu.position.x + 30, ceu.position.y + 188), cabeca + Vector2(6, 10), 22, cor, 0.5)
+		Tablet.brilho(c, cabeca + Vector2(0, 7), 6, cor, 2.0)
+		c.draw_circle(cabeca + Vector2(-6, 4), 3.5, Color.WHITE)
+		c.draw_circle(cabeca + Vector2(6, 10), 3.5, Color.WHITE)
+	elif not ganha:
+		Tablet.texto(c, ceu.position + Vector2(0, 140), "?", 80, Color(1, 1, 1, 0.3), true, HORIZONTAL_ALIGNMENT_CENTER, ceu.size.x)
+	Tablet.cantos(c, ceu, 14, Tablet.TELA)
+	if sel != "":
+		var yi := R.position.y + 380.0
+		Tablet.caixa(c, Rect2(R.position.x + 22, yi, R.size.x - 44, 80), Color(Tablet.TINTA, 0.06), 16)
+		Icones.desenhar(c, "aro", Vector2(R.position.x + 62, yi + 40), 0.8, Tablet.TINTA, 2.0)
+		Tablet.texto(c, Vector2(R.position.x + 96, yi + 34), "ganho na rota" if ganha else "faça a rota sem pousar", 15, Color(Tablet.TINTA, 0.6))
+		Tablet.texto(c, Vector2(R.position.x + 96, yi + 58), Rotas.titulo(sel), 18, Tablet.TINTA, true)
+	Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 500), "Voando depressa, os jatos dos pés deixam duas fitas de luz no ar.", R.size.x - 52, 17, Color(Tablet.TINTA, 0.75), 3)
+	if Rotas.rastro == sel and _aviso_t <= 0.0:
+		Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Em uso")
+	else:
+		_segurar(c, R, ganha and Rotas.rastro != sel, "segure para usar" if ganha else "ainda não ganho")
+
+
+## A peça (ou arma) em foco aparece no corpo do robô, virado para o lado em que ela se vê.
 func _escolher(nome: String) -> void:
 	_escolhida = nome
-	if nome == "pistola":
-		_titulo.text = "Pistola"
-		_efeito.text = "A arma de fábrica: um tiro por aperto."
-		_estado.text = ""
+	_segura = 0.0
+	if nome.begins_with("rastro_"):
+		armadura.visual.vestir_melhorias()
+		_virar("bocais")
+		return
+	if DE_FABRICA.has(nome):
 		armadura.visual.vestir_melhorias()
 		_virar("antena")
 		return
 	if Arsenal.RECEITAS.has(nome):
-		var rc: Dictionary = Arsenal.RECEITAS[nome]
-		_titulo.text = rc["titulo"]
-		_efeito.text = rc["efeito"]
-		if Arsenal.fabricados.has(nome):
-			_estado.text = "Já fabricado."
-		elif Arsenal.falta(nome) == "":
-			_estado.text = "Fabricar gasta " + Arsenal.custo(nome).replace("nível %d · " % int(rc["nivel"]), "") + "."
-		else:
-			_estado.text = "Custa " + Arsenal.custo(nome) + " (" + Arsenal.falta(nome) + "). Os materiais vêm da Fundição."
 		var previa_de := {"mira": "mira", "vida": "vida", "escudo": "escudo", "misseis": "lanca_misseis", "granadas": "lanca_granadas", "rajada": "arma_rajada", "canhao": "arma_canhao", "precisao": "arma_precisao", "duplo": "arma_duplo"}
 		armadura.visual.vestir_melhorias([previa_de[nome]] if previa_de.has(nome) else [])
 		armadura.visual.previa = true
 		_virar("antena")
 		return
-	var conhece := Melhorias.achadas.has(nome) or Melhorias.instaladas.has(nome)
-	if conhece:
-		_titulo.text = Melhorias.TITULOS[nome]
-		_efeito.text = String(Melhorias.EFEITOS[nome]).capitalize().left(1) + String(Melhorias.EFEITOS[nome]).substr(1)
-	else:
-		_titulo.text = "Peça não encontrada"
-		_efeito.text = "Está em algum lugar da ilha."
-	if Melhorias.instaladas.has(nome):
-		_estado.text = "Já instalada."
-	elif Melhorias.achadas.has(nome):
-		_estado.text = "Pronta para instalar."
-	else:
-		_estado.text = ""
 	armadura.visual.vestir_melhorias([nome] if Melhorias.achadas.has(nome) else [])
 	armadura.visual.previa = true
 	_virar(nome)
@@ -427,9 +850,29 @@ func _virar(nome: String) -> void:
 	armadura.visual.yaw_forcado = frente + (PI * 0.82 if nome in DE_COSTAS else -0.35)
 
 
-func _relogio(seg: float) -> String:
-	var s := int(ceil(seg))
-	return "%d:%02d" % [s / 60, s % 60]
+## Segurar X (ou o botão redondo, no mouse) enche o anel; cheio, faz.
+func _process(delta: float) -> void:
+	_aviso_t = maxf(0.0, _aviso_t - delta)
+	if fase != Fase.ABERTA or not _tela.visible:
+		_segura = 0.0
+		return
+	var segurando := Input.is_action_pressed("ui_accept") or _mouse_segura
+	if _soltar:
+		_segura = 0.0
+		if not segurando:
+			_soltar = false
+		return
+	if segurando and _pode(_escolhida):
+		_segura += delta / T_SEGURAR
+		if _segura >= 1.0:
+			_segura = 0.0
+			_soltar = true
+			instalar(_escolhida)
+	else:
+		_segura = maxf(0.0, _segura - delta * 4.0)
+	# o foco nunca fica perdido (um clique fora tirava; o controle ficava sem lista)
+	if get_viewport().gui_get_focus_owner() == null and _botoes.has(_escolhida):
+		(_botoes[_escolhida] as Control).grab_focus()
 
 
 # ------------------------------------------------------------------ o passo a passo
@@ -460,18 +903,41 @@ func entrar() -> void:
 func instalar(nome: String) -> void:
 	if fase != Fase.ABERTA:
 		return
-	if nome == "pistola":
+	# a arma pronta sobe um degrau (as de fábrica e as fabricadas)
+	if DE_FABRICA.has(nome) or (Arsenal.fabricados.has(nome) and Arsenal.MELHORA.has(nome)):
+		var falta := Arsenal.falta_degrau(nome)
+		if falta != "":
+			if Arsenal.degrau(nome) < Arsenal.degraus_de(nome):
+				_avisar("ainda não dá", Tablet.RUBI)
+			return
+		fase = Fase.INSTALANDO
+		_instalando = "degrau:" + nome
+		_t = 0.0
+		_fazendo = "Acendendo a luz…"
+		if sons:
+			sons._toque("religar", -6.0)
+		return
+	if nome.begins_with("rastro_"):
+		var id := nome.substr(7)
+		if id != "" and int(Rotas.feitas.get(id, 0)) < 1:
+			return
+		Rotas.rastro = id
+		if Guardado.ativo:
+			Guardado.por_progresso("rastro", id)
+		if sons:
+			sons._toque("marcar", -6.0, 0.0)
+		_refazer_lista()
 		return
 	if Arsenal.RECEITAS.has(nome):
 		if Arsenal.fabricados.has(nome):
 			return
 		if Arsenal.falta(nome) != "":
-			_estado.text = "Ainda não dá: " + Arsenal.falta(nome) + " (" + Arsenal.custo(nome) + ")."
+			_avisar("ainda não dá", Tablet.RUBI)
 			return
 		fase = Fase.INSTALANDO
 		_instalando = nome
 		_t = 0.0
-		_estado.text = "Fabricando…"
+		_fazendo = "Fabricando…"
 		if sons:
 			sons._toque("religar", -6.0)
 		return
@@ -480,7 +946,7 @@ func instalar(nome: String) -> void:
 	fase = Fase.INSTALANDO
 	_instalando = nome
 	_t = 0.0
-	_estado.text = "Instalando…"
+	_fazendo = "Instalando…"
 	if sons:
 		sons._toque("religar", -6.0)
 
@@ -530,14 +996,14 @@ func _physics_process(delta: float) -> void:
 				armadura.avaria = 0
 				armadura.set("_dano_frac", 0.0)
 				armadura.escudo_t = 0.0
-				armadura.escudo_cargas = Arsenal.ESCUDO_CARGAS
+				armadura.escudo_cargas = Arsenal.escudo_cargas()
 				recargas += 1
 				if hud:
 					hud.avisar("Base", "munição e vida recarregadas")
 				if sons:
 					sons._toque("marcar", -6.0, 0.0)
 			perto = Vector2(p.x - b.x, p.z - b.z).length() < PERTO and p.y < b.y and p.y > b.y - 4.0 \
-				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando and not armadura.travado
+				and armadura.estado == Armadura.Estado.CHAO and not armadura.em_pane and not armadura.escaneando and not armadura.travado and not armadura.contemplando
 			if hud:
 				var novo := "{agir}  entrar na oficina" if perto else ""
 				if hud.dica != novo and (perto or hud.dica.begins_with("{agir}  entrar")):
@@ -566,6 +1032,18 @@ func _physics_process(delta: float) -> void:
 				var nome := _instalando
 				_instalando = ""
 				fase = Fase.ABERTA
+				if nome.begins_with("degrau:"):
+					var arma := nome.substr(7)
+					if Arsenal.melhorar(arma):
+						melhoradas += 1
+						if sons:
+							sons._toque("fabricou", -3.0, 0.0)
+					_refazer_lista()
+					_escolher(arma)
+					if arma == "escudo":  # o degrau novo já vem cheio
+						armadura.escudo_cargas = Arsenal.escudo_cargas()
+					_avisar("Luz acesa!")
+					return
 				if Arsenal.RECEITAS.has(nome):
 					if Arsenal.fabricar(nome):
 						armadura.visual.escudos_vistos = armadura.escudos_gastos
@@ -574,7 +1052,7 @@ func _physics_process(delta: float) -> void:
 						instalou.emit(nome)
 					_refazer_lista()
 					_escolher(nome)
-					_estado.text = "Fabricado!"
+					_avisar("Fabricado!")
 					return
 				if Melhorias.instalar(nome):
 					_tinha_energia = Melhorias.energia >= Melhorias.CUSTO
@@ -585,7 +1063,7 @@ func _physics_process(delta: float) -> void:
 					instalou.emit(nome)
 				_refazer_lista()
 				_escolher(nome)
-				_estado.text = "Instalado!"
+				_avisar("Instalado!")
 		Fase.SAINDO:
 			var f := clampf(_t / T_SAIR, 0.0, 1.0)
 			_desce = maxf(0.0, _desce - delta * 2.4)

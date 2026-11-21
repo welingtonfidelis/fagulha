@@ -63,6 +63,9 @@ func _comecar(qual: String) -> void:
 	vistas += 1
 	ultima = qual
 	espera = DESCANSO
+	# a foto do álbum conta a cena enquanto ela está na tela (a revoada e as folhas, só com elas no quadro)
+	if qual == "estrela":
+		Album.marcar_cena(qual, 5.5)
 	_t_cena = 0.0
 	var b := camera.cam.global_basis
 	var frente := Vector3(-b.z.x, 0, -b.z.z).normalized()
@@ -87,6 +90,7 @@ func _comecar(qual: String) -> void:
 				modelo.scale = Vector3.ONE * 3.4
 				no.add_child(modelo)
 				_aves.append([no, modelo.find_child("asaE", true, false), modelo.find_child("asaD", true, false), i * 0.7])
+			Album.marcar_cena("revoada", 24.0, _aves[0][0])
 		"folhas":
 			# um punhado de folhas passando no vento, perto, da esquerda para a direita
 			var p := CPUParticles3D.new()
@@ -122,6 +126,7 @@ func _comecar(qual: String) -> void:
 			p.global_position = olho + frente * 13.0 - direita * 16.0 + Vector3(0, 1.0, 0)
 			p.emitting = true
 			get_tree().create_timer(9.0).timeout.connect(p.queue_free)
+			Album.marcar_cena("folhas", 8.0, p)
 		"estrela":
 			# duas estrelas cadentes, uma depois da outra, no alto do céu à frente
 			for k in 2:

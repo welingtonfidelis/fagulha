@@ -1,6 +1,6 @@
 class_name MiniRobos
 extends Node3D
-## Os cinco robozinhos (2026-11-19). Estão escondidos num canto do salão do Sumidouro, parados no escuro: só
+## Os cinco robozinhos (2026-11-19). Estão escondidos na câmara do fundo do Sumidouro, parados no escuro: só
 ## aparecem com a **luz do peito** acesa por perto, e é chegando com ela que o robô os acorda. Aí aparece a
 ## lembrança deles e eles vão para a base, onde passam a brincar: andam, correm uns atrás dos outros, pulam,
 ## giram e chutam uma bola pelo pátio. De vez em quando um vai jogar videogame (2026-11-20): sobe no banquinho
@@ -172,15 +172,22 @@ func _esconder() -> void:
 		(r["no"] as Node3D).visible = false
 
 
-## Um canto do salão longe da memória de lá.
+## A câmara do fundo do Sumidouro (ou, sem lugar lá, um canto do salão), longe da memória do salão.
 func _canto_do_salao() -> Vector3:
 	if not Sumidouro.existe:
 		return Vector3.INF
 	var esp := get_world_3d().direct_space_state
 	var perp := Vector2(-Sumidouro.dir.y, Sumidouro.dir.x)
 	var longe: Vector3 = memorias.onde.get("sumidouro", Vector3.INF) if memorias else Vector3.INF
-	for t: Vector2 in [Vector2(-14, 9), Vector2(-14, -9), Vector2(-10, -6), Vector2(-10, 6), Vector2(-18, 0), Vector2(9, -10), Vector2(9, 10), Vector2(16, 0)]:
-		var xz := Sumidouro.centro + Sumidouro.dir * t.x + perp * t.y
+	# primeiro na câmara do fundo, ao lado do salão (longe da memória do salão, pedido de 2026-11-21); se não
+	# couber, num canto do salão
+	var camara := Sumidouro._camara_xz()
+	var lugares: Array[Vector2] = []
+	for t: Vector2 in [Vector2(0, 0), Vector2(-4, 3), Vector2(4, -3), Vector2(-3, -4), Vector2(3, 4)]:
+		lugares.append(camara + t)
+	for t: Vector2 in [Vector2(-14, 9), Vector2(-14, -9), Vector2(-10, -6), Vector2(-10, 6), Vector2(-18, 0)]:
+		lugares.append(Sumidouro.centro + Sumidouro.dir * t.x + perp * t.y)
+	for xz: Vector2 in lugares:
 		var de := Vector3(xz.x, Sumidouro.piso + 5.0, xz.y)
 		if not Sumidouro.no_vazio(de):
 			continue
@@ -188,7 +195,7 @@ func _canto_do_salao() -> Vector3:
 		if chao.is_empty():
 			continue
 		var p: Vector3 = chao["position"]
-		if absf(p.y - Sumidouro.piso) > 1.5 or (longe.is_finite() and p.distance_to(longe) < 7.0):
+		if absf(p.y - Sumidouro.piso) > 2.5 or (longe.is_finite() and p.distance_to(longe) < 7.0):
 			continue
 		return p
 	return Vector3.INF

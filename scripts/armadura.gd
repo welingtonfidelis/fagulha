@@ -98,7 +98,7 @@ var escaneando := false  # scanner aberto: primeira pessoa, sem tiro
 var _planar_seg := -1.0  # há quanto tempo o botão de planar está segurado (-1: não está)
 var _planar_botao := "voar"
 var escudo_t := 0.0  # tempo que falta para o escudo de energia recarregar (0: pronto)
-var escudo_cargas := Arsenal.ESCUDO_CARGAS  # acertos que o escudo ainda engole antes de quebrar
+var escudo_cargas := Arsenal.ESCUDO_CARGAS  # acertos que o escudo ainda engole antes de quebrar (a pista põe o do degrau)
 var _escudo_sossego := 0.0  # tempo desde o último acerto no escudo (gasto em parte, ele se enche de novo)
 var escudos_gastos := 0  # testes
 var jato_cortado := false  # um lugar onde os jatos não funcionam (a maresia do ninho da ave): com asas, o robô plana
@@ -107,6 +107,7 @@ var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da
 ## Quem monta o cenário enche a lista (`BaseLar.assento_em`).
 static var assentos: Array = []
 const ASSENTO_PERTO := 1.7
+var convite_outro := false  # outra coisa perto pede o triângulo (o rádio da base): o sentar espera
 var no_assento := false  # sentado num móvel: parado ali até andar ou apertar algo
 var assento_yaw := 0.0  # para onde o corpo vira (o visual lê)
 ## Sentar num móvel tem três fases (o visual lê as duas): 0 sentando, 1 sentado, 2 levantando; `assento_p`
@@ -477,11 +478,13 @@ func _passo(delta: float) -> void:
 	if escudo_t > 0.0:
 		escudo_t = maxf(0.0, escudo_t - delta)
 		if escudo_t <= 0.0:
-			escudo_cargas = Arsenal.ESCUDO_CARGAS
-	elif escudo_cargas < Arsenal.ESCUDO_CARGAS:
+			escudo_cargas = Arsenal.escudo_cargas()
+	elif escudo_cargas > Arsenal.escudo_cargas():
+		escudo_cargas = Arsenal.escudo_cargas()  # o escudo novo segura 1 (o valor inicial é o máximo)
+	elif escudo_cargas < Arsenal.escudo_cargas():
 		_escudo_sossego += delta
 		if _escudo_sossego >= Arsenal.ESCUDO_RECARGA:
-			escudo_cargas = Arsenal.ESCUDO_CARGAS
+			escudo_cargas = Arsenal.escudo_cargas()
 	if travado:
 		return
 	if no_assento:
@@ -715,7 +718,7 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 	# sentar num móvel (sofá, poltrona, bancos da fogueira): perto dele, o triângulo (agir) senta; outro
 	# toque, andar ou qualquer ação levanta (2026-11-20, pedido do usuário; antes era a seta de apreciar a vista)
 	if not em_pane and not travado and not escaneando and not mirando_agora() and not contemplando:
-		var lugar := assento_perto()
+		var lugar := [] if convite_outro else assento_perto()
 		if not lugar.is_empty():
 			convite_assento = "{agir}  sentar"
 			if Input.is_action_just_pressed("agir"):
@@ -729,7 +732,8 @@ func _abaixar(delta: float, mov: Vector2, correr: bool, quieto: bool) -> void:
 		# olhar a paisagem; outro toque, andar ou qualquer ação volta ao jogo
 		if contemplando:
 			var sai := mov.length() > 0.3 or em_pane or travado or escaneando
-			for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr", "agir"]:
+			# o triângulo não sai: apreciando a vista ele tira foto (Album)
+			for acao: String in ["sentar", "pular", "soltar", "atirar", "mirar", "espada", "correr"]:
 				if InputMap.has_action(acao) and Input.is_action_just_pressed(acao):
 					sai = true
 			if sai:
@@ -1343,9 +1347,9 @@ func _agua_e_calor(delta: float) -> void:
 			else:
 				taxa = Melhorias.calor_voo() * (1.0 + Ajustes.CALOR_SUBIDA * maxf(0.0, dir_voo.y))
 				if arrancada:
-					taxa *= Ajustes.CALOR_ARRANCADA
+					taxa *= Melhorias.calor_arrancada()
 				elif acelerador > 0.0:
-					taxa *= 1.0 + (Ajustes.CALOR_ARRANCADA - 1.0) * acelerador
+					taxa *= 1.0 + (Melhorias.calor_arrancada() - 1.0) * acelerador
 		Estado.PLANAR:
 			taxa = -Ajustes.ESFRIA_MERGULHO if dir_voo.y < Ajustes.MERGULHO_Y else -Ajustes.ESFRIA_PLANAR
 		Estado.PAIRAR:

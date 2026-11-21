@@ -42,6 +42,17 @@ var ninho: NinhoAve
 var torre: MastroRadio
 var cenas_vista: CenasVista
 var musica: MusicaPasseio
+var rotas: Rotas  # as rotas do piloto de teste (1.1, doc §136)
+var rastro: RastroJatos
+var acampamentos: Acampamentos
+var procurados: Procurados
+var quadro: QuadroAvisos
+var radio_base: RadioBase
+var horta: Horta
+var album: Album
+var clima: Clima
+var raposa_amiga: RaposaAmiga
+var pedidos: Pedidos
 var luzes_noite: LuzesNoite
 var retomou_em := Vector3.INF  # onde o robô foi posto ao abrir, pelo save (testes)
 var _ultimo_firme := Vector3.INF
@@ -422,6 +433,78 @@ func _ready() -> void:
 		musica.locais = locais
 		musica.memorias = memorias
 		add_child(musica)
+		rotas = Rotas.new()
+		rotas.name = "Rotas"
+		rotas.armadura = armadura
+		rotas.hud = hud
+		rotas.mapa = ilha as Vale
+		add_child(rotas)
+		armadura.golpe_chao.connect(rotas.no_golpe)
+		rastro = RastroJatos.new()
+		rastro.name = "RastroJatos"
+		rastro.armadura = armadura
+		add_child(rastro)
+		acampamentos = Acampamentos.new()
+		acampamentos.name = "Acampamentos"
+		acampamentos.mapa = ilha as Vale
+		acampamentos.armadura = armadura
+		acampamentos.hud = hud
+		acampamentos.vida = vida
+		add_child(acampamentos)
+		procurados = Procurados.new()
+		procurados.name = "Procurados"
+		procurados.mapa = ilha as Vale
+		procurados.armadura = armadura
+		procurados.hud = hud
+		add_child(procurados)
+		quadro = QuadroAvisos.new()
+		quadro.name = "QuadroAvisos"
+		quadro.procurados = procurados
+		add_child(quadro)
+		radio_base = RadioBase.new()
+		radio_base.name = "RadioBase"
+		radio_base.armadura = armadura
+		radio_base.hud = hud
+		add_child(radio_base)
+		horta = Horta.new()
+		horta.name = "Horta"
+		horta.mapa = ilha as Vale
+		horta.armadura = armadura
+		horta.hud = hud
+		horta.acampamentos = acampamentos
+		add_child(horta)
+		album = Album.new()
+		album.name = "Album"
+		album.armadura = armadura
+		album.camera = camera
+		album.scanner = scanner
+		album.hud = hud
+		album.mapa = ilha as Vale
+		add_child(album)
+		clima = Clima.new()
+		clima.name = "Clima"
+		clima.ciclo = ciclo
+		clima.camera = camera
+		clima.mapa = ilha as Vale
+		add_child(clima)
+		raposa_amiga = RaposaAmiga.new()
+		raposa_amiga.name = "RaposaAmiga"
+		raposa_amiga.armadura = armadura
+		raposa_amiga.hud = hud
+		raposa_amiga.mapa = ilha as Vale
+		raposa_amiga.vida = vida
+		add_child(raposa_amiga)
+		pedidos = Pedidos.new()
+		pedidos.name = "Pedidos"
+		pedidos.quadro = quadro
+		pedidos.armadura = armadura
+		pedidos.hud = hud
+		pedidos.rotas = rotas
+		pedidos.scanner = scanner
+		pedidos.horta = horta
+		pedidos.acampamentos = acampamentos
+		add_child(pedidos)
+		_anotar_pontos()
 		if memorias:
 			ninho = NinhoAve.new()
 			ninho.name = "NinhoAve"
@@ -513,7 +596,7 @@ func _ready() -> void:
 		historia.drone = drone
 		historia.ciclo = ciclo
 		historia.mapa = ilha as Vale
-		historia.parar = [locais, pecas, dicas_no, inimigos, fundicao, acoes, minis, ninho, torre, robo_antigo, farol, oficina, scanner, cenas_vista, musica]
+		historia.parar = [locais, pecas, dicas_no, inimigos, fundicao, acoes, minis, ninho, torre, robo_antigo, farol, oficina, scanner, cenas_vista, musica, rotas, acampamentos, procurados, horta]
 		for c in get_children():
 			if c is LimiteMar or c is Mecha:
 				historia.parar.append(c)
@@ -847,3 +930,39 @@ func _notification(o_que: int) -> void:
 	if o_que == NOTIFICATION_WM_CLOSE_REQUEST or o_que == NOTIFICATION_PREDELETE:
 		if is_inside_tree() and is_processing():
 			guardar_progresso()
+
+
+## Anota em `PontosIlha` as coisas para achar e para começar na ilha (pedido do usuário, 2026-11-21: nada perto
+## demais de outra coisa). Espera os sistemas que acham o lugar depois de alguns quadros (memórias, rotas).
+func _anotar_pontos() -> void:
+	PontosIlha.zerar()
+	for i in 90:
+		await get_tree().physics_frame
+		if i >= 10 and (rotas == null or not rotas.lista.is_empty()):
+			break
+	if pecas:
+		for k: String in pecas.onde:
+			PontosIlha.anotar("peca:" + k, pecas.onde[k])
+	if memorias:
+		for k: String in memorias.onde:
+			PontosIlha.anotar("memoria:" + k, memorias.onde[k])
+	if rotas:
+		for id: String in rotas.lista:
+			PontosIlha.anotar("baliza:" + id, rotas.lista[id]["baliza"])
+	if procurados:
+		for id: String in procurados.tocas:
+			PontosIlha.anotar("toca:" + id, procurados.tocas[id]["centro"])
+	if acampamentos:
+		for id: String in acampamentos.camps:
+			PontosIlha.anotar("acampamento:" + id, acampamentos.camps[id]["centro"])
+	if robo_antigo:
+		for i in robo_antigo.estatuas.size():
+			if robo_antigo.estatuas[i] and is_instance_valid(robo_antigo.estatuas[i]):
+				PontosIlha.anotar("robo:%d" % i, robo_antigo.estatuas[i].global_position)
+	if minis:
+		PontosIlha.anotar("robozinhos", minis.no_escuro)
+	if torre:
+		PontosIlha.anotar("receptor", torre.receptor)
+	if ninho:
+		PontosIlha.anotar("ninho", ninho.tampo)
+	PontosIlha.pronto = true

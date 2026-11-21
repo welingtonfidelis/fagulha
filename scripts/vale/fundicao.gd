@@ -49,7 +49,6 @@ var _aberta := [0.0, 0.0, 0.0]  # por entrada: s que ela ainda fica aberta depoi
 var saidas := [0, 0, 0]  # robôs que saíram por cada entrada (testes)
 var _caidos: Array[Dictionary] = []
 static var caidos_pecas := 0  # peças com casco de colisão nos robôs velhos caídos
-var _espolios: Array[Dictionary] = []
 var chefe_vivo: Vigia
 var _chefe_t := 0.0
 var _caixas: Array[Dictionary] = []
@@ -1264,7 +1263,7 @@ func _andar_caixas(delta: float) -> void:
 				armadura.avaria = 0
 				armadura.set("_dano_frac", 0.0)
 				armadura.escudo_t = 0.0
-				armadura.escudo_cargas = Arsenal.ESCUDO_CARGAS
+				armadura.escudo_cargas = Arsenal.escudo_cargas()
 				if hud:
 					hud.avisar("Robô consertado", "os acertos foram apagados")
 			caixas_pegas += 1
@@ -1279,40 +1278,21 @@ func _andar_caixas(delta: float) -> void:
 
 func _recompensa(mc: Vigia) -> void:
 	vencidos_total += 1
-	var xp := roundi((80.0 if mc.chefe else 10.0) * (1.0 + onda * 0.15))
-	var nivel_antes := Arsenal.nivel()
-	Arsenal.xp += xp
-	conta["xp"] += xp
+	# a conta mora no Arsenal: os acampamentos e os procurados usam a mesma (doc §136)
+	var ganho := Arsenal.premio(mc.chefe, onda, mc.semente)
+	conta["xp"] += int(ganho["xp"])
 	conta["vencidos"] += 1
-	var ganho := {"sucata": 6 if mc.chefe else 1 + int(mc.semente % 3 == 0), "nucleos": 0, "chips": 0}
-	if mc.chefe:
-		ganho["nucleos"] = 2
-		ganho["chips"] = 1
-	elif onda >= 4 and mc.semente % 4 == 0:
-		ganho["nucleos"] = 1
-	Arsenal.sucata += ganho["sucata"]
-	Arsenal.nucleos += ganho["nucleos"]
-	Arsenal.chips += ganho["chips"]
-	for k: String in ganho:
-		rodada[k] += ganho[k]
-	Arsenal.guardar()
-	if Arsenal.nivel() > nivel_antes:
+	for k: String in rodada:
+		rodada[k] += int(ganho[k])
+	if Arsenal.ganhar(ganho):
 		subidas += 1
 		EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
 		if hud:
-			hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações na base")
+			hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações e melhorias na base")
 		if sons:
 			sons._toque("nivel", -2.0, 0.0)
 	# os espólios: cubinhos de luz que saem do robô caído e voam para o jogador
-	for i in mini(4, int(ganho["sucata"]) + int(ganho["nucleos"]) + int(ganho["chips"])):
-		var cubo := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3.ONE * 0.22
-		cubo.mesh = bm
-		cubo.material_override = _luz(LARANJA if i > 0 else AGUA, 3.0)
-		add_child(cubo)
-		cubo.global_position = mc.global_position + Vector3(randf_range(-0.6, 0.6), 1.0, randf_range(-0.6, 0.6))
-		_espolios.append({"no": cubo, "t": -0.35 - i * 0.12, "vel": Vector3(randf_range(-2, 2), 5.0, randf_range(-2, 2))})
+	Espolio.soltar(self, mc.global_position, ganho, armadura)
 	_caidos.append({"no": mc, "t": 0.0})
 
 
@@ -1329,7 +1309,12 @@ func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 			["Materiais" + (" (metade ficou lá)" if not perdeu.is_empty() else ""), mats],
 			["Recomeça na", "onda 1"],
 		]
-		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]))
+		var dados := {
+			"ondas": int(conta["ondas"]), "recorde": Arsenal.recorde, "vencidos": int(conta["vencidos"]), "xp": int(conta["xp"]),
+			"sucata": int(rodada["sucata"]) - int(perdeu.get("sucata", 0)), "nucleos": int(rodada["nucleos"]) - int(perdeu.get("nucleos", 0)),
+			"chips": int(rodada["chips"]) - int(perdeu.get("chips", 0)), "perdeu_metade": not perdeu.is_empty(),
+		}
+		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]), dados)
 		motivo = ""
 	for cx in _caixas:
 		(cx["no"] as Node3D).queue_free()
@@ -1365,19 +1350,6 @@ func _physics_process(delta: float) -> void:
 			if c["t"] > 4.4:
 				no.queue_free()
 				_caidos.erase(c)
-	for e in _espolios.duplicate():
-		e["t"] += delta
-		var cubo := e["no"] as MeshInstance3D
-		cubo.rotation += Vector3(3.0, 4.0, 2.0) * delta
-		if e["t"] < 0.0:
-			continue
-		var alvo := armadura.pos_suave() + Vector3(0, armadura.altura_corpo() * 0.5, 0)
-		var para: Vector3 = alvo - cubo.global_position
-		e["vel"] = (e["vel"] as Vector3).lerp(para.normalized() * (10.0 + e["t"] * 30.0), minf(1.0, delta * 5.0))
-		cubo.global_position += (e["vel"] as Vector3) * delta
-		if para.length() < 0.7 or e["t"] > 5.0:
-			cubo.queue_free()
-			_espolios.erase(e)
 	# as forjas tremem como fogo e os braços seguem trabalhando devagar
 	var agora := Time.get_ticks_msec() * 0.001
 	for i in luzes_forja.size():

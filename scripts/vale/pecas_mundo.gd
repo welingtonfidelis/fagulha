@@ -111,12 +111,12 @@ func _de_cima(xz: Vector2) -> Vector3:
 
 
 ## Um ponto do piso do salão do Sumidouro, fora da lagoa do meio e com vão livre por cima (INF: não achou).
-func _no_salao() -> Vector3:
+func _no_salao(tentativas: Array = [Vector2(12, 7), Vector2(12, -7), Vector2(16, 0), Vector2(9, 10), Vector2(9, -10), Vector2(-10, 6), Vector2(-10, -6)]) -> Vector3:
 	if not Sumidouro.existe:
 		return Vector3.INF
 	var esp := get_world_3d().direct_space_state
 	var perp := Vector2(-Sumidouro.dir.y, Sumidouro.dir.x)
-	for t: Vector2 in [Vector2(12, 7), Vector2(12, -7), Vector2(16, 0), Vector2(9, 10), Vector2(9, -10), Vector2(-10, 6), Vector2(-10, -6)]:
+	for t: Vector2 in tentativas:
 		var xz := Sumidouro.centro + Sumidouro.dir * t.x + perp * t.y
 		var de := Vector3(xz.x, Sumidouro.piso + 5.0, xz.y)
 		if not Sumidouro.no_vazio(de):

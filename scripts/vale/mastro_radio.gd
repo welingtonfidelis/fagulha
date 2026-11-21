@@ -236,7 +236,8 @@ func _process(_delta: float) -> void:
 	if armadura == null or not receptor.is_finite() or get_tree().paused:
 		return
 	var convite := ""
-	if not ligado and armadura.estado == Armadura.Estado.CHAO and armadura.global_position.distance_to(receptor) < PERTO:
+	if not ligado and armadura.estado == Armadura.Estado.CHAO and armadura.global_position.distance_to(receptor) < PERTO \
+			and not armadura.escaneando and not armadura.contemplando:
 		convite = "{agir}  ligar o receptor"
 	if hud:
 		if convite != "":

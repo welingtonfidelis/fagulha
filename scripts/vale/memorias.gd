@@ -9,7 +9,7 @@ extends Node3D
 ## Dá para reler: a memória continua no lugar, mais apagada.
 
 const PEGA := 1.3
-const FUNDICAO_LADO := Vector2(10.0, Fundicao.MZ + 14.0)  # do meio da Fundição até a memória dela (x leste, y sul)
+const FUNDICAO_LADO := Vector2(-36.0, Fundicao.MZ + 14.0)  # do meio da Fundição até a memória dela (x leste, y sul); do lado oeste do patamar, longe do scanner
 const AMBAR := Color(1.0, 0.72, 0.32)
 const TINTA := Color(0.93, 0.94, 0.9)
 const APAGADO := Color(0.62, 0.68, 0.66)
@@ -56,6 +56,11 @@ const TEXTOS := {
 		"Este robô subia o morro quase toda noite. Não tinha tarefa nenhuma aqui: vinha porque gostava.\n\nSentava sempre neste mesmo lugar, ao pé do telescópio, e ficava olhando pela fenda até o céu clarear. Quem trabalhava aqui deixava a porta aberta para ele.\n\nQuando todos se foram, ele continuou vindo. Numa dessas noites a bateria acabou no meio do caminho das estrelas, e ele ficou.\n\nAinda dá para acordá-lo. O drone leva para a base."],
 }
 const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco", "gigantes", "fundicao"]
+## chave -> o nome do lugar, para a barra de cima do tablet (o pino à direita)
+const LUGARES := {"cachoeira": "Cachoeira", "serra": "Serra", "sumidouro": "Sumidouro", "arcos": "Arcos", "represa": "Represa",
+	"rele": "Relé", "fenda": "Fenda", "torres": "Torres", "observatorio": "Observatório", "casco": "Casco", "gigantes": "Gigantes",
+	"fundicao": "Fundição", "robo_mergulhador": "Represa", "ave_grande": "Alto do vento", "sinal_de_fora": "Mastro",
+	"robozinhos": "Canos", "robo_antigo": "Observatório"}
 
 var armadura: Armadura
 var mapa: Vale
@@ -70,9 +75,9 @@ var _nos := {}
 var _t := 0.0
 var _saiu := {}  # chave -> o robô já se afastou depois de ler (para não reabrir em cima)
 var _camada: CanvasLayer
-var _titulo: Label
-var _texto: Label
-var _conta: Label
+var _tablet: TabletCasca  # o tablet fechado da memória (2026-11-21)
+var _titulo_txt := ""
+var _texto_txt := ""
 var _musica: AudioStreamPlayer
 var _fecha_em := 0.0
 
@@ -88,20 +93,23 @@ func _ready() -> void:
 		"arcos": Vector2(Ruinas.ARCOS.x + 10.0, Ruinas.ARCOS.y + 16.0),
 		"fenda": FendaEscura.ponto(250.0),
 		"torres": (MarcosOeste.TORRES[2] as Vector2) + Vector2(7.0, 9.0),
-		"observatorio": MarcosOeste.OBSERVATORIO + Vector2(0.0, MarcosOeste.CUPULA + 7.0),
+		# no platô ao lado do Observatório, de onde se vê a cúpula: dentro dele fica o robô de antes
+		"observatorio": MarcosOeste.OBSERVATORIO + Vector2(0.0, 62.0),
 	}
 	for chave: String in alvos:
 		onde[chave] = pecas._assentar(alvos[chave])
 	# em cima de construções: o passadiço da represa, a plataforma da torre do relé e o convés do navio
-	for alto: Array in [["represa", Vector2(MarcosLeste.represa_x(-26.0), MarcosLeste.REPRESA.y - 26.0)],
+	# (a da represa fica no meio da parede, longe da comporta, onde está o robô mergulhador, e da baliza da rota)
+	for alto: Array in [["represa", Vector2(MarcosLeste.represa_x(-75.0), MarcosLeste.REPRESA.y - 75.0)],
 			["casco", Vector2(MarcosOeste.conves.x, MarcosOeste.conves.z)]]:
 		var p := pecas._de_cima(alto[1])
 		onde[alto[0]] = p if p.is_finite() else pecas._assentar(alto[1])
 	# na torre velha do Relé, em cima do patamar reto perto do topo (ficava na ponta de uma barra de ferro: o
 	# raio de cima para baixo batia no lance dobrado da torre)
 	onde["rele"] = MarcosMar.rele_topo + Vector3(1.3, 0.2, -1.3)
-	# no salão do Sumidouro, onde a luz do peito faz falta
-	var salao := pecas._no_salao()
+	# no salão do Sumidouro, onde a luz do peito faz falta: no lado oposto ao da câmara do fundo (onde ficam os
+	# robozinhos) e longe de debaixo da baliza do rio, que fica no morro em cima do túnel
+	var salao := pecas._no_salao([Vector2(0, -15), Vector2(-3, -14), Vector2(3, -15), Vector2(0, -12), Vector2(16, -8)])
 	onde["sumidouro"] = salao if salao.is_finite() else pecas._assentar(Sumidouro.saida)
 	# no Sono dos Gigantes (2026-11-20, ideia do usuário): em cima do peito da Escavadeira deitada, ao lado
 	# da cabine. O ponto sai do próprio modelo e um raio acha a chapa.
@@ -170,41 +178,19 @@ func _montar_tela() -> void:
 	_camada.visible = false
 	add_child(_camada)
 	var fundo := ColorRect.new()
-	fundo.color = Color(0.03, 0.045, 0.07, 0.86)
+	fundo.color = Color(0.02, 0.04, 0.06, 0.8)
 	fundo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_camada.add_child(fundo)
 	var meio := CenterContainer.new()
 	meio.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_camada.add_child(meio)
-	var coluna := VBoxContainer.new()
-	coluna.custom_minimum_size = Vector2(760, 0)
-	coluna.add_theme_constant_override("separation", 18)
-	meio.add_child(coluna)
-	_conta = Label.new()
-	_conta.add_theme_font_size_override("font_size", 16)
-	_conta.add_theme_color_override("font_color", APAGADO)
-	coluna.add_child(_conta)
-	_titulo = Label.new()
-	_titulo.add_theme_font_size_override("font_size", 38)
-	_titulo.add_theme_color_override("font_color", LARANJA)
-	coluna.add_child(_titulo)
-	var risco := ColorRect.new()
-	risco.color = Color(LARANJA.r, LARANJA.g, LARANJA.b, 0.6)
-	risco.custom_minimum_size = Vector2(64, 2)
-	risco.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	coluna.add_child(risco)
-	_texto = Label.new()
-	_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_texto.custom_minimum_size = Vector2(760, 0)
-	_texto.add_theme_font_size_override("font_size", 23)
-	_texto.add_theme_color_override("font_color", TINTA)
-	_texto.add_theme_constant_override("line_spacing", 9)
-	coluna.add_child(_texto)
-	var rodape := Label.new()
-	rodape.text = "X, círculo ou Esc para fechar"
-	rodape.add_theme_font_size_override("font_size", 15)
-	rodape.add_theme_color_override("font_color", APAGADO)
-	coluna.add_child(rodape)
+	_tablet = TabletCasca.new()
+	_tablet.aberto = false
+	_tablet.size = Vector2(600, 262)
+	_tablet.custom_minimum_size = Vector2(600, 262)
+	_tablet.cor_rotulo = Tablet.AMBAR
+	_tablet.pintor = _pintar_tablet
+	meio.add_child(_tablet)
 	_musica = AudioStreamPlayer.new()
 	_musica.process_mode = Node.PROCESS_MODE_ALWAYS
 	if ResourceLoader.exists("res://assets/sons/memoria_loop.wav"):
@@ -225,9 +211,15 @@ func abrir(chave: String) -> void:
 		if Guardado.ativo:
 			Guardado.por_progresso("memorias", lidas)
 	var par: Array = TEXTOS[chave]
-	_conta.text = ("MEMÓRIA   ·   %d de %d" % [lidas.size(), ORDEM.size()]) if das_dez else "LEMBRANÇA"
-	_titulo.text = par[0]
-	_texto.text = par[1]
+	_titulo_txt = par[0]
+	_texto_txt = par[1]
+	# a altura do tablet acompanha o texto: 262 de cabeça, o parágrafo, 120 de rodapé (máximo 860)
+	var ch := minf(860.0, 262.0 + Tablet.altura_paragrafo(_texto_txt, 480.0, 20) + 120.0)
+	_tablet.size = Vector2(600, ch)
+	_tablet.custom_minimum_size = Vector2(600, ch)
+	_tablet.rotulo = ("Memória · %d de %d" % [lidas.size(), ORDEM.size()]) if das_dez else "Lembrança"
+	_tablet.rotulo_dir = String(LUGARES.get(chave, ""))
+	_tablet.queue_redraw()
 	_camada.visible = true
 	_fecha_em = 0.6  # um instante antes de aceitar o botão, para o aperto que trouxe o robô não fechar
 	if hud:
@@ -245,6 +237,18 @@ func abrir(chave: String) -> void:
 		velho.queue_free()
 		_nos[chave] = novo
 	_saiu[chave] = false
+
+
+## O desenho do tablet: o cristal âmbar brilhando, o título com o fio, o texto e o rodapé.
+func _pintar_tablet(c: CanvasItem, telas: Array) -> void:
+	var t: Rect2 = telas[0]
+	var cc := Vector2(t.get_center().x, t.position.y + 108)
+	Tablet.brilho(c, cc, 22, Color(1.0, 0.7, 0.3), 1.6)
+	Tablet.cristal(c, cc, 24, Tablet.AMBAR)
+	Tablet.texto(c, Vector2(t.position.x, t.position.y + 196), _titulo_txt, 32, Tablet.AMBAR.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, t.size.x)
+	c.draw_line(Vector2(t.get_center().x - 60, t.position.y + 218), Vector2(t.get_center().x + 60, t.position.y + 218), Color(Tablet.AMBAR, 0.6), 2.0)
+	Tablet.paragrafo(c, Vector2(t.position.x + 40, t.position.y + 262), _texto_txt, t.size.x - 80, 20, Tablet.TINTA)
+	Tablet.rodape(c, t, [["x", "fechar"]])
 
 
 func fechar() -> void:

@@ -29,11 +29,16 @@ static var canteiros := 0
 static var fogueira := Vector3.INF  # no mundo
 static var bancada := Vector3.INF  # no mundo: o meio do tampo
 static var horta := Vector3.INF  # no mundo: o meio dos canteiros
+static var horta_vagas: Array[Vector3] = []  # no mundo: as covas do canteiro de plantar (o de trás), em ordem (Horta)
+static var radio := Vector3.INF  # no mundo: o rádio da bancada (RadioBase)
 static var sofa := Vector3.INF  # no mundo: o assento do sofá
 static var giz: MeshInstance3D  # a amarelinha (escondida até os robozinhos chegarem)
 ## Onde os robozinhos jogam videogame (MiniRobos), no mundo: {assento, frente, pe, via: [pontos], tipo: "tv" ou
 ## "portatil"}. `assento` é onde a bacia apoia; `pe` é o chão na frente do móvel; `via` o caminho até lá.
 static var lugares_minis: Array = []
+## As vagas da estante de troféus (duas prateleiras na parede do fundo, à direita da bancada), no mundo: onde
+## ficam as miniaturas das rotas feitas na versão difícil (`Rotas`, `Miniaturas`), em ordem.
+static var estante_vagas: Array[Transform3D] = []
 static var tela_tv: ShaderMaterial  # a tela da TV de tubo (troca de quadro quando alguém joga)
 static var quadros_tv: Array = []
 static var _sujar := 0.0
@@ -66,6 +71,7 @@ static func montar(o: Ruinas.Obra, cy: float) -> void:
 	_telheiro(o, cy)
 	_cantinho(o, cy)
 	_bancada(o, cy)
+	_estante(o, cy)
 	_giz(o, cy)
 	_horta(o)
 	_fogueira(o, cy)
@@ -322,6 +328,25 @@ static func _cantinho(o: Ruinas.Obra, cy: float) -> void:
 	quadro(o, "pictureframe_small_B", Vector3(meio - 1.1, cy + 1.62, zq), PI, 0.55, -0.04)
 
 
+# ---------------------------------------------------------------- a estante de troféus
+
+## Duas prateleiras de parede (KayKit, `shelf_B_large`) entre o sofá (com o mural das lembranças em cima) e a
+## bancada, com sete vagas: quatro embaixo e três em cima.
+static func _estante(o: Ruinas.Obra, cy: float) -> void:
+	estante_vagas.clear()
+	var ex := -0.35
+	var fundo := 0.5 * ESC  # a prateleira tem 0,5 m de fundo no modelo
+	var zp := PAREDE - fundo * 0.5
+	for nivel in 2:
+		var pe := cy + 0.5 + nivel * 0.54  # as duas abaixo da janela
+		movel(o, "shelf_B_large", Vector3(ex, pe, zp), PI, ESC, false)
+		var tampo := pe + 0.4 * ESC  # o modelo vai de -0,1 (as mãos-francesas) a 0,3 (o tampo)
+		var n := 4 if nivel == 0 else 3
+		for k in n:
+			var x := ex + (float(k) - (n - 1) * 0.5) * 0.29
+			estante_vagas.append(o.t * Transform3D(Basis.IDENTITY, Vector3(x, tampo, zp)))
+
+
 # ---------------------------------------------------------------- a bancada de passatempos
 
 static func _bancada(o: Ruinas.Obra, cy: float) -> void:
@@ -423,6 +448,7 @@ static func _tv(o: Ruinas.Obra, pe: Vector3) -> void:
 
 
 static func _radio(o: Ruinas.Obra, pe: Vector3) -> void:
+	radio = o.t * (pe + Vector3(0, 0.15, 0))
 	var giro := Basis(Vector3.UP, -0.22)
 	var p := func(v: Vector3) -> Vector3:
 		return pe + giro * v
@@ -508,6 +534,7 @@ static func _horta(o: Ruinas.Obra) -> void:
 	var c := Vector2(-8.4, -9.0)
 	var linhas := [["q_flor_a", "q_flor_c", "q_flor_b", "q_flor_d"], ["q_planta_b", "q_planta_d", "q_planta_a"], ["q_trevo_b", "q_cogumelo", "q_trevo", "q_planta_c"]]
 	var tam := [0.5, 0.42, 0.4]
+	horta_vagas.clear()
 	for k in 3:
 		var z := c.y + (k - 1) * 1.75
 		var y := o.chao_min(Vector2(c.x, z), 2.0)
@@ -518,6 +545,12 @@ static func _horta(o: Ruinas.Obra) -> void:
 			caixa(o, Vector3(c.x, meio_y + 0.03, z + lado * 0.52), Vector3(4.5, topo - y + 0.36, 0.09), MADEIRA)
 			caixa(o, Vector3(c.x + lado * 2.2, meio_y + 0.03, z), Vector3(0.09, topo - y + 0.36, 1.13), MADEIRA)
 		var nomes: Array = linhas[k]
+		if k == 2:
+			# o canteiro de trás fica de terra limpa: é o de plantar (as sementes achadas na ilha; Horta)
+			for i in 9:
+				horta_vagas.append(o.t * Vector3(c.x - 1.9 + i * 0.475, topo - 0.03, z))
+			canteiros += 1
+			continue
 		for i in 7:
 			var px := c.x - 1.8 + i * 0.6
 			var nome: String = nomes[i % nomes.size()]

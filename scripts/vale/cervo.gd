@@ -43,6 +43,8 @@ var raio_casa := 40.0
 var semente := 0
 var estado := 0  # Estado
 var pose_foto := -1  # >= 0: fica parado nesse estado, só animando (fotos)
+var guia: Node3D = null  # seguindo alguém (a raposa amiga, `RaposaAmiga`): vai atrás dele e não foge
+var _seguindo := false
 ## O corpo é um bicho animado do pacote (BichoVisual). Vazio: cerva ou, um em cada três, veado de galhada.
 var desvios := 0  # rumos recusados por obstáculo (testes)
 var destravou := 0  # vezes em que ficou preso e trocou o lado da volta (testes)
@@ -138,7 +140,7 @@ func nome_estado() -> String:
 ## Um susto (o robô passando perto, um tiro ou o ponto de impacto): a menos de 60 m do ponto, o cervo
 ## foge dele, mesmo sem ameaça. Usa a fuga existente, só que a partir do ponto.
 func assustar(ponto: Vector3) -> void:
-	if not _pronto or not is_inside_tree():
+	if not _pronto or not is_inside_tree() or guia != null:
 		return
 	var d := _dist_ponto(ponto)
 	if d >= DIST_ASSUSTAR:
@@ -165,6 +167,11 @@ func _process(delta: float) -> void:
 		_olhando = 0.0
 		_proximo_olhar = 99.0
 		_amp = PERNA_ANDAR if estado == Estado.ANDANDO else (PERNA_FUGA if estado == Estado.FUGINDO else 0.0)
+		global_position.y = mapa.altura(global_position.x, global_position.z)
+		_animar(delta)
+		return
+	if guia != null and is_instance_valid(guia):
+		_seguir(delta)
 		global_position.y = mapa.altura(global_position.x, global_position.z)
 		_animar(delta)
 		return
@@ -235,6 +242,32 @@ func _decidir_susto() -> void:
 	if _dist_ponto(_susto_ponto) > _susto_dist:
 		_susto = false
 		_voltar_para_casa()
+
+
+## A amiga: com o guia a mais de 10 m vai atrás (andando perto, galopando longe) até ficar a uns 5 m; ali
+## fica olhando para ele ou cheirando o chão.
+func _seguir(delta: float) -> void:
+	_tem_ameaca = false
+	var g := guia.global_position
+	var para := Vector3(g.x - global_position.x, 0.0, g.z - global_position.z)
+	var d := para.length()
+	if d > 10.0:
+		_seguindo = true
+	elif d < 5.0:
+		_seguindo = false
+	if _seguindo:
+		var vel := VEL_ANDAR * 1.5 if d < 16.0 else (6.0 if d < 40.0 else VEL_FUGA)
+		_mudar(Estado.ANDANDO if vel < 4.0 else Estado.FUGINDO)
+		if not _passo(delta, vel, para.normalized(), false, 1.2):
+			_mudar(Estado.ALERTA)
+		return
+	if estado == Estado.ANDANDO or estado == Estado.FUGINDO:
+		_mudar(Estado.ALERTA)
+		_duracao_pasto = _rng.randf_range(3.0, 7.0)
+	elif _tempo > _duracao_pasto:
+		_mudar(Estado.PASTANDO if estado == Estado.ALERTA else Estado.ALERTA)
+	if estado == Estado.ALERTA:
+		rotation.y = lerp_angle(rotation.y, atan2(-para.x, -para.z), 1.0 - exp(-3.0 * delta))
 
 
 func _mudar(novo: int) -> void:

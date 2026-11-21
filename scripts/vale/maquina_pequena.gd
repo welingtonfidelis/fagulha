@@ -19,6 +19,8 @@ var casa := Vector3.ZERO
 var semente := 0
 var calor := 0.0
 var desligada := false
+var para_sempre := false  # de um acampamento liberado (Acampamentos): desligada, não religa mais
+var impacto_desliga := true  # o mergulho com impacto desliga na hora; os chefes procurados só esquentam muito
 var resistencia := 1.0  # quantas vezes mais tiros aguenta (as ondas da Fundição sobem isto)
 var desligamentos := 0
 var religamentos := 0
@@ -48,6 +50,7 @@ var paradas := 0  # projéteis que pararam em tronco, rocha ou parede (testes)
 var ultimo_fim := ""  # como acabou o último projétil (testes)
 static var tiros_dados := {}  # tipo -> quantos saíram (testes)
 static var _malhas_tiro := {}
+static var total_desligadas := 0  # desligadas pelo robô nesta partida (os pedidos do drone contam)
 static var _mats_tiro := {}
 
 
@@ -363,7 +366,9 @@ func levar_tiro(ponto: Vector3, dano := 1.0, area := 0.0) -> void:
 		return
 	if area > 0.0 and d > raio_acerto():
 		dano *= lerpf(1.0, 0.35, (d - raio_acerto()) / area)
-	calor = minf(100.0, calor + calor_por_tiro() * dano / resistencia)
+	# o cano do Canhoneiro (peça de chefe procurado): os tiros esquentam mais
+	var mais := 1.25 if Melhorias.tem("cano") else 1.0
+	calor = minf(100.0, calor + calor_por_tiro() * dano * mais / resistencia)
 	_sem_tiro = 0.0
 	_pisca = 0.12
 	Som.toque3d(self, Som.variacao("impacto", 3), ponto, -4.0)
@@ -374,10 +379,23 @@ func levar_tiro(ponto: Vector3, dano := 1.0, area := 0.0) -> void:
 
 ## O mergulho com impacto do robô: quem está perto desliga na hora.
 func levar_impacto(ponto: Vector3) -> void:
-	if _corpo == null or desligada or ponto.distance_to(centro()) > RAIO_IMPACTO:
+	if _corpo == null or desligada or ponto.distance_to(centro()) > raio_impacto():
+		return
+	if not impacto_desliga:
+		calor = minf(100.0, calor + 40.0 / resistencia)
+		_sem_tiro = 0.0
+		_pisca = 0.2
+		_provocada()
+		if calor >= 100.0:
+			desligar()
 		return
 	calor = 100.0
 	desligar()
+
+
+## O alcance do mergulho com impacto: o núcleo do Guardião (peça de chefe procurado) aumenta.
+static func raio_impacto() -> float:
+	return RAIO_IMPACTO * (1.5 if Melhorias.tem("nucleo") else 1.0)
 
 
 func _provocada() -> void:
@@ -387,6 +405,8 @@ func _provocada() -> void:
 func desligar() -> void:
 	desligada = true
 	desligamentos += 1
+	if not para_sempre:
+		total_desligadas += 1
 	_restante = TEMPO_DESLIGADA
 	_fumaca.emitting = true
 	_acerto.set_deferred("collision_layer", 0)
@@ -401,6 +421,9 @@ func desligar() -> void:
 
 
 func religar() -> void:
+	if para_sempre:
+		_restante = TEMPO_DESLIGADA
+		return
 	calor = 0.0
 	if not desligada:
 		return

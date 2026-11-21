@@ -23,6 +23,10 @@ var escuro := 0.0  # 0 a 1: a câmera está debaixo da terra (a luz do céu e do
 var chovendo := false  # ligado de fora (testes), fica até desligarem
 var parado := false  # hora fixa (fotos)
 var nevoa_longe := false  # vale grande: névoa por distância, que embaça perto como antes mas deixa ver longe
+# o clima da 1.1 (`Clima` escreve): a neblina da manhã fecha a névoa, a tempestade escurece e o relâmpago clareia
+var neblina := 0.0  # 0 a 1
+var tempestade := 0.0  # 0 a 1
+var clarao := 0.0  # 0 a 1, some depressa
 
 var _prox_chuva := 0.0
 var _fim_chuva := 0.0
@@ -92,6 +96,7 @@ func nome_momento() -> String:
 func _process(delta: float) -> void:
 	if not parado:
 		hora = fposmod(hora + delta * 24.0 / (minutos_por_dia * 60.0), 24.0)
+	Tablet.hora = hora  # a barra de cima do tablet mostra a hora do jogo
 	_t += delta
 	# chuva de vez em quando
 	if not chovendo and not parado and _t > _prox_chuva:
@@ -156,7 +161,7 @@ func _aplicar() -> void:
 	env.ambient_light_color = amb.lerp(cinza * claro, nublado * 0.6)
 	env.ambient_light_energy = lerpf(a[4], b[4], t) * lerpf(1.0, 0.72, nublado)
 	env.fog_light_color = nev.lerp(cinza * 0.85 * claro, nublado * 0.85)
-	var dens := lerpf(a[8], b[8], t) + nublado * 0.007
+	var dens := lerpf(a[8], b[8], t) + nublado * 0.007 + neblina * 0.016
 	if nevoa_longe:
 		# quanto mais densa a hora (manhã, chuva), mais perto a névoa fecha
 		env.fog_mode = Environment.FOG_MODE_DEPTH
@@ -176,8 +181,9 @@ func _aplicar() -> void:
 			env.fog_depth_curve = float(ag[ag.find("--nevoa") + 2])
 	else:
 		env.fog_density = dens
-	env.adjustment_saturation = lerpf(a[9], b[9], t) * lerpf(1.0, 0.8, nublado)
-	env.tonemap_exposure = lerpf(a[10], b[10], t) * lerpf(1.0, 0.88, nublado)
+	env.adjustment_saturation = lerpf(a[9], b[9], t) * lerpf(1.0, 0.8, nublado) * lerpf(1.0, 0.85, neblina)
+	env.tonemap_exposure = lerpf(a[10], b[10], t) * lerpf(1.0, 0.88, nublado) * lerpf(1.0, 0.82, tempestade)
+	env.fog_light_color = env.fog_light_color.lerp(Color(0.86, 0.88, 0.9) * clampf(luz_dia + 0.2, 0.3, 1.0), neblina * 0.7)
 	# sol de dia, lua de noite (a mesma luz)
 	var dia := hora > NASCER and hora < POR
 	var ang := 0.0
@@ -195,6 +201,7 @@ func _aplicar() -> void:
 	sol.light_energy = lerpf(a[6], b[6], t) * lerpf(1.0, 0.26, nublado)
 	if estilo_novo:
 		_estilo(luz_dia, nublado, topo, horiz)
+	_clarao()
 
 
 ## O visual novo por cima das cores da hora: sombra azul-violeta, sol mais quente, a distância azulando,
@@ -227,6 +234,18 @@ func _estilo(luz_dia: float, nublado: float, topo: Color, horiz: Color) -> void:
 	# debaixo da terra fica escuro de verdade: quem ilumina são os cristais e a luz do peito
 	env.ambient_light_energy *= lerpf(1.0, 0.07, escuro)
 	sol.light_energy *= lerpf(1.0, 0.04, escuro)
+
+
+## O relâmpago: o céu e a luz do mundo pulam para um branco azulado por um instante.
+func _clarao() -> void:
+	if clarao <= 0.001:
+		return
+	var k := clarao * (1.0 - escuro)
+	env.ambient_light_energy += 2.2 * k
+	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.75, 0.8, 1.0), k)
+	ceu.set_shader_parameter("topo", Color(0.45, 0.5, 0.65).lerp(Color(0.8, 0.85, 1.0), k * 0.5))
+	ceu.set_shader_parameter("horizonte", Color(0.55, 0.6, 0.72).lerp(Color(0.9, 0.92, 1.0), k * 0.6))
+	env.tonemap_exposure *= 1.0 + 0.5 * k
 
 
 func _criar_gotas() -> void:

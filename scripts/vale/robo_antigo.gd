@@ -318,7 +318,7 @@ func _process(_delta: float) -> void:
 		elif _dica_minha != "" and hud.dica == _dica_minha:
 			hud.dica = ""
 			_dica_minha = ""
-	if convite != "" and Input.is_action_just_pressed("agir"):
+	if convite != "" and Input.is_action_just_pressed("agir") and not armadura.escaneando and not armadura.contemplando:
 		if alvo >= 10:
 			usar(alvo - 10 + 1 if alvo - 10 < ROBOS.size() else 0)
 		else:

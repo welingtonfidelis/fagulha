@@ -11,6 +11,10 @@ const TITULOS := {
 	"antena": "Antena de busca", "radiador": "Radiador de aletas", "radiador2": "Radiador duplo", "bocais": "Bocais largos",
 	"asas": "Asas de planar", "barbatanas": "Barbatanas", "amortecedores": "Molas",
 	"farol": "Luz do peito", "celulas": "Células de reserva", "scanner": "Scanner", "mira": "Mira assistida",
+	"corrida": "Bocal de corrida",
+	"couraca": "Couraça do Capataz",
+	"cano": "Cano do Canhoneiro",
+	"nucleo": "Núcleo do Guardião",
 }
 const EFEITOS := {
 	"antena": "a bússola mostra peças que estiverem por perto",
@@ -24,7 +28,14 @@ const EFEITOS := {
 	"celulas": "esfria mais depressa no chão",
 	"scanner": "identifica bichos e máquinas (seta para a direita / T)",
 	"mira": "mirando, o tiro trava na máquina mais perto da mira",
+	"corrida": "a arrancada esquenta a metade: prêmio das rotas do piloto de teste",
+	"couraca": "aguenta um golpe a mais antes da pane: a armadura do Capataz",
+	"cano": "os tiros esquentam as máquinas um quarto mais: o cano do Canhoneiro",
+	"nucleo": "o mergulho com impacto desliga as máquinas mais longe: o núcleo do Guardião",
 }
+## Peças que não estão espalhadas na ilha: vêm de prêmio (a "corrida", de todas as rotas; as dos três chefes
+## procurados; doc §136).
+const PREMIOS := ["corrida", "couraca", "cano", "nucleo"]
 
 static var tudo := false  # testes, fotos e modos antigos: tudo instalado
 static var achadas: Array = []  # com o robô, ainda não instaladas
@@ -35,8 +46,9 @@ static var sinais: Array[Vector3] = []  # no mundo: as peças que a antena capta
 static var base := Vector3.INF  # no mundo: a base, que a bússola mostra sempre (a casinha)
 
 
+## As peças de prêmio não entram no `tudo`: elas se ganham (e mudariam as contas dos testes de antes delas).
 static func tem(nome: String) -> bool:
-	return tudo or instaladas.has(nome)
+	return instaladas.has(nome) or (tudo and not PREMIOS.has(nome))
 
 
 static func carregar() -> void:
@@ -114,6 +126,11 @@ static func calor_pairar() -> float:
 
 static func voo_alvo() -> float:
 	return Ajustes.VOO_ALVO + (1.5 if tem("bocais") else 0.0)
+
+
+## Quanto a arrancada multiplica o calor do voo: o bocal de corrida corta pela metade o que ela soma.
+static func calor_arrancada() -> float:
+	return 1.0 + (Ajustes.CALOR_ARRANCADA - 1.0) * (0.5 if tem("corrida") else 1.0)
 
 
 static func arrancada_alvo() -> float:

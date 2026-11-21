@@ -188,7 +188,8 @@ func _process(delta: float) -> void:
 		_avisou = true
 		if dicas:
 			dicas.pedir("farol")
-	var perto := armadura.global_position.distance_to(_lente) < PERTO and not armadura.em_pane and not armadura.travado
+	var perto := armadura.global_position.distance_to(_lente) < PERTO and not armadura.em_pane and not armadura.travado \
+		and not armadura.escaneando and not armadura.contemplando
 	if hud:
 		if perto:
 			hud.dica = "{agir}  acender o Farol"

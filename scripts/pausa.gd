@@ -1,31 +1,15 @@
 class_name Pausa
 extends CanvasLayer
-## Pausa (Esc / Options). Um cartão no meio da tela com poucas escolhas grandes: continuar, voltar à base,
-## comandos, vibração e sair. Os comandos ficam numa página à parte, em tabela (ação de um lado, botão do
-## outro), com uma aba para o controle e outra para o teclado; uma dica diferente aparece a cada vez.
-## Refeito em 2026-11-16 a pedido do usuário ("um menu de pause mais amigável"): antes era uma coluna de
-## botões com um parágrafo de comandos embaixo.
-## Revisto em 2026-11-20 (itens 1 a 4 da revisão das telas): letra maior para ler da TV, uma figura em cada
-## botão, ajustes com o valor entre setas (o direcional para os lados muda) e o "apagar" à parte, em vermelho, e
-## o caderno com o mapa grande. O caderno saiu da lista: abre pelo touchpad do DualSense / M.
+## Pausa (Esc / Options), tela de abertura, ajustes, comandos, caderno e a telinha de Sim e Não.
+## Refeita em 2026-11-16 ("um menu de pause mais amigável") e revista em 2026-11-20 (letra maior, uma figura em
+## cada botão, ajustes com o valor à vista, o caderno com o mapa grande).
+## Desde 2026-11-21 (doc §136) tudo mora no tablet dobrável do robô, o mesmo da oficina: casca branca com friso
+## azul, duas telas de papel, figuras grandes e letra escura. Na pausa, as escolhas ficam na tela da esquerda e
+## o quadro "Agora" (a hora, o lugar, o robô e uma dica do drone) na da direita; na abertura, a esquerda é um
+## fundo de tela com o farol no pôr do sol. A confirmação usa o tablet fechado, de uma tela só.
 
-const T_TITULO := 34
-const T_SUB := 17
-const T_BOTAO := 24
-const T_EXPLICA := 17
-const T_DICA := 19
-const T_RODAPE := 17
-const T_TABELA := 18
-const T_GRUPO := 16
-# os textos curtos, para não encostar na explicação à direita do botão (letra 24 desde 2026-11-20)
+# os textos curtos, para não encostar na explicação à direita do botão
 const APAGAR := "Apagar o progresso"
-const LARG_CADERNO := 620.0  # a coluna da direita do caderno, ao lado do mapa de 500
-const VERMELHO := Color(1.0, 0.45, 0.4)
-
-const LARANJA := Color(1.0, 0.62, 0.3)
-const AGUA := Color(0.35, 0.95, 0.85)
-const TINTA := Color(0.93, 0.94, 0.9)
-const APAGADO := Color(0.62, 0.68, 0.66)
 const DICAS := [
 	"Mergulhar, a chuva e voar rente à água esfriam o motor.",
 	"Segure o pulo para decolar reto e sair voando.",
@@ -66,355 +50,343 @@ const COMANDOS := [
 	["Nadar: subir · descer", "{@x} · {@o}", "{@k_espaco} · {@k_c}"],
 	["Pausa · medidor", "{@options} · {@create}", "{@k_esc} · {@k_f3}"],
 ]
-
 const SUBTITULO := "Fagulha · Em Busca do Sossego"
+
+# a cor de cada escolha (o círculo da figura): quem não lê acha pela figura e pela cor
+const COR := {"continuar": Tablet.LARANJA_V, "comandos": Tablet.AZUL, "simulacao": Color(0.3, 0.65, 0.65), "ajustes": Color(0.45, 0.55, 0.6),
+	"sair": Tablet.CINZA, "historia": Tablet.LILAS, "novo": Color(0.85, 0.6, 0.2), "acordar": Color(0.92, 0.58, 0.12), "casa": Tablet.VERDE,
+	"voltar": Tablet.CINZA, "apagar": Tablet.RUBI}
+const VERDE_AGUA := Color(0.3, 0.65, 0.65)
+const PETROLEO := Color(0.2, 0.5, 0.5)
+const MAQUINAS := ["sentinela", "zangão", "robô", "máquina", "drone", "torre", "vigia", "aranha", "besouro", "carcaça"]
 
 var armadura: Armadura
 var na_simulacao := false  # a pausa do tutorial: "Acordar" no lugar de "Voltar à base"
 var aberturas := 0  # quantas vezes abriu (testes)
-var _cartao: PanelContainer
-var _inicio: Control
-var _pagina_comandos: Control
-var _primeiro: Button
-var _botao_comandos: Button
-var _botao_vibra: Button
-var _botao_ajustes: Button
-var _botao_qualidade: Button
-var _botao_sens: Button
-var _botao_eixo: Button
-var _botao_apagar: Button
-var _voltar_ajustes: Button
-var _pagina_ajustes: Control
-var _botao_sair: Button
-var _voltar_comandos: Button
-var _dica: Label
-var _colunas: Array[TextoBotoes] = []  # as células de botão da tabela (trocam com a aba)
-var _aba_controle: Button
-var _aba_teclado: Button
-var _saindo := false
-var _titulo: Label
-var _subtitulo: Label
-var _botao_voltar: Button
-var _pagina_caderno: Control
-var _botao_caderno: Button
-var _caderno_mapa: MapaCaderno
-var _caderno_contas: Label
-var _caderno_memorias: GridContainer
-var _caderno_texto: Label
-var _caderno_scanner: Label
-var _voltar_caderno: Button
 var abertura := false  # a pausa fazendo de tela de abertura (ao abrir o jogo): Continuar ou Começar, Novo jogo, Ajustes, Sair
-var _botao_novo: Button
-var _botao_mundo: Button
 var avisos_controle := 0  # quantas vezes a pausa abriu por o controle ter desconectado (testes)
-var _so_caderno := false  # o caderno abriu sozinho (touchpad / M): voltar fecha e solta o jogo
-var _rodape: Label
 var cadernos := 0  # quantas vezes o caderno abriu pelo botão próprio (testes)
-# a telinha de Sim e Não que confirma sair, começar um jogo novo e apagar o progresso (2026-11-20; antes era
-# "aperte de novo" escrito no próprio botão, comprido demais com a letra grande)
+var albuns := 0  # quantas vezes o álbum abriu (testes)
+var perguntas_acordar := 0  # testes
+
+var _fundo: ColorRect
+var _cartao: TabletCasca
+var _titulo: Label  # o nome da tela (os testes leem; a barra de cima e o cabeçalho mostram)
+var _subtitulo: Label
+var _dica: Label  # a dica do drone desta abertura
+var _saindo := false
+var _so_caderno := false  # o caderno abriu sozinho (touchpad / M): voltar fecha e solta o jogo
+
+# a página inicial
+var _inicio: Control
+var _primeiro: BotaoTablet
+var _botao_historia: BotaoTablet  # na tela de abertura: rever o prólogo (Historia)
+var _botao_novo: BotaoTablet
+var _botao_mundo: BotaoTablet
+var _botao_voltar: BotaoTablet
+var _botao_caderno: BotaoTablet  # o caderno saiu da lista (tem botão próprio); fica nulo
+var _botao_comandos: BotaoTablet
+var _botao_ajustes: BotaoTablet
+var _botao_sair: BotaoTablet
+
+# ajustes
+var _pagina_ajustes: Control
+var _botao_qualidade: BotaoTablet
+var _botao_sens: BotaoTablet
+var _botao_eixo: BotaoTablet
+var _botao_vibra: BotaoTablet
+var _voltar_ajustes: BotaoTablet
+var _botao_apagar: BotaoTablet
+var _ajuste_sel := "qualidade"
+
+# comandos
+var _pagina_comandos: Control
+var _aba_controle: BotaoTablet
+var _aba_teclado: BotaoTablet
+var _voltar_comandos: BotaoTablet
+var _aba_comandos := 1  # 1 controle, 2 teclado e mouse
+
+# caderno e álbum
+var _pagina_caderno: Control
+var _pilulas_caderno: Control  # Mapa, Memórias e Álbum (servem às duas páginas)
+var _pilulas: Array[BotaoTablet] = []
+var _caderno_mapa: MapaCaderno
+var _caderno_contas: Label  # a conta em texto (os testes leem)
+var _caderno_memorias: Control  # um botão por memória lida
+var _voltar_caderno: BotaoTablet
+var _botao_album: BotaoTablet
+var _pagina_album: PaginaAlbum
+var _voltar_album: BotaoTablet
+var _aba_caderno := 0  # 0 mapa, 1 memórias, 2 álbum
+var _mem_sel := ""
+
+# a telinha de Sim e Não que confirma sair, começar um jogo novo e apagar o progresso
 var _confirma: ColorRect
-var _confirma_caixa: PanelContainer
-var _confirma_figura: IconeMenu
-var _confirma_pergunta: Label
-var _confirma_frase: Label
-var _confirma_nao: Button
-var _confirma_sim: Button
+var _confirma_caixa: TabletCasca
+var _confirma_nao: BotaoTablet
+var _confirma_sim: BotaoTablet
 var _confirma_acao := ""  # "sair", "apagar", "novo" ou "acordar"
 var _confirma_volta: Control  # o botão que abriu a telinha, para o foco voltar a ele no "Não"
 var _confirma_so := false  # a telinha abriu sozinha, sem a pausa atrás (o "Hora de acordar?" do fim do treino básico)
-var _fundo: ColorRect
-var _botao_historia: Button  # na tela de abertura: rever o prólogo (Historia)
-var perguntas_acordar := 0  # testes
-
-
-## As figuras dos botões da pausa, desenhadas (no estilo dos ícones dos cartões): acendem em laranja com o foco.
-class IconeMenu extends Control:
-	const ESCURO := Color(0.06, 0.09, 0.1)
-	var tipo := ""
-	var cor := Color(0.93, 0.94, 0.9)
-
-	## `lado`: o tamanho em pixels; o desenho é feito em 36 e escalado (a telinha de confirmação usa 64).
-	func _init(t: String, lado := 36.0) -> void:
-		tipo = t
-		custom_minimum_size = Vector2(lado, lado)
-		size = Vector2(lado, lado)
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	func _draw() -> void:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * (size.x / 36.0))
-		var c := Vector2(18, 18)
-		var r := 17.0
-		match tipo:
-			"sim":
-				draw_polyline(PackedVector2Array([c + Vector2(-r * 0.62, r * 0.02), c + Vector2(-r * 0.15, r * 0.5), c + Vector2(r * 0.68, -r * 0.5)]), cor, 3.5, true)
-			"nao":
-				draw_line(c + Vector2(-r * 0.5, -r * 0.5), c + Vector2(r * 0.5, r * 0.5), cor, 3.5, true)
-				draw_line(c + Vector2(r * 0.5, -r * 0.5), c + Vector2(-r * 0.5, r * 0.5), cor, 3.5, true)
-			"continuar":
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.45, -r * 0.62), c + Vector2(r * 0.68, 0), c + Vector2(-r * 0.45, r * 0.62)]), cor)
-			"comandos":
-				# um controle: corpo, duas pegadas, a cruz à esquerda e dois botões à direita
-				draw_rect(Rect2(c.x - r * 0.62, c.y - r * 0.42, r * 1.24, r * 0.7), cor)
-				draw_circle(c + Vector2(-r * 0.62, -r * 0.07), r * 0.35, cor)
-				draw_circle(c + Vector2(r * 0.62, -r * 0.07), r * 0.35, cor)
-				draw_circle(c + Vector2(-r * 0.72, r * 0.3), r * 0.26, cor)
-				draw_circle(c + Vector2(r * 0.72, r * 0.3), r * 0.26, cor)
-				draw_rect(Rect2(c.x - r * 0.78, c.y - r * 0.13, r * 0.38, r * 0.12), ESCURO)
-				draw_rect(Rect2(c.x - r * 0.65, c.y - r * 0.26, r * 0.12, r * 0.38), ESCURO)
-				draw_circle(c + Vector2(r * 0.5, -r * 0.18), r * 0.09, ESCURO)
-				draw_circle(c + Vector2(r * 0.7, r * 0.0), r * 0.09, ESCURO)
-			"simulacao":
-				# um cubo de arame, como o chão do holograma
-				var t := r * 0.85
-				var pts := PackedVector2Array([c + Vector2(0, -t), c + Vector2(t * 0.87, -t * 0.5), c + Vector2(t * 0.87, t * 0.5),
-					c + Vector2(0, t), c + Vector2(-t * 0.87, t * 0.5), c + Vector2(-t * 0.87, -t * 0.5), c + Vector2(0, -t)])
-				draw_polyline(pts, cor, 2.5, true)
-				draw_polyline(PackedVector2Array([c + Vector2(-t * 0.87, -t * 0.5), c, c + Vector2(t * 0.87, -t * 0.5)]), cor, 2.5, true)
-				draw_line(c, c + Vector2(0, t), cor, 2.5, true)
-			"ajustes":
-				for k in 8:
-					var ang := k * TAU / 8.0
-					var dir := Vector2.from_angle(ang)
-					var lado := dir.orthogonal()
-					var base := c + dir * r * 0.55
-					var ponta := c + dir * r * 0.92
-					draw_colored_polygon(PackedVector2Array([base + lado * r * 0.2, ponta + lado * r * 0.14, ponta - lado * r * 0.14, base - lado * r * 0.2]), cor)
-				draw_circle(c, r * 0.62, cor)
-				draw_circle(c, r * 0.24, ESCURO)
-			"sair":
-				# uma porta e a seta saindo por ela
-				draw_rect(Rect2(c.x - r * 0.75, c.y - r * 0.8, r * 0.85, r * 1.6), cor, false, 2.5)
-				draw_circle(c + Vector2(-r * 0.12, r * 0.05), r * 0.08, cor)
-				draw_line(c + Vector2(-r * 0.05, 0), c + Vector2(r * 0.85, 0), cor, 2.5, true)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.95, 0), c + Vector2(r * 0.6, -r * 0.3), c + Vector2(r * 0.6, r * 0.3)]), cor)
-			"novo":
-				var p4 := PackedVector2Array()
-				for k in 8:
-					p4.append(c + Vector2.from_angle(k * TAU / 8.0 - PI * 0.5) * (r * 0.9 if k % 2 == 0 else r * 0.28))
-				draw_colored_polygon(p4, cor)
-			"acordar":
-				draw_circle(c, r * 0.4, cor)
-				for k in 8:
-					var d := Vector2.from_angle(k * TAU / 8.0)
-					draw_line(c + d * r * 0.6, c + d * r * 0.92, cor, 2.5, true)
-			"casa":
-				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r * 0.85), c + Vector2(r * 0.85, -r * 0.05), c + Vector2(-r * 0.85, -r * 0.05)]), cor)
-				draw_rect(Rect2(c.x - r * 0.6, c.y - r * 0.1, r * 1.2, r * 0.85), cor)
-				draw_rect(Rect2(c.x - r * 0.17, c.y + r * 0.25, r * 0.34, r * 0.5), ESCURO)
-			"voltar":
-				draw_line(c + Vector2(r * 0.8, 0), c + Vector2(-r * 0.5, 0), cor, 3.0, true)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.85, 0), c + Vector2(-r * 0.35, -r * 0.45), c + Vector2(-r * 0.35, r * 0.45)]), cor)
-			"historia":
-				# um livro aberto: duas páginas inclinadas e a lombada no meio
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.06, -r * 0.5), c + Vector2(-r * 0.88, -r * 0.62), c + Vector2(-r * 0.88, r * 0.5), c + Vector2(-r * 0.06, r * 0.62)]), cor)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.06, -r * 0.5), c + Vector2(r * 0.88, -r * 0.62), c + Vector2(r * 0.88, r * 0.5), c + Vector2(r * 0.06, r * 0.62)]), cor)
-				for k in 3:
-					var yy := -r * 0.28 + k * r * 0.26
-					draw_line(c + Vector2(-r * 0.72, yy - r * 0.08), c + Vector2(-r * 0.22, yy), ESCURO, 1.6, true)
-					draw_line(c + Vector2(r * 0.22, yy), c + Vector2(r * 0.72, yy - r * 0.08), ESCURO, 1.6, true)
-			"apagar":
-				# uma lixeira
-				draw_rect(Rect2(c.x - r * 0.55, c.y - r * 0.45, r * 1.1, r * 1.25), cor, false, 2.5)
-				draw_line(c + Vector2(-r * 0.8, -r * 0.62), c + Vector2(r * 0.8, -r * 0.62), cor, 2.5, true)
-				draw_rect(Rect2(c.x - r * 0.22, c.y - r * 0.85, r * 0.44, r * 0.22), cor)
-				for k in 3:
-					var x := c.x + (k - 1) * r * 0.3
-					draw_line(Vector2(x, c.y - r * 0.2), Vector2(x, c.y + r * 0.6), cor, 2.0, true)
+var _confirma_texto: Array = ["sair", "", ""]  # [figura, pergunta, frase]
 
 
 func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_fundo = ColorRect.new()
-	_fundo.color = Color(0.02, 0.06, 0.07, 0.78)
+	_fundo.color = Color(0.01, 0.03, 0.05, 0.5)
 	_fundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_fundo)
-	var centro := CenterContainer.new()
-	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_fundo.add_child(centro)
-	_cartao = PanelContainer.new()
-	_cartao.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.96), 8, 32, Color(0.2, 0.3, 0.31)))
-	centro.add_child(_cartao)
-	var pilha := VBoxContainer.new()
-	pilha.add_theme_constant_override("separation", 18)
-	_cartao.add_child(pilha)
-	# cabeçalho
-	var topo := VBoxContainer.new()
-	topo.add_theme_constant_override("separation", 2)
-	pilha.add_child(topo)
-	_titulo = _texto("Pausa", T_TITULO, TINTA)
-	topo.add_child(_titulo)
-	_subtitulo = _texto(SUBTITULO, T_SUB, APAGADO)
-	topo.add_child(_subtitulo)
-	# página inicial: cada botão com uma figura à esquerda (quem não lê acha pela figura)
-	_inicio = VBoxContainer.new()
-	_inicio.add_theme_constant_override("separation", 10)
-	pilha.add_child(_inicio)
-	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true, "continuar")
-	if not na_simulacao:
-		_botao_historia = _botao(_inicio, "A história", "o começo da ilha, de novo", _ver_historia, false, "historia")
-		_botao_historia.visible = false
-	_botao_novo = _botao(_inicio, "Novo jogo", "apaga o progresso e começa do zero", _novo_jogo, false, "novo")
-	_botao_novo.visible = false
-	if na_simulacao:
-		_botao_mundo = _botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false), false, "acordar")
-	# "Voltar à base" saiu da pausa do jogo (pedido do usuário, 2026-11-20); na simulação fica o "Voltar ao começo"
-	if na_simulacao:
-		_botao_voltar = _botao(_inicio, "Voltar ao começo", "reaparece no começo", _voltar, false, "casa")
-	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos, false, "comandos")
-	# o Caderno saiu da pausa: tem botão próprio, o touchpad / M (pedido do usuário, 2026-11-20)
-	if not na_simulacao:
-		_botao_mundo = _botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true), false, "simulacao")
-	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes, false, "ajustes")
-	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair, false, "sair")
-	# página de ajustes: o valor fica à direita, entre setas; o direcional para os lados muda. Apagar o progresso
-	# fica separado, no fim e em vermelho
-	_pagina_ajustes = VBoxContainer.new()
-	_pagina_ajustes.add_theme_constant_override("separation", 10)
-	_pagina_ajustes.visible = false
-	pilha.add_child(_pagina_ajustes)
-	_botao_qualidade = _botao(_pagina_ajustes, "Qualidade do desenho", "", _mudar_ajuste.bind("qualidade", 1), true)
-	_botao_sens = _botao(_pagina_ajustes, "Sensibilidade da câmera", "", _mudar_ajuste.bind("sensibilidade", 1))
-	_botao_eixo = _botao(_pagina_ajustes, "Olhar para cima e para baixo", "", _mudar_ajuste.bind("inverter_y", 1))
-	_botao_vibra = _botao(_pagina_ajustes, "Vibração do controle", "", _mudar_ajuste.bind("vibra", 1))
-	for par: Array in [[_botao_qualidade, "qualidade"], [_botao_sens, "sensibilidade"], [_botao_eixo, "inverter_y"], [_botao_vibra, "vibra"]]:
-		var bt: Button = par[0]
-		var chave: String = par[1]
-		bt.gui_input.connect(func(ev: InputEvent) -> void:
-			if ev.is_action_pressed("ui_left") or ev.is_action_pressed("ui_right"):
-				_mudar_ajuste(chave, -1 if ev.is_action_pressed("ui_left") else 1, false)
-				bt.accept_event())
-	_voltar_ajustes = _botao(_pagina_ajustes, "Voltar", "", _fechar_ajustes, false, "voltar")
-	var vao := Control.new()
-	vao.custom_minimum_size = Vector2(0, 26)
-	_pagina_ajustes.add_child(vao)
-	_botao_apagar = _botao(_pagina_ajustes, APAGAR, "o jogo recomeça do zero", _apagar, false, "apagar")
-	_pintar_perigo(_botao_apagar)
-	_escrever_ajustes()
-	# página do caderno: só o que já foi feito (nada do que falta aparece). Abre sozinha pelo touchpad / M
-	_pagina_caderno = VBoxContainer.new()
-	_pagina_caderno.add_theme_constant_override("separation", 12)
-	_pagina_caderno.visible = false
-	pilha.add_child(_pagina_caderno)
-	var lado_a_lado := HBoxContainer.new()
-	lado_a_lado.add_theme_constant_override("separation", 28)
-	_pagina_caderno.add_child(lado_a_lado)
-	_caderno_mapa = MapaCaderno.new()
-	lado_a_lado.add_child(_caderno_mapa)
-	var direita := VBoxContainer.new()
-	direita.add_theme_constant_override("separation", 10)
-	direita.custom_minimum_size = Vector2(LARG_CADERNO, 0)
-	lado_a_lado.add_child(direita)
-	_caderno_contas = _texto("", T_EXPLICA + 2, TINTA)
-	_caderno_contas.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_caderno_contas.custom_minimum_size = Vector2(LARG_CADERNO, 0)
-	direita.add_child(_caderno_contas)
-	direita.add_child(_texto("MEMÓRIAS LIDAS", T_GRUPO, AGUA))
-	_caderno_memorias = GridContainer.new()
-	_caderno_memorias.columns = 3  # as 12 memórias em 4 linhas, para a página caber com o mapa grande
-	_caderno_memorias.add_theme_constant_override("h_separation", 8)
-	_caderno_memorias.add_theme_constant_override("v_separation", 8)
-	direita.add_child(_caderno_memorias)
-	_caderno_texto = _texto("", T_EXPLICA + 1, APAGADO)
-	_caderno_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_caderno_texto.custom_minimum_size = Vector2(LARG_CADERNO, 150)
-	direita.add_child(_caderno_texto)
-	direita.add_child(_texto("O SCANNER JÁ LEU", T_GRUPO, AGUA))
-	_caderno_scanner = _texto("", T_EXPLICA, APAGADO)
-	_caderno_scanner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_caderno_scanner.custom_minimum_size = Vector2(LARG_CADERNO, 0)
-	direita.add_child(_caderno_scanner)
-	_voltar_caderno = _botao(_pagina_caderno, "Voltar", "", _fechar_caderno, true, "voltar")
-	# página de comandos: duas tabelas lado a lado (chão e ar; combate e outros), para caber com letra grande
-	_pagina_comandos = VBoxContainer.new()
-	_pagina_comandos.add_theme_constant_override("separation", 12)
-	_pagina_comandos.visible = false
-	pilha.add_child(_pagina_comandos)
-	var abas := HBoxContainer.new()
-	abas.add_theme_constant_override("separation", 8)
-	_pagina_comandos.add_child(abas)
-	_aba_controle = _aba(abas, "Controle", func() -> void: _mostrar_aba(1))
-	_aba_teclado = _aba(abas, "Teclado e mouse", func() -> void: _mostrar_aba(2))
-	var duas := HBoxContainer.new()
-	duas.add_theme_constant_override("separation", 48)
-	_pagina_comandos.add_child(duas)
-	var tabela: GridContainer = null
-	for linha: Array in COMANDOS:
-		var titulo_grupo: bool = String(linha[1]) == ""
-		if tabela == null or String(linha[0]) == "COMBATE":
-			tabela = GridContainer.new()
-			tabela.columns = 2
-			tabela.add_theme_constant_override("h_separation", 28)
-			tabela.add_theme_constant_override("v_separation", 2)
-			duas.add_child(tabela)
-		var acao := _texto(linha[0], T_GRUPO if titulo_grupo else T_TABELA, AGUA if titulo_grupo else TINTA)
-		acao.custom_minimum_size = Vector2(290, 0)
-		tabela.add_child(acao)
-		var tecla := TextoBotoes.new()
-		tecla.tamanho = T_TABELA
-		tecla.cor = LARANJA
-		tecla.forcar = 1
-		tabela.add_child(tecla)
-		_colunas.append(tecla)
-	_voltar_comandos = _botao(_pagina_comandos, "Voltar", "", _fechar_comandos, true, "voltar")
-	_mostrar_aba(1)
-	# rodapé: a dica e como mexer no menu
-	var linha_fina := ColorRect.new()
-	linha_fina.color = Color(0.35, 0.95, 0.85, 0.22)
-	linha_fina.custom_minimum_size = Vector2(0, 1)
-	pilha.add_child(linha_fina)
-	_dica = _texto("", T_DICA, APAGADO)
-	_dica.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_dica.custom_minimum_size = Vector2(640, 0)
-	pilha.add_child(_dica)
-	_rodape = _texto("X ou Enter: escolher   ·   O ou Esc: voltar", T_RODAPE, Color(0.55, 0.61, 0.6))
-	pilha.add_child(_rodape)
+	_cartao = TabletCasca.new()
+	_cartao.barra = false  # cada tela põe a barra de cima onde faz sentido
+	_cartao.anchor_left = 0.5
+	_cartao.anchor_right = 0.5
+	_cartao.anchor_top = 0.5
+	_cartao.anchor_bottom = 0.5
+	_cartao.offset_left = -Tablet.TAM.x * 0.5
+	_cartao.offset_right = Tablet.TAM.x * 0.5
+	_cartao.offset_top = -Tablet.TAM.y * 0.5
+	_cartao.offset_bottom = Tablet.TAM.y * 0.5
+	_cartao.pintor = _pintar
+	_fundo.add_child(_cartao)
+	# os textos que os testes e a barra de cima leem (não aparecem como Label)
+	_titulo = _rotulo("Pausa")
+	_subtitulo = _rotulo(SUBTITULO)
+	_dica = _rotulo("")
+	_montar_inicio()
+	_montar_ajustes()
+	_montar_comandos()
+	_montar_caderno()
 	_montar_confirma()
 	visible = false
 	Input.joy_connection_changed.connect(_controle_mudou)
 
 
+func _rotulo(t: String) -> Label:
+	var l := Label.new()
+	l.text = t
+	l.visible = false
+	_cartao.add_child(l)
+	return l
+
+
+func _pagina() -> Control:
+	var p := Control.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size = Tablet.TAM
+	p.visible = false
+	_cartao.add_child(p)
+	return p
+
+
+## Uma escolha grande: a figura num círculo de cor, o nome e uma linha curta dizendo o que faz. A explicação
+## fica num Label "explica" escondido (quem lê é o desenho), como nos botões de antes.
+func _botao(pai: Control, nome: String, explica: String, acao: Callable, icone := "") -> BotaoTablet:
+	var b := BotaoTablet.new()
+	b.estilo = "opcao"
+	b.text = nome
+	b.icone = icone
+	b.cor = COR.get(icone, Tablet.LARANJA_V)
+	b.set_meta("nome", nome)
+	b.set_meta("explica", explica)
+	var ex := Label.new()
+	ex.name = "explica"
+	ex.text = explica
+	ex.visible = false
+	b.add_child(ex)
+	b.pressed.connect(acao)
+	b.mouse_entered.connect(b.grab_focus)
+	pai.add_child(b)
+	return b
+
+
+## Uma pílula pequena (abas e o Voltar do canto).
+func _pilula(pai: Control, nome: String, icone: String, cor: Color, r: Rect2, acao: Callable, foca := true) -> BotaoTablet:
+	var b := BotaoTablet.new()
+	b.estilo = "pilula"
+	b.text = nome
+	b.icone = icone
+	b.cor = cor
+	b.position = r.position
+	b.size = r.size
+	b.focus_mode = Control.FOCUS_ALL if foca else Control.FOCUS_NONE
+	b.pressed.connect(acao)
+	if foca:
+		b.mouse_entered.connect(b.grab_focus)
+	pai.add_child(b)
+	return b
+
+
+## O Voltar do canto de baixo da tela da direita (o círculo e o Esc também voltam).
+func _voltar_canto(pai: Control, acao: Callable) -> BotaoTablet:
+	var R := Tablet.DIR
+	var b := _pilula(pai, "Voltar", "voltar", Tablet.CINZA, Rect2(R.end.x - 132, R.end.y - 56, 116, 38), acao)
+	b.estilo = "livre"
+	b.pintor = func(c: Control, r: Rect2, foco: bool, sobre: bool) -> void:
+		Tablet.caixa(c, r, Color(Tablet.TINTA, 0.12 if sobre else 0.07), int(r.size.y * 0.5))
+		Tablet.pilula(c, r, "voltar", "Voltar", Tablet.CINZA, false, foco)
+	return b
+
+
+# ------------------------------------------------------------------ montagem
+
+func _montar_inicio() -> void:
+	_inicio = _pagina()
+	_inicio.visible = true
+	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, "continuar")
+	if not na_simulacao:
+		_botao_historia = _botao(_inicio, "A história", "o começo da ilha, de novo", _ver_historia, "historia")
+		_botao_historia.visible = false
+	_botao_novo = _botao(_inicio, "Novo jogo", "começa do zero", _novo_jogo, "novo")
+	_botao_novo.visible = false
+	if na_simulacao:
+		_botao_mundo = _botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false), "acordar")
+		# "Voltar à base" saiu da pausa do jogo (pedido do usuário, 2026-11-20); na simulação fica o "Voltar ao começo"
+		_botao_voltar = _botao(_inicio, "Voltar ao começo", "reaparece no começo", _voltar, "casa")
+	_botao_comandos = _botao(_inicio, "Comandos", "controle e teclado", _abrir_comandos, "comandos")
+	if not na_simulacao:
+		_botao_mundo = _botao(_inicio, "Simulação", "treinar os comandos de novo", _trocar_mundo.bind(true), "simulacao")
+	_botao_ajustes = _botao(_inicio, "Ajustes", "qualidade, câmera, vibração", _abrir_ajustes, "ajustes")
+	_botao_sair = _botao(_inicio, "Sair do jogo", "guarda o progresso", _sair, "sair")
+
+
+## Arruma as escolhas da página inicial: na pausa, na tela da esquerda; na abertura, na da direita (a esquerda
+## é o fundo de tela), com o Continuar grande e o que a partida já tem.
+func _arrumar_inicio() -> void:
+	var L := Tablet.ESQ
+	var R := Tablet.DIR
+	var y := (R.position.y + 64.0) if abertura else (L.position.y + 148.0)
+	var x := (R.position.x + 16.0) if abertura else (L.position.x + 16.0)
+	var w := (R.size.x if abertura else L.size.x) - 32.0
+	for b: BotaoTablet in [_primeiro, _botao_historia, _botao_novo, _botao_mundo, _botao_voltar, _botao_comandos, _botao_ajustes, _botao_sair]:
+		if b == null or not b.visible:
+			continue
+		var alto := 86.0
+		if abertura:
+			# o Continuar grande mostra o que a partida já tem; sem partida (Começar), fica do tamanho dos outros
+			alto = (150.0 if tem_partida() else 96.0) if b == _primeiro else 78.0
+		b.estilo = "livre" if abertura and b == _primeiro else "opcao"
+		b.pintor = _pintar_continuar_grande
+		b.position = Vector2(x, y)
+		b.size = Vector2(w, alto)
+		y += alto + (16.0 if abertura and b == _primeiro else (10.0 if abertura else 12.0))
+
+
+func _montar_ajustes() -> void:
+	_pagina_ajustes = _pagina()
+	var L := Tablet.ESQ
+	var x0 := L.position.x + 16
+	var w := L.size.x - 32
+	var y := L.position.y + 112.0
+	_botao_qualidade = _linha_ajuste("qualidade", "Qualidade do desenho", "imagem", Tablet.AZUL, Rect2(x0, y, w, 118))
+	y += 128
+	_botao_sens = _linha_ajuste("sensibilidade", "Sensibilidade da câmera", "cam_sens", VERDE_AGUA, Rect2(x0, y, w, 118))
+	y += 128
+	_botao_eixo = _linha_ajuste("inverter_y", "Olhar para cima e para baixo", "setas_v", Tablet.LILAS, Rect2(x0, y, w, 118))
+	y += 128
+	_botao_vibra = _linha_ajuste("vibra", "Vibração do controle", "vibra", Color(0.85, 0.6, 0.2), Rect2(x0, y, w, 74))
+	y += 84
+	_voltar_ajustes = _botao(_pagina_ajustes, "Voltar", "", _fechar_ajustes, "voltar")
+	_voltar_ajustes.position = Vector2(x0, y)
+	_voltar_ajustes.size = Vector2(w, 64)
+	_voltar_ajustes.focus_entered.connect(func() -> void: _ajuste_sel = "voltar")
+	# apagar o progresso fica separado, no fim e em vermelho
+	_botao_apagar = _botao(_pagina_ajustes, APAGAR, "o jogo recomeça do zero", _apagar, "apagar")
+	_botao_apagar.perigo = true
+	_botao_apagar.position = Vector2(x0, L.end.y - 106)
+	_botao_apagar.size = Vector2(w, 74)
+	_botao_apagar.focus_entered.connect(func() -> void: _ajuste_sel = "apagar")
+	_escrever_ajustes()
+
+
+## Um ajuste: a figura, o nome e o valor (em segmentos, bolinhas ou chave). O direcional para os lados muda;
+## o X passa adiante (dá a volta).
+func _linha_ajuste(chave: String, titulo: String, icone: String, cor: Color, r: Rect2) -> BotaoTablet:
+	var b := BotaoTablet.new()
+	b.estilo = "livre"
+	b.text = titulo
+	b.icone = icone
+	b.cor = cor
+	b.position = r.position
+	b.size = r.size
+	b.pintor = _pintar_ajuste.bind(chave)
+	b.pressed.connect(_mudar_ajuste.bind(chave, 1))
+	b.mouse_entered.connect(b.grab_focus)
+	b.focus_entered.connect(func() -> void: _ajuste_sel = chave)
+	b.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev.is_action_pressed("ui_left") or ev.is_action_pressed("ui_right"):
+			_mudar_ajuste(chave, -1 if ev.is_action_pressed("ui_left") else 1, false)
+			b.accept_event())
+	var ex := Label.new()
+	ex.name = "explica"
+	ex.visible = false
+	b.add_child(ex)
+	_pagina_ajustes.add_child(b)
+	return b
+
+
+func _montar_comandos() -> void:
+	_pagina_comandos = _pagina()
+	var L := Tablet.ESQ
+	_aba_controle = _pilula(_pagina_comandos, "Controle", "comandos", Tablet.AZUL, Rect2(L.position.x + 18, L.position.y + 58, 186, 38), func() -> void: _mostrar_aba(1), false)
+	_aba_teclado = _pilula(_pagina_comandos, "Teclado e mouse", "teclado", Color(0.45, 0.55, 0.6), Rect2(L.position.x + 204, L.position.y + 58, 186, 38), func() -> void: _mostrar_aba(2), false)
+	_voltar_comandos = _voltar_canto(_pagina_comandos, _fechar_comandos)
+	_mostrar_aba(1)
+
+
+func _montar_caderno() -> void:
+	var L := Tablet.ESQ
+	_pagina_caderno = _pagina()
+	_caderno_mapa = MapaCaderno.new()
+	_caderno_mapa.position = L.position + Vector2(12, 112)
+	_caderno_mapa.size = Vector2(394, 394)
+	_pagina_caderno.add_child(_caderno_mapa)
+	_caderno_memorias = Control.new()
+	_caderno_memorias.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_caderno_memorias.size = Tablet.TAM
+	_pagina_caderno.add_child(_caderno_memorias)
+	_caderno_contas = Label.new()
+	_caderno_contas.visible = false
+	_pagina_caderno.add_child(_caderno_contas)
+	_voltar_caderno = _voltar_canto(_pagina_caderno, _fechar_caderno)
+	# o álbum: uma página à parte (do tamanho do tablet), com o próprio Voltar
+	_pagina_album = PaginaAlbum.new()
+	_pagina_album.visible = false
+	_cartao.add_child(_pagina_album)
+	_voltar_album = _voltar_canto(_cartao, _fechar_album)
+	_voltar_album.visible = false
+	# as pílulas das abas do caderno, por cima das duas páginas (o mouse troca; L1 / R1 também)
+	_pilulas_caderno = Control.new()
+	_pilulas_caderno.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pilulas_caderno.size = Tablet.TAM
+	_pilulas_caderno.visible = false
+	_cartao.add_child(_pilulas_caderno)
+	var abas := [["Mapa", "mapa", VERDE_AGUA], ["Memórias", "cristal", Tablet.AMBAR], ["Álbum", "album", Tablet.LILAS]]
+	for i in abas.size():
+		var p := _pilula(_pilulas_caderno, abas[i][0], abas[i][1], abas[i][2], Rect2(L.position.x + 18 + i * 127, L.position.y + 58, 127, 38), _ir_aba_caderno.bind(i), false)
+		_pilulas.append(p)
+	_botao_album = _pilulas[2]
+
+
 ## A telinha de Sim e Não, por cima da pausa (que fica escurecida atrás). O foco não sai dos dois botões.
 func _montar_confirma() -> void:
 	_confirma = ColorRect.new()
-	_confirma.color = Color(0.01, 0.03, 0.035, 0.62)
+	_confirma.color = Color(0.0, 0.02, 0.03, 0.55)
 	_confirma.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_confirma.mouse_filter = Control.MOUSE_FILTER_STOP
 	_confirma.visible = false
 	add_child(_confirma)
-	var meio := CenterContainer.new()
-	meio.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirma.add_child(meio)
-	_confirma_caixa = PanelContainer.new()
-	meio.add_child(_confirma_caixa)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 22)
-	_confirma_caixa.add_child(col)
-	var linha := HBoxContainer.new()
-	linha.add_theme_constant_override("separation", 22)
-	col.add_child(linha)
-	_confirma_figura = IconeMenu.new("sair", 64.0)
-	_confirma_figura.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	linha.add_child(_confirma_figura)
-	var textos := VBoxContainer.new()
-	textos.add_theme_constant_override("separation", 6)
-	linha.add_child(textos)
-	_confirma_pergunta = _texto("", T_TITULO - 4, TINTA)
-	textos.add_child(_confirma_pergunta)
-	_confirma_frase = _texto("", T_EXPLICA + 2, APAGADO)
-	_confirma_frase.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_confirma_frase.custom_minimum_size = Vector2(450, 0)
-	textos.add_child(_confirma_frase)
-	var botoes := HBoxContainer.new()
-	botoes.add_theme_constant_override("separation", 16)
-	botoes.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_child(botoes)
-	_confirma_nao = _botao(botoes, "Não", "", _responder.bind(false), false, "nao")
-	_confirma_sim = _botao(botoes, "Sim", "", _responder.bind(true), false, "sim")
+	_confirma_caixa = TabletCasca.new()
+	_confirma_caixa.aberto = false
+	_confirma_caixa.barra = false
+	_confirma_caixa.pintor = _pintar_confirma
+	_confirma.add_child(_confirma_caixa)
+	_confirma_nao = _botao_resposta(false)
+	_confirma_sim = _botao_resposta(true)
 	for par: Array in [[_confirma_nao, _confirma_sim], [_confirma_sim, _confirma_nao]]:
 		var b: Button = par[0]
 		var outro: Button = par[1]
-		b.custom_minimum_size = Vector2(262, 62)
 		var ate := b.get_path_to(outro)
 		b.focus_neighbor_left = ate
 		b.focus_neighbor_right = ate
@@ -423,6 +395,613 @@ func _montar_confirma() -> void:
 		b.focus_neighbor_top = NodePath(".")
 		b.focus_neighbor_bottom = NodePath(".")
 
+
+func _botao_resposta(sim: bool) -> BotaoTablet:
+	var b := BotaoTablet.new()
+	b.estilo = "livre"
+	b.text = "Sim" if sim else "Não"
+	b.icone = "sim" if sim else "nao"
+	b.size = Vector2(200, 70)
+	b.pintor = _pintar_resposta
+	b.pressed.connect(_responder.bind(sim))
+	b.mouse_entered.connect(b.grab_focus)
+	_confirma_caixa.add_child(b)
+	return b
+
+
+# ------------------------------------------------------------------ o desenho de cada tela
+
+func _pintar(c: Control, telas: Array) -> void:
+	var L: Rect2 = telas[0]
+	var R: Rect2 = telas[1]
+	if _inicio.visible:
+		if abertura:
+			_p_abertura(c, L, R)
+		else:
+			_p_pausa(c, L, R)
+	elif _pagina_ajustes.visible:
+		_p_ajustes(c, L, R)
+	elif _pagina_comandos.visible:
+		_p_comandos(c, L, R)
+	elif _pagina_caderno.visible or _pagina_album.visible:
+		_p_caderno(c, L, R)
+
+
+func _cabecalho(c: Control, t: Rect2, titulo: String, sub := "", cor := Tablet.TINTA) -> void:
+	Tablet.texto(c, Vector2(t.position.x + 24, t.position.y + 90), titulo, 32, cor, true)
+	if sub != "":
+		Tablet.paragrafo(c, Vector2(t.position.x + 24, t.position.y + 114), sub, t.size.x - 48, 14, Color(Tablet.TINTA, 0.55), 2)
+
+
+func _p_pausa(c: Control, L: Rect2, R: Rect2) -> void:
+	var alerta := _titulo.text == "O controle desconectou"
+	Tablet.status(c, L, R, _titulo.text, Tablet.LARANJA_V if not alerta else Tablet.RUBI)
+	_cabecalho(c, L, _titulo.text, _subtitulo.text, Tablet.RUBI if alerta else Tablet.TINTA)
+	Tablet.rodape(c, L, [["x", "escolher"], ["o", "voltar"]])
+	# a direita: como está a ilha e o robô agora
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), "Agora", 26, Tablet.TINTA, true)
+	var card := Rect2(R.position.x + 16, R.position.y + 108, R.size.x - 32, 92)
+	Tablet.caixa(c, card, Color(0.98, 0.86, 0.62, 0.55), 18)
+	var h := Tablet.hora
+	var noite := h < 5.5 or h >= 18.5
+	if noite:
+		c.draw_circle(card.position + Vector2(48, 46), 14, Color(0.45, 0.5, 0.75))
+		c.draw_circle(card.position + Vector2(54, 41), 12, Color(0.98, 0.86, 0.62))
+	else:
+		Tablet.sol(c, card.position + Vector2(48, 46), 14, Color(0.92, 0.58, 0.12))
+	var periodo := "noite" if noite else ("manhã" if h < 12.0 else "tarde")
+	Tablet.texto(c, card.position + Vector2(86, 42), "%02d:%02d · %s" % [int(h), int(fmod(h, 1.0) * 60.0), periodo], 21, Tablet.TINTA, true)
+	Tablet.pino(c, card.position + Vector2(94, 66), 6, PETROLEO)
+	Tablet.texto(c, card.position + Vector2(108, 72), _lugar_agora() + " · " + _tempo_agora(), 15, Color(Tablet.TINTA, 0.65))
+	# o robô: nível, experiência e materiais
+	var rob := Rect2(R.position.x + 16, R.position.y + 212, R.size.x - 32, 150)
+	Tablet.caixa(c, rob, Color(Tablet.TINTA, 0.06), 18)
+	var nc := rob.position + Vector2(52, 52)
+	var bx := Arsenal.barra()
+	Tablet.anel(c, nc, 30, float(bx.x) / float(bx.y), 6.0)
+	Tablet.texto(c, Vector2(nc.x - 30, nc.y + 9), str(Arsenal.nivel()), 26, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, 60)
+	Tablet.texto(c, rob.position + Vector2(100, 44), "Nível %d" % Arsenal.nivel(), 20, Tablet.TINTA, true)
+	Tablet.texto(c, rob.position + Vector2(100, 68), "faltam %d de experiência" % (bx.y - bx.x), 15, Color(Tablet.TINTA, 0.6))
+	var mx := rob.position.x + 30.0
+	for par: Array in [["sucata", Arsenal.sucata], ["nucleos", Arsenal.nucleos], ["chips", Arsenal.chips]]:
+		Tablet.material(c, par[0], Vector2(mx, rob.position.y + 116), 11.0, Tablet.TINTA, 2.0)
+		Tablet.texto(c, Vector2(mx + 20, rob.position.y + 124), str(par[1]), 20, Tablet.TINTA, true)
+		mx += 118
+	# o que já achou, em quatro contas
+	var n := _contas()
+	var cw := (R.size.x - 32 - 24) / 4.0
+	var cy := R.position.y + 376.0
+	var ctas := [
+		[func(p: Vector2) -> void: Tablet.pino(c, p + Vector2(0, 4), 8, PETROLEO), "%d/%d" % [n["lugares"], n["lugares_total"]], "lugares"],
+		[func(p: Vector2) -> void: Icones.desenhar(c, "peca", p, 0.75, Tablet.TINTA, 2.0), "%d/%d" % [n["pecas"], Melhorias.NOMES.size()], "peças"],
+		[func(p: Vector2) -> void: Tablet.cristal(c, p, 11, Tablet.AMBAR), "%d/%d" % [n["memorias"], Memorias.ORDEM.size()], "memórias"],
+		[func(p: Vector2) -> void: Icones.desenhar(c, "aro", p, 0.75, Tablet.TINTA, 2.0), "%d/%d" % [n["rotas"], Rotas.ROTAS.size()], "rotas"],
+	]
+	for i in 4:
+		Tablet.conta(c, Rect2(R.position.x + 16 + i * (cw + 8), cy, cw, 104), ctas[i][0], ctas[i][1], ctas[i][2])
+	# a dica do drone colega num balão
+	if _dica.text != "":
+		var by := R.position.y + 504.0
+		Tablet.drone(c, Vector2(R.position.x + 50, by + 50), 22)
+		var balao := Rect2(R.position.x + 88, by, R.size.x - 104, 112)
+		Tablet.caixa(c, balao, Color(1, 1, 1), 18, Color(Tablet.TINTA, 0.12), 2)
+		c.draw_colored_polygon(PackedVector2Array([balao.position + Vector2(2, 40), balao.position + Vector2(-14, 52), balao.position + Vector2(2, 62)]), Color(1, 1, 1))
+		Tablet.texto(c, balao.position + Vector2(18, 28), "Dica", 14, Tablet.AZUL.darkened(0.2), true)
+		Tablet.paragrafo(c, balao.position + Vector2(18, 52), _dica.text, balao.size.x - 34, 17, Tablet.TINTA, 3)
+
+
+## O que a partida já tem (lugares, peças, memórias, rotas).
+func _contas() -> Dictionary:
+	var principal := get_parent()
+	var locais: Locais = principal.get("locais") if principal else null
+	var memorias: Memorias = principal.get("memorias") if principal else null
+	var pecas := 0
+	for nm: String in Melhorias.NOMES:
+		if Melhorias.instaladas.has(nm) or Melhorias.achadas.has(nm):
+			pecas += 1
+	var rotas := 0
+	for r: Dictionary in Rotas.ROTAS:
+		if int(Rotas.feitas.get(r["id"], 0)) >= 1:
+			rotas += 1
+	return {"lugares": locais.descobertos() if locais else 0, "lugares_total": locais.total() if locais else 0, "pecas": pecas,
+		"memorias": (memorias.lidas.size() if memorias else 0), "rotas": rotas}
+
+
+func _lugar_agora() -> String:
+	if na_simulacao:
+		return "Simulação"
+	var principal := get_parent()
+	var locais: Locais = principal.get("locais") if principal else null
+	if locais and locais.atual != "":
+		return locais.atual
+	# o lugar visto mais perto do robô
+	if locais and armadura:
+		var melhor := ""
+		var d0 := 350.0
+		for it: Dictionary in locais.lista:
+			if bool(it.get("visto", false)):
+				var d := armadura.global_position.distance_to(it["pos"])
+				if d < d0:
+					d0 = d
+					melhor = "perto de " + String(it["nome"])
+		if melhor != "":
+			return melhor
+	return "a ilha"
+
+
+func _tempo_agora() -> String:
+	var principal := get_parent()
+	var ciclo: CicloDia = principal.get("ciclo") if principal else null
+	if ciclo and (ciclo.chovendo or ciclo.chuva > 0.3):
+		return "chuva"
+	return "céu limpo"
+
+
+func _p_abertura(c: Control, L: Rect2, R: Rect2) -> void:
+	# a tela da esquerda é um fundo de tela: a ilha no fim da tarde, com o farol aceso
+	var cores := [Color(0.24, 0.32, 0.58), Color(0.55, 0.45, 0.66), Color(0.93, 0.6, 0.52), Color(1.0, 0.8, 0.55)]
+	for k in 60:
+		var t := k / 59.0
+		var cor: Color
+		if t < 0.45:
+			cor = cores[0].lerp(cores[1], t / 0.45)
+		elif t < 0.7:
+			cor = cores[1].lerp(cores[2], (t - 0.45) / 0.25)
+		else:
+			cor = cores[2].lerp(cores[3], (t - 0.7) / 0.3)
+		c.draw_rect(Rect2(L.position.x, L.position.y + t * 560, L.size.x, 10), cor)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for k in 30:
+		c.draw_circle(Vector2(rng.randf_range(L.position.x + 10, L.end.x - 10), rng.randf_range(L.position.y + 10, L.position.y + 200)), rng.randf_range(0.6, 1.5), Color(1, 1, 1, rng.randf_range(0.3, 0.8)))
+	var sol := Vector2(L.position.x + 270, L.position.y + 520)
+	Tablet.brilho(c, sol, 46, Color(1.0, 0.85, 0.5), 2.0)
+	c.draw_circle(sol, 46, Color(1.0, 0.9, 0.62))
+	var mar_y := L.position.y + 560.0
+	var longe := PackedVector2Array([Vector2(L.position.x, mar_y)])
+	for k in 21:
+		longe.append(Vector2(L.position.x + k * L.size.x / 20.0, mar_y - 40 - sin(k * 0.7) * 18 - sin(k * 1.9) * 8))
+	longe.append(Vector2(L.end.x, mar_y))
+	c.draw_colored_polygon(longe, Color(0.52, 0.46, 0.62))
+	c.draw_colored_polygon(PackedVector2Array([Vector2(L.position.x, mar_y + 2), Vector2(L.position.x, mar_y - 70), Vector2(L.position.x + 60, mar_y - 96),
+		Vector2(L.position.x + 120, mar_y - 120), Vector2(L.position.x + 170, mar_y - 90), Vector2(L.position.x + 210, mar_y - 40), Vector2(L.position.x + 240, mar_y + 2)]), Color(0.27, 0.3, 0.42))
+	var fx := L.position.x + 118.0
+	var fy := mar_y - 118.0
+	c.draw_colored_polygon(PackedVector2Array([Vector2(fx - 8, fy), Vector2(fx - 5, fy - 52), Vector2(fx + 5, fy - 52), Vector2(fx + 8, fy)]), Color(0.22, 0.24, 0.34))
+	c.draw_rect(Rect2(fx - 7, fy - 62, 14, 10), Color(0.22, 0.24, 0.34))
+	var pisca := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.003)
+	Tablet.brilho(c, Vector2(fx, fy - 57), 5, Color(1.0, 0.85, 0.4), 2.5 * pisca)
+	c.draw_circle(Vector2(fx, fy - 57), 3.5, Color(1.0, 0.92, 0.6))
+	for k in 26:
+		var t := k / 25.0
+		c.draw_rect(Rect2(L.position.x, mar_y + t * 213, L.size.x, 9), Color(0.42, 0.5, 0.72).lerp(Color(0.2, 0.26, 0.45), t))
+	for k in 14:
+		var w := 70.0 - k * 4.0
+		c.draw_line(Vector2(sol.x - w * 0.5 + rng.randf_range(-8, 8), mar_y + 10 + k * 13), Vector2(sol.x + w * 0.5 + rng.randf_range(-8, 8), mar_y + 10 + k * 13), Color(1.0, 0.85, 0.6, 0.6 - k * 0.035), 3.0)
+	# o robô voando, com as duas fitas laranja (balança devagar)
+	var robo := Vector2(L.position.x + 318, L.position.y + 262 + sin(Time.get_ticks_msec() * 0.0015) * 4.0)
+	Tablet.fita(c, Vector2(L.position.x + 30, L.position.y + 300), robo + Vector2(-7, 15), 22, Color(1.0, 0.6, 0.25), 0.3)
+	Tablet.fita(c, Vector2(L.position.x + 40, L.position.y + 318), robo + Vector2(7, 21), 22, Color(1.0, 0.6, 0.25), 0.8)
+	c.draw_set_transform(robo, 0.0, Vector2.ONE * 1.5)
+	Tablet.caixa(c, Rect2(Vector2(-9, -18), Vector2(18, 16)), Color(0.95, 0.96, 0.98), 5)
+	c.draw_rect(Rect2(Vector2(-6, -14), Vector2(12, 7)), Color(0.12, 0.16, 0.22))
+	Tablet.caixa(c, Rect2(Vector2(-8, -1), Vector2(16, 14)), Color(0.95, 0.96, 0.98), 4)
+	c.draw_rect(Rect2(Vector2(-8, 3), Vector2(16, 3)), Tablet.FRISO)
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	Tablet.cantos(c, L, 18, Tablet.CASCA)
+	Tablet.caixa(c, L.grow(3), Color(0, 0, 0, 0), 20, Tablet.MOLDURA, 3)
+	# o nome
+	Tablet.texto(c, Vector2(L.position.x + 2, L.position.y + 126), "Fagulha", 66, Color(0, 0, 0, 0.25), true, HORIZONTAL_ALIGNMENT_CENTER, L.size.x)
+	Tablet.texto(c, Vector2(L.position.x, L.position.y + 122), "Fagulha", 66, Color(1.0, 0.97, 0.9), true, HORIZONTAL_ALIGNMENT_CENTER, L.size.x)
+	Tablet.texto(c, Vector2(L.position.x, L.position.y + 160), "Em Busca do Sossego", 21, Color(1.0, 0.9, 0.78), false, HORIZONTAL_ALIGNMENT_CENTER, L.size.x)
+	Tablet.status(c, R, R, "Fagulha")
+	Tablet.rodape(c, R, [["x", "escolher"]])
+
+
+## O Continuar grande da abertura: a figura, o nome, o que faz e o que a partida já tem, em figuras.
+func _pintar_continuar_grande(b: Control, r: Rect2, foco: bool, sobre: bool) -> void:
+	Tablet.caixa(b, r, Color(1.0, 0.72, 0.3, 0.3 if foco else (0.2 if sobre else 0.14)), 20, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	var ic := Vector2(46, 48)
+	b.draw_circle(ic, 28, Tablet.LARANJA_V)
+	Tablet.icone(b, "continuar", ic, 32, Color.WHITE, Tablet.LARANJA_V)
+	Tablet.texto(b, Vector2(90, 46), (b as Button).text, 24, Tablet.TINTA, true)
+	Tablet.texto(b, Vector2(90, 70), (b as BotaoTablet).explicacao(), 15, Color(Tablet.TINTA, 0.6))
+	if foco:
+		Tablet.botao(b, "x", Vector2(r.size.x - 30, 48), 26)
+	if not tem_partida():
+		return
+	var n := _contas()
+	var sy := 112.0
+	var bx := Arsenal.barra()
+	Tablet.anel(b, Vector2(32, sy), 12, float(bx.x) / float(bx.y))
+	Tablet.texto(b, Vector2(50, sy + 6), "nível %d" % Arsenal.nivel(), 15, Tablet.TINTA, true)
+	Tablet.cristal(b, Vector2(154, sy), 9, Tablet.AMBAR)
+	Tablet.texto(b, Vector2(170, sy + 6), "%d de %d" % [n["memorias"], Memorias.ORDEM.size()], 15, Tablet.TINTA, true)
+	Icones.desenhar(b, "peca", Vector2(268, sy), 0.55, Tablet.TINTA, 2.0)
+	Tablet.texto(b, Vector2(284, sy + 6), "%d de %d" % [n["pecas"], Melhorias.NOMES.size()], 15, Tablet.TINTA, true)
+
+
+# ---- ajustes
+
+func _pintar_ajuste(b: Control, r: Rect2, foco: bool, sobre: bool, chave: String) -> void:
+	var bt := b as BotaoTablet
+	Tablet.caixa(b, r, Color(1.0, 0.72, 0.3, 0.3) if foco else Color(Tablet.TINTA, 0.05 + (0.03 if sobre else 0.0)), 18, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	var ic := Vector2(36, 34)
+	var circ := bt.cor if foco else bt.cor.lerp(Tablet.TELA, 0.8)
+	b.draw_circle(ic, 20, circ)
+	Tablet.icone(b, bt.icone, ic, 22, Color.WHITE if foco else bt.cor.darkened(0.25), circ)
+	Tablet.texto(b, Vector2(66, 41), bt.text, 19, Tablet.TINTA, true)
+	match chave:
+		"qualidade":
+			_segmentos(b, Rect2(18, 64, r.size.x - 36, 40), Qualidade.NOMES, clampi(int(Guardado.ajuste("qualidade")), 0, 2))
+		"sensibilidade":
+			var sens := clampi(int(Guardado.ajuste("sensibilidade")), 0, 4)
+			b.draw_colored_polygon(PackedVector2Array([Vector2(34, 84), Vector2(46, 76), Vector2(46, 92)]), Color(Tablet.TINTA, 0.5))
+			for k in 5:
+				b.draw_circle(Vector2(84 + k * 58, 84), 13, Tablet.LARANJA_V if k <= sens else Color(Tablet.TINTA, 0.14))
+			b.draw_colored_polygon(PackedVector2Array([Vector2(r.size.x - 34, 84), Vector2(r.size.x - 46, 76), Vector2(r.size.x - 46, 92)]), Color(Tablet.TINTA, 0.5))
+		"inverter_y":
+			_segmentos(b, Rect2(18, 64, r.size.x - 36, 40), ["normal", "invertido"], 1 if bool(Guardado.ajuste("inverter_y")) else 0)
+		"vibra":
+			var ligada := bool(Guardado.ajuste("vibra"))
+			var p := Vector2(r.size.x - 82, 20)
+			Tablet.caixa(b, Rect2(p, Vector2(64, 34)), Color(0.3, 0.62, 0.38) if ligada else Color(Tablet.TINTA, 0.2), 17)
+			b.draw_circle(p + Vector2(47 if ligada else 17, 17), 13, Color.WHITE)
+
+
+func _segmentos(c: CanvasItem, r: Rect2, nomes: Array, sel: int) -> void:
+	Tablet.caixa(c, r, Color(Tablet.TINTA, 0.08), int(r.size.y * 0.5))
+	var w := r.size.x / nomes.size()
+	for i in nomes.size():
+		var s := Rect2(r.position.x + i * w + 3, r.position.y + 3, w - 6, r.size.y - 6)
+		if i == sel:
+			Tablet.caixa(c, s, Tablet.LARANJA_V, int(s.size.y * 0.5))
+		Tablet.texto(c, Vector2(s.position.x, s.position.y + s.size.y * 0.5 + 6), String(nomes[i]), 15, Color.WHITE if i == sel else Color(Tablet.TINTA, 0.65), i == sel, HORIZONTAL_ALIGNMENT_CENTER, s.size.x)
+
+
+func _p_ajustes(c: Control, L: Rect2, R: Rect2) -> void:
+	Tablet.status(c, L, R, "Ajustes", COR["ajustes"])
+	_cabecalho(c, L, "Ajustes")
+	var nomes := {"qualidade": "Qualidade do desenho", "sensibilidade": "Sensibilidade da câmera", "inverter_y": "Olhar para cima e para baixo",
+		"vibra": "Vibração do controle", "voltar": "Ajustes", "apagar": "Apagar o progresso"}
+	var sel := _ajuste_sel
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), nomes.get(sel, "Ajustes"), 26, Tablet.RUBI if sel == "apagar" else Tablet.TINTA, true)
+	var quadro := Rect2(R.position.x + 16, R.position.y + 112, R.size.x - 32, 170)
+	var texto := ""
+	match sel:
+		"qualidade", "voltar":
+			var q := clampi(int(Guardado.ajuste("qualidade")), 0, 2)
+			var pw := (R.size.x - 32 - 16) / 3.0
+			for i in 3:
+				var pr := Rect2(R.position.x + 16 + i * (pw + 8), R.position.y + 112, pw, 170)
+				_paisagem(c, pr.grow(-4), i)
+				Tablet.caixa(c, pr, Color(0, 0, 0, 0), 14, Tablet.LARANJA if i == q else Color(Tablet.TINTA, 0.15), 4 if i == q else 2)
+				Tablet.texto(c, Vector2(pr.position.x, pr.end.y + 26), String(Qualidade.NOMES[i]), 16, Tablet.TINTA if i == q else Color(Tablet.TINTA, 0.55), i == q, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x)
+			texto = "Mais baixa: menos capim, sombras mais curtas e o jogo mais solto. Mais alta: o vale mais cheio e mais bonito."
+		"sensibilidade":
+			Tablet.caixa(c, quadro, Color(Tablet.TINTA, 0.06), 16)
+			var sens := clampi(int(Guardado.ajuste("sensibilidade")), 0, 4)
+			var cen := quadro.get_center()
+			c.draw_arc(cen, 62, 0, TAU, 48, Color(Tablet.TINTA, 0.15), 6.0, true)
+			c.draw_arc(cen, 62, -PI * 0.5, -PI * 0.5 + TAU * (sens + 1) / 5.0, 48, Tablet.LARANJA_V, 6.0, true)
+			Tablet.icone(c, "cam_sens", cen, 64, VERDE_AGUA, Tablet.TELA)
+			texto = "Quanto a câmera gira com o analógico direito e com o mouse. Mais bolinhas: gira mais depressa."
+		"inverter_y":
+			var inv := bool(Guardado.ajuste("inverter_y"))
+			for i in 2:
+				var pr := Rect2(quadro.position.x + i * (quadro.size.x * 0.5 + 4), quadro.position.y, quadro.size.x * 0.5 - 4, quadro.size.y)
+				var e_sel := (i == 1) == inv
+				Tablet.caixa(c, pr, Color(Tablet.TINTA, 0.06), 14, Tablet.LARANJA if e_sel else Color(0, 0, 0, 0), 4 if e_sel else 0)
+				var s := pr.position + Vector2(pr.size.x * 0.3, pr.size.y * 0.5)
+				c.draw_circle(s, 22, Color(Tablet.TINTA, 0.15))
+				c.draw_circle(s + Vector2(0, -10), 12, Tablet.TINTA)
+				c.draw_colored_polygon(PackedVector2Array([s + Vector2(0, -44), s + Vector2(-8, -32), s + Vector2(8, -32)]), Tablet.LARANJA_V)
+				var olho := pr.position + Vector2(pr.size.x * 0.72, pr.size.y * 0.5)
+				c.draw_arc(olho, 14, PI * 0.15, PI * 0.85, 12, Tablet.TINTA, 2.5, true)
+				c.draw_arc(olho, 14, -PI * 0.85, -PI * 0.15, 12, Tablet.TINTA, 2.5, true)
+				c.draw_circle(olho, 5, Tablet.TINTA)
+				var d := -1.0 if i == 0 else 1.0
+				c.draw_colored_polygon(PackedVector2Array([olho + Vector2(0, d * 40), olho + Vector2(-8, d * 28), olho + Vector2(8, d * 28)]), Tablet.LARANJA_V)
+				Tablet.texto(c, Vector2(pr.position.x, pr.end.y + 26), "normal" if i == 0 else "invertido", 16, Tablet.TINTA if e_sel else Color(Tablet.TINTA, 0.55), e_sel, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x)
+			texto = "Invertido: empurrar o analógico para a frente olha para baixo, como num avião."
+		"vibra":
+			Tablet.caixa(c, quadro, Color(Tablet.TINTA, 0.06), 16)
+			var cen := quadro.get_center()
+			Tablet.icone(c, "comandos", cen, 96, Tablet.TINTA, Tablet.TELA)
+			if bool(Guardado.ajuste("vibra")):
+				for k in 3:
+					c.draw_arc(cen, 62 + k * 12, -0.5, 0.5, 10, Color(0.85, 0.6, 0.2, 0.8 - k * 0.2), 3.0, true)
+					c.draw_arc(cen, 62 + k * 12, PI - 0.5, PI + 0.5, 10, Color(0.85, 0.6, 0.2, 0.8 - k * 0.2), 3.0, true)
+			texto = "O controle treme nos golpes, no pouso e nos tiros."
+		"apagar":
+			Tablet.caixa(c, quadro, Color(Tablet.RUBI, 0.08), 16, Color(Tablet.RUBI, 0.4), 2)
+			Tablet.icone(c, "apagar", quadro.get_center(), 80, Tablet.RUBI, Tablet.TELA)
+			texto = "Peças, lugares, memórias e materiais somem, e o jogo recomeça do zero. Pergunta antes; não dá para desfazer."
+	Tablet.paragrafo(c, Vector2(R.position.x + 24, R.position.y + 352), texto, R.size.x - 48, 18, Tablet.TINTA, 4)
+	if sel in ["qualidade", "sensibilidade", "inverter_y", "vibra"]:
+		var dica := Rect2(R.position.x + 16, R.position.y + 470, R.size.x - 32, 70)
+		Tablet.caixa(c, dica, Color(Tablet.TINTA, 0.06), 16)
+		Tablet.botao(c, "esq", dica.position + Vector2(34, 35), 28)
+		Tablet.botao(c, "dir", dica.position + Vector2(70, 35), 28)
+		Tablet.texto(c, dica.position + Vector2(98, 42), "mudam o valor", 17, Tablet.TINTA, true)
+	Tablet.rodape(c, R, [["x", "mudar" if sel in ["qualidade", "sensibilidade", "inverter_y", "vibra"] else "escolher"], ["o", "voltar"]])
+
+
+## Uma paisagenzinha para comparar a qualidade: mais árvores, capim e sombra a cada degrau.
+func _paisagem(c: CanvasItem, r: Rect2, q: int) -> void:
+	for k in 12:
+		var t := k / 11.0
+		c.draw_rect(Rect2(r.position.x, r.position.y + t * r.size.y * 0.55, r.size.x, r.size.y * 0.06), Color(0.62, 0.8, 0.95).lerp(Color(0.9, 0.95, 0.98), t))
+	var chao := r.position.y + r.size.y * 0.58
+	c.draw_colored_polygon(PackedVector2Array([Vector2(r.position.x, chao), Vector2(r.position.x + r.size.x * 0.4, chao - 26), Vector2(r.end.x, chao - 8), Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y)]), Color(0.55, 0.72, 0.42))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var arvores: int = [2, 4, 6][q]
+	for k in arvores:
+		var ax := r.position.x + 14 + rng.randf() * (r.size.x - 28)
+		var ay := chao + 4 + rng.randf() * (r.size.y * 0.3)
+		if q >= 1:
+			c.draw_circle(Vector2(ax + 7, ay + 3), 9, Color(0.2, 0.32, 0.2, 0.35 if q == 2 else 0.2))
+		c.draw_rect(Rect2(ax - 1.5, ay - 6, 3, 8), Color(0.45, 0.32, 0.22))
+		c.draw_circle(Vector2(ax, ay - 12), 9, Color(0.28, 0.52, 0.3))
+	var capim: int = [6, 24, 60][q]
+	for k in capim:
+		var gx := r.position.x + 4 + rng.randf() * (r.size.x - 8)
+		var gy := chao + 10 + rng.randf() * (r.end.y - chao - 14)
+		c.draw_line(Vector2(gx, gy), Vector2(gx + rng.randf_range(-2, 2), gy - 6), Color(0.35, 0.55, 0.25), 1.5)
+	Tablet.cantos(c, r, 10, Tablet.TELA)
+
+
+# ---- comandos
+
+func _p_comandos(c: Control, L: Rect2, R: Rect2) -> void:
+	Tablet.status(c, L, R, "Comandos", Tablet.AZUL)
+	Tablet.caixa(c, Rect2(L.position.x + 14, L.position.y + 54, L.size.x - 28, 46), Color(Tablet.TINTA, 0.07), 23)
+	var corte := 0
+	for i in COMANDOS.size():
+		if String(COMANDOS[i][0]) == "COMBATE":
+			corte = i
+	_tabela(c, L.position.x + 14, L.position.y + 108, L.size.x - 28, COMANDOS.slice(0, corte))
+	var fim := _tabela(c, R.position.x + 14, R.position.y + 56, R.size.x - 28, COMANDOS.slice(corte))
+	var dica := Rect2(R.position.x + 14, fim + 18, R.size.x - 28, 76)
+	if dica.end.y < R.end.y - 64:
+		Tablet.caixa(c, dica, Color(Tablet.TINTA, 0.06), 16)
+		Tablet.icone(c, "teclado", dica.position + Vector2(36, 38), 30, Tablet.TINTA, Tablet.TELA)
+		Tablet.paragrafo(c, dica.position + Vector2(70, 32), "Dá para trocar entre o controle e o teclado a qualquer momento.", dica.size.x - 84, 15, Color(Tablet.TINTA, 0.75), 2)
+	Tablet.rodape(c, R, [["l1", "{@r1} aba"], ["o", "voltar"]])
+
+
+func _grupo(c: CanvasItem, x: float, y: float, w: float, nome: String, cor: Color) -> void:
+	Tablet.caixa(c, Rect2(x, y, w, 32), cor.lerp(Tablet.TELA, 0.75), 16)
+	c.draw_circle(Vector2(x + 18, y + 16), 6, cor)
+	Tablet.texto(c, Vector2(x + 32, y + 22), nome, 14, cor.darkened(0.35), true)
+
+
+func _tabela(c: CanvasItem, x: float, y: float, w: float, linhas: Array) -> float:
+	var cores := {"NO CHÃO": Tablet.VERDE, "NO AR": Tablet.AZUL, "COMBATE": Tablet.LARANJA_V, "OUTROS": Tablet.LILAS}
+	var col := _aba_comandos
+	var forcar := 1 if col == 1 else 0
+	var par := 0
+	for ln: Array in linhas:
+		if String(ln[1]) == "":
+			y += 6
+			_grupo(c, x, y, w, ln[0], cores.get(ln[0], Tablet.AZUL))
+			y += 40
+			par = 0
+			continue
+		var acao := String(ln[0])
+		var aw := Tablet.largura(acao, 15)
+		var bw := Tablet.com_botoes(c, Vector2.ZERO, ln[col], 14, Tablet.LARANJA, -1.0, true, forcar)
+		var dois := aw + bw + 20 > w - 16
+		var alt := 62.0 if dois else 38.0
+		if par % 2 == 1:
+			Tablet.caixa(c, Rect2(x, y, w, alt), Color(Tablet.TINTA, 0.045), 10)
+		Tablet.texto(c, Vector2(x + 12, y + 24), acao, 15, Tablet.TINTA)
+		Tablet.com_botoes(c, Vector2(0, y + (50.0 if dois else 24.0)), ln[col], 14, Color(0.75, 0.38, 0.08), x + w - 10, false, forcar)
+		y += alt
+		par += 1
+	return y
+
+
+# ---- caderno
+
+func _p_caderno(c: Control, L: Rect2, R: Rect2) -> void:
+	Tablet.status(c, L, R, _titulo.text, VERDE_AGUA)
+	Tablet.caixa(c, Rect2(L.position.x + 14, L.position.y + 54, L.size.x - 28, 46), Color(Tablet.TINTA, 0.07), 23)
+	if _pagina_album.visible:
+		Tablet.rodape(c, R, [["l1", "{@r1} aba"], ["o", "voltar"]])
+		return
+	if _aba_caderno == 0:
+		_p_mapa(c, L, R)
+	else:
+		_p_memorias(c, L, R)
+
+
+func _p_mapa(c: Control, L: Rect2, R: Rect2) -> void:
+	var mr := Rect2(_caderno_mapa.position, _caderno_mapa.size)
+	# a legenda, em figura
+	var ly := mr.end.y + 22.0
+	var leg := [
+		[func(p: Vector2) -> void: c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -9), p + Vector2(7, 7), p + Vector2(0, 3), p + Vector2(-7, 7)]), Tablet.LARANJA_V), "você"],
+		[func(p: Vector2) -> void: _casinha(c, p), "base"],
+		[func(p: Vector2) -> void: c.draw_circle(p, 5, Color(0.1, 0.5, 0.52)), "lugar visto"],
+		[func(p: Vector2) -> void: c.draw_circle(p, 6, Color(0.9, 0.25, 0.2)), "acampamento"],
+		[func(p: Vector2) -> void: c.draw_circle(p, 6, Color(0.3, 0.7, 0.35)), "liberado"],
+		[func(p: Vector2) -> void: Icones.desenhar(c, "coroa", p, 0.5, Color(0.85, 0.2, 0.18), 2.0), "procurado"],
+	]
+	for i in leg.size():
+		var lp := Vector2(L.position.x + 34 + (i % 3) * 132, ly + (i / 3) * 34)
+		leg[i][0].call(lp)
+		Tablet.texto(c, lp + Vector2(16, 5), leg[i][1], 14, Color(Tablet.TINTA, 0.75))
+	var aqui := Rect2(L.position.x + 14, ly + 74, L.size.x - 28, 62)
+	Tablet.caixa(c, aqui, Color(Tablet.TINTA, 0.06), 16)
+	Tablet.pino(c, aqui.position + Vector2(32, 34), 9, PETROLEO)
+	Tablet.texto(c, aqui.position + Vector2(56, 26), "você está em", 13, Color(Tablet.TINTA, 0.6))
+	Tablet.texto(c, aqui.position + Vector2(56, 47), _lugar_agora(), 18, Tablet.TINTA, true)
+	Tablet.botao(c, "baixo", aqui.position + Vector2(aqui.size.x - 116, 31), 24)
+	Tablet.texto(c, aqui.position + Vector2(aqui.size.x - 98, 37), "marcar", 14, Color(Tablet.TINTA, 0.7))
+	# a direita: as contas, as memórias e o scanner
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), "O que você já viu", 26, Tablet.TINTA, true)
+	var n := _contas()
+	var cw := (R.size.x - 32 - 16) / 3.0
+	var ctas := [
+		[func(p: Vector2) -> void: Tablet.pino(c, p + Vector2(0, 4), 8, PETROLEO), "%d de %d" % [n["lugares"], n["lugares_total"]], "lugares"],
+		[func(p: Vector2) -> void: Icones.desenhar(c, "peca", p, 0.75, Tablet.TINTA, 2.0), "%d de %d" % [n["pecas"], Melhorias.NOMES.size()], "peças"],
+		[func(p: Vector2) -> void: Tablet.cristal(c, p, 11, Tablet.AMBAR), "%d de %d" % [n["memorias"], Memorias.ORDEM.size()], "memórias"],
+	]
+	for i in 3:
+		Tablet.conta(c, Rect2(R.position.x + 16 + i * (cw + 8), R.position.y + 108, cw, 104), ctas[i][0], ctas[i][1], ctas[i][2])
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 250), "Memórias", 18, Tablet.AMBAR.darkened(0.25), true)
+	_vagas_memoria(c, _vagas_mapa())
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 538), "O scanner já leu", 18, PETROLEO, true)
+	var sx := R.position.x + 16.0
+	var sy := R.position.y + 552.0
+	var lidos: Array = Melhorias.escaneados
+	if lidos.is_empty():
+		Tablet.texto(c, Vector2(sx + 8, sy + 24), "nada ainda", 15, Color(Tablet.TINTA, 0.5))
+	for nm: String in lidos:
+		var ww := Tablet.largura(nm, 15) + 48
+		if sx + ww > R.end.x - 16:
+			sx = R.position.x + 16
+			sy += 44
+		if sy > R.end.y - 120:
+			break
+		Tablet.caixa(c, Rect2(sx, sy, ww, 36), Color(Tablet.TINTA, 0.07), 18)
+		var maquina := false
+		for p: String in MAQUINAS:
+			if nm.to_lower().contains(p):
+				maquina = true
+		Icones.desenhar(c, "maquina" if maquina else "pata", Vector2(sx + 18, sy + 18), 0.42, Tablet.TINTA, 1.8)
+		Tablet.texto(c, Vector2(sx + 34, sy + 24), nm, 15, Tablet.TINTA)
+		sx += ww + 8
+	# o rodapé fica na esquerda, embaixo do mapa: a direita tem o Voltar no canto
+	Tablet.rodape(c, L, [["x", "ler"], ["l1", "{@r1} aba"], ["o", "fechar"]])
+
+
+## As vagas das 12 memórias no mapa (na direita) ou na aba Memórias (na esquerda, maiores).
+func _vagas_mapa() -> Array:
+	var R := Tablet.DIR
+	var mw := (R.size.x - 32 - 12) / 3.0
+	var v: Array = []
+	for i in Memorias.ORDEM.size():
+		v.append(Rect2(R.position.x + 16 + (i % 3) * (mw + 6), R.position.y + 264 + (i / 3) * 62, mw, 54))
+	return v
+
+
+func _vagas_lista() -> Array:
+	var L := Tablet.ESQ
+	var mw := (L.size.x - 28 - 10) / 2.0
+	var v: Array = []
+	for i in Memorias.ORDEM.size():
+		v.append(Rect2(L.position.x + 14 + (i % 2) * (mw + 10), L.position.y + 112 + (i / 2) * 104, mw, 96))
+	return v
+
+
+## As vagas das memórias ainda não lidas: o contorno e o cristal apagado (as lidas são botões).
+func _vagas_memoria(c: CanvasItem, vagas: Array) -> void:
+	var lidas := _lidas()
+	for i in Memorias.ORDEM.size():
+		if lidas.has(Memorias.ORDEM[i]):
+			continue
+		var r: Rect2 = vagas[i]
+		Tablet.caixa(c, r, Color(Tablet.TINTA, 0.04), 12, Color(Tablet.TINTA, 0.15), 1)
+		Tablet.cristal(c, r.get_center(), 8, Color(Tablet.TINTA, 0.25), false)
+
+
+func _lidas() -> Array:
+	var principal := get_parent()
+	var memorias: Memorias = principal.get("memorias") if principal else null
+	return memorias.lidas if memorias else []
+
+
+func _pintar_memoria(b: Control, r: Rect2, foco: bool, sobre: bool, chave: String) -> void:
+	var grande := r.size.y > 70.0
+	var sel := foco or (_aba_caderno == 1 and chave == _mem_sel)
+	Tablet.caixa(b, r, Color(0.98, 0.86, 0.62, 0.75 if sobre or sel else 0.6), 12, Tablet.AMBAR if sel else Color(0, 0, 0, 0), 3 if sel else 0)
+	var titulo := String(Memorias.TEXTOS[chave][0])
+	if grande:
+		Tablet.brilho(b, Vector2(30, r.size.y * 0.5), 12, Color(1.0, 0.7, 0.3), 0.8)
+		Tablet.cristal(b, Vector2(30, r.size.y * 0.5), 12, Tablet.AMBAR)
+		Tablet.paragrafo(b, Vector2(54, r.size.y * 0.5 - 4), titulo, r.size.x - 62, 16, Tablet.TINTA, 2)
+	else:
+		Tablet.cristal(b, Vector2(18, 27), 8, Tablet.AMBAR)
+		Tablet.paragrafo(b, Vector2(32, 22), titulo, r.size.x - 38, 13, Tablet.TINTA, 2)
+
+
+func _p_memorias(c: Control, L: Rect2, R: Rect2) -> void:
+	_vagas_memoria(c, _vagas_lista())
+	if _lidas().is_empty():
+		Tablet.paragrafo(c, Vector2(R.position.x + 24, R.position.y + 110), "Nenhuma memória lida ainda. Os cristais âmbar guardam o que aconteceu na ilha.", R.size.x - 48, 18, Color(Tablet.TINTA, 0.7), 4)
+	elif Memorias.TEXTOS.has(_mem_sel):
+		var dado: Array = Memorias.TEXTOS[_mem_sel]
+		var cc := Vector2(R.get_center().x, R.position.y + 96)
+		Tablet.brilho(c, cc, 20, Color(1.0, 0.7, 0.3), 1.4)
+		Tablet.cristal(c, cc, 22, Tablet.AMBAR)
+		Tablet.texto(c, Vector2(R.position.x + 10, R.position.y + 174), String(dado[0]), 26, Tablet.AMBAR.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, R.size.x - 20)
+		c.draw_line(Vector2(R.get_center().x - 60, R.position.y + 192), Vector2(R.get_center().x + 60, R.position.y + 192), Color(Tablet.AMBAR, 0.6), 2.0)
+		var onde := String(Memorias.LUGARES.get(_mem_sel, ""))
+		if onde != "":
+			var ow := Tablet.largura(onde, 15, true)
+			Tablet.pino(c, Vector2(R.get_center().x - ow * 0.5 - 8, R.position.y + 214), 6, PETROLEO)
+			Tablet.texto(c, Vector2(R.get_center().x - ow * 0.5 + 6, R.position.y + 220), onde, 15, PETROLEO, true)
+		Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 256), String(dado[1]), R.size.x - 52, 17, Tablet.TINTA, 21)
+	Tablet.rodape(c, R, [["l1", "{@r1} aba"], ["o", "fechar"]])
+
+
+func _casinha(c: CanvasItem, p: Vector2) -> void:
+	c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(7.5, -1), p + Vector2(-7.5, -1)]), Color(0.75, 0.45, 0.15))
+	c.draw_rect(Rect2(p.x - 5, p.y - 1, 10, 7), Color(0.75, 0.45, 0.15))
+
+
+# ---- confirmação
+
+func _pintar_confirma(c: Control, telas: Array) -> void:
+	var tela: Rect2 = telas[0]
+	var perigo := _confirma_acao == "apagar" or _confirma_acao == "novo"
+	var cor: Color = Tablet.RUBI if perigo else COR.get(_confirma_texto[0], Tablet.CINZA)
+	var cen := Vector2(tela.get_center().x, tela.position.y + 78)
+	c.draw_circle(cen, 46, cor.lerp(Tablet.TELA, 0.82))
+	c.draw_circle(cen, 38, cor)
+	Tablet.icone(c, _confirma_texto[0], cen, 44, Color.WHITE, cor)
+	Tablet.texto(c, Vector2(tela.position.x, tela.position.y + 168), _confirma_texto[1], 30, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, tela.size.x)
+	Tablet.paragrafo(c, Vector2(tela.position.x + 30, tela.position.y + 198), _confirma_texto[2], tela.size.x - 60, 17, Color(Tablet.TINTA, 0.65), 4, HORIZONTAL_ALIGNMENT_CENTER)
+	Tablet.rodape(c, tela, [["o", "também é Não"]], tela.end.y - 30)
+
+
+func _pintar_resposta(b: Control, r: Rect2, foco: bool, sobre: bool) -> void:
+	var sim := b == _confirma_sim
+	var perigo := sim and (_confirma_acao == "apagar" or _confirma_acao == "novo")
+	var cor := Tablet.RUBI if perigo else (Color(0.3, 0.6, 0.35) if sim else Tablet.LARANJA_V)
+	if foco:
+		Tablet.caixa(b, r, Color(Tablet.RUBI, 0.16) if perigo else Color(1.0, 0.72, 0.3, 0.3), 35, Tablet.RUBI if perigo else Tablet.LARANJA, 3)
+	elif perigo:
+		Tablet.caixa(b, r, Color(Tablet.RUBI, 0.08 if not sobre else 0.12), 35, Color(Tablet.RUBI, 0.5), 2)
+	else:
+		Tablet.caixa(b, r, Color(Tablet.TINTA, 0.07 if not sobre else 0.11), 35)
+	b.draw_circle(Vector2(38, 35), 20, cor)
+	Tablet.icone(b, "sim" if sim else "nao", Vector2(38, 35), 24, Color.WHITE, cor)
+	Tablet.texto(b, Vector2(70, 43), (b as Button).text, 24, Tablet.RUBI if perigo else Tablet.TINTA, true)
+	if foco:
+		Tablet.botao(b, "x", Vector2(r.size.x - 30, 35), 24)
+
+
+## O tamanho da telinha segue o texto (as frases de apagar e de acordar são mais compridas).
+func _arrumar_confirma() -> void:
+	var alto_texto := Tablet.altura_paragrafo(_confirma_texto[2], 520.0 - 60.0, 17)
+	var h := 412.0 + maxf(0.0, alto_texto - 24.0)
+	var tam := Vector2(560, h)
+	_confirma_caixa.custom_minimum_size = tam
+	_confirma_caixa.size = tam
+	_confirma_caixa.position = (get_viewport().get_visible_rect().size - tam) * 0.5
+	var tela := Tablet.tela_fechada(Rect2(Vector2.ZERO, tam))
+	var y := tela.position.y + 214.0 + maxf(0.0, alto_texto - 4.0)
+	_confirma_nao.position = Vector2(tela.get_center().x - 210, y)
+	_confirma_sim.position = Vector2(tela.get_center().x + 10, y)
+	_confirma_nao.size = Vector2(200, 70)
+	_confirma_sim.size = Vector2(200, 70)
+
+
+# ------------------------------------------------------------------ o controle desconectou
 
 ## O controle desconectou (pilha, Bluetooth, cabo): o jogo para e a pausa abre dizendo isso, em vez de o robô
 ## seguir voando sozinho. Dá para ligar de novo, usar outro controle ou seguir com teclado e mouse.
@@ -438,151 +1017,25 @@ func _controle_mudou(_aparelho: int, ligado: bool) -> void:
 		_abrir()
 	avisos_controle += 1
 	_titulo.text = "O controle desconectou"
-	_titulo.add_theme_color_override("font_color", LARANJA)
 	_subtitulo.text = "Ligue de novo, use outro controle ou continue com teclado e mouse."
 
 
-func _caixa(cor: Color, raio: int, margem: int, borda := Color(0, 0, 0, 0)) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = cor
-	sb.set_corner_radius_all(raio)
-	sb.set_content_margin_all(margem)
-	if borda.a > 0.0:
-		sb.border_color = borda
-		sb.set_border_width_all(2)
-	return sb
+# ------------------------------------------------------------------ ajustes
 
-
-func _texto(t: String, tamanho: int, cor: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.add_theme_font_size_override("font_size", tamanho)
-	l.add_theme_color_override("font_color", cor)
-	return l
-
-
-## Um botão grande: a figura, o nome à esquerda e uma linha curta dizendo o que faz. O escolhido fica aceso.
-func _botao(pai: Control, nome: String, explica: String, acao: Callable, _forte := false, icone := "") -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(660, 62)
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", T_BOTAO)
-	b.set_meta("nome", nome)
-	b.set_meta("explica", explica)
-	b.text = nome
-	if icone != "":
-		var fig := IconeMenu.new(icone)
-		fig.name = "figura"
-		fig.position = Vector2(18, 13)
-		b.add_child(fig)
-		b.focus_entered.connect(func() -> void:
-			fig.cor = VERMELHO if b.get_meta("perigo", false) else LARANJA
-			fig.queue_redraw())
-		b.focus_exited.connect(func() -> void:
-			fig.cor = VERMELHO.darkened(0.15) if b.get_meta("perigo", false) else TINTA
-			fig.queue_redraw())
-	# a explicação (ou o valor, nos ajustes) fica à direita, na mesma linha
-	var ex := _texto(explica, T_EXPLICA, APAGADO)
-	ex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ex.offset_right = -18.0
-	ex.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	ex.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ex.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ex.name = "explica"
-	b.add_child(ex)
-	_pintar_normal(b)
-	b.pressed.connect(acao)
-	b.focus_entered.connect(func() -> void: _ao_focar(b))
-	b.mouse_entered.connect(b.grab_focus)
-	pai.add_child(b)
-	return b
-
-
-## O botão comum: fundo escuro, letra clara, laranja com o foco.
-func _pintar_normal(b: Button) -> void:
-	var com_figura := b.get_node_or_null("figura") != null
-	b.set_meta("perigo", false)
-	b.add_theme_color_override("font_color", TINTA)
-	b.add_theme_color_override("font_focus_color", LARANJA)
-	b.add_theme_color_override("font_hover_color", TINTA)
-	for par: Array in [["normal", Color(0.085, 0.13, 0.14), Color(0, 0, 0, 0)], ["hover", Color(0.1, 0.155, 0.165), Color(0, 0, 0, 0)],
-			["pressed", Color(0.16, 0.13, 0.09), Color(0, 0, 0, 0)], ["focus", Color(0.16, 0.13, 0.09, 0.35), LARANJA]]:
-		var sb := _caixa(par[1], 4, 18, par[2])
-		if com_figura:
-			sb.content_margin_left = 68.0
-		b.add_theme_stylebox_override(par[0], sb)
-	var fig := b.get_node_or_null("figura") as IconeMenu
-	if fig:
-		fig.cor = LARANJA if b.has_focus() else TINTA
-		fig.queue_redraw()
-	(b.get_node("explica") as Label).add_theme_color_override("font_color", APAGADO)
-
-
-## O botão perigoso (apagar o progresso): fundo e letra avermelhados, para não ser confundido com um ajuste.
-func _pintar_perigo(b: Button) -> void:
-	b.set_meta("perigo", true)
-	b.add_theme_color_override("font_color", VERMELHO.darkened(0.1))
-	b.add_theme_color_override("font_focus_color", VERMELHO)
-	b.add_theme_color_override("font_hover_color", VERMELHO)
-	for par: Array in [["normal", Color(0.17, 0.07, 0.07)], ["hover", Color(0.22, 0.09, 0.09)], ["pressed", Color(0.3, 0.1, 0.1)]]:
-		var sb := _caixa(par[1], 4, 18)
-		sb.content_margin_left = 68.0
-		b.add_theme_stylebox_override(par[0], sb)
-	var foco := _caixa(Color(0.25, 0.08, 0.08, 0.6), 4, 18, VERMELHO)
-	foco.content_margin_left = 68.0
-	b.add_theme_stylebox_override("focus", foco)
-	var fig := b.get_node_or_null("figura") as IconeMenu
-	if fig:
-		fig.cor = VERMELHO if b.has_focus() else VERMELHO.darkened(0.15)
-		fig.queue_redraw()
-	(b.get_node("explica") as Label).add_theme_color_override("font_color", VERMELHO.darkened(0.3))
-
-
-func _aba(pai: Control, nome: String, acao: Callable) -> Button:
-	var b := Button.new()
-	b.text = nome
-	b.toggle_mode = true
-	b.custom_minimum_size = Vector2(0, 46)
-	b.add_theme_font_size_override("font_size", 20)
-	b.add_theme_stylebox_override("normal", _caixa(Color(0.12, 0.18, 0.19), 10, 12))
-	b.add_theme_stylebox_override("hover", _caixa(Color(0.17, 0.26, 0.27), 10, 12))
-	b.add_theme_stylebox_override("pressed", _caixa(Color(0.2, 0.42, 0.4), 10, 12))
-	b.add_theme_stylebox_override("focus", _caixa(Color(0, 0, 0, 0), 10, 12, LARANJA))
-	b.add_theme_color_override("font_focus_color", LARANJA)
-	b.pressed.connect(acao)
-	pai.add_child(b)
-	return b
-
-
-## O rodapé explica o botão escolhido; sem explicação, mostra a dica.
-func _ao_focar(b: Button) -> void:
-	var e := String(b.get_meta("explica", ""))
-	if _dica and e != "":
-		_dica.text = e.capitalize().substr(0, 1) + e.substr(1) + "."
-
-
-## Cada ajuste mostra o nome à esquerda e o valor à direita, entre setas: o direcional (ou as setas do teclado)
-## para os lados muda, e o X passa para o próximo. A sensibilidade aparece em bolinhas.
+## Cada ajuste guarda a explicação (o que a tela da direita conta) e o valor (que o desenho mostra).
 func _escrever_ajustes() -> void:
 	var q := clampi(int(Guardado.ajuste("qualidade")), 0, 2)
 	var sens := clampi(int(Guardado.ajuste("sensibilidade")), 0, 4)
 	var valores := [
 		[_botao_qualidade, String(Qualidade.NOMES[q]), "mais baixa: menos capim, sombras mais curtas e o jogo mais solto"],
-		[_botao_sens, "●".repeat(sens + 1) + "○".repeat(4 - sens), "quanto a câmera gira com o analógico direito e o mouse"],
+		[_botao_sens, "%d de 5" % (sens + 1), "quanto a câmera gira com o analógico direito e o mouse"],
 		[_botao_eixo, "invertido" if bool(Guardado.ajuste("inverter_y")) else "normal", "invertido: empurrar o analógico para a frente olha para baixo"],
 		[_botao_vibra, "ligada" if bool(Guardado.ajuste("vibra")) else "desligada", "o controle treme nos golpes, no pouso e nos tiros"],
 	]
 	for v: Array in valores:
 		var b: Button = v[0]
-		var ex := b.get_node("explica") as Label
-		ex.text = "◀   %s   ▶" % v[1]
-		ex.add_theme_font_size_override("font_size", T_BOTAO - 2)
-		ex.add_theme_color_override("font_color", LARANJA if b.has_focus() else TINTA)
+		(b.get_node("explica") as Label).text = v[1]
 		b.set_meta("explica", v[2])
-		if not b.has_meta("pintado"):
-			b.set_meta("pintado", true)
-			b.focus_entered.connect(func() -> void: ex.add_theme_color_override("font_color", LARANJA))
-			b.focus_exited.connect(func() -> void: ex.add_theme_color_override("font_color", TINTA))
 	_botao_apagar.text = APAGAR
 
 
@@ -627,32 +1080,24 @@ func _apagar() -> void:
 	_confirmar("apagar")
 
 
+# ------------------------------------------------------------------ Sim e Não
+
 ## A telinha de confirmação: figura, pergunta, uma frase e dois botões. Começa no "Não", e o círculo (ou o Esc)
 ## também é "Não": um toque sem querer nunca apaga nem fecha nada.
 func _confirmar(qual: String) -> void:
 	_confirma_acao = qual
 	_confirma_volta = get_viewport().gui_get_focus_owner()
-	var perigo := qual == "apagar" or qual == "novo"
 	var textos: Dictionary = {
 		"sair": ["sair", "Sair do jogo?", "O progresso fica guardado."],
 		"apagar": ["apagar", "Apagar todo o progresso?", "Peças, lugares e memórias somem, e o jogo recomeça do zero. Não dá para desfazer."],
 		"novo": ["novo", "Começar um jogo novo?", "O progresso de agora é apagado. Não dá para desfazer."],
 		"acordar": ["acordar", "Hora de acordar?", "Você já sabe o básico. Sim: o robô acorda na ilha. Não: continua treinando voo e combate aqui."],
 	}
-	var t: Array = textos[qual]
-	_confirma_figura.tipo = t[0]
-	_confirma_figura.cor = VERMELHO if perigo else LARANJA
-	_confirma_figura.queue_redraw()
-	_confirma_pergunta.text = t[1]
-	_confirma_frase.text = t[2]
-	_confirma_caixa.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.98), 8, 28, VERMELHO if perigo else Color(0.25, 0.37, 0.38)))
-	if perigo:
-		_pintar_perigo(_confirma_sim)
-	else:
-		_pintar_normal(_confirma_sim)
+	_confirma_texto = (textos[qual] as Array).duplicate()
 	_confirma_nao.disabled = false
 	_confirma_sim.disabled = false
 	_confirma.visible = true
+	_arrumar_confirma()
 	if qual == "acordar":
 		# o caminho de quem joga é acordar: começa no Sim. Os botões esperam um instante, para o X que acabou
 		# a última lição não responder sem querer
@@ -688,8 +1133,8 @@ func _responder(sim: bool) -> void:
 			get_tree().quit()
 		"apagar", "novo":
 			Guardado.recomecar_progresso()
-			_confirma_pergunta.text = "Recomeçando..." if _confirma_acao == "apagar" else "Começando..."
-			_confirma_frase.text = ""
+			_confirma_texto[1] = "Recomeçando..." if _confirma_acao == "apagar" else "Começando..."
+			_confirma_texto[2] = ""
 			_confirma_nao.disabled = true
 			_confirma_sim.disabled = true
 			# o jogo fecha e abre sozinho, já limpo: as peças, armas e lugares vivem espalhados na memória de
@@ -734,6 +1179,8 @@ func _reabrir_sem_abertura() -> void:
 	get_tree().quit()
 
 
+# ------------------------------------------------------------------ abertura
+
 ## Tem partida guardada? (algum lugar visitado, peça achada ou a simulação já vista)
 static func tem_partida() -> bool:
 	if not Guardado.ativo:
@@ -747,7 +1194,6 @@ func abrir_abertura() -> void:
 	abertura = true
 	var tem := tem_partida()
 	_titulo.text = "Fagulha"
-	_titulo.add_theme_color_override("font_color", LARANJA)
 	_subtitulo.text = "Em Busca do Sossego"
 	_primeiro.text = "Continuar" if tem else "Começar"
 	(_primeiro.get_node("explica") as Label).text = "de onde você parou" if tem else ("começa o treino" if na_simulacao else "começa a história")
@@ -760,7 +1206,8 @@ func abrir_abertura() -> void:
 	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
 		if b:
 			b.visible = false
-	_dica.visible = false
+	_dica.text = ""
+	_arrumar_inicio()
 	_primeiro.grab_focus()
 
 
@@ -781,50 +1228,99 @@ func _novo_jogo() -> void:
 	_confirmar("novo")
 
 
+# ------------------------------------------------------------------ as páginas
+
+func _mostrar(pagina: Control) -> void:
+	for p: Control in [_inicio, _pagina_ajustes, _pagina_comandos, _pagina_caderno, _pagina_album]:
+		p.visible = p == pagina
+	_pilulas_caderno.visible = pagina == _pagina_caderno or pagina == _pagina_album
+	_voltar_album.visible = pagina == _pagina_album
+	for i in _pilulas.size():
+		_pilulas[i].ativa = (i == 2) if pagina == _pagina_album else (i == _aba_caderno)
+
+
 func _abrir_ajustes() -> void:
-	_inicio.visible = false
-	_pagina_ajustes.visible = true
+	_mostrar(_pagina_ajustes)
 	_escrever_ajustes()
 	_botao_qualidade.grab_focus()
+
+
+func _fechar_ajustes() -> void:
+	_mostrar(_inicio)
+	_botao_ajustes.grab_focus()
 
 
 ## O caderno é refeito a cada abertura, com o que o jogo sabe agora.
 func _abrir_caderno() -> void:
 	var principal := get_parent()
 	var locais: Locais = principal.get("locais") if principal else null
-	var memorias: Memorias = principal.get("memorias") if principal else null
 	var mapa: Ilha = principal.get("ilha") if principal else null
-	_caderno_mapa.preparar(mapa, locais, armadura.global_position if armadura else Vector3.ZERO)
-	var lugares := locais.descobertos() if locais else 0
-	var lidas: Array = memorias.lidas if memorias else []
-	_caderno_contas.text = "Lugares visitados: %d   ·   Peças: %d   ·   Memórias: %d de %d" % [lugares, Melhorias.instaladas.size() + Melhorias.achadas.size(), lidas.size(), Memorias.ORDEM.size()]
+	var frente := -armadura.global_basis.z if armadura else Vector3.FORWARD
+	_caderno_mapa.preparar(mapa, locais, armadura.global_position if armadura else Vector3.ZERO, frente)
+	var n := _contas()
+	var lidas := _lidas()
+	_caderno_contas.text = "Lugares visitados: %d   ·   Peças: %d   ·   Memórias: %d de %d" % [n["lugares"], Melhorias.instaladas.size() + Melhorias.achadas.size(), lidas.size(), Memorias.ORDEM.size()]
 	for velho in _caderno_memorias.get_children():
+		_caderno_memorias.remove_child(velho)
 		velho.queue_free()
-	_caderno_texto.text = "Nenhuma memória lida ainda." if lidas.is_empty() else "Escolha uma memória para reler."
 	for chave: String in Memorias.ORDEM:
 		if not lidas.has(chave):
 			continue
-		var par: Array = Memorias.TEXTOS[chave]
-		var b := Button.new()
-		b.text = String(par[0])
-		b.custom_minimum_size = Vector2((LARG_CADERNO - 16.0) / 3.0, 44)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.add_theme_font_size_override("font_size", T_EXPLICA + 1)
-		b.add_theme_color_override("font_color", TINTA)
-		b.add_theme_color_override("font_focus_color", LARANJA)
-		b.add_theme_stylebox_override("normal", _caixa(Color(0.085, 0.13, 0.14), 4, 10))
-		b.add_theme_stylebox_override("hover", _caixa(Color(0.1, 0.155, 0.165), 4, 10))
-		b.add_theme_stylebox_override("focus", _caixa(Color(0.16, 0.13, 0.09, 0.35), 4, 10, LARANJA))
-		var texto := String(par[1])
-		b.focus_entered.connect(func() -> void: _caderno_texto.text = texto)
+		var b := BotaoTablet.new()
+		b.estilo = "livre"
+		b.text = String(Memorias.TEXTOS[chave][0])
+		b.pintor = _pintar_memoria.bind(chave)
+		b.set_meta("chave", chave)
 		b.mouse_entered.connect(b.grab_focus)
+		b.focus_entered.connect(func() -> void:
+			if _aba_caderno == 1:
+				_mem_sel = chave)
+		b.pressed.connect(func() -> void:
+			_mem_sel = chave
+			if _aba_caderno == 0:
+				_ir_aba_caderno(1))
 		_caderno_memorias.add_child(b)
-	var lidos: Array = Melhorias.escaneados
-	_caderno_scanner.text = "Nada ainda." if lidos.is_empty() else ", ".join(PackedStringArray(lidos))
-	_inicio.visible = false
-	_pagina_caderno.visible = true
-	_dica.text = "O caderno guarda só o que você já viu."
-	_voltar_caderno.grab_focus()
+	if _mem_sel == "" or not lidas.has(_mem_sel):
+		_mem_sel = String(_caderno_memorias.get_child(0).get_meta("chave")) if _caderno_memorias.get_child_count() > 0 else ""
+	_aba_caderno = 0
+	_mostrar(_pagina_caderno)
+	_arrumar_memorias()
+	_focar_caderno()
+
+
+## As memórias lidas ficam nas vagas da aba: pequenas na direita do mapa, grandes na aba Memórias.
+func _arrumar_memorias() -> void:
+	var vagas := _vagas_mapa() if _aba_caderno == 0 else _vagas_lista()
+	for b: Node in _caderno_memorias.get_children():
+		var i := Memorias.ORDEM.find(String(b.get_meta("chave")))
+		var r: Rect2 = vagas[i]
+		(b as Control).position = r.position
+		(b as Control).size = r.size
+	_caderno_mapa.visible = _aba_caderno == 0
+
+
+func _focar_caderno() -> void:
+	var alvo: Control = _voltar_caderno
+	for b: Node in _caderno_memorias.get_children():
+		if _aba_caderno == 0 or String(b.get_meta("chave")) == _mem_sel:
+			alvo = b
+			break
+	alvo.grab_focus()
+
+
+## Troca a aba do caderno (pílulas, L1 / R1): Mapa, Memórias ou Álbum.
+func _ir_aba_caderno(i: int) -> void:
+	i = wrapi(i, 0, 3)
+	if i == 2:
+		_abrir_album()
+		return
+	var do_album := _pagina_album.visible
+	_aba_caderno = i
+	_mostrar(_pagina_caderno)
+	_arrumar_memorias()
+	_focar_caderno()
+	if do_album:
+		_titulo.text = "Caderno" if _so_caderno else "Pausa"
 
 
 ## O caderno pelo botão próprio (touchpad / M): para o jogo e abre direto nele, com o próprio título; voltar
@@ -836,23 +1332,38 @@ func abrir_caderno_direto() -> void:
 	_titulo.text = "Caderno"
 	_subtitulo.text = "o mapa e o que você já viu"
 	_abrir_caderno()
-	_dica.text = "Voltar, o círculo ou o touchpad de novo fecham o caderno."
+
+
+func _abrir_album() -> void:
+	albuns += 1
+	_mostrar(_pagina_album)
+	var primeiro := _pagina_album.montar()
+	_titulo.text = "Álbum da ilha"
+	_subtitulo.text = "uma página para cada coisa fotografada"
+	if primeiro:
+		primeiro.grab_focus()
+	else:
+		_voltar_album.grab_focus()
+
+
+func _fechar_album() -> void:
+	_titulo.text = "Caderno" if _so_caderno else "Pausa"
+	_subtitulo.text = "o mapa e o que você já viu" if _so_caderno else SUBTITULO
+	_aba_caderno = 0
+	_mostrar(_pagina_caderno)
+	_arrumar_memorias()
+	_focar_caderno()
 
 
 func _fechar_caderno() -> void:
-	_pagina_caderno.visible = false
-	_inicio.visible = true
+	_mostrar(_inicio)
 	if _so_caderno:
 		_so_caderno = false
 		_continuar()
 		return
+	_titulo.text = "Pausa"
+	_subtitulo.text = SUBTITULO
 	_botao_comandos.grab_focus()
-
-
-func _fechar_ajustes() -> void:
-	_pagina_ajustes.visible = false
-	_inicio.visible = true
-	_botao_ajustes.grab_focus()
 
 
 ## Sair pergunta antes (Sim e Não); o progresso é guardado ao sair.
@@ -861,23 +1372,19 @@ func _sair() -> void:
 
 
 func _mostrar_aba(qual: int) -> void:
-	_aba_controle.button_pressed = qual == 1
-	_aba_teclado.button_pressed = qual == 2
-	for k in _colunas.size():
-		_colunas[k].forcar = 1 if qual == 1 else 0
-		_colunas[k].texto = COMANDOS[k][qual]
+	_aba_comandos = qual
+	_aba_controle.ativa = qual == 1
+	_aba_teclado.ativa = qual == 2
 
 
 func _abrir_comandos() -> void:
-	_inicio.visible = false
-	_pagina_comandos.visible = true
-	_dica.text = "Dá para trocar entre o controle e o teclado a qualquer momento."
+	_mostrar(_pagina_comandos)
+	_mostrar_aba(2 if not Botoes.controle else 1)
 	_voltar_comandos.grab_focus()
 
 
 func _fechar_comandos() -> void:
-	_pagina_comandos.visible = false
-	_inicio.visible = true
+	_mostrar(_inicio)
 	_botao_comandos.grab_focus()
 
 
@@ -908,10 +1415,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("caderno"):
 			get_viewport().set_input_as_handled()
 		return
+	# L1 / R1 trocam as abas dos comandos e do caderno
+	if visible and (event.is_action_pressed("roda") or event.is_action_pressed("granada")):
+		var passo := -1 if event.is_action_pressed("roda") else 1
+		if _pagina_comandos.visible:
+			_mostrar_aba(2 if _aba_comandos == 1 else 1)
+			get_viewport().set_input_as_handled()
+		elif _pagina_caderno.visible or _pagina_album.visible:
+			var atual := 2 if _pagina_album.visible else _aba_caderno
+			if _pagina_album.visible and wrapi(atual + passo, 0, 3) != 2:
+				_fechar_album()
+			_ir_aba_caderno(atual + passo)
+			get_viewport().set_input_as_handled()
+		return
 	# o Esc é "menu" e também "voltar": dentro de uma página ele volta uma página, como o círculo
 	if visible and event.is_action_pressed("ui_cancel"):
 		if _pagina_comandos.visible:
 			_fechar_comandos()
+		elif _pagina_album.visible:
+			_fechar_album()
 		elif _pagina_caderno.visible:
 			_fechar_caderno()
 		elif _pagina_ajustes.visible:
@@ -921,7 +1443,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("caderno") and not na_simulacao and not abertura:
 		# o caderno tem botão próprio: abre por cima do jogo e o mesmo botão fecha
-		if visible and _pagina_caderno.visible:
+		if visible and _pagina_album.visible:
+			_fechar_album()
+			_fechar_caderno()
+		elif visible and _pagina_caderno.visible:
 			_fechar_caderno()
 		elif visible and _inicio.visible:
 			_abrir_caderno()
@@ -943,10 +1468,7 @@ func _abrir() -> void:
 	visible = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_pagina_comandos.visible = false
-	_pagina_ajustes.visible = false
-	_pagina_caderno.visible = false
-	_inicio.visible = true
+	_mostrar(_inicio)
 	_confirma.visible = false
 	_confirma_so = false
 	_fundo.visible = true
@@ -961,20 +1483,18 @@ func _abrir() -> void:
 	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
 		if b:
 			b.visible = true
-	_dica.visible = true
 	_titulo.text = "Pausa"
-	_titulo.add_theme_color_override("font_color", TINTA)
 	_subtitulo.text = SUBTITULO
 	# desligado (em pane), o robô não volta à base pela pausa: quem o leva é o drone, e a derrota na Fundição
 	# custa metade dos materiais
 	var em_pane := armadura != null and armadura.em_pane
 	if _botao_voltar:
 		_botao_voltar.disabled = em_pane
-		_botao_voltar.text = "Voltar ao começo (robô desligado: aguarde o drone)" if em_pane else "Voltar ao começo"
-		(_botao_voltar.get_node("explica") as Label).visible = not em_pane
+		(_botao_voltar.get_node("explica") as Label).text = "robô desligado: aguarde o drone" if em_pane else "reaparece no começo"
+	_arrumar_inicio()
 	_primeiro.grab_focus()
-	_dica.text = "Dica: " + DICAS[(aberturas - 1) % DICAS.size()]
-	# o cartão chega com um movimento curto
+	_dica.text = DICAS[(aberturas - 1) % DICAS.size()]
+	# o tablet chega com um movimento curto
 	_cartao.pivot_offset = _cartao.size * 0.5
 	_cartao.scale = Vector2(0.94, 0.94)
 	_cartao.modulate.a = 0.0

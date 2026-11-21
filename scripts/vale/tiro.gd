@@ -113,7 +113,7 @@ func _physics_process(delta: float) -> void:
 	if armadura == null or not is_instance_valid(armadura):
 		return
 	_atualizar_trava()
-	var modo: Dictionary = Arsenal.MODOS[Arsenal.modo if Arsenal.tem_arma(Arsenal.modo) else "pistola"]
+	var modo: Dictionary = Arsenal.dados(Arsenal.modo if Arsenal.tem_arma(Arsenal.modo) else "pistola")  # com os degraus da oficina
 	CameraVoo.fov_mira = float(modo.get("fov", Ajustes.FOV_MIRA))
 	_granada(delta)
 	_espada(delta)
@@ -198,7 +198,7 @@ func _physics_process(delta: float) -> void:
 
 func _aquecer_rajada() -> void:
 	_rajada_parada = 0.0
-	calor_rajada = minf(1.0, calor_rajada + RAJADA_ENCHE)
+	calor_rajada = minf(1.0, calor_rajada + RAJADA_ENCHE * float(Arsenal.dados("rajada").get("enche", 1.0)))  # os degraus esquentam menos
 	if calor_rajada >= 1.0 and not rajada_quente:
 		rajada_quente = true
 		rajada_travou += 1
@@ -226,7 +226,7 @@ func _travar_misseis(delta: float, modo: Dictionary) -> void:
 		_segurando_missil = true
 		armadura.atirando = 0.6
 		_trava_t -= delta
-		var limite := mini(4, Arsenal.misseis)
+		var limite := mini(Arsenal.alvos_misseis(), Arsenal.misseis)
 		if _trava_t <= 0.0 and travas.size() < limite:
 			var cam := armadura.camera
 			var de: Vector3 = cam.global_position
@@ -300,8 +300,8 @@ func _lance_granada() -> Vector3:
 	var de := _ombro(1.0)
 	var alvo := _ponto_de_impacto()
 	var plano := Vector3(alvo.x - de.x, 0, alvo.z - de.z)
-	var x := clampf(plano.length(), 4.0, float(Arsenal.GRANADA["alcance"]))
-	if plano.length() > float(Arsenal.GRANADA["alcance"]) or not armadura.alvo_mira_ok and plano.length() > 60.0:
+	var x := clampf(plano.length(), 4.0, float(Arsenal.granada()["alcance"]))
+	if plano.length() > float(Arsenal.granada()["alcance"]) or not armadura.alvo_mira_ok and plano.length() > 60.0:
 		alvo.y = de.y - armadura.altura_corpo() * 0.7
 	if plano.length() < 0.1:
 		plano = -armadura.global_basis.z
@@ -494,7 +494,7 @@ func _espada(delta: float) -> void:
 		return
 	if armadura.estado != Armadura.Estado.CHAO or armadura.em_pane or armadura.travado or armadura.escaneando or armadura.postura != 0:
 		return
-	var e: Dictionary = Arsenal.ESPADA
+	var e: Dictionary = Arsenal.espada()
 	_espada_espera = float(e["espera"])
 	armadura.espada_t = float(e["tempo"])
 	armadura.espada_lado = -armadura.espada_lado
@@ -556,10 +556,10 @@ func _granada(delta: float) -> void:
 		var pisca := no.get_node_or_null("luz") as Node3D
 		if pisca:
 			pisca.visible = fmod(float(g["t"]) * (3.0 + float(g["t"]) * 3.0), 1.0) < 0.5
-		if perto or g["quiques"] >= 2 or g["t"] >= float(Arsenal.GRANADA["pavio"]):
+		if perto or g["quiques"] >= 2 or g["t"] >= float(Arsenal.granada()["pavio"]):
 			_granadas.erase(g)
 			no.queue_free()
-			_estouro(ate, float(Arsenal.GRANADA["dano"]), float(Arsenal.GRANADA["area"]))
+			_estouro(ate, float(Arsenal.granada()["dano"]), float(Arsenal.granada()["area"]))
 	# segurando o botão aparece o arco (a tela desenha `arco`); soltando, a granada sai do lançador do ombro
 	var pode := not RodaArmas.aberta and _pode_atirar() and Arsenal.granadas > 0
 	if Input.is_action_just_pressed("granada") and not RodaArmas.aberta and Arsenal.granadas <= 0:
@@ -615,8 +615,8 @@ func _mostrar_arco() -> void:
 			_arco_no.add_child(mi)
 		var anel := MeshInstance3D.new()
 		var tm := TorusMesh.new()
-		tm.inner_radius = float(Arsenal.GRANADA["area"]) - 0.12
-		tm.outer_radius = float(Arsenal.GRANADA["area"])
+		tm.inner_radius = float(Arsenal.granada()["area"]) - 0.12
+		tm.outer_radius = float(Arsenal.granada()["area"])
 		tm.rings = 48
 		tm.ring_segments = 4
 		anel.mesh = tm

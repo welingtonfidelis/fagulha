@@ -1763,9 +1763,24 @@ func _ponto_31() -> void:
 	Arsenal.sucata = 100
 	Arsenal.nucleos = 9
 	var fez: bool = Arsenal.fabricar("mira") and Arsenal.fabricar("escudo") and Arsenal.fabricar("vida")
+	var sobra := Arsenal.sucata
+	# o escudo de fábrica engole um acerto e quebra (2026-11-21: começa com 1 e sobe a 3 pelos degraus)
+	var de_fabrica: int = Arsenal.escudo_cargas()
 	a.escudo_t = 0.0
-	a.escudo_cargas = Arsenal.ESCUDO_CARGAS
+	a.escudo_cargas = Arsenal.escudo_cargas()
 	a.avaria = 0
+	a.levar_golpe(Vector3.FORWARD, 1.0)
+	var quebrou_1: bool = a.escudo_t > 0.0 and a.avaria == 0
+	# os dois degraus pedem nível 6 e 8 e levam o escudo a 2 e a 3 acertos, o máximo
+	Arsenal.xp = 3000
+	Arsenal.sucata += 80
+	Arsenal.nucleos += 3
+	Arsenal.chips += 1
+	var d1: bool = Arsenal.melhorar("escudo") and Arsenal.escudo_cargas() == 2
+	var d2: bool = Arsenal.melhorar("escudo") and Arsenal.escudo_cargas() == 3
+	var no_topo: bool = not Arsenal.pode_melhorar("escudo") and Arsenal.falta_degrau("escudo") == "no topo"
+	a.escudo_t = 0.0
+	a.escudo_cargas = Arsenal.escudo_cargas()
 	a.levar_golpe(Vector3.FORWARD, 1.0)
 	var inteiro_2: bool = a.escudo_t <= 0.0 and a.escudo_cargas == 2
 	a.levar_golpe(Vector3.FORWARD, 1.0)
@@ -1773,8 +1788,10 @@ func _ponto_31() -> void:
 	a.visual.vestir_melhorias()
 	var no_corpo: bool = a.visual.pecas.has("vida") and a.visual.pecas.has("escudo")
 	_ok(no_corpo, "a vida extra (ombreiras) e o escudo (emissor nas costas) aparecem no robô")
-	_ok(fez and Arsenal.tem("mira") and Arsenal.sucata == 15 and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES + 1 and a.avaria == 0 and inteiro_2 and a.escudo_t > 0.0,
-		"fabricou mira, escudo e vida extra: sobra %d de sucata, aguenta %d acertos e o escudo engoliu três antes de quebrar" % [Arsenal.sucata, Arsenal.golpes_pane()])
+	_ok(fez and Arsenal.tem("mira") and sobra == 15 and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES + 1 and a.avaria == 0 and inteiro_2 and a.escudo_t > 0.0,
+		"fabricou mira, escudo e vida extra: sobra %d de sucata, aguenta %d acertos e o escudo no topo engoliu três antes de quebrar" % [sobra, Arsenal.golpes_pane()])
+	_ok(de_fabrica == 1 and quebrou_1 and d1 and d2 and no_topo,
+		"escudo em degraus: de fábrica segura %d acerto (quebrou no primeiro: %s); os degraus o levam a 2 (%s) e a 3 (%s), e no 3 para (%s)" % [de_fabrica, quebrou_1, d1, d2, no_topo])
 	Arsenal.tudo = true
 	Arsenal.zerar()
 	a.recomecar()

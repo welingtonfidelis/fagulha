@@ -49,6 +49,9 @@ func tocar(nome: String) -> bool:
 		return false
 	if (memorias and memorias.aberta != "") or (armadura and armadura.em_pane):
 		return false
+	# o rádio da base tocando perto: a música do passeio espera
+	if RadioBase.tocando and armadura and armadura.global_position.distance_to(RadioBase.onde) < RadioBase.ALCANCE + 10.0:
+		return false
 	var s := Som.stream("musica_" + nome)
 	if s == null:
 		return false

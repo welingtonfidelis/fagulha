@@ -16,6 +16,7 @@ var _fonte: Font
 var _nome_lugar := ""
 var _sub_lugar := ""  # "lugar descoberto · N de M" na primeira visita
 var _tempo_lugar := -1.0  # segundos desde a chegada; -1 quando não há aviso
+var _fila: Array = []  # avisos que chegaram com outro ainda na tela: [titulo, sub], na ordem
 
 
 func _ready() -> void:
@@ -46,6 +47,14 @@ func aconselhar(texto: String, dura := 10.0) -> void:
 
 
 func avisar(titulo: String, sub := "") -> void:
+	# com outro aviso ainda novo na tela (a rota feita e o pedido do drone no mesmo instante), este espera a vez
+	if _tempo_lugar >= 0.0 and _tempo_lugar < TEMPO_ENTRAR + 1.6 and titulo != _nome_lugar:
+		for f: Array in _fila:
+			if f[0] == titulo:
+				return
+		if _fila.size() < 3:
+			_fila.append([titulo, sub])
+		return
 	_nome_lugar = titulo
 	_sub_lugar = sub
 	_tempo_lugar = 0.0
@@ -59,6 +68,7 @@ func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 	_tempo_lugar = 0.0
 
 
+static var aro_rota := Vector3.INF  # o aro da vez de uma rota do piloto de teste (Rotas): um círculo laranja na tela e na bússola
 static var marcas := 0  # quantos marcadores a bússola mostra agora (memórias perto, peças da antena, o marcador do jogador); a vibração avisa quando surge um
 static var limpa := false  # apreciando a vista (a câmera avisa): a tela some
 
@@ -73,8 +83,15 @@ func _process(delta: float) -> void:
 	resumo_t = maxf(0.0, resumo_t - delta)
 	if _tempo_lugar >= 0.0:
 		_tempo_lugar += delta
+		if not _fila.is_empty() and _tempo_lugar < TEMPO_ENTRAR + TEMPO_FICAR:
+			_tempo_lugar = minf(_tempo_lugar + delta, TEMPO_ENTRAR + TEMPO_FICAR)  # com fila, o de agora passa mais depressa
 		if _tempo_lugar >= TEMPO_ENTRAR + TEMPO_FICAR + TEMPO_SAIR:
 			_tempo_lugar = -1.0
+			if not _fila.is_empty():
+				var f: Array = _fila.pop_front()
+				_nome_lugar = f[0]
+				_sub_lugar = f[1]
+				_tempo_lugar = 0.0
 	if Input.is_action_just_pressed("medidor"):
 		medidor = not medidor
 	_rotulo_medidor.visible = medidor
@@ -142,6 +159,62 @@ func _desenhar_bussola() -> void:
 			var yl := y0 + 12.0
 			var losango := PackedVector2Array([Vector2(xm, yl - 8.0), Vector2(xm + 6.0, yl), Vector2(xm, yl + 8.0), Vector2(xm - 6.0, yl)])
 			draw_colored_polygon(losango, Color(0.55, 0.95, 1.0))
+	# o aro da vez de uma rota: um círculo laranja na faixa
+	if alvo and aro_rota.is_finite():
+		var da := aro_rota - alvo.global_position
+		da.y = 0.0
+		if da.length() > 0.01:
+			var off_a := clampf(wrapf(atan2(da.x, -da.z) - rumo, -PI, PI), -meia, meia)
+			draw_arc(Vector2(cx + off_a * escala, y0 + 12.0), 6.5, 0.0, TAU, 20, Color(1.0, 0.62, 0.3), 2.5, true)
+	# os acampamentos de máquinas ainda com máquinas, a menos de 450 m: um poste com a luz vermelha
+	if alvo:
+		for item: Array in Acampamentos.na_bussola:
+			var dc: Vector3 = (item[0] as Vector3) - alvo.global_position
+			dc.y = 0.0
+			if dc.length() > Acampamentos.BUSSOLA or dc.length() < 12.0:
+				continue
+			var off_c := wrapf(atan2(dc.x, -dc.z) - rumo, -PI, PI)
+			var verm := Color(1.0, 0.3, 0.22)
+			if absf(off_c) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_c), verm)
+			else:
+				var pc := Vector2(cx + off_c * escala, y0 + 12.0)
+				draw_line(pc + Vector2(0, -2), pc + Vector2(0, 9), Color(0.85, 0.85, 0.85), 2.0)
+				draw_line(pc + Vector2(-4, 9), pc + Vector2(4, 9), Color(0.85, 0.85, 0.85), 2.0)
+				draw_circle(pc + Vector2(0, -5), 4.2, verm)
+	# as tocas dos chefes procurados ainda de pé, a menos de 600 m: uma coroa vermelha
+	if alvo:
+		for item: Array in Procurados.na_bussola:
+			var dt: Vector3 = (item[0] as Vector3) - alvo.global_position
+			dt.y = 0.0
+			if dt.length() > Procurados.BUSSOLA or dt.length() < 14.0:
+				continue
+			var off_t := wrapf(atan2(dt.x, -dt.z) - rumo, -PI, PI)
+			var cor_t := Color(1.0, 0.32, 0.26)
+			if absf(off_t) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_t), cor_t)
+			else:
+				var pt := Vector2(cx + off_t * escala, y0 + 12.0)
+				draw_colored_polygon(PackedVector2Array([pt + Vector2(-8, 6), pt + Vector2(-9, -6), pt + Vector2(-4, -1), pt + Vector2(0, -8),
+					pt + Vector2(4, -1), pt + Vector2(9, -6), pt + Vector2(8, 6)]), cor_t)
+	# a semente mais perto ainda no chão, a menos de 150 m: uma folhinha verde
+	if alvo:
+		var melhor := Vector3.INF
+		for ps: Vector3 in Horta.na_bussola:
+			var dd := Vector2(ps.x - alvo.global_position.x, ps.z - alvo.global_position.z).length()
+			if dd < Horta.BUSSOLA and dd > 3.0 and (not melhor.is_finite() or dd < Vector2(melhor.x - alvo.global_position.x, melhor.z - alvo.global_position.z).length()):
+				melhor = ps
+		if melhor.is_finite():
+			var dsm := melhor - alvo.global_position
+			var off_s := wrapf(atan2(dsm.x, -dsm.z) - rumo, -PI, PI)
+			var cor_s := Color(0.55, 1.0, 0.45)
+			if absf(off_s) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_s), cor_s)
+			else:
+				var pf := Vector2(cx + off_s * escala, y0 + 12.0)
+				draw_colored_polygon(PackedVector2Array([pf + Vector2(0, -8), pf + Vector2(5, -2), pf + Vector2(3, 5), pf + Vector2(0, 7),
+					pf + Vector2(-3, 5), pf + Vector2(-5, -2)]), cor_s)
+				draw_line(pf + Vector2(0, -5), pf + Vector2(0, 7), Color(0.2, 0.45, 0.15), 1.5)
 	# a base: uma casinha, sempre (some quando o robô já está nela)
 	if alvo and Melhorias.base.is_finite():
 		var db := Melhorias.base - alvo.global_position
@@ -305,40 +378,118 @@ var resumo_t := 0.0  # tempo que o cartão de fim de rodada ainda fica na tela
 var _resumo_titulo := ""
 var _resumo_linhas: Array = []
 var _resumo_recorde := false
+var _resumo_dados := {}  # os números do tablet: ondas, recorde, vencidos, xp, sucata, nucleos, chips, perdeu_metade
+var _resumo_casca: TabletCasca  # o tablet fechado do resumo (2026-11-21)
 const RESUMO_DURA := 9.0
 
 
-## O cartão de fim de rodada da Fundição: fica uns segundos no meio da tela, sem parar o jogo.
-func mostrar_resumo(titulo: String, linhas: Array, recorde: bool) -> void:
+## O cartão de fim de rodada da Fundição: um tablet fechado no meio da tela, uns segundos, sem parar o jogo.
+## `dados` traz os números; sem ele, o cartão mostra as `linhas` de rótulo e valor.
+func mostrar_resumo(titulo: String, linhas: Array, recorde: bool, dados := {}) -> void:
 	_resumo_titulo = titulo
 	_resumo_linhas = linhas
 	_resumo_recorde = recorde
+	_resumo_dados = dados
 	resumo_t = RESUMO_DURA
+	if _resumo_casca == null:
+		_resumo_casca = TabletCasca.new()
+		_resumo_casca.aberto = false
+		_resumo_casca.size = Vector2(480, 820)
+		_resumo_casca.custom_minimum_size = Vector2(480, 820)
+		_resumo_casca.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_resumo_casca.rotulo = "Fundição"
+		_resumo_casca.cor_rotulo = Color(0.85, 0.35, 0.2)
+		_resumo_casca.pintor = _pintar_resumo
+		add_child(_resumo_casca)
 
 
 func _desenhar_resumo() -> void:
+	if _resumo_casca == null:
+		return
+	_resumo_casca.visible = resumo_t > 0.0
 	if resumo_t <= 0.0:
 		return
-	# no estilo dos menus: painel escuro de canto reto, título, um fio, e linhas de rótulo e valor
-	var alfa := clampf(minf(resumo_t, RESUMO_DURA - resumo_t) * 3.0, 0.0, 1.0)
-	# letras maiores desde 2026-11-20 (revisão dos menus): título 27, linhas 20
-	var larg := 640.0
-	var alt := 100.0 + _resumo_linhas.size() * 36.0
-	var p := Vector2(size.x * 0.5 - larg * 0.5, size.y * 0.5 - alt * 0.5 - 70.0)
-	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.045, 0.075, 0.08, 0.93 * alfa))
-	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.2, 0.3, 0.31, alfa), false, 1.0)
-	draw_string(_fonte, p + Vector2(30.0, 48.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 27, Color(0.93, 0.94, 0.9, alfa))
-	draw_rect(Rect2(p.x + 30.0, p.y + 64.0, larg - 60.0, 1.0), Color(0.2, 0.3, 0.31, alfa))
+	# o fade de entrada e de saída de antes: o tablet some nos primeiros e nos últimos décimos
+	_resumo_casca.modulate.a = clampf(minf(resumo_t, RESUMO_DURA - resumo_t) * 3.0, 0.0, 1.0)
+	_resumo_casca.position = Vector2(size.x * 0.5 - 240.0, size.y * 0.5 - 410.0)
+
+
+func _pintar_resumo(c: CanvasItem, telas: Array) -> void:
+	var t: Rect2 = telas[0]
+	Tablet.texto(c, Vector2(t.position.x, t.position.y + 92), _resumo_titulo, 28, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, t.size.x)
+	if _resumo_dados.is_empty():
+		_pintar_resumo_linhas(c, t)
+	else:
+		_pintar_resumo_tablet(c, t)
+	# a barrinha de tempo: esvazia até a rodada sair da tela (no lugar do botão, porque não para o jogo)
+	var y := t.end.y - 80.0
+	Tablet.caixa(c, Rect2(t.position.x + 90, y, t.size.x - 180, 8), Color(Tablet.TINTA, 0.12), 4)
+	Tablet.caixa(c, Rect2(t.position.x + 90, y, (t.size.x - 180) * clampf(resumo_t / RESUMO_DURA, 0.0, 1.0), 8), Tablet.LARANJA_V, 4)
+
+
+## Sem números: as linhas de rótulo à esquerda e o valor à direita, uma por linha.
+func _pintar_resumo_linhas(c: CanvasItem, t: Rect2) -> void:
 	for i in _resumo_linhas.size():
 		var par: Array = _resumo_linhas[i]
-		var y := p.y + 100.0 + i * 36.0
-		draw_string(_fonte, Vector2(p.x + 30.0, y), String(par[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.62, 0.68, 0.66, alfa))
-		var valor := String(par[1])
-		var cor := Color(0.93, 0.94, 0.9, alfa)
-		if i == 1 and _resumo_recorde:
-			cor = Color(1.0, 0.62, 0.3, alfa)
-		var w := _fonte.get_string_size(valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-		draw_string(_fonte, Vector2(p.x + larg - 30.0 - w, y), valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, cor)
+		var y := t.position.y + 150.0 + i * 44.0
+		var cor := Tablet.LARANJA if i == 1 and _resumo_recorde else Tablet.TINTA
+		Tablet.texto(c, Vector2(t.position.x + 30.0, y), String(par[0]), 17, Color(Tablet.TINTA, 0.6))
+		Tablet.texto(c, Vector2(t.position.x + 30.0, y), String(par[1]), 20, cor, true, HORIZONTAL_ALIGNMENT_RIGHT, t.size.x - 60.0)
+
+
+## O cartão de verdade: a medalha com as ondas, o carimbo de recorde, robôs, experiência e o que levou.
+func _pintar_resumo_tablet(c: CanvasItem, t: Rect2) -> void:
+	var d := _resumo_dados
+	var x0 := t.position.x + 18.0
+	var w := t.size.x - 36.0
+	var mc := Vector2(t.get_center().x - 50.0, t.position.y + 200.0)
+	Tablet.brilho(c, mc, 66, Color(1.0, 0.7, 0.3), 1.2)
+	c.draw_circle(mc, 70, Color(1.0, 0.78, 0.4))
+	c.draw_circle(mc, 58, Color(0.98, 0.66, 0.28))
+	c.draw_arc(mc, 64, 0, TAU, 48, Color(1, 1, 1, 0.6), 2.0, true)
+	Tablet.texto(c, Vector2(mc.x - 60, mc.y + 18), str(int(d.get("ondas", 0))), 56, Color.WHITE, true, HORIZONTAL_ALIGNMENT_CENTER, 120)
+	Tablet.texto(c, Vector2(mc.x - 60, mc.y + 42), "ondas", 15, Color.WHITE, true, HORIZONTAL_ALIGNMENT_CENTER, 120)
+	if _resumo_recorde:
+		c.draw_set_transform(mc + Vector2(150, -6), -0.22, Vector2.ONE)
+		Tablet.caixa(c, Rect2(-78, -30, 156, 60), Color(Tablet.RUBI, 0.08), 10, Tablet.RUBI, 3)
+		Tablet.texto(c, Vector2(-78, -4), "RECORDE", 20, Tablet.RUBI, true, HORIZONTAL_ALIGNMENT_CENTER, 156)
+		Tablet.texto(c, Vector2(-78, 18), "novo! onda %d" % int(d.get("recorde", 0)), 15, Tablet.RUBI, true, HORIZONTAL_ALIGNMENT_CENTER, 156)
+		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var y := t.position.y + 300.0
+	# robôs desligados
+	Tablet.caixa(c, Rect2(x0, y, w, 76), Color(Tablet.TINTA, 0.06), 18)
+	c.draw_circle(Vector2(x0 + 40, y + 38), 24, Color(0.85, 0.35, 0.2, 0.15))
+	Icones.desenhar(c, "maquina", Vector2(x0 + 40, y + 38), 0.8, Tablet.TINTA, 2.0)
+	Tablet.texto(c, Vector2(x0 + 78, y + 36), str(int(d.get("vencidos", 0))), 26, Tablet.TINTA, true)
+	Tablet.texto(c, Vector2(x0 + 78, y + 58), "robôs desligados", 15, Color(Tablet.TINTA, 0.6))
+	y += 86.0
+	# experiência, com o anel do nível (o nível é o do Arsenal, o de agora)
+	Tablet.caixa(c, Rect2(x0, y, w, 76), Color(Tablet.TINTA, 0.06), 18)
+	var nc := Vector2(x0 + 40, y + 38)
+	var bx := Arsenal.barra()
+	Tablet.anel(c, nc, 20, float(bx.x) / float(bx.y), 5.0)
+	Tablet.texto(c, Vector2(nc.x - 20, nc.y + 6), str(Arsenal.nivel()), 15, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, 40)
+	Tablet.texto(c, Vector2(x0 + 78, y + 36), "+%d" % int(d.get("xp", 0)), 26, Tablet.TINTA, true)
+	Tablet.texto(c, Vector2(x0 + 78, y + 58), "de experiência · nível %d" % Arsenal.nivel(), 15, Color(Tablet.TINTA, 0.6))
+	y += 96.0
+	# o que levou para casa: três carimbos, cinza quando não ganhou aquele material
+	var rotulo_levou := "Levou para casa" + (" · metade ficou lá" if bool(d.get("perdeu_metade", false)) else "")
+	Tablet.texto(c, Vector2(x0 + 6, y + 6), rotulo_levou, 17, Tablet.TINTA, true)
+	var cx := x0 + 58.0
+	for mat: String in ["sucata", "nucleos", "chips"]:
+		var q := int(d.get(mat, 0))
+		var tinta := Tablet.LARANJA if q > 0 else Color(Tablet.TINTA, 0.3)
+		var p := Vector2(cx, y + 64)
+		c.draw_circle(p, 34, Color(tinta, 0.1))
+		c.draw_arc(p, 34, 0, TAU, 32, tinta, 2.5, true)
+		Tablet.material(c, mat, p - Vector2(0, 10), 10.0, tinta, 2.0)
+		Tablet.texto(c, Vector2(p.x - 30, p.y + 22), "+%d" % q, 18, tinta, true, HORIZONTAL_ALIGNMENT_CENTER, 60)
+		cx += 110.0
+	y += 120.0
+	# a faixa azul: a próxima rodada começa de novo na onda 1
+	Tablet.caixa(c, Rect2(x0, y, w, 50), Color(Tablet.AZUL, 0.12), 16)
+	Icones.desenhar(c, "aro", Vector2(x0 + 30, y + 25), 0.55, Tablet.AZUL.darkened(0.2), 2.0)
+	Tablet.texto(c, Vector2(x0 + 52, y + 32), "a próxima rodada começa na onda 1", 16, Tablet.TINTA)
 
 
 var chefe_nome := ""  # o minichefe da Fundição em campo
@@ -504,6 +655,20 @@ func _draw() -> void:
 	var c := size * 0.5
 	# marcador no mundo (losango com a distância)
 	var cam := get_viewport().get_camera_3d()
+	# o aro da vez de uma rota: um círculo laranja onde ele está (preso na beira quando sai da tela)
+	if aro_rota.is_finite() and cam:
+		var ta := cam.unproject_position(aro_rota)
+		var atras := cam.is_position_behind(aro_rota)
+		if atras:
+			ta = Vector2(clampf(size.x - ta.x, 30.0, size.x - 30.0), size.y - 60.0)
+		var dentro := not atras and Rect2(Vector2.ZERO, size).has_point(ta)
+		ta = ta.clamp(Vector2(30, 30), size - Vector2(30, 30))
+		if not dentro or alvo.global_position.distance_to(aro_rota) > 60.0:
+			var cor_a := Color(1.0, 0.62, 0.3, 0.95)
+			draw_arc(ta, 11.0, 0.0, TAU, 28, cor_a, 3.0, true)
+			var txt_a := "%d m" % roundi(alvo.global_position.distance_to(aro_rota))
+			var wa := _fonte.get_string_size(txt_a, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			draw_string(_fonte, ta + Vector2(-wa * 0.5, 30), txt_a, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cor_a)
 	if alvo.tem_marcador and cam:
 		var pm := alvo.marcador + Vector3(0, 2.0, 0)
 		var dist_m := alvo.global_position.distance_to(alvo.marcador)
@@ -665,8 +830,8 @@ func _draw() -> void:
 		var pronto := 1.0 - clampf(alvo.escudo_t / Arsenal.ESCUDO_RECARGA, 0.0, 1.0)
 		draw_arc(centro, raio + 9.0, meio - abre, meio + abre, 30, Color(0, 0, 0, 0.3), 2.0, true)
 		draw_arc(centro, raio + 9.0, meio + abre - abre * 2.0 * pronto, meio + abre, 30, Color(0.35, 0.95, 0.85, 0.85), 2.0, true)
-	elif Arsenal.tem("escudo") and alvo.escudo_cargas < Arsenal.ESCUDO_CARGAS:
-		var n_e := Arsenal.ESCUDO_CARGAS
+	elif Arsenal.tem("escudo") and alvo.escudo_cargas < Arsenal.escudo_cargas():
+		var n_e := Arsenal.escudo_cargas()
 		var passo_e := abre * 2.0 / n_e
 		for k_e in n_e:
 			var a_e := meio + abre - (k_e + 1) * passo_e

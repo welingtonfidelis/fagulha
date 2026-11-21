@@ -3322,3 +3322,200 @@ doc, o nome desta doc (`docs/JOGO-VOO.md`) e a pasta do projeto no Mac (`Project
 
 Testes (2026-11-21, com a história, o tutorial revisto e o nome novo): `--teste-vale` 112 pontos, `--teste` 94 e
 `teste_simulacao.gd` 28, todos passando.
+
+## 136. Plano da 1.1 (2026-11-21)
+
+Com a história e o nome novo, o usuário chamou o jogo de 1.0. Para a 1.1 a escolha foi aprofundar a ilha que já
+existe, e não abrir um mapa novo. A ilha do sinal do sudoeste ("Tem lugar para vocês aqui") fica para a 1.2 ou
+a 2.0.
+
+Quem joga, nas palavras do usuário: ele gosta de andar e voar livre, sem objetivo, observando e ouvindo o lugar;
+o filho é mais acelerado e gosta de combate e de coisas com objetivo. Regra de projeto que sai disso: **a ação
+é sempre convidada**. Ela começa num lugar que o jogador escolhe (uma baliza, um acampamento, o quadro da base),
+e nada vem perturbar quem só está passeando.
+
+### Aprovado: as rotas do piloto de teste
+
+- **Na história:** quem morava na ilha testava o voo dos robôs ajudantes em percursos marcados. Sobraram
+  balizas velhas, de tinta apagada. A simulação foi montada a partir desses percursos, e por isso os aros são
+  iguais aos do treino.
+- **Como funciona:** pousar numa baliza acende a rota, com os aros de luz da simulação e o próximo aro em
+  laranja.
+- **A dificuldade, sem cronômetro:**
+  - Não se pode pousar no meio da rota. O calor é o desafio, e esfriar no caminho (cachoeira, chuva, água) faz
+    parte da manha.
+  - Na versão difícil, cada aro vai apagando se o jogador demora: um relógio que se vê, sem número.
+- **As rotas,** cada uma com uma habilidade:
+  1. Rasante do rio: baixo e rápido pelas curvas, com a cachoeira para esfriar.
+  2. Pás das Torres do Vento: zigue-zague entre as torres.
+  3. Descida do mastro do Relé: de cima para baixo, até um mergulho com impacto.
+  4. Maresia do ninho: só planando, porque ali os jatos não funcionam.
+  5. Aros debaixo d'água: nado rápido na lagoa da Represa.
+  6. Fenda Escura: aros no escuro, com a luz do peito.
+  7. Volta da ilha: a rota longa, a prova final do calor.
+- **Os prêmios:**
+  - Por rota, na primeira vez: uma cor nova para o rastro dos jatos, escolhida na base.
+  - Na versão difícil: uma miniatura do lugar na prateleira do cantinho da base.
+  - Com todas as rotas fechadas: uma peça de voo exclusiva, por exemplo um bocal que deixa a arrancada durar mais
+    sem esquentar tanto. É o único prêmio que muda o jogo.
+  - Sucata e experiência não entram como prêmio: quem chega nas rotas já fabricou quase tudo.
+
+### Feito em 2026-11-21: tudo da lista, menos o jogo a dois
+
+Em 2026-11-21 o usuário pediu "todas que sugeriu", menos o jogo a dois, que vai para a 1.2 e ainda será
+conversado. Tudo está feito e fotografado, esperando a aprovação pelas fotos. Seguindo a regra dele, as
+baterias só rodam depois do "está bom". Cada parte tem a explicação no topo do próprio script.
+
+- **Rotas do piloto de teste** (`Rotas`, `RastroJatos`, `Miniaturas`):
+  - Sete balizas.
+  - A primeira vez de cada rota dá uma cor de rastro, que se troca na aba Rastro da oficina.
+  - A versão difícil dá uma miniatura do lugar na estante do cantinho (`shelf_B_large`, do KayKit).
+  - Com todas feitas, a peça "corrida".
+- **Corrida contra o rival** (`RivalHolograma`):
+  - Depois da difícil, a baliza dá a corrida. A gravação do recorde de um piloto de teste de antigamente, um
+    holograma azul do robô, espera ao lado da baliza e sai quando o robô decola.
+  - A velocidade é fixa por rota (`Rotas.RIVAL_VEL`), entre o voo normal e a arrancada. Na represa ele nada, no
+    ninho ele plana.
+  - Se ele chega antes, um aviso diz isso, e o jogador ainda pode terminar.
+  - Chegar antes dele bate o recorde. Na primeira vez, cada rota dá 50 de experiência, 3 de sucata e uma
+    tacinha dourada no pedestal da miniatura. O progresso fica guardado em `recordes`.
+- **Acampamentos de máquinas** (`Acampamentos`): quatro, com o farolete vermelho. Desligadas todas ao mesmo
+  tempo, o farolete fica verde, as máquinas dormem para sempre, nascem flores, os bichos voltam e uma semente da
+  horta aparece ali.
+- **Chefes procurados** (`Procurados`, `QuadroAvisos`): três chefes, cada um na sua toca, com uma coroa
+  vermelha na bússola. O quadro de avisos da base mostra o retrato de cada um, com o visto verde depois de
+  vencido. Cada chefe deixa uma peça.
+- **Pedidos do drone** (`Pedidos`):
+  - Três cartões só com figura no mesmo quadro, com sete tipos de tarefa: desligar máquinas, fazer uma rota,
+    fotografar bichos, escanear, mergulho com impacto, achar uma semente, liberar um acampamento.
+  - O cartão feito fica verde e dá experiência e sucata (o acampamento dá também um chip). Cinco minutos
+    depois, troca por outro.
+  - Fora da base, um aviso pequeno embaixo à direita mostra a figura e a conta.
+- **Rádio da base** (`RadioBase`, `tools/musica_radio.py`): liga e desliga na bancada. Três músicas, de manhã,
+  de tarde e de noite. O som sai do rádio, e a música do passeio espera enquanto ele toca perto.
+- **Horta** (`Horta`):
+  - Nove sementes: cinco perto dos lugares bonitos e quatro dos acampamentos.
+  - A semente brilha de leve e se pega passando por ela. A bússola mostra uma folhinha verde a menos de 150 m.
+  - No canteiro da base, o triângulo planta. A planta cresce em oito horas do jogo, e no dobro do passo com
+    chuva.
+- **Álbum e modo foto** (`Album`, `PaginaAlbum`):
+  - O triângulo tira foto no scanner e apreciando a vista, sem a tela por cima.
+  - Ganham página os bichos, os amigos, as máquinas, os procurados, as cenas raras (revoada, folhas, estrela,
+    arco-íris, aurora, raio, neblina) e os lugares com nome. As fotos sem página ficam entre as oito soltas.
+  - O álbum abre no caderno da pausa (botão "Álbum da ilha").
+- **Clima novo** (`Clima`):
+  - Neblina deitada no vale em quatro manhãs de cada dez.
+  - Tempestade em uma chuva de cada três: raios longe, clarão e o trovão das gravações da chuva.
+  - Arco-íris depois de chuva forte de dia.
+  - Aurora no norte em uma noite de cada cinco.
+- **Raposa que acompanha** (`RaposaAmiga`):
+  - Ficando quieto perto de uma raposa calma, ela pega confiança em uns 40 s, com um coraçãozinho a cada terço.
+  - Depois ela segue o robô pela ilha. Se ele voa para longe, ela reaparece atrás dele quando ele pousa.
+- **Avisos em fila** (`Hud.avisar`): um aviso que chega com outro ainda novo na tela espera a vez. Antes, o
+  aviso da rota sumia quando o pedido do drone era feito no mesmo instante.
+
+### Ajustes de 2026-11-21, depois das fotos
+
+- **Nada perto demais:**
+  - O pedido do usuário: no mesmo lugar podem ficar várias coisas para achar ou para começar (memórias,
+    peças, sementes, balizas, robôs), mas não perto demais uma da outra. A regra é de 50 m no espaço.
+  - `PontosIlha` guarda todas as coisas, anotadas pelo `Main._anotar_pontos`. As sementes escolhem o lugar
+    sozinhas, de 55 a 95 m do lugar bonito delas e a pelo menos 55 m de tudo, fora de troncos e pedras.
+  - O que mudou de lugar:
+    - A memória do Observatório foi para o platô ao lado, porque o robô de antes fica dentro da cúpula.
+    - A memória da Represa foi para o meio da parede, longe do robô mergulhador na comporta. A baliza da
+      Represa foi para a ponta da parede.
+    - A memória da Fundição foi para o lado oeste do patamar, longe do scanner.
+    - Os robozinhos foram para a câmara do fundo do Sumidouro. A memória do salão ficou do outro lado,
+      longe também da baliza do rio, que fica no morro em cima.
+    - A baliza do mastro foi para o oeste da Ilha do Relé. A baliza da volta da ilha ficou a 72 m do pé do
+      farol.
+  - Fica de fora o balcão do farol: o radiador duplo mora lá, e o fim do jogo acontece em outro momento.
+- **Procurados de frente:** os retratos do quadro saíam de costas. O modelo olha para -Z, e agora gira meia
+  volta antes da foto.
+
+### Prêmios de fora, acampamentos que voltam e melhorias das armas (2026-11-21)
+
+O pedido do usuário: vencer lá fora deve render como na Fundição; os acampamentos voltam a ser ocupados, mas
+não tão cedo que vencer pareça à toa; e a experiência e as peças ganham onde gastar.
+
+- **A mesma conta da Fundição:**
+  - `Arsenal.premio(chefe, onda, semente)` é a conta da Fundição: 10 de experiência por máquina (80 por chefe),
+    15 % a mais por onda; 1 ou 2 de sucata; da onda 4 em diante, às vezes um núcleo; o chefe dá 6 de sucata,
+    2 núcleos e 1 chip. A Fundição, os acampamentos e os procurados usam a mesma função.
+  - `Espolio` são os cubinhos de luz que voam da máquina para o robô, agora de todos.
+  - Nos acampamentos, cada máquina desligada rende na hora, com o nível do acampamento no lugar da onda. O
+    aviso da liberação mostra o total dali. O prêmio fixo da liberação saiu. A Planície rende 45 de
+    experiência e 4 de sucata. O Planalto rende 135 de experiência, 7 de sucata e 1 núcleo.
+  - Nos procurados, o chefe rende como um chefe da onda 15 (260 de experiência), mais a peça. Cada ajudante
+    rende como uma máquina da onda 8.
+  - As máquinas que dormem sozinhas (lugar liberado, chefe vencido) não rendem.
+- **Acampamentos reocupados:**
+  - Cada acampamento conta as horas de jogo desde a liberação, só jogando. Um dia de jogo é uma hora. A pane
+    soma as três horas dela; a hora que volta para trás depois de uma cena não conta.
+  - As máquinas voltam depois de 6 dias de jogo na Planície, 6,5 no Capinzal, 7 no Barranco e 8 no
+    Planalto. Isso só acontece com o robô a mais de 290 m dali.
+  - Na volta, as máquinas religam em casa, o farolete volta ao vermelho piscando, as flores e os bichos vão
+    embora, o acampamento reaparece na bússola e o prêmio vale outra vez. A semente do acampamento é uma só.
+  - As horas ficam guardadas em `acampamentos_horas`. Os bichos do lugar liberado agora também nascem com o
+    jogo carregado; antes só nasciam na hora da liberação.
+  - Os procurados não voltam: são três, com nome e peça.
+- **Melhorias das armas na oficina:**
+  - Na aba Armas, cada arma pronta sobe três degraus: a pistola e a espada de laser, que são de fábrica, e
+    as fabricadas. O degrau aparece em três marquinhas ao lado do nome.
+  - O que cada degrau soma está em `Arsenal.MELHORA`:
+    - pistola: +15 % de dano e tiro 6 % mais depressa;
+    - tiro duplo: +12 % de dano e um quarto menos de espalho;
+    - canhão: +12 % de dano, carga 15 % mais curta e estouro 8 % maior;
+    - precisão: +15 % de dano e recarga 10 % mais curta;
+    - rajada: +12 % de dano, 20 % menos de espalho e esquenta 12 % menos;
+    - mísseis: +10 % de dano e +2 mísseis (8 → 14); no último degrau travam 5 máquinas;
+    - granadas: +10 % de dano, estouro 8 % maior e +1 granada (3 → 6);
+    - espada: +15 % de dano e 10 % mais de alcance.
+  - Os custos dos três degraus:
+
+    | Degrau | Nível do robô | Material |
+    |---|---|---|
+    | 1 | nível da receita + 1 | 15 de sucata |
+    | 2 | nível da receita + 3 | 30 de sucata e 1 núcleo |
+    | 3 | nível da receita + 5 | 50 de sucata, 2 núcleos e 1 chip |
+
+  - A `Tiro` lê os números por `Arsenal.dados(arma)`, já com os degraus. Os degraus ficam guardados no
+    "arsenal".
+
+### Lista para fazer (2026-11-21)
+
+Feito e aprovado em 2026-11-21 ("está bom, roda"). Baterias depois disso: vale OK (113 pontos, com o teste novo
+do escudo em degraus), voo OK (94) e simulação OK (28). Dois acertos que as baterias pediram:
+
+- As peças de prêmio (corrida, couraça, cano, núcleo) não entram mais no `Melhorias.tudo` dos testes e das
+  fotos. Elas se ganham, e mudavam as contas de antes delas (acertos da pane, dano dos tiros, calor da
+  arrancada).
+- Os pedidos do drone davam erro a cada quadro ao trocar um cartão feito: o cartão novo era sorteado com o
+  velho vazio na lista.
+
+O que entrou:
+
+- **Todos os menus no tablet dobrável** (o usuário aprovou os rascunhos: "ficou ótimo, fantástico"):
+  - A biblioteca de desenho é `scripts/tablet.gd` (cores, casca, telas, figuras, rodapé de botões, opções,
+    pílulas, contas). A casca é o nó `TabletCasca` (`scripts/tablet_casca.gd`), aberto (duas telas, 916x830)
+    ou fechado (uma tela, do tamanho de quem usa). `BotaoTablet` é o botão de foco do tablet, com os estilos
+    opção, pílula e livre (este com um pintor próprio).
+  - Oficina (`scripts/vale/oficina.gd`): quatro abas em pílulas (Peças, Armas, Defesa, Rastro), trilha de
+    lâmpadas dos degraus, carimbos de material e o botão de segurar X.
+  - Pausa (`scripts/pausa.gd`): as escolhas na esquerda e o quadro "Agora" na direita (hora, lugar, tempo,
+    nível, materiais, quatro contas e a dica do drone). Abertura com o fundo de tela do farol no pôr do sol.
+    Ajustes com o valor à vista (segmentos, bolinhas, chave) e a explicação ilustrada na direita. Comandos em
+    duas tabelas (L1 e R1 trocam controle e teclado). Confirmação no tablet fechado, com o rodapé "○ também
+    é Não".
+  - Caderno com abas Mapa, Memórias e Álbum (L1 e R1 trocam). O mapa colorido é `MapaCaderno`, e o álbum de
+    polaroides é `PaginaAlbum`.
+  - Tablet fechado também na peça nova (`CartaoPeca`, sem a animação de antes), no resumo da Fundição (barra
+    de tempo, porque o resumo não para o jogo) e na memória.
+  - A barra de cima mostra a hora do jogo (`Tablet.hora`, que o `CicloDia` escreve).
+- **Escudo em três degraus:** fabricado, segura 1 acerto; cada degrau dá mais um, até 3
+  (`Arsenal.escudo_cargas()`). Os degraus custam como o 2º e o 3º das armas, nos níveis 6 e 8. A recarga
+  continua em 20 s. Saves antigos com o escudo já fabricado ficam com os 3 acertos.
+- **Ícone dos mísseis:** um foguete gordo, inclinado, com ponta redonda, duas aletas, janelinha e chaminha.
+
+Ficam para a 1.2: o jogo a dois (o filho no drone colega, num segundo controle) e a ilha do sinal do sudoeste.

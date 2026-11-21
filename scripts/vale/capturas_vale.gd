@@ -533,7 +533,8 @@ func rodar(main: Node) -> void:
 		a.teleportar(Fundicao.aqui(60.0, 0.0, 60.0) + Vector3(0, 1.0, 0), Armadura.Estado.CHAO)
 		await _esperar(1.0)
 		m.hud.mostrar_resumo("Fundição desligada", [["Ondas vencidas", "6"], ["Recorde", "onda 6 · novo"], ["Robôs desligados", "31"], ["Experiência", "+412 · nível 4"],
-			["Materiais", "sucata +38 · núcleos +3 · chips +1"], ["Recomeça na", "onda 1"]], true)
+			["Materiais", "sucata +38 · núcleos +3 · chips +1"], ["Recomeça na", "onda 1"]], true,
+			{"ondas": 6, "recorde": 6, "vencidos": 31, "xp": 412, "sucata": 38, "nucleos": 3, "chips": 1, "perdeu_metade": false})
 		m.hud.placar = "Onda 7"
 		m.hud.placar_total = 9
 		m.hud.placar_restam = 4

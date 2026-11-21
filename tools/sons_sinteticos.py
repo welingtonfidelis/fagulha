@@ -87,7 +87,35 @@ def bipes(rng, notas):
     return som + [0.0] * int(0.03 * TAXA)
 
 
+def obturador(rng):
+    """A foto do álbum (1.1): o clique duplo da cortina de uma câmera pequena e um zumbido curto de avanço."""
+    n = int(TAXA * 0.32)
+    som = [0.0] * n
+    for t0, forca, corte in ((0.0, 1.0, 5200), (0.055, 0.7, 3800)):
+        ruido = [rng.uniform(-1, 1) for _ in range(int(TAXA * 0.03))]
+        ruido = passa_baixa(ruido, corte)
+        for i, a in enumerate(ruido):
+            env = math.exp(-i / (TAXA * 0.004))
+            som[int(t0 * TAXA) + i] += a * env * forca
+        # a batida seca da lâmina
+        for i in range(int(TAXA * 0.012)):
+            som[int(t0 * TAXA) + i] += math.sin(2 * math.pi * 1900 * i / TAXA) * math.exp(-i / (TAXA * 0.002)) * 0.4 * forca
+    # o motorzinho que avança: um zumbido baixo que sobe e some
+    t0, dur = 0.1, 0.17
+    fase = 0.0
+    for i in range(int(dur * TAXA)):
+        u = i / (dur * TAXA)
+        fase += 2 * math.pi * (180 + 120 * u) / TAXA
+        env = math.sin(math.pi * u) ** 1.5
+        som[int(t0 * TAXA) + i] += (math.sin(fase) + 0.4 * math.sin(3 * fase)) * env * 0.12
+    return som
+
+
 if __name__ == "__main__":
+    import sys
+    if "foto" in sys.argv[1:]:
+        grava("foto", obturador(random.Random(7)), 0.55)
+        sys.exit(0)
     rng = random.Random(41)
     for k in range(1, 7):
         grava("passo_%d" % k, passo(rng), 0.6)
