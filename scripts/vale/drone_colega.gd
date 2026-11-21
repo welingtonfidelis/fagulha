@@ -32,6 +32,8 @@ var _ocio_t := 5.0  # até o próximo olhar em volta
 var bipes := 0  # quantas vezes falou (testes)
 var _perto := false
 var _fala_t := 3.0
+var cena_lugar := Vector3.INF  # as cenas da história (Historia) levam o drone para cá...
+var cena_olha := Vector3.ZERO  # ... olhando para cá
 
 
 func _ready() -> void:
@@ -178,6 +180,11 @@ func _process(delta: float) -> void:
 		if _gesto_t <= 0.0:
 			_tocar("Idle")
 	var balanco := Vector3(0, sin(_fase * 1.7) * 0.12, 0)
+	if cena_lugar.is_finite() and modo == Modo.POSTO:
+		global_position = global_position.lerp(cena_lugar + balanco, 1.0 - exp(-1.8 * delta))
+		_olhar(cena_olha, delta, 3.5)
+		_facho.visible = false
+		return
 	match modo:
 		Modo.POSTO:
 			# com o robô por perto ele chega um pouco para o lado dele (sem sair de junto do cilindro)

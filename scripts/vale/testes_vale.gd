@@ -2237,7 +2237,7 @@ func _ponto_33() -> void:
 	var abriu_m: bool = me.aberta == "torres" and get_tree().paused and me._camada.visible
 	me.fechar()
 	await _esperar(0.3)
-	_ok(me.onde.size() == 11 and Memorias.ORDEM.size() == 11 and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
+	_ok(me.onde.size() == 12 and Memorias.ORDEM.size() == 12 and me.onde.has("fundicao") and longe_das_pecas and abriu_m and me.aberta == "" and not get_tree().paused and me.lidas.has("torres"),
 		"memórias: %d cristais e %d textos, nenhum em cima de uma peça (%s); tocar abre o texto e para o jogo (%s); fechar devolve o controle" % [me.onde.size(), Memorias.TEXTOS.size(), longe_das_pecas, abriu_m])
 	_zerar()
 
@@ -2497,7 +2497,7 @@ func _ponto_36() -> void:
 		Input.action_release("pular")
 	await _esperar(0.3)
 	var fechou: bool = not get_tree().paused and (farol.get("_gira") as Node3D).visible and not m.hud.destino_final.is_finite()
-	_ok(not antes_f and depois_f and perto_base == 0 and perto_molas == 0 and perto_arcos == 0 and no_patio == 2 and botoes_mem == 2 and contas.contains("Memórias: 2 de 11")
+	_ok(not antes_f and depois_f and perto_base == 0 and perto_molas == 0 and perto_arcos == 0 and no_patio == 2 and botoes_mem == 2 and contas.contains("Memórias: 2 de %d" % Memorias.ORDEM.size())
 			and sem_convite and convite and pagina and fechou,
 		"relatórios: a Fundição só entra na bússola depois da visita (%s, %s); máquinas a menos de 150 m da base %d, perto da peça das molas %d, perto da memória dos Arcos %d, no Pátio %d; caderno com %d memórias (%s); farol sem convite antes (%s), com convite e rumo depois (%s), acende e para o jogo (%s), fecha e fica girando (%s)"
 			% [not antes_f, depois_f, perto_base, perto_molas, perto_arcos, no_patio, botoes_mem, contas, sem_convite, convite, pagina, fechou])

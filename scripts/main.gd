@@ -48,6 +48,8 @@ var _ultimo_firme := Vector3.INF
 var _ultimo_yaw := 0.0
 var _firme_t := 0.0
 var dicas_no: Dicas
+var historia: Historia  # o prólogo e o despertar (a história de abertura, doc §134)
+var tutor: Tutor
 
 
 func _input(event: InputEvent) -> void:
@@ -75,7 +77,13 @@ func _ready() -> void:
 	Arsenal.tudo = Melhorias.tudo
 	# a simulação: pedida pela pausa, pela linha de comando, ou num jogo novo (nunca visto e nenhum lugar visitado)
 	var novo: bool = Guardado.ativo and not bool(Guardado.progresso("simulacao_vista")) and (Guardado.progresso("lugares") as Array).is_empty()
-	simulacao = pedido == "sim" or (pedido == "" and ("--simulacao" in args or novo))
+	# a história (2026-11-21): num jogo novo a ilha abre primeiro, para o prólogo, e só depois vem a simulação;
+	# na primeira volta da simulação, o despertar
+	var prologo_visto := bool(Guardado.progresso("prologo_visto")) if Guardado.ativo else false
+	var prologo_agora: bool = pedido == "" and not ("--simulacao" in args) and ((novo and not prologo_visto) or "--prologo" in args)
+	simulacao = pedido == "sim" or (pedido == "" and ("--simulacao" in args or (novo and not prologo_agora)))
+	var despertar_agora: bool = not simulacao and not prologo_agora and (("--despertar" in args) or (Guardado.ativo and prologo_visto
+		and bool(Guardado.progresso("simulacao_vista")) and not bool(Guardado.progresso("despertar_visto"))))
 	pedido = ""
 	Guardado.sem_progresso = simulacao  # na simulação o robô ganha peças e armas de treino: nada disso é gravado
 	if Guardado.ativo and not simulacao:
@@ -474,12 +482,13 @@ func _ready() -> void:
 		tiro.disparou.connect(sons.ao_atirar)
 		tiro.disparou.connect(vibra.ao_atirar)
 		armadura.golpe_chao.connect(func(onde: Vector3) -> void: get_tree().call_group("maquinas", "levar_impacto", onde))
-		var tutor := Tutor.new()
+		tutor = Tutor.new()
 		tutor.name = "Tutor"
 		tutor.armadura = armadura
 		tutor.camera = camera
 		tutor.mapa = ilha as SimMapa
 		tutor.tiro = tiro
+		tutor.carga = carga
 		tutor.livre_de_cara = Guardado.ativo and (bool(Guardado.progresso("simulacao_vista")) or not (Guardado.progresso("lugares") as Array).is_empty())
 		camada.add_child(tutor)
 	# a janela de peça nova só existe no jogo de verdade (nos testes e nas fotos ela pararia tudo)
@@ -492,6 +501,24 @@ func _ready() -> void:
 	pausa.armadura = armadura
 	pausa.na_simulacao = simulacao
 	add_child(pausa)
+	if tutor:
+		tutor.basico_feito.connect(pausa.perguntar_acordar)
+	if ilha is Vale:
+		historia = Historia.new()
+		historia.name = "Historia"
+		historia.principal = self
+		historia.armadura = armadura
+		historia.camera = camera
+		historia.hud = hud
+		historia.drone = drone
+		historia.ciclo = ciclo
+		historia.mapa = ilha as Vale
+		historia.parar = [locais, pecas, dicas_no, inimigos, fundicao, acoes, minis, ninho, torre, robo_antigo, farol, oficina, scanner, cenas_vista, musica]
+		for c in get_children():
+			if c is LimiteMar or c is Mecha:
+				historia.parar.append(c)
+		add_child(historia)
+		historia.terminou.connect(_historia_terminou)
 	aplicar_ajustes()
 	if not simulacao:
 		_retomar_progresso()
@@ -500,9 +527,16 @@ func _ready() -> void:
 	if carga != null:
 		carga.fechar()
 	# a tela de abertura: uma vez por vez que o jogo abre (não na volta da simulação nem depois de recomeçar)
-	if Guardado.ativo and not abertura_vista and not ("--sem-abertura" in OS.get_cmdline_args()) and DisplayServer.get_name() != "headless":
+	var abre: bool = Guardado.ativo and not abertura_vista and not ("--sem-abertura" in OS.get_cmdline_args()) and DisplayServer.get_name() != "headless"
+	if abre:
 		abertura_vista = true
 		_abrir_abertura()
+	# a história: para tudo já, antes do primeiro quadro (senão a Clareira contava como visitada no jogo novo)
+	if historia and (prologo_agora or despertar_agora):
+		historia.parar_tudo()
+		if not abre:
+			historia.cobrir()  # sem a tela de abertura (depois de Novo jogo, ou na volta da simulação): começa no escuro
+		_rodar_historia("prologo" if prologo_agora else "despertar", abre)
 	if "--teste" in args:
 		var t := Testes.new()
 		add_child(t)
@@ -554,6 +588,35 @@ func _abrir_abertura() -> void:
 	armadura.travado = false
 	if pausa and pausa.pode_abrir():
 		pausa.abrir_abertura()
+
+
+## A história começa depois de a ilha assentar e, se a tela de abertura apareceu, depois de ela fechar.
+func _rodar_historia(qual: String, abre: bool) -> void:
+	for i in 50:
+		await get_tree().process_frame
+	if abre:
+		while is_instance_valid(pausa) and (pausa.visible or get_tree().paused):
+			await get_tree().process_frame
+		for i in 6:
+			await get_tree().process_frame
+	if qual == "prologo":
+		historia.prologo()
+	else:
+		historia.despertar()
+
+
+## "A história", na tela de abertura: o prólogo de novo; no fim a abertura volta.
+func ver_historia() -> void:
+	if historia:
+		historia.prologo(true)
+
+
+func _historia_terminou(qual: String) -> void:
+	if qual == "prologo" and historia.rever:
+		for i in 20:
+			await get_tree().process_frame
+		if pausa and pausa.pode_abrir():
+			pausa.abrir_abertura()
 
 
 ## Vai da simulação para o mundo ou do mundo para a simulação. A cena é recarregada; só montar o vale pela

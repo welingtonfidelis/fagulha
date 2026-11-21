@@ -3206,3 +3206,90 @@ caderno num botão próprio.
   teste novo do vale abre e fecha o caderno pelo próprio botão, e confere que o Sair abre a telinha com o
   foco no "Não" e que o círculo desiste e volta ao botão. No voo, os dois testes do L3 viraram um só: "L3 e R3
   não fazem nada".
+
+## 134. A história de abertura: prólogo, o Faísca no treino, o despertar e a memória da Fundição (2026-11-21)
+
+O usuário achou o jogo quase no 1.0 e pediu a história de abertura, para quem começa entender aquele mundo.
+A proposta tinha três momentos, e ele escolheu fazer os três, com o prólogo na própria ilha (cenas com
+frases curtas), a voz do sinal de fora mantida como esperança e mais uma memória na Fundição. Pediu também que
+o fim do treino básico perguntasse, numa telinha de Sim e Não, se é hora de acordar.
+
+- **A ordem do jogo novo mudou.** Antes a simulação vinha primeiro. Agora:
+  1. a ilha abre, com a tela de abertura ("Começar · começa a história");
+  2. o prólogo passa;
+  3. a cena recarrega na simulação, com o treino;
+  4. ao acordar, a ilha abre de novo (o jogo reabre sozinho, como já fazia na volta da simulação);
+  5. o despertar passa.
+
+  Quem decide é o `Main`, pelo save. Há duas chaves novas no progresso, `prologo_visto` e `despertar_visto`.
+  O despertar só passa para quem viu o prólogo: partidas antigas não o veem.
+
+  Para a Clareira não contar como visitada antes da hora, a `Historia` para os lugares já ao montar, antes do
+  primeiro quadro (`parar_tudo`). Novo jogo e Apagar o progresso zeram as duas chaves, e a história passa de
+  novo.
+- **O prólogo** (`scripts/vale/historia.gd`, classe `Historia`) tem sete tomadas na ilha, com faixas pretas de
+  cinema e uma frase grande em cada uma. A frase é para quem lê em voz alta; a imagem conta sozinha.
+
+  | Tomada | Frase | O que se vê |
+  |---|---|---|
+  | 1 | Aqui morava gente que queria ajudar o mundo. | Os Arcos de manhã, a câmera descendo do alto. |
+  | 2 | Fizeram torres de vento, uma represa e robôs para ajudar. | As Torres do Vento, com a câmera correndo ao longo da fila. |
+  | 3 | (a mesma frase) | A represa vista de baixo, com a água saindo pela rachadura. |
+  | 4 | Um dia, não sobrou mais ninguém na ilha. Ficaram os robôs e as lembranças. | O Sono dos Gigantes no fim da tarde, a uns 200 m. |
+  | 5 | O Faísca ficou e cuidou de tudo por muitos e muitos anos. | O vale visto da clareira, com o sol correndo um dia inteiro em 9 s. |
+  | 6 | Quando o corpo dele cansou, ele passou tudo o que sabia para um corpo novo. | A base ao anoitecer. Uma faísca sai do peito do Faísca caído, sobe num arco com rastro e entra no robô novo, de pé no estrado, que acende. |
+  | 7 | (sem frase) | De perto, os olhos do robô abrem e uma luz passa no rosto. A tela escurece. |
+
+  "Na ilha" foi de propósito: a voz do sinal de fora ("Tem lugar para vocês aqui") continua como esperança de
+  gente em outro lugar.
+
+  Como o prólogo funciona:
+  - Cada tomada é um dicionário: duração, hora do dia, câmera (uma ida `_vai` ou uma volta `_volta`) e o que
+    acontece a cada quadro. A câmera é a da própria `Historia`.
+  - Nas tomadas longe da base, o robô fica travado e escondido no chão perto da câmera. Assim o capim, os bichos
+    e o som do lugar nascem em volta dele.
+  - Lugares, peças, dicas, máquinas, Fundição, oficina, música do passeio e o limite do mar ficam parados.
+    Também não chove, e a pausa não abre.
+  - Segurar o X (1,2 s, com um anel que enche no canto) pula a cena.
+  - A música é a `musica_vista`. Leva cerca de um minuto.
+- **A história de novo:** a tela de abertura ganhou o botão "A história" (figura de livro), só quando há
+  partida. O prólogo passa, o robô volta para onde estava e a abertura reaparece.
+- **O Faísca ensina o treino.** Antes da primeira lição o cartão da simulação mostra a faísca dele e diz "Oi!
+  Eu sou o Faísca. Antes de acordar, vou te ensinar a usar o seu corpo novo."
+  - Dura 5,5 s e só começa a contar depois que a tela de carregamento some. O X pula depois de 1,5 s.
+  - No fim do básico obrigatório (`Tutor.basico_feito`) abre a telinha de Sim e Não da pausa, sozinha, sem a
+    pausa atrás: "Hora de acordar?" com a figura do sol.
+    - Sim acorda e vai para a ilha. Não, o círculo ou o Esc fecham, e o treino livre segue.
+    - O foco começa no Sim, porque é o caminho de quem joga. Os botões esperam 0,8 s, para o X que acabou a
+      última lição não responder sem querer.
+- **O despertar** é a primeira volta à ilha depois da simulação. Começa no escuro.
+  - De frente para o rosto, de manhã, os olhos abrem, piscam e abrem de vez (`ArmaduraVisual.olhos_abertos`),
+    com o som de religar.
+  - Por cima do ombro do robô aparece o Faísca caído, de cara para o estrado. O drone chega ao lado dele e olha
+    o Faísca, depois o robô, e fala (`DroneColega.cena_lugar` e `cena_olha`).
+  - Um cartão diz "A ilha agora é sua para cuidar.", com três memórias âmbar, uma seta e o farol aceso. Embaixo
+    vem a frase sobre as memórias e o farol.
+  - O X começa o jogo. Segurar o X pula direto para o cartão.
+- **A memória da Fundição** é a 12ª: "A forja que não parou".
+  - Fica no patamar da frente, 52 m ao sul do meio e fora do galpão. Lê-se sem começar a horda.
+  - Conta por que os robôs de lá atacam: a fábrica continuou montando robôs sem ninguém para dizer o que
+    fazer, e eles estão confusos. Desligá-los com cuidado não faz mal.
+  - O farol agora pede as 12.
+- Fotos em `tools/capturas/revisao_historia/` (fora do git). Nas fotos o save do Mac foi trocado por um limpo
+  e devolvido no fim.
+- **Textos do tutorial revistos** (o usuário viu um errado, 2026-11-21). Conferi cada frase com o que o botão
+  faz no código, e havia três erros:
+  - Voo: a arrancada vinha logo depois de parar no ar. Parado, o robô não está voando, e o toque no X volta a
+    voar (segurar desliga os jatos). Por isso a ordem nova é decolar, arrancada, manobra, planar, parar no ar e
+    mergulho: tudo que pede "voando" vem antes de parar.
+  - Voo: planar também vinha depois de parar no ar, e lá segurar o X desliga os jatos e o robô cai. Passou para
+    antes, junto com o resto do voo.
+  - Básico: o calor dizia "olhe o arco em volta da mira", mas o arco do calor fica embaixo, no meio da tela, e a
+    mira nem aparece no voo. A frase agora é "O motor esquenta voando. Veja o arco embaixo da tela".
+  - O resto confere: correr com o analógico até o fim, pulo duplo, segurar o X para decolar, toque e segurar
+    para pousar, segurar o L2 e atirar, um toque no L1 troca de arma, segurar e soltar a granada, espada e
+    esquiva só no chão.
+- Testes:
+  - `--teste-vale`: o ponto das memórias passou a contar 12 e a Fundição.
+  - `teste_simulacao.gd`: no fim do básico, "Hora de acordar?" abre sozinha, pausa o jogo e começa com o foco
+    no Sim. O Não segue no treino. Na estação de voo, a parada no ar usa o toque no X de verdade, na ordem nova.

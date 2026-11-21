@@ -75,6 +75,19 @@ func _rodar() -> void:
 	_ok(m.ilha is SimMapa and Main.simulacao and not Main.mundo_montado and m.pausa.na_simulacao and m.pecas == null,
 		"a simulação monta um mundo vazio, sem o vale (mapa %s)" % m.ilha.get_script().get_global_name())
 	_ok(a.estado == Armadura.Estado.CHAO and a.is_on_floor() and absf(a.global_position.y) < 0.6, "o robô nasce de pé no chão (altura %.2f)" % a.global_position.y)
+	# o Faísca se apresenta antes da primeira lição (doc §134); o X pula a fala depois de um instante
+	var falou: bool = tutor.fala_t > 0.0 and tutor.chave() == "olhar"
+	await _foto("s0_faisca")
+	for i in 600:
+		if tutor.fala_t <= 0.0:
+			break
+		if tutor.fala_t < Tutor.FALA - 1.6:
+			Input.action_press("pular")
+			await physics_frame
+			Input.action_release("pular")
+		await physics_frame
+	_ok(falou and tutor.fala_t <= 0.0 and tutor.chave() == "olhar", "o Faísca se apresenta antes da primeira lição, e o X pula a fala (%s, %.1f s)" % [falou, tutor.fala_t])
+	await _esperar(0.3)
 	await _foto("s1_olhar")
 	# olhar
 	for i in 90:
@@ -139,6 +152,15 @@ func _rodar() -> void:
 	_ok(await _fechou("pousar", 12.0), "pousar: tocar o chão fecha a lição (%s)" % a.nome_estado())
 	await _esperar(1.2)
 	_ok(tutor.acabou and tutor.feitas == Tutor.LICOES.size(), "as %d lições fecharam (%d)" % [Tutor.LICOES.size(), tutor.feitas])
+	# no fim do básico, a pergunta de acordar abre sozinha e pausa o jogo, com o foco no Sim; o Não segue aqui
+	var pausa: Node = m.pausa
+	var perguntou: bool = paused and pausa.visible and pausa.perguntas_acordar == 1 and pausa.get("_confirma_acao") == "acordar" and pausa.get("_confirma_so")
+	var foco_sim: bool = pausa.get("_confirma_sim").has_focus()
+	await _foto("s9_acordar")
+	pausa._responder(false)
+	await _esperar(0.3)
+	_ok(perguntou and foco_sim and not paused and not pausa.visible and Main.simulacao,
+		"fim do básico: \"Hora de acordar?\" abre sozinha com o foco no Sim, e o Não segue no treino (%s, %s, pausado %s)" % [perguntou, foco_sim, paused])
 	await _foto("s9_livre")
 	# treino livre: três círculos, e o robô equipado só aqui
 	var postos: Array = tutor.get("_postos")
@@ -198,13 +220,7 @@ func _rodar() -> void:
 	var decolou: bool = await _fechou("decolar", 5.0)
 	Input.action_release("pular")
 	await _esperar(1.2)
-	Input.action_press("pairar")
-	await _esperar(0.08)
-	Input.action_release("pairar")
-	var pairou: bool = await _fechou("pairar", 4.0)
-	await _foto("s12_voo")
-	_ok(decolou and pairou, "voo: decolar e parar no ar com os botões de verdade (%s, %s; %s)" % [decolou, pairou, a.nome_estado()])
-	await _esperar(1.2)
+	_ok(decolou and a.estado == Armadura.Estado.VOO, "voo: decolar com o botão de verdade deixa o robô voando para a arrancada (%s, %s)" % [decolou, a.nome_estado()])
 	# a arrancada é refeita pelo robô a cada passo da física: o teste a põe logo antes de o tutor olhar
 	var arrancou := false
 	for i in 400:
@@ -220,10 +236,19 @@ func _rodar() -> void:
 	await _esperar(1.2)
 	a.estado = Armadura.Estado.PLANAR
 	var planou: bool = await _fechou("planar", 1.0)
+	await _esperar(0.6)
+	# parar no ar com o botão de verdade: planando, um toque no X freia e o robô fica parado
+	a.teleportar(a.global_position + Vector3(0, 30, 0), Armadura.Estado.VOO)
+	await _esperar(0.3)
+	Input.action_press("pular")
+	await _esperar(0.08)
+	Input.action_release("pular")
+	var pairou: bool = await _fechou("pairar", 4.0)
+	await _foto("s12_voo")
 	await _esperar(1.2)
 	a.golpe_chao.emit(a.global_position)
 	var mergulhou: bool = await _fechou("mergulho", 1.0)
-	_ok(arrancou and manobrou and planou and mergulhou, "voo: arrancada, manobra, planar e mergulho fecham pelas condições (%s, %s, %s, %s)" % [arrancou, manobrou, planou, mergulhou])
+	_ok(arrancou and manobrou and planou and pairou and mergulhou, "voo: arrancada, manobra, planar, parar no ar (toque no X) e mergulho fecham (%s, %s, %s, %s, %s; %s)" % [arrancou, manobrou, planou, pairou, mergulhou, a.nome_estado()])
 	a.teleportar(a.global_position * Vector3(1, 0, 1) + Vector3(0, 0.4, 0), Armadura.Estado.CHAO)
 	await _esperar(1.6)
 	_ok(tutor.seq == "", "depois do voo, de volta ao treino livre")

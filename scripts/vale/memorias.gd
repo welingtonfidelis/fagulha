@@ -1,13 +1,15 @@
 class_name Memorias
 extends Node3D
-## As memórias (2026-11-18): nos dez lugares que não têm peça, e no Sono dos Gigantes (a décima primeira,
-## de 2026-11-20), um pequeno cristal âmbar guarda uma lembrança.
+## As memórias (2026-11-18): nos dez lugares que não têm peça, no Sono dos Gigantes (a décima primeira,
+## de 2026-11-20) e na frente da Fundição (a décima segunda, de 2026-11-21), um pequeno cristal âmbar guarda
+## uma lembrança.
 ## Tocando nele o jogo para, a tela escurece e aparece um texto curto sobre o lugar, com uma música leve.
 ## A história é a que o usuário contou (doc §87): gente boa tentando melhorar o mundo, sem vilão; os humanos
 ## se foram, a natureza tomou o lugar, e o Faísca passou a consciência ao robô que jogamos.
 ## Dá para reler: a memória continua no lugar, mais apagada.
 
 const PEGA := 1.3
+const FUNDICAO_LADO := Vector2(10.0, Fundicao.MZ + 14.0)  # do meio da Fundição até a memória dela (x leste, y sul)
 const AMBAR := Color(1.0, 0.72, 0.32)
 const TINTA := Color(0.93, 0.94, 0.9)
 const APAGADO := Color(0.62, 0.68, 0.66)
@@ -45,11 +47,15 @@ const TEXTOS := {
 		"Deste mastro eles falaram com o mundo por anos, e as respostas foram rareando até parar.\n\nA antena continuou transmitindo sozinha, e este receptor ficou ligado aqui em cima, esquecido. Gravou tudo o que chegou depois.\n\nQuase tudo é chiado. Mas há uma voz, repetida todas as noites, sempre na mesma hora, vinda de sudoeste, de além do mar:\n\n\"Recebemos. Tem lugar para vocês aqui.\"\n\nA luz que acompanha a voz ainda acende. De noite dá para ver."],
 	"robozinhos": ["Os pequenos",
 		"Eram cinco, feitos para andar por dentro dos canos e das frestas onde ninguém mais cabia. Passavam o dia correndo pelo salão, um atrás do outro.\n\nQuando as luzes daqui de baixo se apagaram, eles se juntaram num canto, sentaram em roda e ficaram esperando alguém acender de novo.\n\nEsperaram bastante. Não tinham medo do escuro: só não sabiam brincar nele.\n\nAgora foram para a base. Vai ter barulho por lá."],
+	# a da Fundição (2026-11-21, da história de abertura): por que os robôs de lá atacam. Fica do lado de fora do
+	# galpão, para ler sem começar a horda
+	"fundicao": ["A forja que não parou",
+		"Aqui se faziam os robôs que ajudavam na ilha. A fábrica era tão bem-feita que trabalhava sozinha: bastava ter sucata e sol.\n\nQuando todos se foram, ninguém desligou as forjas. Elas continuaram montando robôs, sem ninguém para dizer a eles o que fazer.\n\nOs que saem de lá hoje estão confusos. Não sabem para quem trabalham, e se assustam com quem chega.\n\nDesligar um deles não faz mal: ele descansa, e as peças voltam para a ilha."],
 	# fora das dez: a lembrança do robô anterior, que aparece ao acordá-lo no Observatório (RoboAntigo)
 	"robo_antigo": ["O que vinha olhar",
 		"Este robô subia o morro quase toda noite. Não tinha tarefa nenhuma aqui: vinha porque gostava.\n\nSentava sempre neste mesmo lugar, ao pé do telescópio, e ficava olhando pela fenda até o céu clarear. Quem trabalhava aqui deixava a porta aberta para ele.\n\nQuando todos se foram, ele continuou vindo. Numa dessas noites a bateria acabou no meio do caminho das estrelas, e ele ficou.\n\nAinda dá para acordá-lo. O drone leva para a base."],
 }
-const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco", "gigantes"]
+const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco", "gigantes", "fundicao"]
 
 var armadura: Armadura
 var mapa: Vale
@@ -107,7 +113,12 @@ func _ready() -> void:
 		var raio := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(no_peito + Vector3(0, 9.0, 0), no_peito - Vector3(0, 9.0, 0), 1))
 		if not raio.is_empty():
 			onde["gigantes"] = raio["position"]
+	# na Fundição: no patamar da frente, fora do galpão (dentro dele, ficar 18 s começa a horda)
+	if Fundicao.montada:
+		onde["fundicao"] = pecas._assentar(Vector2(Fundicao.CENTRO.x + FUNDICAO_LADO.x, Fundicao.CENTRO.y + FUNDICAO_LADO.y))
 	for chave: String in ORDEM:
+		if not onde.has(chave):
+			continue
 		var no := _cristal(lidas.has(chave))
 		no.position = onde[chave]
 		add_child(no)

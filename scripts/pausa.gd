@@ -119,8 +119,12 @@ var _confirma_pergunta: Label
 var _confirma_frase: Label
 var _confirma_nao: Button
 var _confirma_sim: Button
-var _confirma_acao := ""  # "sair", "apagar" ou "novo"
+var _confirma_acao := ""  # "sair", "apagar", "novo" ou "acordar"
 var _confirma_volta: Control  # o botão que abriu a telinha, para o foco voltar a ele no "Não"
+var _confirma_so := false  # a telinha abriu sozinha, sem a pausa atrás (o "Hora de acordar?" do fim do treino básico)
+var _fundo: ColorRect
+var _botao_historia: Button  # na tela de abertura: rever o prólogo (Historia)
+var perguntas_acordar := 0  # testes
 
 
 ## As figuras dos botões da pausa, desenhadas (no estilo dos ícones dos cartões): acendem em laranja com o foco.
@@ -200,6 +204,14 @@ class IconeMenu extends Control:
 			"voltar":
 				draw_line(c + Vector2(r * 0.8, 0), c + Vector2(-r * 0.5, 0), cor, 3.0, true)
 				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.85, 0), c + Vector2(-r * 0.35, -r * 0.45), c + Vector2(-r * 0.35, r * 0.45)]), cor)
+			"historia":
+				# um livro aberto: duas páginas inclinadas e a lombada no meio
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.06, -r * 0.5), c + Vector2(-r * 0.88, -r * 0.62), c + Vector2(-r * 0.88, r * 0.5), c + Vector2(-r * 0.06, r * 0.62)]), cor)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.06, -r * 0.5), c + Vector2(r * 0.88, -r * 0.62), c + Vector2(r * 0.88, r * 0.5), c + Vector2(r * 0.06, r * 0.62)]), cor)
+				for k in 3:
+					var yy := -r * 0.28 + k * r * 0.26
+					draw_line(c + Vector2(-r * 0.72, yy - r * 0.08), c + Vector2(-r * 0.22, yy), ESCURO, 1.6, true)
+					draw_line(c + Vector2(r * 0.22, yy), c + Vector2(r * 0.72, yy - r * 0.08), ESCURO, 1.6, true)
 			"apagar":
 				# uma lixeira
 				draw_rect(Rect2(c.x - r * 0.55, c.y - r * 0.45, r * 1.1, r * 1.25), cor, false, 2.5)
@@ -213,13 +225,13 @@ class IconeMenu extends Control:
 func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var fundo := ColorRect.new()
-	fundo.color = Color(0.02, 0.06, 0.07, 0.78)
-	fundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(fundo)
+	_fundo = ColorRect.new()
+	_fundo.color = Color(0.02, 0.06, 0.07, 0.78)
+	_fundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_fundo)
 	var centro := CenterContainer.new()
 	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fundo.add_child(centro)
+	_fundo.add_child(centro)
 	_cartao = PanelContainer.new()
 	_cartao.add_theme_stylebox_override("panel", _caixa(Color(0.045, 0.075, 0.08, 0.96), 8, 32, Color(0.2, 0.3, 0.31)))
 	centro.add_child(_cartao)
@@ -239,6 +251,9 @@ func _ready() -> void:
 	_inicio.add_theme_constant_override("separation", 10)
 	pilha.add_child(_inicio)
 	_primeiro = _botao(_inicio, "Continuar", "volta ao jogo", _continuar, true, "continuar")
+	if not na_simulacao:
+		_botao_historia = _botao(_inicio, "A história", "o começo da ilha, de novo", _ver_historia, false, "historia")
+		_botao_historia.visible = false
 	_botao_novo = _botao(_inicio, "Novo jogo", "apaga o progresso e começa do zero", _novo_jogo, false, "novo")
 	_botao_novo.visible = false
 	if na_simulacao:
@@ -296,7 +311,7 @@ func _ready() -> void:
 	direita.add_child(_caderno_contas)
 	direita.add_child(_texto("MEMÓRIAS LIDAS", T_GRUPO, AGUA))
 	_caderno_memorias = GridContainer.new()
-	_caderno_memorias.columns = 3  # as 11 memórias em 4 linhas, para a página caber com o mapa grande
+	_caderno_memorias.columns = 3  # as 12 memórias em 4 linhas, para a página caber com o mapa grande
 	_caderno_memorias.add_theme_constant_override("h_separation", 8)
 	_caderno_memorias.add_theme_constant_override("v_separation", 8)
 	direita.add_child(_caderno_memorias)
@@ -617,11 +632,12 @@ func _apagar() -> void:
 func _confirmar(qual: String) -> void:
 	_confirma_acao = qual
 	_confirma_volta = get_viewport().gui_get_focus_owner()
-	var perigo := qual != "sair"
+	var perigo := qual == "apagar" or qual == "novo"
 	var textos: Dictionary = {
 		"sair": ["sair", "Sair do jogo?", "O progresso fica guardado."],
 		"apagar": ["apagar", "Apagar todo o progresso?", "Peças, lugares e memórias somem, e o jogo recomeça do zero. Não dá para desfazer."],
 		"novo": ["novo", "Começar um jogo novo?", "O progresso de agora é apagado. Não dá para desfazer."],
+		"acordar": ["acordar", "Hora de acordar?", "Você já sabe o básico. Sim: o robô acorda na ilha. Não: continua treinando voo e combate aqui."],
 	}
 	var t: Array = textos[qual]
 	_confirma_figura.tipo = t[0]
@@ -637,7 +653,19 @@ func _confirmar(qual: String) -> void:
 	_confirma_nao.disabled = false
 	_confirma_sim.disabled = false
 	_confirma.visible = true
-	_confirma_nao.grab_focus()
+	if qual == "acordar":
+		# o caminho de quem joga é acordar: começa no Sim. Os botões esperam um instante, para o X que acabou
+		# a última lição não responder sem querer
+		_confirma_sim.grab_focus()
+		_confirma_nao.disabled = true
+		_confirma_sim.disabled = true
+		get_tree().create_timer(0.8, true).timeout.connect(func() -> void:
+			if _confirma.visible and _confirma_acao == "acordar":
+				_confirma_nao.disabled = false
+				_confirma_sim.disabled = false
+				_confirma_sim.grab_focus())
+	else:
+		_confirma_nao.grab_focus()
 	_confirma_caixa.pivot_offset = _confirma_caixa.size * 0.5
 	_confirma_caixa.scale = Vector2(0.92, 0.92)
 	create_tween().tween_property(_confirma_caixa, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -648,6 +676,11 @@ func _responder(sim: bool) -> void:
 		_fechar_confirma()
 		return
 	match _confirma_acao:
+		"acordar":
+			_confirma.visible = false
+			_confirma_so = false
+			_fundo.visible = true
+			_trocar_mundo(false)
 		"sair":
 			var principal := get_parent()
 			if principal and principal.has_method("guardar_progresso"):
@@ -667,8 +700,27 @@ func _responder(sim: bool) -> void:
 
 func _fechar_confirma() -> void:
 	_confirma.visible = false
+	if _confirma_so:
+		# sozinha: fecha tudo e solta o jogo (no "Hora de acordar?", o Não segue no treino livre)
+		_confirma_so = false
+		_fundo.visible = true
+		_continuar()
+		return
 	if _confirma_volta and is_instance_valid(_confirma_volta) and _confirma_volta.is_visible_in_tree():
 		_confirma_volta.grab_focus()
+
+
+## O fim do treino básico (Tutor.basico_feito): a telinha de Sim e Não sozinha, sem a pausa atrás.
+func perguntar_acordar() -> void:
+	if visible or get_tree().paused:
+		return
+	perguntas_acordar += 1
+	visible = true
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_confirma_so = true
+	_fundo.visible = false
+	_confirmar("acordar")
 
 
 ## Fecha o jogo e abre de novo, já limpo e sem passar pela tela de abertura.
@@ -698,14 +750,30 @@ func abrir_abertura() -> void:
 	_titulo.add_theme_color_override("font_color", LARANJA)
 	_subtitulo.text = "Em Busca do Sossego"
 	_primeiro.text = "Continuar" if tem else "Começar"
-	(_primeiro.get_node("explica") as Label).text = "de onde você parou" if tem else "acorda o robô"
+	(_primeiro.get_node("explica") as Label).text = "de onde você parou" if tem else ("começa o treino" if na_simulacao else "começa a história")
 	_botao_novo.visible = tem
+	# rever o prólogo: só com uma partida em curso (no jogo novo, Começar já passa por ele)
+	var principal := get_parent()
+	if _botao_historia:
+		_botao_historia.visible = tem and principal != null and principal.get("historia") != null
 	_botao_novo.text = "Novo jogo"
 	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
 		if b:
 			b.visible = false
 	_dica.visible = false
 	_primeiro.grab_focus()
+
+
+## Rever a história (na tela de abertura): a pausa fecha, o prólogo passa e a abertura volta no fim.
+func _ver_historia() -> void:
+	var principal := get_parent()
+	if principal == null or not principal.has_method("ver_historia"):
+		return
+	visible = false
+	abertura = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	get_tree().paused = false
+	principal.call("ver_historia")
 
 
 ## Novo jogo pergunta antes (Sim e Não): apaga o progresso e o jogo reabre limpo.
@@ -831,8 +899,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_fechar_confirma()
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("menu"):
-			_confirma.visible = false
-			_continuar()
+			if _confirma_so:
+				_fechar_confirma()
+			else:
+				_confirma.visible = false
+				_continuar()
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("caderno"):
 			get_viewport().set_input_as_handled()
@@ -877,7 +948,11 @@ func _abrir() -> void:
 	_pagina_caderno.visible = false
 	_inicio.visible = true
 	_confirma.visible = false
+	_confirma_so = false
+	_fundo.visible = true
 	_so_caderno = false
+	if _botao_historia:
+		_botao_historia.visible = false
 	# desfaz o que a tela de abertura mudou
 	abertura = false
 	_primeiro.text = "Continuar"

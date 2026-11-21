@@ -849,6 +849,7 @@ var _lamina_no: MeshInstance3D
 ## `olhar` diz qual expressão está valendo (testes e fotos); `expressao_forcada` fixa uma (fotos).
 var olhar := "normal"
 var expressao_forcada := ""
+var olhos_abertos := 1.0  # 0 a 1: as cenas da história (Historia) fecham os olhos e abrem devagar, no despertar
 var _olho_nos := {}
 var _pisca_em := 2.0
 var _pisca_t := 0.0
@@ -897,6 +898,8 @@ func _olhos(delta: float, a) -> void:
 				giro = 0.16 * s  # franzidos para dentro
 		if _pisca_t > 0.0 and olhar != "pane":
 			alto = 0.08
+		if olhos_abertos < 1.0:
+			alto = lerpf(0.04, alto, clampf(olhos_abertos, 0.0, 1.0))
 		var t := 1.0 - exp(-22.0 * delta)
 		no.scale = no.scale.lerp(Vector3(largo, alto, 1.0), t)
 		no.rotation.z = lerp_angle(no.rotation.z, giro, t)

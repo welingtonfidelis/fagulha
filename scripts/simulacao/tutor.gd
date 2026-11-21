@@ -5,6 +5,10 @@ extends Control
 ## O trecho obrigatório é a sequência "basico" (olhar, andar, correr, pular, decolar, voar, o calor e pousar).
 ## Depois vem o treino livre: três círculos no chão (básico, voo, combate); entrar num deles começa aquela
 ## sequência. No treino livre o robô tem todas as peças e armas, só dentro da simulação.
+## Quem ensina é o Faísca (a história, doc §134): ele se apresenta antes da primeira lição, e no fim do
+## básico o jogo pergunta, na telinha de Sim e Não da pausa, se é hora de acordar (`basico_feito`).
+
+signal basico_feito
 
 const TINTA := Color(0.93, 0.96, 0.95)
 const APAGADO := Color(0.62, 0.7, 0.69)
@@ -19,16 +23,18 @@ const SEQUENCIAS := {
 		["pular", "{pular}   {pular}", "Pule, e pule de novo no ar"],
 		["decolar", "segure  {pular}", "Segure para decolar"],
 		["voar", "{mover}  {olhar}", "Voe por dentro dos três aros"],
-		["calor", "", "O motor esquenta voando. Olhe o arco em volta da mira"],
+		["calor", "", "O motor esquenta voando. Veja o arco embaixo da tela"],
 		["pousar", "{pular}   segure  {pular}", "Um toque para no ar e segurar desliga os jatos. Pouse para esfriar"],
 	],
+	# a ordem segue o estado do robô: tudo que pede "voando" vem antes de parar no ar (parado, o toque no X
+	# volta a voar e segurar desliga os jatos; o usuário achou a arrancada pedida com o robô parado, 2026-11-21)
 	"voo": [
 		["decolar", "segure  {pular}", "Decole"],
-		["pairar", "{pular}", "Voando, um toque freia e para no ar"],
 		["arrancada", "{mover}  para a frente", "Voando, empurre todo para a frente: arrancada"],
 		["manobra", "{soltar}", "Voando, gire para o lado"],
 		["planar", "segure  {pular}", "Voando, segure para abrir as asas"],
-		["mergulho", "{golpe}", "Do alto, mergulhe até o chão"],
+		["pairar", "{pular}", "Um toque freia e para no ar"],
+		["mergulho", "{golpe}", "Parado no alto, mergulhe até o chão"],
 	],
 	"combate": [
 		["mirar", "{mirar}", "Segure para mirar"],
@@ -71,6 +77,9 @@ var _dentro := ""  # o círculo em que o robô está pisando (para não recomeç
 var _conta0 := 0
 var _modo0 := ""
 var _mergulhou := false
+const FALA := 5.5  # s da apresentação do Faísca, antes da primeira lição
+var fala_t := 0.0  # > 0: o Faísca está se apresentando (as lições esperam)
+var carga: Node  # a tela de carregamento: a apresentação só começa a contar depois que ela some
 
 
 func _ready() -> void:
@@ -83,6 +92,7 @@ func _ready() -> void:
 		acabou = true
 		_livre()
 	else:
+		fala_t = FALA
 		_comecar()
 
 
@@ -274,14 +284,26 @@ func _process(delta: float) -> void:
 	if seq == "":
 		_ver_postos()
 		return
+	if fala_t > 0.0:
+		# a apresentação: passa sozinha, ou com o X depois de um instante
+		if is_instance_valid(carga):
+			return
+		fala_t -= delta
+		if fala_t < FALA - 1.5 and Input.is_action_just_pressed("pular"):
+			fala_t = 0.0
+		_yaw0 = camera.yaw if camera else 0.0
+		return
 	if _ok_t >= 0.0:
 		_ok_t += delta
 		if _ok_t >= 0.9:
 			_ok_t = -1.0
 			licao += 1
 			if licao >= (SEQUENCIAS[seq] as Array).size():
+				var primeira := seq == "basico" and not acabou
 				acabou = true
 				_livre()
+				if primeira:
+					basico_feito.emit()
 			else:
 				_comecar()
 		return
@@ -346,6 +368,17 @@ func _process(delta: float) -> void:
 		_ok_t = 0.0
 
 
+## A faísca do Faísca: uma estrela de oito pontas que pulsa, com um miolo claro.
+func _faisca(c: Vector2, r: float, cor: Color) -> void:
+	var pulso := 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.006)
+	var pts := PackedVector2Array()
+	for k in 16:
+		var ang := k * TAU / 16.0 - PI * 0.5
+		pts.append(c + Vector2.from_angle(ang) * r * pulso * (1.0 if k % 4 == 0 else (0.55 if k % 2 == 0 else 0.3)))
+	draw_colored_polygon(pts, cor)
+	draw_circle(c, r * 0.24, Color(1.0, 0.95, 0.8, cor.a))
+
+
 ## No treino livre: pisar num círculo começa a sequência dele.
 func _ver_postos() -> void:
 	var p := armadura.global_position * Vector3(1, 0, 1)
@@ -376,6 +409,16 @@ func _draw() -> void:
 		var fim := "Acordar e ir para a ilha:  {menu}"
 		var wf := Botoes.largura(fim, _fonte, 22)
 		Botoes.desenhar(self, _fonte, Vector2(meio - wf * 0.5, y + 78.0), fim, 22, APAGADO)
+		return
+	if fala_t > 0.0:
+		# o Faísca se apresenta: a faísca dele à esquerda e duas linhas
+		var a := clampf(minf((FALA - fala_t) / 0.4, fala_t / 0.4), 0.0, 1.0)
+		var cf := Vector2(meio - larg * 0.5 + 84.0, y + 34.0)
+		_faisca(cf, 40.0, Color(LARANJA.r, LARANJA.g, LARANJA.b, a))
+		var x0 := meio - larg * 0.5 + 158.0
+		draw_string(_fonte, Vector2(x0, y + 22.0), "Oi! Eu sou o Faísca.", HORIZONTAL_ALIGNMENT_LEFT, -1, 34, Color(TINTA.r, TINTA.g, TINTA.b, a))
+		draw_string(_fonte, Vector2(x0, y + 66.0), "Antes de acordar, vou te ensinar", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(AGUA.r, AGUA.g, AGUA.b, a))
+		draw_string(_fonte, Vector2(x0, y + 98.0), "a usar o seu corpo novo.", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(AGUA.r, AGUA.g, AGUA.b, a))
 		return
 	var licoes: Array = SEQUENCIAS[seq]
 	# as bolinhas das lições
