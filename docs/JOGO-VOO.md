@@ -3059,3 +3059,150 @@ sem refazer a casca (o arco, a porta, as forjas e o morro ficam). Fotos de antes
 - **Testes:** só compilação e fotos, como o usuário pede (as baterias rodam depois do "está bom"). O teste da
   Fundição espera `T_RESPIRO + 1` pela onda 2, e o respiro depois da 1ª agora é de 6 s: continua passando.
   A receita da onda 9 virou toda de batedores; os testes de armas por onda (4, 7, 8, 9, 11) continuam valendo.
+
+## 131. Robôs que rodavam na mureta, lâminas mais brandas no começo e o salto dos peixes (2026-11-20)
+
+O usuário jogou a Fundição reformada e trouxe três coisas.
+
+- **Robôs rodando em volta de (-568, 85, -289)**, duas vezes seguidas.
+  - É o lugar (12, -19), a mureta de fora do nordeste, perto de um dos pontos para onde a porta manda os robôs
+    (`SAIDAS_PORTA`).
+  - Causa: o desvio de obstáculos olhava uns 2,3 m à frente, mais longe que o próprio ponto de chegada. Com a
+    mureta ao lado, o rumo livre contornava o ponto sem nunca chegar a 1,3 m dele, e o robô ficava em órbita.
+  - Conserto, em `Vigia`:
+    - o olhar à frente nunca passa da distância até o destino (com um mínimo de 0,6 do raio);
+    - o ponto guiado tem prazo de 10 s (`PRAZO_GUIADO`): passou disso, o robô larga e vai caçar;
+    - a Mecha só ataca depois de largar o ponto guiado.
+  - Conferido com o robô do jogador longe dali, no canto sul e pairando alto na frente, nas ondas 4 e 12.
+    Ninguém rodou; o que mais ficou perto do ponto ficou 9,2 s, de ronda.
+- **Lâminas difíceis demais**: saltavam, golpeavam e eram muito rápidas, até para o usuário.
+  - A Fundição passa o número da onda para a Mecha (`onda_nivel`); fora dela (0) nada muda.
+  - Velocidade e ritmo de ataque crescem com a onda: 70% na 1ª, mais 3,5% por onda, cheios da 10ª em diante.
+  - A esquiva cai com o quadrado disso.
+  - O pulo de ataque só vem da onda 10 (`ONDA_PULO_ATAQUE`), e o salto alto contra quem paira só da 15
+    (`ONDA_PULO_ALTO`).
+  - A ordem dos temas mudou:
+    - na 6ª, couraças;
+    - na 9ª, batedores, como antes;
+    - na 12ª, lâminas, sem os dois robôs a mais que tinham. Antes eram a 6ª.
+  - Medido com um robô só contra o robô do jogador parado no chão, sem escudo, por 20 s (o pior caso):
+
+    | Robô | Onda | 1º acerto | Acertos | Dano | Anda | Ataca a cada |
+    |---|---|---|---|---|---|---|
+    | Espadachim | 1 | 2,9 s | 11 | 11 | 4,5 m/s | 1,6 s |
+    | Espadachim | 6 | 2,4 s | 14 | 14 | 5,7 m/s | 1,3 s |
+    | Espadachim | 12 e 15 | 2,2 s | 17 | 17 | 6,5 m/s | 1,1 s |
+    | Batedor | 3 | 2,3 s | 18 | 6,1 | 3,2 m/s | 3,4 s |
+    | Batedor | 12 | 2,3 s | 21 | 7,1 | 4,2 m/s | 2,6 s |
+    | Couraça | 9 | 2,3 s | 8 | 5,4 | 3,7 m/s | 2,4 s |
+
+    A bala vale um terço de acerto, por isso o batedor acerta muito e tira pouco.
+  - Mesmo mais brando, o Espadachim continua sendo o que mais tira, cerca de 2× o batedor. Correndo (9 m/s),
+    o robô do jogador escapa dele em qualquer onda.
+- **Peixes estranhos ao subir e descer**, no poço da Cachoeira.
+  - A superfície do poço estava certa (no máximo 2 cm de diferença) e o nado normal não dava degraus. O
+    estranho era o salto:
+    - o peixe subia e descia reto no mesmo lugar, como um elevador;
+    - ficava de focinho para cima o tempo todo, mais ainda no alto;
+    - na volta, afundava 17 cm num quadro só.
+  - Agora o salto é um arco para a frente:
+    - avança 1,6 m (ou 1,1 m e 0,7 m, o primeiro que cair em água funda, também no meio do caminho);
+    - o focinho acompanha o arco: para cima ao sair, reto no alto, para baixo ao entrar;
+    - começa e termina na profundidade do peixe, sem tranco;
+    - debaixo d'água, ele se endireita em uns 0,3 s.
+  - O anel na água sai onde o peixe cruza a superfície, ao sair e ao entrar. Vale para todos os cardumes (o
+    da lagoa da clareira, o do poço e o que acompanha o robô).
+- **Testes:** só compilação e fotos, até o "está bom". O teste "a onda 2 vem sozinha" passou a esperar
+  `respiro_de(1) + 1`: o respiro depois da 1ª é de 6 s, e esperar 16 s deixava a onda 2 derrubar o robô.
+  O teste de que os robôs não saem em fila reta mede aos 7,5 s depois da porta (era aos 4,5 s) e pede mais de
+  6 m. Andando a 70% na onda 1, eles passam a porta quase em fila e se abrem dos 6 s em diante:
+  - 7,5 m aos 6,5 s;
+  - 16 m aos 7,5 s;
+  - 20 m aos 8,5 s.
+
+## 132. A revoada de bico reto, sem L3 e R3, o Observatório desenterrado e a rajada mais folgada (2026-11-20)
+
+- **A revoada voava de cabeça para baixo.** É o bando em cunha que cruza o céu quando se aprecia a vista
+  (`CenasVista`).
+  - O `passaro.glb` é a pose de pousado: do rabo ao bico, o corpo desce 29°.
+  - Cada ave agora sobe o bico 0,5 rad (`AVE_NARIZ`), e o corpo fica reto no horizonte.
+  - Os pássaros comuns (`Passaros`) não mudaram.
+- **O L3 e o R3 ficaram sem ação** (pedido do usuário). Tudo o que faziam tem outro jeito no controle:
+  - correr e nadar rápido: o analógico até o fim;
+  - parar no ar: o L2 ou um toque no X;
+  - cancelar o voo parado e ligar o voo no ar: segurar o X;
+  - cortar os jatos voando: um toque no X (para no ar) e depois segurar o X (cai).
+
+  No teclado nada mudou (Shift e F). A ação `correr_alternar` continua existindo, sem botão, porque as fotos
+  a usam. Foram atualizados:
+  - a lista de comandos da pausa;
+  - a lição "pousar" do treino, que agora mostra o toque e o segurar do X;
+  - a figura do posto VOO (triângulo no lugar do L3);
+  - o texto das asas;
+  - as imagens de `correr`, `voar` e `pairar` (analógico, X e L2).
+- **O robô dentro do Observatório ficava invisível.**
+  - O morro sobe para o sudeste. Com a cúpula de 20 m, o chão de fora passava por dentro até 1,9 m acima do piso
+    de concreto.
+  - O robô anterior, sentado ali, ficava todo enterrado (o topo a 78,3 m e a grama a 79,4 m). Quem entrava
+    pela porta chegava a ficar com a câmera dentro do capim.
+  - Agora `MarcosOeste.cavar` deixa o chão plano dentro da cúpula, na altura do meio (a do piso). Ele passa
+    1,5 m da parede, emenda no relevo em 10 m e tira o capim de baixo do piso.
+  - O raio de cima agora para no piso, a 77,58 m, bem embaixo do robô.
+  - O outro, o mergulhador no fundo da Represa, estava certo: visível, no chão, com as mãos na roda.
+- **A rajada aguenta mais** (pedido do usuário): enche o calor em 35 tiros seguidos (uns 3 s de gatilho).
+  Eram 26 (2,2 s); primeiro subiu 20%, para 31, e depois foi arredondada para 35.
+
+## 133. Os menus revistos: letra maior, figuras, ajustes com setas e o caderno no touchpad (2026-11-20)
+
+A revisão dos menus, feita como game designer, saiu com oito ideias. O usuário pediu as quatro primeiras, mais o
+caderno num botão próprio.
+
+- **Letra maior em tudo** (uns 30–40%):
+  - pausa: título 34, botões 24, explicações 17, dica 19, tabela de comandos 18;
+  - cartão de peça nova: título 36, frase 23, rodapé 20; a largura passou para 600;
+  - resumo da Fundição: título 27, linhas 20; painel de 640.
+- **Cada botão da pausa tem uma figura** à esquerda, desenhada em código (`IconeMenu`):
+  - continuar (triângulo), comandos (controle), simulação (cubo), ajustes (engrenagem), sair (porta);
+  - voltar (seta), apagar (lixeira), novo jogo (estrela), acordar (sol), voltar ao começo (casa).
+
+  A figura acompanha a cor do botão: laranja com foco. Quem não lê acha pela figura.
+- **Ajustes com setas.**
+  - O valor fica à direita do botão, entre ◀ e ▶; a sensibilidade aparece como bolinhas.
+  - O direcional para os lados muda o valor sem sair do botão. A qualidade e a sensibilidade param nas pontas
+    (`_mudar_ajuste` com `volta = false`).
+  - O X continua mudando, e dá a volta.
+  - **Apagar o progresso** ficou separado, no fim da página, em vermelho e com a lixeira.
+- **Confirmar numa telinha de Sim e Não** (pedido do usuário). Sair do jogo, Novo jogo e Apagar o progresso
+  não pedem mais "aperte de novo" escrito no botão, que ficava comprido demais com a letra grande.
+  - Abre uma telinha por cima da pausa escurecida (`_confirmar`): a figura grande, a pergunta, uma frase curta
+    e dois botões, ✗ Não e ✓ Sim.
+  - O foco começa no "Não" e não sai dos dois botões. O círculo (ou o Esc) também é "Não" e volta ao botão que
+    abriu; a pausa fecha tudo. Um toque sem querer nunca apaga nem fecha o jogo.
+  - Sair é cinza e laranja ("O progresso fica guardado."). Apagar e Novo jogo têm a borda e o "Sim" em
+    vermelho, e dizem que não dá para desfazer.
+  - O estilo comum dos botões foi para `_pintar_normal`, para o "Sim" trocar entre comum e vermelho.
+- **Comandos em duas tabelas lado a lado**: chão e ar à esquerda, combate e outros à direita. Assim cabe tudo
+  com a letra maior.
+- **O caderno saiu da pausa e ganhou botão próprio**: o touchpad do DualSense (`JOY_BUTTON_TOUCHPAD`) ou o M no
+  teclado (ação `caderno`). As figuras novas são do Kenney Input Prompts (CC0): `touchpad.png` e `k_m.png`.
+  - Com o jogo rodando, o botão para o jogo e abre só o caderno, com o título "Caderno". Voltar, o círculo ou o
+    mesmo botão fecham e o jogo volta (`abrir_caderno_direto`, `_so_caderno`).
+  - Com a pausa aberta, o botão abre o caderno por cima dela; voltar cai de novo na pausa.
+  - Na simulação e na tela de abertura o botão não faz nada.
+  - Se no Bazzite o Steam Input segurar o clique do touchpad, o caderno pode ir para o Create, que hoje é o
+    medidor.
+- **O mapa do caderno ficou maior** (500 px; era 330) e a terra mais fina (grade de 160).
+  - Os marcadores cresceram e ganharam contorno escuro: o robô em laranja, a base em casinha e os lugares em
+    pontos verde-água.
+  - Cada nome procura um lugar livre em volta do ponto (`MapaCaderno._arrumar_nomes`): em cima, embaixo, aos
+    lados, nas diagonais e, por fim, mais longe. Nenhum nome tampa outro nome, o robô, a base ou o "N".
+  - Quem não cabe tenta com letra 12 e, se nem assim couber, o ponto fica sem nome. Com os 29 lugares vistos,
+    todos ganharam nome; dois ficaram com a letra menor.
+  - As memórias lidas passaram a três colunas, e a página cabe na tela de 900 de altura.
+- **Pequenos acertos**:
+  - O aviso "Controle conectado" só troca o título se ele for o de controle desconectado. Antes, ligar um
+    controle trocava também o título do caderno.
+- **Testes** (depois do "está bom" do usuário): `--teste-vale` 112 pontos, `--teste` 94 e a simulação 26. O
+  teste novo do vale abre e fecha o caderno pelo próprio botão, e confere que o Sair abre a telinha com o
+  foco no "Não" e que o círculo desiste e volta ao botão. No voo, os dois testes do L3 viraram um só: "L3 e R3
+  não fazem nada".

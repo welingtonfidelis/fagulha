@@ -24,6 +24,9 @@ const ESPERA_SUSTO := 2.0  # s depois de um susto em que o peixe não se assusta
 const SALTO_AMEACA := 15.0  # m: a ameaça mais perto que isso impede o salto
 const SALTO_DURACAO := 0.7  # s
 const SALTO_ALTURA := 0.5  # m acima da superfície
+const SALTO_ALCANCES := [1.6, 1.1, 0.7]  # m que o salto avança (o primeiro que cair em água funda)
+const GIRO_AR := 22.0  # 1/s: quão depressa o focinho acompanha o arco
+const GIRO_AGUA := 6.0  # 1/s: quão depressa o peixe se endireita depois de entrar na água
 
 signal saltou(posicao: Vector3)
 
@@ -48,6 +51,12 @@ class Peixe:
 	var espera := 0.0  # s até poder se assustar de novo
 	var salto := -1.0  # 0 a 1 no salto; -1 quando está na água
 	var salto_surf := 0.0
+	var salto_de := Vector2.ZERO  # onde o arco começa e onde acaba (x e z)
+	var salto_ate := Vector2.ZERO
+	var salto_y0 := 0.0  # altura no começo e no fim (os dois debaixo d'água, na profundidade do peixe)
+	var salto_y1 := 0.0
+	var fora := false  # acima da água agora (para o anel ao sair e ao entrar)
+	var inclina := 0.0  # rad: focinho para cima (+) ou para baixo (-)
 
 var mapa: Ilha
 var ameaca: Node3D  # o robô; pode ser null
@@ -164,35 +173,59 @@ func _process(delta: float) -> void:
 
 
 ## Sorteia um peixe que não esteja saltando nem assustado e manda saltar (se a ameaça estiver longe).
+## O salto é um arco para a frente: precisa de água funda onde ele cai e no meio do caminho.
 func _tentar_salto(tem_amea: bool, a_xz: Vector2) -> void:
 	var livres: Array[Peixe] = []
 	for p in _peixes:
 		if p.salto < 0.0 and p.fuga <= 0.0 and (not tem_amea or p.pos.distance_to(a_xz) >= SALTO_AMEACA):
 			livres.append(p)
-	if livres.is_empty():
-		_t_salto = 2.0  # tenta de novo daqui a pouco
-		return
-	var p := livres[_rng.randi() % livres.size()]
-	p.salto = 0.0
-	p.salto_surf = mapa.agua(p.pos.x, p.pos.y)
-	saltou.emit(Vector3(p.pos.x, p.salto_surf, p.pos.y))
-	saltos += 1
-	_t_salto = _rng.randf_range(20.0, 50.0)
+	while not livres.is_empty():
+		var k := _rng.randi() % livres.size()
+		var p := livres[k]
+		livres.remove_at(k)
+		for alcance: float in SALTO_ALCANCES:
+			var ate := p.pos + p.dir * alcance
+			if not _valido(ate) or _fundo(p.pos.lerp(ate, 0.5)) < FUNDO_MIN:
+				continue
+			p.salto = 0.0
+			p.salto_de = p.pos
+			p.salto_ate = ate
+			p.salto_surf = mapa.agua(p.pos.x, p.pos.y)
+			p.salto_y0 = p.no.global_position.y
+			p.salto_y1 = mapa.agua(ate.x, ate.y) - minf(p.prof, _fundo(ate) - FOLGA_FUNDO)
+			p.fora = false
+			saltos += 1
+			_t_salto = _rng.randf_range(20.0, 50.0)
+			return
+	_t_salto = 2.0  # ninguém pode saltar agora: tenta de novo daqui a pouco
 
 
+## O arco do salto: avança de `salto_de` a `salto_ate`, sobe SALTO_ALTURA acima da água e volta à mesma
+## profundidade (sem tranco). O focinho acompanha o arco: para cima ao sair, reto no alto, para baixo ao entrar.
 func _saltando(p: Peixe, dt: float) -> void:
 	p.salto += dt / SALTO_DURACAO
 	var t := clampf(p.salto, 0.0, 1.0)
-	var y0 := p.salto_surf - p.prof_atual
-	var alto := SALTO_ALTURA + 0.5 * p.prof_atual  # no meio do arco fica SALTO_ALTURA acima da água
-	var y := lerpf(y0, p.salto_surf, t) + 4.0 * t * (1.0 - t) * alto
-	p.vel_atual = 0.3
+	var meio := lerpf(p.salto_y0, p.salto_y1, 0.5)
+	var alto := SALTO_ALTURA + (p.salto_surf - meio)  # no meio do arco fica SALTO_ALTURA acima da água
+	var y := lerpf(p.salto_y0, p.salto_y1, t) + 4.0 * t * (1.0 - t) * alto
+	p.pos = p.salto_de.lerp(p.salto_ate, t)
+	# subida e avanço por unidade de t: o ângulo do arco
+	var sobe := (p.salto_y1 - p.salto_y0) + 4.0 * (1.0 - 2.0 * t) * alto
+	var avanca := maxf(p.salto_de.distance_to(p.salto_ate), 0.01)
+	p.inclina = lerpf(p.inclina, atan2(sobe, avanca), 1.0 - exp(-dt * GIRO_AR))
+	p.vel_atual = 1.6  # a cauda bate depressa no ar
 	p.no.global_position = Vector3(p.pos.x, y, p.pos.y)
-	p.no.rotation = Vector3(sin(t * PI) * 0.6, _yaw(p), 0.0)  # focinho para cima no ar
+	p.no.rotation = Vector3(p.inclina, _yaw(p), 0.0)
+	var s := mapa.agua(p.pos.x, p.pos.y)
+	if (y > s) != p.fora:
+		p.fora = y > s
+		saltou.emit(Vector3(p.pos.x, s, p.pos.y))  # um anel onde sai e outro onde entra
 	if t >= 1.0:
 		p.salto = -1.0
+		if p.fora:
+			p.fora = false
+			saltou.emit(Vector3(p.pos.x, s, p.pos.y))
 		_posicionar(p)
-		saltou.emit(Vector3(p.pos.x, p.salto_surf, p.pos.y))
 
 
 func _nadar(p: Peixe, dt: float, cm: Vector2) -> void:
@@ -247,6 +280,7 @@ func _nadar(p: Peixe, dt: float, cm: Vector2) -> void:
 		ang += clampf(angle_difference(ang, alvo.angle()), -vira * dt, vira * dt)
 		p.dir = Vector2.from_angle(ang)
 	p.vel_atual = v
+	p.inclina = lerpf(p.inclina, 0.0, 1.0 - exp(-dt * GIRO_AGUA))  # depois do salto, endireita debaixo d'água
 	var nova := p.pos + p.dir * v * dt
 	if _valido(nova) or (atrasado and _fundo(nova) >= FUNDO_MIN):
 		p.pos = nova
@@ -266,7 +300,7 @@ func _posicionar(p: Peixe) -> void:
 	var s := mapa.agua(p.pos.x, p.pos.y)
 	p.prof_atual = minf(p.prof, fundo - FOLGA_FUNDO)
 	p.no.global_position = Vector3(p.pos.x, s - p.prof_atual, p.pos.y)
-	p.no.rotation = Vector3(0.0, _yaw(p), 0.0)
+	p.no.rotation = Vector3(p.inclina, _yaw(p), 0.0)
 
 
 func _animar(p: Peixe, dt: float) -> void:

@@ -11,9 +11,9 @@ const ACOES := {
 	"mover": [["al"], ["k_w", "k_a", "k_s", "k_d"]],
 	"olhar": [["ar"], ["m"]],
 	"pular": [["x"], ["k_espaco"]],
-	"correr": [["l3"], ["k_shift"]],
-	"voar": [["l3"], ["k_shift"]],
-	"pairar": [["r3"], ["k_f"]],
+	"correr": [["al"], ["k_shift"]],  # no controle, o analógico até o fim (o L3 ficou sem ação)
+	"voar": [["x"], ["k_shift"]],
+	"pairar": [["l2"], ["k_f"]],
 	"golpe": [["tri"], ["k_v"]],
 	"sentar": [["esq"], ["k_ctrl"]],
 	"espada": [["quad"], ["k_x"]],
@@ -27,6 +27,7 @@ const ACOES := {
 	"agir": [["tri"], ["k_e"]],
 	"scanner": [["dir"], ["k_t"]],
 	"menu": [["options"], ["k_esc"]],
+	"caderno": [["touchpad"], ["k_m"]],
 	"medidor": [["create"], ["k_f3"]],
 }
 

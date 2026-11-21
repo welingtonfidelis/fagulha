@@ -1077,11 +1077,12 @@ static func receita(numero: int) -> Array[Dictionary]:
 const SAIDAS_PORTA := [Vector2(-20.0, -28.0), Vector2(-6.0, -21.0), Vector2(6.0, -21.0), Vector2(20.0, -28.0), Vector2(0.0, -19.0)]
 
 ## As ondas com tema, da 6ª em diante, de três em três (sem ser a do minichefe): todos do mesmo robô. As
-## lâminas vêm em bando, os batedores em rajada e as couraças em poucas, lentas e duras.
+## couraças vêm em poucas, lentas e duras (a 6ª), os batedores em rajada (a 9ª) e as lâminas em bando só na
+## 12ª (eram a 6ª: um bando de Espadachins logo cedo era difícil demais, visto pelo usuário em 2026-11-20).
 const TEMAS := [
-	{"nome": "lâminas", "modelo": "espadachim", "arma": "corpo", "mais": 2, "forca": 0.85},
-	{"nome": "batedores", "modelo": "batedor", "arma": "bala", "mais": 1, "forca": 0.85},
 	{"nome": "couraças", "modelo": "couraca", "arma": "pesado", "mais": -5, "forca": 1.25},
+	{"nome": "batedores", "modelo": "batedor", "arma": "bala", "mais": 1, "forca": 0.85},
+	{"nome": "lâminas", "modelo": "espadachim", "arma": "corpo", "mais": 0, "forca": 0.85},
 ]
 
 
@@ -1181,6 +1182,7 @@ func _soltar(dados: Dictionary, entrada := 0) -> void:
 	var mc := Mecha.new()
 	mc.arma_forcada = dados["arma"]
 	mc.modelo_forcado = String(dados.get("modelo", ""))
+	mc.onda_nivel = onda
 	mc.mapa = mapa
 	mc.alvo = armadura
 	# a "casa" é um ponto perto do meio: dali eles já enxergam o robô em quase todo o galpão

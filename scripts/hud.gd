@@ -321,23 +321,24 @@ func _desenhar_resumo() -> void:
 		return
 	# no estilo dos menus: painel escuro de canto reto, título, um fio, e linhas de rótulo e valor
 	var alfa := clampf(minf(resumo_t, RESUMO_DURA - resumo_t) * 3.0, 0.0, 1.0)
-	var larg := 520.0
-	var alt := 84.0 + _resumo_linhas.size() * 28.0
+	# letras maiores desde 2026-11-20 (revisão dos menus): título 27, linhas 20
+	var larg := 640.0
+	var alt := 100.0 + _resumo_linhas.size() * 36.0
 	var p := Vector2(size.x * 0.5 - larg * 0.5, size.y * 0.5 - alt * 0.5 - 70.0)
 	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.045, 0.075, 0.08, 0.93 * alfa))
 	draw_rect(Rect2(p, Vector2(larg, alt)), Color(0.2, 0.3, 0.31, alfa), false, 1.0)
-	draw_string(_fonte, p + Vector2(26.0, 40.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.93, 0.94, 0.9, alfa))
-	draw_rect(Rect2(p.x + 26.0, p.y + 54.0, larg - 52.0, 1.0), Color(0.2, 0.3, 0.31, alfa))
+	draw_string(_fonte, p + Vector2(30.0, 48.0), _resumo_titulo, HORIZONTAL_ALIGNMENT_LEFT, -1, 27, Color(0.93, 0.94, 0.9, alfa))
+	draw_rect(Rect2(p.x + 30.0, p.y + 64.0, larg - 60.0, 1.0), Color(0.2, 0.3, 0.31, alfa))
 	for i in _resumo_linhas.size():
 		var par: Array = _resumo_linhas[i]
-		var y := p.y + 84.0 + i * 28.0
-		draw_string(_fonte, Vector2(p.x + 26.0, y), String(par[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.62, 0.68, 0.66, alfa))
+		var y := p.y + 100.0 + i * 36.0
+		draw_string(_fonte, Vector2(p.x + 30.0, y), String(par[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.62, 0.68, 0.66, alfa))
 		var valor := String(par[1])
 		var cor := Color(0.93, 0.94, 0.9, alfa)
 		if i == 1 and _resumo_recorde:
 			cor = Color(1.0, 0.62, 0.3, alfa)
-		var w := _fonte.get_string_size(valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-		draw_string(_fonte, Vector2(p.x + larg - 26.0 - w, y), valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cor)
+		var w := _fonte.get_string_size(valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		draw_string(_fonte, Vector2(p.x + larg - 30.0 - w, y), valor, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, cor)
 
 
 var chefe_nome := ""  # o minichefe da Fundição em campo

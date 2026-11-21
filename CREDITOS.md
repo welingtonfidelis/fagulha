@@ -94,7 +94,7 @@ Baixado de https://kenney.nl/assets/factory-kit em 2026-11-17.
 
 ## Imagens dos botões (Kenney)
 
-As imagens de botão do controle, do teclado e do mouse (`assets/ui/botoes/`, 44 arquivos) vêm do Input Prompts
+As imagens de botão do controle, do teclado e do mouse (`assets/ui/botoes/`, 46 arquivos; o touchpad e o M entraram em 2026-11-20) vêm do Input Prompts
 1.5a, de Kenney (www.kenney.nl), licença Creative Commons Zero (CC0). Baixado de
 https://kenney.nl/assets/input-prompts em 2026-11-19.
 

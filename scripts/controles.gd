@@ -6,6 +6,9 @@ extends RefCounted
 ## Revisão de 2026-11-20 (para depender menos do clique dos analógicos): voar é segurar o X (do chão ou do
 ## ar), correr é empurrar o analógico até o fim, parar no ar é puxá-lo todo para trás, a espada foi para o
 ## quadrado e o "interagir" para o triângulo. O L3 e o R3 continuam fazendo o que faziam.
+## Ainda em 2026-11-20 o L3 e o R3 ficaram sem ação (pedido do usuário): tudo o que faziam tem outro jeito no
+## controle (correr e nadar rápido: analógico até o fim; parar no ar: L2 ou toque no X; cancelar o voo parado
+## e ligar o voo no ar: segurar o X; cortar os jatos voando: toque no X e segurar o X). No teclado nada muda.
 
 static var _feito := false
 
@@ -32,21 +35,19 @@ static func configurar() -> void:
 	for a in ["frente", "tras", "esquerda", "direita"]:
 		InputMap.action_set_deadzone(a, 0.12)
 
-	# Pular / decolar / ligar o voo. No voo, só o toque no L3 corta os jatos (o X deixou de cortar em 2026-11-19).
+	# Pular / decolar / ligar o voo.
 	_tecla("pular", [KEY_SPACE])
 	_botao("pular", JOY_BUTTON_A)
-	# Correr no chão e arrancada no voo: Shift segurado; L3 alterna (no chão, só andando).
+	# Correr no chão e arrancada no voo: Shift segurado (no controle, o analógico até o fim). A ação de alternar
+	# a corrida fica sem botão (era o L3), mas existe para as fotos.
 	_tecla("correr", [KEY_SHIFT])
-	_botao("correr_alternar", JOY_BUTTON_LEFT_STICK)
-	# Ligar e desligar o voo, só no ar: L3 / Shift.
+	_garantir("correr_alternar")
+	# Ligar e desligar o voo, só no ar: Shift (no controle, segurar o X liga; toque e segurar o X desliga).
 	_tecla("voar", [KEY_SHIFT])
-	_botao("voar", JOY_BUTTON_LEFT_STICK)
-	# Voo parado: R3 / F (o L2 também paira). Mergulho com impacto: triângulo / V.
+	# Voo parado: F (no controle, o L2 ou um toque no X). Mergulho com impacto: triângulo / V.
 	_tecla("pairar", [KEY_F])
-	_botao("pairar", JOY_BUTTON_RIGHT_STICK)
 	_tecla("golpe", [KEY_V])
 	_botao("golpe", JOY_BUTTON_Y)
-	# Abaixar: R3 no chão / Ctrl. Um toque abaixa, segurar senta. (No ar o R3 é parar no ar.)
 	# Apreciar a vista e sentar nos móveis: seta para a esquerda / Ctrl. Espada de laser: quadrado / X.
 	_tecla("sentar", [KEY_CTRL])
 	_botao("sentar", JOY_BUTTON_DPAD_LEFT)
@@ -80,6 +81,10 @@ static func configurar() -> void:
 	_botao("agir", JOY_BUTTON_Y)  # triângulo no chão (no ar o triângulo é o mergulho com impacto)
 	_tecla("scanner", [KEY_T])
 	_botao("scanner", JOY_BUTTON_DPAD_RIGHT)
+	# O caderno (mapa, memórias e o que o scanner leu) tem botão próprio, fora da pausa (pedido do usuário,
+	# 2026-11-20): o clique no touchpad do DualSense / M.
+	_tecla("caderno", [KEY_M])
+	_botao("caderno", JOY_BUTTON_TOUCHPAD)
 	# Pausa e medidor de desempenho.
 	_tecla("menu", [KEY_ESCAPE, KEY_TAB])
 	_botao("menu", JOY_BUTTON_START)

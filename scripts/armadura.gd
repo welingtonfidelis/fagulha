@@ -554,13 +554,13 @@ func _plano_camera() -> Basis:
 # ---------------------------------------------------------------- chão e pulo
 
 func _chao(delta: float, mov: Vector2) -> void:
-	# L3 alterna a corrida; o R3 abaixa (ver _abaixar)
+	# a ação de alternar a corrida ficou sem botão (era o L3); o analógico até o fim e o Shift correm
 	var quieto := Vector2(velocity.x, velocity.z).length() < 1.2
 	if Input.is_action_just_pressed("correr_alternar"):
 		_correr_alt = not _correr_alt
 	if mov.length() < 0.15:
 		_correr_alt = false
-	# correr: empurrar o analógico até o fim (2026-11-20); o L3 e o Shift continuam valendo
+	# correr: empurrar o analógico até o fim (2026-11-20) ou o Shift
 	var correr := Input.is_action_pressed("correr") or _correr_alt or analogico().length() > ANALOGICO_CHEIO
 	var postura_antes := postura
 	erguendo = maxf(0.0, erguendo - delta)
@@ -951,8 +951,9 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 	if estado == Estado.PLANAR and vlen < Melhorias.estol():
 		dir_voo = girar_para(dir_voo, (dir_voo + Vector3.DOWN).normalized(), 1.2 * delta)
 	# botões (2026-11-20, pedido do usuário): no voo, um toque no X freia com os jatos para a frente e para
-	# no ar; com as asas, segurar o X troca o jato pelo planador e de volta. Um toque no L3 / Shift corta
-	# tudo e o robô cai; segurar o L3 também troca para o planador. Sem as asas o X freia na hora.
+	# no ar; com as asas, segurar o X troca o jato pelo planador e de volta. Um toque no Shift corta tudo e o
+	# robô cai; segurar o Shift também troca para o planador. Sem as asas o X freia na hora. (O L3 fazia o
+	# papel do Shift no controle e ficou sem ação: lá, para cair, é o toque no X e depois segurar o X.)
 	if estado == Estado.PLANAR or Melhorias.tem("asas"):
 		if Input.is_action_just_pressed("voar"):
 			_planar_seg = 0.0
@@ -972,7 +973,7 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 						_mudar(Estado.VOO)
 					return
 			else:
-				# soltou antes: era um toque. O do L3 corta; o do X freia e para no ar
+				# soltou antes: era um toque. O do Shift corta; o do X freia e para no ar
 				_planar_seg = -1.0
 				if _planar_botao == "voar":
 					_cortar_jatos()
@@ -987,12 +988,12 @@ func _voo(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_frear_e_pairar()
 		return
 	if Input.is_action_just_pressed("soltar"):
-		# o círculo no voo é a manobra (a freada ficou com o L3, que corta, e o L2/R3, que para no ar)
+		# o círculo no voo é a manobra (a freada ficou com o X e o L2, que param no ar, e o Shift, que corta)
 		_manobrar(mov)
 	elif Input.is_action_just_pressed("golpe"):
 		_mergulhar()
 	elif (Input.is_action_just_pressed("mirar") or Input.is_action_just_pressed("pairar")) and not superaquecido:
-		_mudar(Estado.PAIRAR)  # no voo, apertar o L2 ou o R3 freia e paira (segurado de antes não conta)
+		_mudar(Estado.PAIRAR)  # no voo, apertar o L2 ou o F freia e paira (segurado de antes não conta)
 
 
 ## O botão de voo de novo corta os jatos na hora: fica de pé e cai com a gravidade comum, levando o embalo;
@@ -1099,8 +1100,8 @@ func _nado(delta: float, mov: Vector2) -> void:
 		_duplo_usado = false
 		_mudar(Estado.AR)  # raso: afunda até o chão e anda
 		return
-	# A água no jeito do voo (pedido do usuário, 2026-11-18): a câmera aponta, o analógico leva, e o L3 é o
-	# acelerador. O nado rápido vale para todos; as barbatanas o deixam mais veloz. Na superfície o robô boia
+	# A água no jeito do voo (pedido do usuário, 2026-11-18): a câmera aponta, o analógico leva, e o
+	# analógico até o fim (ou o Shift) é o acelerador. O nado rápido vale para todos; as barbatanas o deixam mais veloz. Na superfície o robô boia
 	# de pé, com a cabeça e os ombros fora, e o X dá o impulso para fora e já engata o voo.
 	if Input.is_action_just_pressed("correr_alternar") or Input.is_action_just_pressed("correr") or Input.is_action_just_pressed("voar"):
 		nado_rapido = not nado_rapido
@@ -1158,8 +1159,8 @@ func _pairar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	velocity.z = hv.z
 	velocity.y = move_toward(velocity.y, sin(_tempo_estado * 2.2) * 0.25, Ajustes.PAIRAR_FREIO * delta)
 	dir_voo = Vector3(mira.x, 0.0, mira.z).normalized() if Vector2(mira.x, mira.z).length() > 0.05 else dir_voo
-	# voo parado: fica assim mesmo soltando o L2. Um toque no X (ou o L3) volta a voar para a frente;
-	# segurar o X desliga os jatos e cai; o R3 também cancela.
+	# voo parado: fica assim mesmo soltando o L2. Um toque no X (ou o Shift) volta a voar para a frente;
+	# segurar o X desliga os jatos e cai; o F também cancela.
 	if _botao_x_parado(delta, mira):
 		return
 	if Input.is_action_just_pressed("voar"):
@@ -1167,11 +1168,11 @@ func _pairar(delta: float, mov: Vector2, mira: Vector3) -> void:
 	elif Input.is_action_just_pressed("golpe"):
 		_mergulhar()
 	elif Input.is_action_just_pressed("pairar"):
-		# R3 de novo cancela o voo parado: cai com a gravidade comum
+		# F de novo cancela o voo parado: cai com a gravidade comum
 		_pairar_travado = mirando
 		_mudar(Estado.AR)
 	elif Input.is_action_just_pressed("soltar"):
-		# pairando, o círculo é um tranco de lado (ou para trás, sem direção); R3 é que cancela o voo parado
+		# pairando, o círculo é um tranco de lado (ou para trás, sem direção); segurar o X cancela o voo parado
 		_manobrar(mov)
 
 

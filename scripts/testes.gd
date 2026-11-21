@@ -573,7 +573,13 @@ func _pouso_e_batida() -> void:
 	l3cs.pressed = false
 	Input.parse_input_event(l3cs)
 	await _esperar(1.0)
-	_ok(a.postura == 0 and _hv() > Armadura.andar() + 1.0, "L3 do controle corre e não senta (%.1f m/s, postura %d)" % [_hv(), a.postura])
+	# o L3 e o R3 ficaram sem ação (pedido do usuário, 2026-11-20): nenhuma ação do jogo responde a eles
+	var ligadas := []
+	for acao: StringName in InputMap.get_actions():
+		if not String(acao).begins_with("ui_") and (InputMap.event_is_action(l3c, acao) or InputMap.event_is_action(r3, acao)):
+			ligadas.append(acao)
+	_ok(a.postura == 0 and _hv() < Armadura.andar() + 0.5 and ligadas.is_empty(),
+		"L3 e R3 do controle não fazem nada: anda a %.1f m/s, postura %d, ações ligadas a eles: %s" % [_hv(), a.postura, str(ligadas)])
 	Input.action_release("frente")
 	await _esperar(0.5)
 	# batida numa árvore: voa reto contra a copa
@@ -645,7 +651,7 @@ func _controle() -> void:
 		g2.axis_value = 0.0
 		Input.parse_input_event(g2)
 		await get_tree().process_frame
-	var botoes := {"correr_alternar": JOY_BUTTON_LEFT_STICK, "soltar": JOY_BUTTON_B, "menu": JOY_BUTTON_START, "medidor": JOY_BUTTON_BACK, "marcar": JOY_BUTTON_DPAD_DOWN, "granada": JOY_BUTTON_RIGHT_SHOULDER, "roda": JOY_BUTTON_LEFT_SHOULDER}
+	var botoes := {"soltar": JOY_BUTTON_B, "menu": JOY_BUTTON_START, "medidor": JOY_BUTTON_BACK, "marcar": JOY_BUTTON_DPAD_DOWN, "granada": JOY_BUTTON_RIGHT_SHOULDER, "roda": JOY_BUTTON_LEFT_SHOULDER}
 	for acao in botoes:
 		var e := InputEventJoypadButton.new()
 		e.button_index = botoes[acao]

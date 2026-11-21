@@ -895,8 +895,9 @@ func _ponto_19() -> void:
 		% [m.inimigos.todas.size(), grandes, fichas_ok, armas.size(), bateu, caiu, voltou, cacou, atirou, antes_nao, depois_sim, deitou])
 
 
-## 20. Sem grutas pequenas: só o Sumidouro cava o chão. Fora dele a grade é a original (nada rebaixado, nenhum
-## retângulo de chão refeito), inclusive onde ficava a gruta do Platô das Flores, e não há peça de gruta.
+## 20. Sem grutas pequenas: só o Sumidouro cava o chão (além do nicho da Fundição e do chão aplainado dentro do
+## Observatório). Fora deles a grade é a original (nada rebaixado, nenhum retângulo de chão refeito), inclusive
+## onde ficava a gruta do Platô das Flores, e não há peça de gruta.
 func _ponto_20() -> void:
 	print("sem grutas pequenas")
 	_soltar_tudo()
@@ -908,7 +909,8 @@ func _ponto_20() -> void:
 		var z := -Vale.F_META + 8.0
 		while z < Vale.F_META - 8.0:
 			if v._fora(x, z) < Cavernas.chao_antes(x, z) - 0.3 and Vector2(x, z).distance_to(Sumidouro.centro) > 120.0 \
-					and Vector2(x, z).distance_to(Fundicao.CENTRO) > Fundicao.RAIO + 34.0:
+					and Vector2(x, z).distance_to(Fundicao.CENTRO) > Fundicao.RAIO + 34.0 \
+					and Vector2(x, z).distance_to(MarcosOeste.OBSERVATORIO) > MarcosOeste.CUPULA + 12.0:
 				cavados += 1
 			z += 8.0
 		x += 8.0
@@ -1668,14 +1670,16 @@ func _ponto_31() -> void:
 	var contando: bool = f.fase == Fundicao.Fase.CONTAGEM and f.onda == 1
 	await _esperar(Fundicao.T_CONTAGEM + 4.5)
 	var esperado := Fundicao.receita(1).size()
-	# saem da porta e se abrem em leque: não ficam todos na mesma linha
+	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
+		"quem entra no galpão é avisado e, ficando lá, a onda 1 começa sozinha: %d robôs saem da porta" % f.vivos.size())
+	# saem da porta e se abrem em leque: não ficam todos na mesma linha. Na onda 1 andam a 70% (§131): passam a
+	# porta quase em fila e se abrem dos 6 s em diante (uns 16 m aos 7,5 s)
+	await _esperar(3.0)
 	var xs := []
 	for mc0 in f.vivos:
 		xs.append(mc0.global_position.x)
 	var abertura: float = (xs.max() - xs.min()) if xs.size() > 1 else 0.0
-	_ok(convite and contando and f.fase == Fundicao.Fase.ONDA and f.vivos.size() == esperado,
-		"quem entra no galpão é avisado e, ficando lá, a onda 1 começa sozinha: %d robôs saem da porta e se espalham (%.0f m de um lado ao outro)" % [f.vivos.size(), abertura])
-	_ok(abertura > 3.0, "os robôs não saem em fila reta: 4,5 s depois da porta já abriram %.0f m" % abertura)
+	_ok(abertura > 6.0, "os robôs não saem em fila reta: 7,5 s depois da porta já abriram %.0f m" % abertura)
 	Arsenal.xp = 95  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
 	var xp0 := Arsenal.xp
 	var auras0 := int(EfeitosTiro.contagem.get("aura", 0))
@@ -2444,6 +2448,37 @@ func _ponto_36() -> void:
 	m.pausa._fechar_caderno()
 	m.pausa._continuar()
 	await _esperar(0.3)
+	# o caderno pelo botão próprio (touchpad / M) e a telinha de Sim e Não do sair (2026-11-20)
+	var pc: Pausa = m.pausa
+	var cad := InputEventAction.new()
+	cad.action = "caderno"
+	cad.pressed = true
+	var cad0: int = pc.cadernos
+	pc._unhandled_input(cad)
+	await _esperar(0.1)
+	var abriu_cad: bool = pc.visible and (pc.get("_pagina_caderno") as Control).visible and pc.get("_so_caderno") \
+			and get_tree().paused and pc.cadernos == cad0 + 1 and (pc.get("_titulo") as Label).text == "Caderno"
+	pc._unhandled_input(cad)
+	await _esperar(0.3)
+	var fechou_cad: bool = not pc.visible and not get_tree().paused
+	pc._abrir()
+	await _esperar(0.1)
+	(pc.get("_botao_sair") as Button).grab_focus()
+	pc._sair()
+	await _esperar(0.1)
+	var conf: Control = pc.get("_confirma")
+	var pediu: bool = conf.visible and pc.get_viewport().gui_get_focus_owner() == pc.get("_confirma_nao")
+	var desiste := InputEventAction.new()
+	desiste.action = "ui_cancel"
+	desiste.pressed = true
+	pc._unhandled_input(desiste)
+	await _esperar(0.1)
+	var ficou: bool = not conf.visible and pc.visible and pc.get_viewport().gui_get_focus_owner() == pc.get("_botao_sair")
+	pc._continuar()
+	await _esperar(0.3)
+	_ok(abriu_cad and fechou_cad and pediu and ficou and not get_tree().paused,
+		"o caderno abre e fecha pelo próprio botão; sair pergunta Sim e Não, começa no Não e o círculo desiste (caderno abriu %s, fechou %s; telinha com foco no Não %s, desistiu e ficou na pausa %s)"
+		% [abriu_cad, fechou_cad, pediu, ficou])
 	# o farol: sem as dez memórias não há convite; com elas, a bússola aponta, o convite aparece e ele acende
 	var farol: FarolFinal = m.farol
 	a.teleportar(MarcosLeste.farol_topo + Vector3(0, 2.0, 0), Armadura.Estado.AR)

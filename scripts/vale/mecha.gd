@@ -15,6 +15,15 @@ var agil := 0.3  # 0 a 1: quanto pula e esquiva
 var misto := false  # atira de longe e, de perto, bate de lâmina (o Guardião)
 var pulos := 0  # testes
 var pulos_altos := 0  # testes: saltos altos contra o robô pairando logo acima
+## A onda da Fundição em que ele saiu (0: fora da Fundição, do jeito de sempre). Nas primeiras ondas ele é
+## mais lento, ataca com mais intervalo e esquiva menos; o pulo de ataque só vem da onda 10 e o salto alto
+## contra quem paira, da 15 (pedido do usuário, 2026-11-20: as lâminas pulando e correndo eram difíceis demais)
+var onda_nivel := 0
+var pula_ataque := true
+var pula_alto := true
+var esquiva_mult := 1.0
+const ONDA_PULO_ATAQUE := 10
+const ONDA_PULO_ALTO := 15
 var esquivas := 0  # testes
 const PERTO_MISTO := 4.5
 const GRAVIDADE := 18.0
@@ -90,6 +99,13 @@ func _montar_corpo() -> void:
 		forca_golpe *= 1.3
 		vel_caca *= 0.8
 		dist_tiro *= 1.5 if not corpo_a_corpo else 1.6
+	if onda_nivel > 0:
+		var f := clampf(0.7 + (onda_nivel - 1) * 0.035, 0.7, 1.0)  # 0,7 na onda 1; inteiro da 10ª em diante
+		vel_caca *= f
+		tempo_tiro /= f
+		esquiva_mult = f * f
+		pula_ataque = onda_nivel >= ONDA_PULO_ATAQUE
+		pula_alto = onda_nivel >= ONDA_PULO_ALTO
 	_espera_esquiva = _rng.randf_range(1.0, 3.0)
 	_espera_pulo = _rng.randf_range(1.5, 4.0)
 
@@ -158,7 +174,7 @@ func _mexer(delta: float) -> void:
 	_espera_esquiva -= delta
 	_espera_pulo -= delta
 	var no_ar := _salto_y > 0.0 or _salto_vy > 0.0
-	var combate := estado == Estado.CACA and alvo != null and not alvo.em_pane
+	var combate := estado == Estado.CACA and alvo != null and not alvo.em_pane and not guiado.is_finite()
 	var para := (alvo.global_position - global_position) if alvo else Vector3.ZERO
 	para.y = 0.0
 	var dist := para.length()
@@ -168,7 +184,7 @@ func _mexer(delta: float) -> void:
 		var alto := alvo.global_position.y - global_position.y
 		# o robô pairando logo acima, fora do alcance da lâmina: salta alto e golpeia no topo do salto (pairar a
 		# 2–4 m do chão deixava o robô intocável pelos de lâmina). O topo chega junto com o fim do aviso
-		if corpo_a_corpo and _espera_pulo <= 0.0 and dist < 7.0 and _recarga < 0.6 and alto > altura_m * 0.7 and alto < 4.8:
+		if pula_alto and corpo_a_corpo and _espera_pulo <= 0.0 and dist < 7.0 and _recarga < 0.6 and alto > altura_m * 0.7 and alto < 4.8:
 			_empurrar(para.normalized() * maxf(0.0, dist - 1.0) / TEMPO_AVISO_GOLPE, TEMPO_AVISO_GOLPE, GRAVIDADE * TEMPO_AVISO_GOLPE)
 			_aviso = TEMPO_AVISO_GOLPE
 			_recarga = tempo_tiro
@@ -176,14 +192,14 @@ func _mexer(delta: float) -> void:
 			pulos_altos += 1
 			_espera_pulo = lerpf(4.5, 2.2, agil) + _rng.randf_range(0.0, 1.0)
 		# esquiva: o robô mirando nele (ou um tiro que acabou de pegar) e ele é ágil
-		elif _espera_esquiva <= 0.0 and dist > 2.0 and (levou or _mirado()) and _rng.randf() < agil:
+		elif _espera_esquiva <= 0.0 and dist > 2.0 and (levou or _mirado()) and _rng.randf() < agil * esquiva_mult:
 			var lado := para.normalized().cross(Vector3.UP) * (1.0 if _rng.randf() < 0.5 else -1.0)
 			_empurrar(lado * lerpf(6.0, 9.0, agil), 0.32, 3.2)
 			_vis.esquivando = 0.32
 			esquivas += 1
 			_espera_esquiva = lerpf(5.0, 1.6, agil) + _rng.randf_range(0.0, 1.5)
 		# pulo de ataque: os de lâmina saltam em cima do robô de uns metros e já chegam golpeando
-		elif corpo_a_corpo and agil >= 0.5 and _espera_pulo <= 0.0 and dist > 3.5 and dist < 9.0 and _recarga < 0.6:
+		elif pula_ataque and corpo_a_corpo and agil >= 0.5 and _espera_pulo <= 0.0 and dist > 3.5 and dist < 9.0 and _recarga < 0.6:
 			var tempo_ar := 2.0 * 6.0 / GRAVIDADE
 			_empurrar(para.normalized() * minf(10.0, (dist - 1.6) / tempo_ar), tempo_ar, 6.0)
 			_recarga = minf(_recarga, tempo_ar * 0.5)

@@ -84,6 +84,8 @@ func gerar(_semente := 7) -> void:
 	Tempos.marca("Sumidouro.cavar")
 	Fundicao.cavar(self)
 	Tempos.marca("Fundicao.cavar")
+	MarcosOeste.cavar(self)
+	Tempos.marca("MarcosOeste.cavar")
 	await _avisar(0.12, "Abrindo a clareira")
 	await super.gerar(_semente)
 	await _avisar(0.34, "Estendendo o chão e o mar")

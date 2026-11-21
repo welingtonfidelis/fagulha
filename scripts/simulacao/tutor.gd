@@ -20,7 +20,7 @@ const SEQUENCIAS := {
 		["decolar", "segure  {pular}", "Segure para decolar"],
 		["voar", "{mover}  {olhar}", "Voe por dentro dos três aros"],
 		["calor", "", "O motor esquenta voando. Olhe o arco em volta da mira"],
-		["pousar", "{voar}", "Um toque desliga os jatos. Pouse para esfriar"],
+		["pousar", "{pular}   segure  {pular}", "Um toque para no ar e segurar desliga os jatos. Pouse para esfriar"],
 	],
 	"voo": [
 		["decolar", "segure  {pular}", "Decole"],
@@ -41,7 +41,7 @@ const SEQUENCIAS := {
 }
 const LICOES: Array = SEQUENCIAS["basico"]
 # os círculos do treino livre: [sequência, o nome escrito, a imagem]
-const POSTOS := [["basico", "BÁSICO", "x"], ["voo", "VOO", "l3"], ["combate", "COMBATE", "r2"]]
+const POSTOS := [["basico", "BÁSICO", "x"], ["voo", "VOO", "tri"], ["combate", "COMBATE", "r2"]]
 
 var armadura: Armadura
 var camera: CameraVoo

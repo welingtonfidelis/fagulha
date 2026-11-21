@@ -17,7 +17,8 @@ const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângu
 const TRAVA_ALCANCE := 130.0
 ## A rajada esquenta (pedido do usuário, 2026-11-20: sem isso dava para atirar sem parar). Cada tiro enche um
 ## pedaço; cheia, ela trava até esfriar. A tela desenha a curva ao lado da mira.
-const RAJADA_ENCHE := 1.0 / 26.0  # 26 tiros seguidos (uns 2,2 s de gatilho) enchem
+## O limite subiu (pedido do usuário, 2026-11-20): eram 26 tiros, passou a 31 e foi arredondado para 35.
+const RAJADA_ENCHE := 1.0 / 35.0  # 35 tiros seguidos (uns 3 s de gatilho) enchem
 const RAJADA_ESFRIA := 0.55  # por segundo, sem atirar
 const RAJADA_ESFRIA_QUENTE := 0.4  # por segundo, travada
 const RAJADA_PAUSA := 0.25  # s depois do último tiro até começar a esfriar
@@ -484,7 +485,7 @@ func _pode_atirar() -> bool:
 	return e == Armadura.Estado.CHAO or e == Armadura.Estado.PAIRAR
 
 
-## A espada de laser (R3 no chão / X): um golpe em arco na frente do robô, que alterna de lado a cada vez
+## A espada de laser (quadrado no chão / X): um golpe em arco na frente do robô, que alterna de lado a cada vez
 ## (da esquerda para a direita, depois da direita para a esquerda). Pega todas as máquinas ao alcance, dá um
 ## passo à frente e não esquenta o motor.
 func _espada(delta: float) -> void:

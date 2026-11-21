@@ -36,6 +36,33 @@ static func livre(x: float, z: float) -> bool:
 	return absf(z - CASCO.y) > 16.0 or absf(x - CASCO.x) > CASCO_COMP * 0.5 + 8.0
 
 
+## O chão de dentro do Observatório fica plano, na altura do meio (a do piso de concreto). O morro sobe para
+## o sudeste e, com a cúpula de 20 m, passava por dentro até 1,9 m acima do piso: enterrava o robô sentado e
+## quem entrasse (visto pelo usuário em 2026-11-20). Em volta emenda no relevo em 10 m, e sob o piso não nasce
+## capim. Roda antes de a malha e a colisão do chão de fora serem feitas.
+static func cavar(v: Vale) -> void:
+	var n := Vale.F_N
+	var h0 := v._fora(OBSERVATORIO.x, OBSERVATORIO.y)
+	var dentro := CUPULA + 1.5  # passa um pouco da parede do tambor
+	var emenda := 10.0
+	var alcance := dentro + emenda + Vale.F_PASSO
+	for gz in n:
+		var z := -Vale.F_META + gz * Vale.F_PASSO
+		if absf(z - OBSERVATORIO.y) > alcance:
+			continue
+		for gx in n:
+			var x := -Vale.F_META + gx * Vale.F_PASSO
+			if absf(x - OBSERVATORIO.x) > alcance:
+				continue
+			var d := Vector2(x, z).distance_to(OBSERVATORIO)
+			var i := gz * n + gx
+			if d < CUPULA:
+				v._cob[i] = 5  # o chão comum, sem capim
+			var t := smoothstep(dentro, dentro + emenda, d)
+			if t < 1.0:
+				v._fora_h[i] = lerpf(h0, v._fora_h[i], t)
+
+
 static func montar(v: Vale) -> void:
 	var t0 := Time.get_ticks_msec()
 	torres_topo.clear()

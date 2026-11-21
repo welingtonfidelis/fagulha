@@ -26,7 +26,7 @@ const MODOS := {
 	"duplo": {"som": "laser_duplo", "cor": Color(0.4, 1.0, 0.8), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Tiro duplo", "resumo": "R2 o braço direito, L2 o esquerdo; menos preciso", "gatilho": "duplo", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0, "espalha": 0.03, "solto": true},
 	"misseis": {"som": "missil_sai", "titulo": "Mísseis", "resumo": "segure para travar até 4 alvos e solte", "gatilho": "trava", "cadencia": 0.9, "dano": 3.0, "calor": 4.0, "area": 4.5, "vel": 34.0},
 }
-## A espada de laser (R3 no chão): um golpe em arco, que alterna de lado a cada vez.
+## A espada de laser (quadrado no chão): um golpe em arco, que alterna de lado a cada vez.
 ## O alcance é o do braço mais a lâmina curta de pulso, a partir do meio do robô: defesa de perto. Eram 3,6 m.
 const ESPADA := {"dano": 2.0, "alcance": 1.4, "abre": 80.0, "tempo": 0.2, "espera": 0.3}
 const GRANADA := {"dano": 2.6, "area": 7.0, "pavio": 4.5, "alcance": 55.0}

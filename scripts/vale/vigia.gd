@@ -41,6 +41,9 @@ var disparos := 0
 var chefe := false  # máquina grande: aguenta mais e bate mais forte (a Mecha acerta o resto)
 var pose_foto := -1
 var guiado := Vector3.INF  # um ponto para onde andar reto antes de qualquer coisa (a saída da porta da Fundição)
+var _guiado_de := Vector3.INF  # o guiado em que o prazo está contando
+var _guiado_t := 0.0
+const PRAZO_GUIADO := 10.0  # s para chegar no ponto guiado; passou disso, larga e segue caçando
 
 var _rumo := Vector3.FORWARD
 var _destino := Vector3.ZERO
@@ -216,7 +219,13 @@ func _process(delta: float) -> void:
 	if guiando:
 		var pg := guiado - global_position
 		pg.y = 0.0
-		if pg.length() < 1.3:
+		if guiado != _guiado_de:
+			_guiado_de = guiado
+			_guiado_t = 0.0
+		_guiado_t += delta
+		# chegou, ou não chega (um ponto que ficou atrás de alguma coisa): larga o guiado. Sem o prazo, um
+		# Espadachim da Fundição rodou em volta de uma mureta para sempre (visto pelo usuário, 2026-11-20)
+		if pg.length() < 1.3 or _guiado_t > PRAZO_GUIADO:
 			guiado = Vector3.INF
 			estado = Estado.CACA
 			_recarga = 1.0
@@ -337,7 +346,13 @@ func _process(delta: float) -> void:
 		# tronco, pedra, ruína ou a base no caminho: dá a volta pelo rumo livre mais perto do que queria
 		var quer := _rumo * signf(vel)
 		var raio := altura_m * 0.3
-		var anda := Obstaculos.rumo_livre(mapa, global_position, quer, maxf(absf(vel) * 0.35, raio * 1.6), raio, _lado_desvio, _pisavel)
+		# quanto olha à frente: não passa de onde quer chegar. Olhando 2 m adiante de um ponto colado numa
+		# mureta, o caminho direto dava "fechado" mesmo com o ponto livre, e o robô rodava a mureta sem chegar
+		var olha := maxf(absf(vel) * 0.35, raio * 1.6)
+		var chegar := guiado if guiado.is_finite() else _meta()
+		if vel > 0.0 and chegar.is_finite():
+			olha = minf(olha, maxf(Vector2(chegar.x - global_position.x, chegar.z - global_position.z).length(), raio * 0.6))
+		var anda := Obstaculos.rumo_livre(mapa, global_position, quer, olha, raio, _lado_desvio, _pisavel)
 		if _atravessa_t > 0.0:
 			# já rodou demais em volta da mesma coisa sem chegar: segue reto por um instante, por cima dela
 			_atravessa_t -= delta

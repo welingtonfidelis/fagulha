@@ -75,19 +75,19 @@ func _ready() -> void:
 	centro.add_child(cartao)
 	var pilha := VBoxContainer.new()
 	pilha.add_theme_constant_override("separation", 14)
-	pilha.custom_minimum_size = Vector2(560, 0)
+	pilha.custom_minimum_size = Vector2(600, 0)
 	cartao.add_child(pilha)
 	var topo := Label.new()
 	topo.text = "PEÇA NOVA"
-	topo.add_theme_font_size_override("font_size", 14)
+	topo.add_theme_font_size_override("font_size", 17)  # letras maiores desde 2026-11-20 (revisão dos menus)
 	topo.add_theme_color_override("font_color", APAGADO)
 	pilha.add_child(topo)
 	_titulo = Label.new()
-	_titulo.add_theme_font_size_override("font_size", 32)
+	_titulo.add_theme_font_size_override("font_size", 36)
 	_titulo.add_theme_color_override("font_color", LARANJA)
 	pilha.add_child(_titulo)
 	_figura = Control.new()
-	_figura.custom_minimum_size = Vector2(560, 190)
+	_figura.custom_minimum_size = Vector2(600, 190)
 	_figura.draw.connect(_desenhar_figura)
 	pilha.add_child(_figura)
 	_botoes = TextoBotoes.new()
@@ -98,18 +98,18 @@ func _ready() -> void:
 	_sem_botao = Label.new()
 	_sem_botao.text = "funciona sozinha"
 	_sem_botao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sem_botao.add_theme_font_size_override("font_size", 20)
+	_sem_botao.add_theme_font_size_override("font_size", 23)
 	_sem_botao.add_theme_color_override("font_color", AGUA)
 	pilha.add_child(_sem_botao)
 	_frase = Label.new()
 	_frase.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_frase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_frase.add_theme_font_size_override("font_size", 19)
+	_frase.add_theme_font_size_override("font_size", 23)
 	_frase.add_theme_color_override("font_color", TINTA)
 	pilha.add_child(_frase)
 	var rodape := TextoBotoes.new()
 	rodape.texto = "{@x}  continuar"
-	rodape.tamanho = 15
+	rodape.tamanho = 20
 	rodape.cor = APAGADO
 	rodape.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pilha.add_child(rodape)
