@@ -3173,7 +3173,9 @@ caderno num botão próprio.
   - O direcional para os lados muda o valor sem sair do botão. A qualidade e a sensibilidade param nas pontas
     (`_mudar_ajuste` com `volta = false`).
   - O X continua mudando, e dá a volta.
-  - **Apagar o progresso** ficou separado, no fim da página, em vermelho e com a lixeira.
+  - **Apagar o progresso** ficou separado, no fim da página, em vermelho e com a lixeira. *(Saiu dos ajustes em
+    2026-11-21: fazia o mesmo que o Novo jogo. Agora o Novo jogo é o único jeito de apagar o progresso: na
+    abertura fica na lista, e na pausa da ilha fica no fim, separado e em vermelho. Na simulação não aparece.)*
 - **Confirmar numa telinha de Sim e Não** (pedido do usuário). Sair do jogo, Novo jogo e Apagar o progresso
   não pedem mais "aperte de novo" escrito no botão, que ficava comprido demais com a letra grande.
   - Abre uma telinha por cima da pausa escurecida (`_confirmar`): a figura grande, a pergunta, uma frase curta

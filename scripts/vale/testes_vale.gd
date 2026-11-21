@@ -2591,7 +2591,9 @@ func _ponto_37() -> void:
 	await _esperar(0.4)
 	pz.call("_abrir")
 	await _esperar(0.1)
-	var volta_ok: bool = not pz.abertura and pz.get("_titulo").text == "Pausa" and not (pz.get("_botao_novo") as Button).visible
+	# na pausa da ilha o Novo jogo fica no fim, em vermelho (é o único jeito de apagar o progresso)
+	var novo_b := pz.get("_botao_novo") as BotaoTablet
+	var volta_ok: bool = not pz.abertura and pz.get("_titulo").text == "Pausa" and novo_b.visible and novo_b.perigo and novo_b.position.y > (pz.get("_botao_sair") as Control).position.y
 	pz.call("_continuar")
 	await _esperar(0.4)
 	_ok(ab_ok and volta_ok and not get_tree().paused, "tela de abertura: abre com o nome do jogo e 'Começar' sem partida guardada (%s); depois a pausa volta ao normal (%s)" % [ab_ok, volta_ok])

@@ -8,8 +8,6 @@ extends CanvasLayer
 ## o quadro "Agora" (a hora, o lugar, o robô e uma dica do drone) na da direita; na abertura, a esquerda é um
 ## fundo de tela com o farol no pôr do sol. A confirmação usa o tablet fechado, de uma tela só.
 
-# os textos curtos, para não encostar na explicação à direita do botão
-const APAGAR := "Apagar o progresso"
 const DICAS := [
 	"Mergulhar, a chuva e voar rente à água esfriam o motor.",
 	"Segure o pulo para decolar reto e sair voando.",
@@ -55,7 +53,7 @@ const SUBTITULO := "Fagulha · Em Busca do Sossego"
 # a cor de cada escolha (o círculo da figura): quem não lê acha pela figura e pela cor
 const COR := {"continuar": Tablet.LARANJA_V, "comandos": Tablet.AZUL, "simulacao": Color(0.3, 0.65, 0.65), "ajustes": Color(0.45, 0.55, 0.6),
 	"sair": Tablet.CINZA, "historia": Tablet.LILAS, "novo": Color(0.85, 0.6, 0.2), "acordar": Color(0.92, 0.58, 0.12), "casa": Tablet.VERDE,
-	"voltar": Tablet.CINZA, "apagar": Tablet.RUBI}
+	"voltar": Tablet.CINZA}
 const VERDE_AGUA := Color(0.3, 0.65, 0.65)
 const PETROLEO := Color(0.2, 0.5, 0.5)
 const MAQUINAS := ["sentinela", "zangão", "robô", "máquina", "drone", "torre", "vigia", "aranha", "besouro", "carcaça"]
@@ -96,7 +94,6 @@ var _botao_sens: BotaoTablet
 var _botao_eixo: BotaoTablet
 var _botao_vibra: BotaoTablet
 var _voltar_ajustes: BotaoTablet
-var _botao_apagar: BotaoTablet
 var _ajuste_sel := "qualidade"
 
 # comandos
@@ -125,7 +122,7 @@ var _confirma: ColorRect
 var _confirma_caixa: TabletCasca
 var _confirma_nao: BotaoTablet
 var _confirma_sim: BotaoTablet
-var _confirma_acao := ""  # "sair", "apagar", "novo" ou "acordar"
+var _confirma_acao := ""  # "sair", "novo" ou "acordar"
 var _confirma_volta: Control  # o botão que abriu a telinha, para o foco voltar a ele no "Não"
 var _confirma_so := false  # a telinha abriu sozinha, sem a pausa atrás (o "Hora de acordar?" do fim do treino básico)
 var _confirma_texto: Array = ["sair", "", ""]  # [figura, pergunta, frase]
@@ -238,7 +235,10 @@ func _montar_inicio() -> void:
 	if not na_simulacao:
 		_botao_historia = _botao(_inicio, "A história", "o começo da ilha, de novo", _ver_historia, "historia")
 		_botao_historia.visible = false
-	_botao_novo = _botao(_inicio, "Novo jogo", "começa do zero", _novo_jogo, "novo")
+	# o Novo jogo é o único jeito de apagar o progresso (antes havia também o "Apagar o progresso" nos ajustes,
+	# que fazia o mesmo; pedido do usuário, 2026-11-21): na abertura fica na lista; na pausa da ilha, no fim,
+	# separado e em vermelho
+	_botao_novo = _botao(_inicio, "Novo jogo", "apaga tudo e começa do zero", _novo_jogo, "novo")
 	_botao_novo.visible = false
 	if na_simulacao:
 		_botao_mundo = _botao(_inicio, "Acordar", "sai da simulação e vai para a ilha", _trocar_mundo.bind(false), "acordar")
@@ -259,10 +259,20 @@ func _arrumar_inicio() -> void:
 	var y := (R.position.y + 64.0) if abertura else (L.position.y + 148.0)
 	var x := (R.position.x + 16.0) if abertura else (L.position.x + 16.0)
 	var w := (R.size.x if abertura else L.size.x) - 32.0
-	for b: BotaoTablet in [_primeiro, _botao_historia, _botao_novo, _botao_mundo, _botao_voltar, _botao_comandos, _botao_ajustes, _botao_sair]:
+	var ordem: Array = [_primeiro, _botao_historia, _botao_novo, _botao_mundo, _botao_voltar, _botao_comandos, _botao_ajustes, _botao_sair]
+	# na pausa, o Novo jogo vai para o fim, longe do Continuar, em vermelho
+	_botao_novo.perigo = not abertura
+	_botao_novo.cor = COR["novo"] if abertura else Tablet.RUBI
+	if not abertura:
+		ordem.erase(_botao_novo)
+		ordem.append(_botao_novo)
+	for b: BotaoTablet in ordem:
 		if b == null or not b.visible:
 			continue
 		var alto := 86.0
+		if b == _botao_novo and not abertura:
+			y += 10.0
+			alto = 70.0
 		if abertura:
 			# o Continuar grande mostra o que a partida já tem; sem partida (Começar), fica do tamanho dos outros
 			alto = (150.0 if tem_partida() else 96.0) if b == _primeiro else 78.0
@@ -291,12 +301,6 @@ func _montar_ajustes() -> void:
 	_voltar_ajustes.position = Vector2(x0, y)
 	_voltar_ajustes.size = Vector2(w, 64)
 	_voltar_ajustes.focus_entered.connect(func() -> void: _ajuste_sel = "voltar")
-	# apagar o progresso fica separado, no fim e em vermelho
-	_botao_apagar = _botao(_pagina_ajustes, APAGAR, "o jogo recomeça do zero", _apagar, "apagar")
-	_botao_apagar.perigo = true
-	_botao_apagar.position = Vector2(x0, L.end.y - 106)
-	_botao_apagar.size = Vector2(w, 74)
-	_botao_apagar.focus_entered.connect(func() -> void: _ajuste_sel = "apagar")
 	_escrever_ajustes()
 
 
@@ -663,9 +667,9 @@ func _p_ajustes(c: Control, L: Rect2, R: Rect2) -> void:
 	Tablet.status(c, L, R, "Ajustes", COR["ajustes"])
 	_cabecalho(c, L, "Ajustes")
 	var nomes := {"qualidade": "Qualidade do desenho", "sensibilidade": "Sensibilidade da câmera", "inverter_y": "Olhar para cima e para baixo",
-		"vibra": "Vibração do controle", "voltar": "Ajustes", "apagar": "Apagar o progresso"}
+		"vibra": "Vibração do controle", "voltar": "Ajustes"}
 	var sel := _ajuste_sel
-	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), nomes.get(sel, "Ajustes"), 26, Tablet.RUBI if sel == "apagar" else Tablet.TINTA, true)
+	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), nomes.get(sel, "Ajustes"), 26, Tablet.TINTA, true)
 	var quadro := Rect2(R.position.x + 16, R.position.y + 112, R.size.x - 32, 170)
 	var texto := ""
 	match sel:
@@ -713,10 +717,6 @@ func _p_ajustes(c: Control, L: Rect2, R: Rect2) -> void:
 					c.draw_arc(cen, 62 + k * 12, -0.5, 0.5, 10, Color(0.85, 0.6, 0.2, 0.8 - k * 0.2), 3.0, true)
 					c.draw_arc(cen, 62 + k * 12, PI - 0.5, PI + 0.5, 10, Color(0.85, 0.6, 0.2, 0.8 - k * 0.2), 3.0, true)
 			texto = "O controle treme nos golpes, no pouso e nos tiros."
-		"apagar":
-			Tablet.caixa(c, quadro, Color(Tablet.RUBI, 0.08), 16, Color(Tablet.RUBI, 0.4), 2)
-			Tablet.icone(c, "apagar", quadro.get_center(), 80, Tablet.RUBI, Tablet.TELA)
-			texto = "Peças, lugares, memórias e materiais somem, e o jogo recomeça do zero. Pergunta antes; não dá para desfazer."
 	Tablet.paragrafo(c, Vector2(R.position.x + 24, R.position.y + 352), texto, R.size.x - 48, 18, Tablet.TINTA, 4)
 	if sel in ["qualidade", "sensibilidade", "inverter_y", "vibra"]:
 		var dica := Rect2(R.position.x + 16, R.position.y + 470, R.size.x - 32, 70)
@@ -957,7 +957,7 @@ func _casinha(c: CanvasItem, p: Vector2) -> void:
 
 func _pintar_confirma(c: Control, telas: Array) -> void:
 	var tela: Rect2 = telas[0]
-	var perigo := _confirma_acao == "apagar" or _confirma_acao == "novo"
+	var perigo := _confirma_acao == "novo"
 	var cor: Color = Tablet.RUBI if perigo else COR.get(_confirma_texto[0], Tablet.CINZA)
 	var cen := Vector2(tela.get_center().x, tela.position.y + 78)
 	c.draw_circle(cen, 46, cor.lerp(Tablet.TELA, 0.82))
@@ -970,7 +970,7 @@ func _pintar_confirma(c: Control, telas: Array) -> void:
 
 func _pintar_resposta(b: Control, r: Rect2, foco: bool, sobre: bool) -> void:
 	var sim := b == _confirma_sim
-	var perigo := sim and (_confirma_acao == "apagar" or _confirma_acao == "novo")
+	var perigo := sim and _confirma_acao == "novo"
 	var cor := Tablet.RUBI if perigo else (Color(0.3, 0.6, 0.35) if sim else Tablet.LARANJA_V)
 	if foco:
 		Tablet.caixa(b, r, Color(Tablet.RUBI, 0.16) if perigo else Color(1.0, 0.72, 0.3, 0.3), 35, Tablet.RUBI if perigo else Tablet.LARANJA, 3)
@@ -1036,7 +1036,6 @@ func _escrever_ajustes() -> void:
 		var b: Button = v[0]
 		(b.get_node("explica") as Label).text = v[1]
 		b.set_meta("explica", v[2])
-	_botao_apagar.text = APAGAR
 
 
 ## Muda um ajuste um passo para um lado (`passo` -1 ou +1). A qualidade e a sensibilidade param nas pontas com
@@ -1075,11 +1074,6 @@ func _trocar_vibra() -> void:
 	_mudar_ajuste("vibra", 1)
 
 
-## Apagar o progresso pergunta antes, na telinha de Sim e Não.
-func _apagar() -> void:
-	_confirmar("apagar")
-
-
 # ------------------------------------------------------------------ Sim e Não
 
 ## A telinha de confirmação: figura, pergunta, uma frase e dois botões. Começa no "Não", e o círculo (ou o Esc)
@@ -1089,8 +1083,7 @@ func _confirmar(qual: String) -> void:
 	_confirma_volta = get_viewport().gui_get_focus_owner()
 	var textos: Dictionary = {
 		"sair": ["sair", "Sair do jogo?", "O progresso fica guardado."],
-		"apagar": ["apagar", "Apagar todo o progresso?", "Peças, lugares e memórias somem, e o jogo recomeça do zero. Não dá para desfazer."],
-		"novo": ["novo", "Começar um jogo novo?", "O progresso de agora é apagado. Não dá para desfazer."],
+		"novo": ["novo", "Começar um jogo novo?", "Peças, lugares, memórias e materiais somem, e o jogo recomeça do zero. Não dá para desfazer."],
 		"acordar": ["acordar", "Hora de acordar?", "Você já sabe o básico. Sim: o robô acorda na ilha. Não: continua treinando voo e combate aqui."],
 	}
 	_confirma_texto = (textos[qual] as Array).duplicate()
@@ -1131,9 +1124,9 @@ func _responder(sim: bool) -> void:
 			if principal and principal.has_method("guardar_progresso"):
 				principal.call("guardar_progresso")
 			get_tree().quit()
-		"apagar", "novo":
+		"novo":
 			Guardado.recomecar_progresso()
-			_confirma_texto[1] = "Recomeçando..." if _confirma_acao == "apagar" else "Começando..."
+			_confirma_texto[1] = "Começando..."
 			_confirma_texto[2] = ""
 			_confirma_nao.disabled = true
 			_confirma_sim.disabled = true
@@ -1479,7 +1472,7 @@ func _abrir() -> void:
 	abertura = false
 	_primeiro.text = "Continuar"
 	(_primeiro.get_node("explica") as Label).text = "volta ao jogo"
-	_botao_novo.visible = false
+	_botao_novo.visible = not na_simulacao  # na simulação é só treino
 	for b: Button in [_botao_voltar, _botao_caderno, _botao_mundo]:
 		if b:
 			b.visible = true
