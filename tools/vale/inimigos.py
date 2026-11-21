@@ -1,4 +1,4 @@
-# Os robôs inimigos do Faísca 2 (2026-11-20), do próprio projeto, feitos por script como o robô do jogador.
+# Os robôs inimigos de Fagulha (2026-11-20), do próprio projeto, feitos por script como o robô do jogador.
 # Três famílias de máquina comum (a Lata, o Guarda e o Barril) e três chefes (o Colosso, a Lâmina e o
 # Artilheiro), aprovadas pelo usuário na folha de `tools/vale/inimigos_estudo.py`.
 #

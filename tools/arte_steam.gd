@@ -80,7 +80,7 @@ func _sombra(t: Tela, de: float, ate: float, forca: float) -> void:
 ## O nome centrado em `onde` (linha de base do nome grande).
 func _titulo(t: Tela, onde: Vector2, grande: int, pequeno: int, traco: bool) -> void:
 	var f := ThemeDB.fallback_font
-	var nome := "FAÍSCA 2"
+	var nome := "FAGULHA"
 	var w := _largura(f, nome, grande, grande * 0.06)
 	_espacado(t, f, Vector2(onde.x - w * 0.5, onde.y), nome, grande, grande * 0.06, Color(1, 1, 1, 0.97))
 	var y := onde.y + grande * 0.22

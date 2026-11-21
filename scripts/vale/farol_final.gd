@@ -8,7 +8,7 @@ extends Node3D
 const PERTO := 16.0  # metros da lente em que o convite aparece
 const TITULO := "O Farol"
 const TEXTO := "Foi a última luz que eles apagaram. Não por tristeza: era para a ilha dormir.\n\nVocê andou por tudo o que deixaram, ouviu o que guardaram e não quebrou nada.\n\nPode acender. A ilha já tem quem cuide dela."
-const CREDITOS := "Faísca 2 · Em Busca do Sossego\n\nObrigado por passear."
+const CREDITOS := "Fagulha · Em Busca do Sossego\n\nObrigado por passear."
 
 var armadura: Armadura
 var hud: Hud

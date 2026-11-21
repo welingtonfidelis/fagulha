@@ -1,8 +1,10 @@
-# Faísca 2: Em Busca do Sossego
+# Fagulha: Em Busca do Sossego
 
-![Faísca 2: Em Busca do Sossego](docs/steam/larga.png)
+![Fagulha: Em Busca do Sossego](docs/steam/larga.png)
 
 Um robô pequeno que anda, corre, nada e voa numa ilha sossegada de 3 km. Não há lista de objetivos: o jogo é passear, olhar, achar o que os antigos moradores deixaram e, às vezes, desligar uma máquina velha.
+
+O nome vem da história: o Faísca, o robô que cuidou da ilha por muitos anos, passou o que sabia para um corpo novo, como a fagulha que salta de um fogo e acende outro. (Até 2026-11-21 o jogo se chamava *Faísca 2*.)
 
 É um projeto de hobby, feito na Godot 4.7 com GDScript. Quase tudo no mundo é montado por código: relevo, mata, capim, água, ciclo do dia, construções e bichos.
 
@@ -12,8 +14,8 @@ Um robô pequeno que anda, corre, nada e voa numa ilha sossegada de 3 km. Não h
 - **Lugares:** a clareira e a base do robô, o rio em curvas, os paredões, três ruínas, a Fundição, a Represa Rachada, o Farol Apagado, o Sono dos Gigantes, o Cais Submerso, a Ilha do Relé, as Torres do Vento, o Observatório, o Casco Encalhado e a Fenda Escura.
 - **Vida:** cervos, raposas, lobos, coelhos e pássaros na mata; cardumes no mar, nos rios e nas lagoas.
 - **Máquinas antigas:** algumas ainda vigiam. Ninguém é destruído: elas desligam.
-- **Peças e memórias:** dez peças espalhadas melhoram o robô (o drone colega instala), e dez cristais guardam memórias de quem viveu ali.
-- **Simulação:** num jogo novo o robô acorda numa simulação vazia e sem fim, que ensina os comandos com a imagem de cada botão. Dá para voltar a ela pela pausa.
+- **Peças e memórias:** dez peças espalhadas melhoram o robô (o drone colega instala), e doze cristais guardam memórias de quem viveu ali. Com todas lidas, o farol acende de novo.
+- **História e simulação:** um jogo novo começa com um prólogo curto na ilha. Depois o robô acorda numa simulação vazia e sem fim, onde o Faísca ensina os comandos com a imagem de cada botão, e então desperta na base. Dá para voltar à simulação pela pausa e rever o prólogo na tela de abertura.
 - **Dia, noite e chuva:** o ciclo muda a luz, os sons e os bichos; de noite há vaga-lumes.
 
 ## O visual
@@ -37,7 +39,7 @@ Joga-se com controle (feito para o DualSense) ou teclado e mouse. Os controles e
 A build de Linux sai com:
 
 ```bash
-godot --headless --path . --export-release "Linux" build/linux/JogoVoo.x86_64
+godot --headless --path . --export-release "Linux" build/linux/Fagulha.x86_64
 ```
 
 O `CREDITOS.md` vai junto da build (os sons CC-BY pedem o crédito ao lado do jogo):

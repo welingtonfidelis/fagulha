@@ -1,11 +1,14 @@
 class_name Guardado
 extends RefCounted
-## O que o jogo guarda entre uma partida e outra, num arquivo só (user://faisca2.json): os ajustes
+## O que o jogo guarda entre uma partida e outra, num arquivo só (user://fagulha.json): os ajustes
 ## (qualidade, sensibilidade, eixo, vibração) e o progresso (lugares já visitados, hora do dia, peças e
 ## melhorias). Nos testes e nas fotos (`ativo` falso) nada é lido nem gravado, para o resultado não
 ## depender da última partida.
+## O jogo se chamava "Faísca 2" até 2026-11-21. A pasta do save vem do nome do jogo, então o nome novo começa
+## com a pasta vazia, num jogo novo; o save antigo (`faisca2.json`) ficou na pasta do nome antigo. Não é
+## trazido: o usuário ia começar um jogo novo de qualquer forma.
 
-const ARQUIVO := "user://faisca2.json"
+const ARQUIVO := "user://fagulha.json"
 const PADRAO := {
 	"ajustes": {"qualidade": 1, "sensibilidade": 2, "inverter_y": false, "vibra": true},
 	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}, "memorias": [], "simulacao_vista": false, "dicas": [], "farol_aceso": false, "posicao": [], "robo_antigo": false, "robo_mergulhador": false, "robo_em_uso": 0, "acoes": {}, "achados": {}, "prologo_visto": false, "despertar_visto": false},

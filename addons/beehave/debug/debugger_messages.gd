@@ -2,7 +2,7 @@ class_name BeehaveDebuggerMessages
 
 
 static func can_send_message() -> bool:
-	# Faísca 2: só com o depurador ligado (sem isto, rodar sem o editor enchia o registro de erros)
+	# Fagulha: só com o depurador ligado (sem isto, rodar sem o editor enchia o registro de erros)
 	return not Engine.is_editor_hint() and OS.has_feature("editor") and EngineDebugger.is_active()
 
 

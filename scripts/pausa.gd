@@ -67,7 +67,7 @@ const COMANDOS := [
 	["Pausa · medidor", "{@options} · {@create}", "{@k_esc} · {@k_f3}"],
 ]
 
-const SUBTITULO := "Faísca 2 · Em Busca do Sossego"
+const SUBTITULO := "Fagulha · Em Busca do Sossego"
 
 var armadura: Armadura
 var na_simulacao := false  # a pausa do tutorial: "Acordar" no lugar de "Voltar à base"
@@ -746,7 +746,7 @@ func abrir_abertura() -> void:
 	_abrir()
 	abertura = true
 	var tem := tem_partida()
-	_titulo.text = "Faísca 2"
+	_titulo.text = "Fagulha"
 	_titulo.add_theme_color_override("font_color", LARANJA)
 	_subtitulo.text = "Em Busca do Sossego"
 	_primeiro.text = "Continuar" if tem else "Começar"

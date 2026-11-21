@@ -1,4 +1,6 @@
-# Jogo de voo (nome provisório)
+# Fagulha: Em Busca do Sossego
+
+Chamou-se "Jogo de voo" (nome provisório) e depois "Faísca 2: Em Busca do Sossego"; o nome atual é de 2026-11-21 (§135). As seções abaixo guardam o nome de cada época.
 
 Plano aprovado pelo usuário em 2026-11-14. É a base da implementação. Nenhum código do jogo foi escrito ainda.
 
@@ -3293,3 +3295,30 @@ o fim do treino básico perguntasse, numa telinha de Sim e Não, se é hora de a
   - `--teste-vale`: o ponto das memórias passou a contar 12 e a Fundição.
   - `teste_simulacao.gd`: no fim do básico, "Hora de acordar?" abre sozinha, pausa o jogo e começa com o foco
     no Sim. O Não segue no treino. Na estação de voo, a parada no ar usa o toque no X de verdade, na ordem nova.
+
+## 135. O nome: Fagulha: Em Busca do Sossego (2026-11-21)
+
+O usuário achou que "Faísca 2" passava a ideia de continuação do jogo infantil e pediu um nome que falasse da
+passagem do Faísca caído para o robô novo. Escolheu **Fagulha: Em Busca do Sossego**: a fagulha é o pedacinho
+que salta de um fogo e acende outro, como a faísca que sai do peito do Faísca no prólogo e entra no robô.
+
+O que mudou:
+- `config/name` no `project.godot`: o título da janela e a pasta do save (`user://`), que agora é
+  `.../app_userdata/Fagulha- Em Busca do Sossego/`.
+- O save passou a ser `user://fagulha.json`, na pasta nova. O save antigo (`faisca2.json`) ficou na pasta do
+  nome antigo (`Faísca 2- Em Busca do Sossego`) e não é trazido, porque o usuário ia começar um jogo novo de
+  qualquer forma. Assim o nome novo abre como jogo novo, direto no prólogo.
+- A tela de abertura ("Fagulha"), o subtítulo da pausa e os créditos do farol.
+- A arte da Steam em `docs/steam/` (capa, larga e logo), refeita pelo `tools/arte_steam.gd` só com o texto
+  novo, no mesmo desenho.
+- A build: `build/linux/Fagulha.x86_64`. No PC, o jogo foi para `~/Games/Fagulha/`, com `fagulha.desktop`, e o
+  atalho da Steam (o mesmo appid 2572398341) ganhou o nome, o executável e a arte novos.
+- O repositório no GitHub passou a ser `welingtonfidelis/fagulha`; o endereço antigo redireciona.
+- O README.
+
+O que ficou com o nome antigo: os relatórios de `docs/relatorios/` (são de 2026-11-19), as seções antigas desta
+doc, o nome desta doc (`docs/JOGO-VOO.md`) e a pasta do projeto no Mac (`Projects/others/jogo-voo`).
+
+
+Testes (2026-11-21, com a história, o tutorial revisto e o nome novo): `--teste-vale` 112 pontos, `--teste` 94 e
+`teste_simulacao.gd` 28, todos passando.

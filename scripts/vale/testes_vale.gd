@@ -2569,7 +2569,7 @@ func _ponto_37() -> void:
 	var pz: Pausa = m.pausa
 	pz.abrir_abertura()
 	await _esperar(0.2)
-	var ab_ok: bool = pz.visible and pz.abertura and get_tree().paused and pz.get("_titulo").text == "Faísca 2" and pz.get("_botao_voltar") == null and (pz.get("_primeiro") as Button).text == "Começar"
+	var ab_ok: bool = pz.visible and pz.abertura and get_tree().paused and pz.get("_titulo").text == "Fagulha" and pz.get("_botao_voltar") == null and (pz.get("_primeiro") as Button).text == "Começar"
 	pz.call("_continuar")
 	await _esperar(0.4)
 	pz.call("_abrir")
