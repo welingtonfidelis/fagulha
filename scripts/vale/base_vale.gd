@@ -367,7 +367,11 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	o.forma(cp, Transform3D(giro, centro_porta))
 	# os berços que seguram o cilindro, e a colisão dele: um anel de caixas e a tampa do fundo
 	for x: float in [-2.0, 1.6]:
-		o.bloco(Vector3(c.x + x, cy + 0.45, c.z), Vector3(0.7, 0.9, R_CIL * 1.7), Basis.IDENTITY, "casco")
+		if InteriorCilindro.ativo:
+			# o alto do berço fica abaixo do piso de dentro (com 0,9 m ele furava o piso e aparecia lá dentro)
+			o.bloco(Vector3(c.x + x, cy + 0.295, c.z), Vector3(0.7, 0.59, R_CIL * 1.7), Basis.IDENTITY, "casco")
+		else:
+			o.bloco(Vector3(c.x + x, cy + 0.45, c.z), Vector3(0.7, 0.9, R_CIL * 1.7), Basis.IDENTITY, "casco")
 	for k in 14:
 		var a := TAU * (k + 0.5) / 14
 		var cx := BoxShape3D.new()
@@ -377,7 +381,14 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	tampa.size = Vector3(0.25, R_CIL * 2.0, R_CIL * 2.0)
 	o.forma(tampa, Transform3D(Basis.IDENTITY, c + Vector3(-MEIO_CIL + 0.1, 0, 0)))
 	# por dentro: o estrado, os dois braços, o painel e a luz
-	o.bloco(c + Vector3(0.1, -ri + 0.42, 0), Vector3(MEIO_CIL * 2.0 - 0.5, 0.14, 2.4), Basis.IDENTITY, "casco")
+	if InteriorCilindro.ativo:
+		# o bloco de ruína tem calombos que furavam a grade nova: a parte que se vê desce, a colisão fica
+		o.bloco(c + Vector3(0.1, -ri + 0.32, 0), Vector3(MEIO_CIL * 2.0 - 0.5, 0.14, 2.4), Basis.IDENTITY, "casco", false)
+		var ce := BoxShape3D.new()
+		ce.size = Vector3(MEIO_CIL * 2.0 - 0.5, 0.14, 2.4)
+		o.forma(ce, Transform3D(Basis.IDENTITY, c + Vector3(0.1, -ri + 0.42, 0)))
+	else:
+		o.bloco(c + Vector3(0.1, -ri + 0.42, 0), Vector3(MEIO_CIL * 2.0 - 0.5, 0.14, 2.4), Basis.IDENTITY, "casco")
 	# a rampa da boca: do chão até o estrado (0,87 m acima), para o robô subir andando
 	var sobe := c.y - ri + 0.49 - cy
 	var corre := 2.15
@@ -388,20 +399,25 @@ static func _cilindro(o: Ruinas.Obra, cy: float) -> void:
 	o.bloco((topo + pe) * 0.5 - giro_rampa * Vector3(0, 0.06, 0), Vector3(sqrt(sobe * sobe + corre * corre) + 0.1, 0.12, 1.7), giro_rampa, "casco")
 	for lado_r: float in [-1.0, 1.0]:
 		o.bloco((topo + pe) * 0.5 + Vector3(0, 0.02, lado_r * 0.9) - giro_rampa * Vector3(0, 0.06, 0), Vector3(sqrt(sobe * sobe + corre * corre) + 0.1, 0.2, 0.1), giro_rampa, "ferrugem", false)
-	for lado: float in [-1.0, 1.0]:
-		o.bloco(c + Vector3(0.9, 1.25, lado * 1.15), Vector3(0.2, 1.1, 0.2), Basis.from_euler(Vector3(lado * -0.75, 0, 0.2)), "casco_claro", false)
-		o.bloco(c + Vector3(1.1, 0.55, lado * 0.62), Vector3(0.16, 0.95, 0.16), Basis.from_euler(Vector3(lado * 0.5, 0, -0.3)), "ferrugem", false)
-		o.bloco(c + Vector3(1.25, 0.08, lado * 0.42), Vector3(0.3, 0.12, 0.34), Basis.from_euler(Vector3(0, lado * 0.4, 0)), "junta", false)
-	_peca(o, "Prop_Computer", c + Vector3(-2.6, -ri + 0.5, -0.5), PI * 0.5, 1.0, 0.2, 0.0, false)
+	if InteriorCilindro.ativo:
+		# o rascunho do lado de dentro (2026-11-22): sala técnica conservada e o berço de montagem
+		InteriorCilindro.montar(o.v, o.t * Transform3D(Basis.IDENTITY, c))
+	else:
+		for lado: float in [-1.0, 1.0]:
+			o.bloco(c + Vector3(0.9, 1.25, lado * 1.15), Vector3(0.2, 1.1, 0.2), Basis.from_euler(Vector3(lado * -0.75, 0, 0.2)), "casco_claro", false)
+			o.bloco(c + Vector3(1.1, 0.55, lado * 0.62), Vector3(0.16, 0.95, 0.16), Basis.from_euler(Vector3(lado * 0.5, 0, -0.3)), "ferrugem", false)
+			o.bloco(c + Vector3(1.25, 0.08, lado * 0.42), Vector3(0.3, 0.12, 0.34), Basis.from_euler(Vector3(0, lado * 0.4, 0)), "junta", false)
+		_peca(o, "Prop_Computer", c + Vector3(-2.6, -ri + 0.5, -0.5), PI * 0.5, 1.0, 0.2, 0.0, false)
 	_peca(o, "Prop_AccessPoint", c + Vector3(MEIO_CIL + 1.7, -c.y + cy, -R_CIL - 0.5), -0.7, 1.4, 0.4, 0.3)
 	_peca(o, "Prop_Cable_3", Vector3(c.x + MEIO_CIL + 0.9, cy + 0.04, c.z - 1.3), PI * 0.5 + 0.25, 1.0, 0.2, 0.3, false)
 	_peca(o, "Prop_Cable_1", Vector3(c.x + MEIO_CIL + 1.7, cy + 0.04, c.z + 1.0), 0.9, 1.3, 0.2, 0.3, false)
-	var luz := OmniLight3D.new()
-	luz.light_color = Color(0.4, 0.95, 0.8)
-	luz.light_energy = 1.1
-	luz.omni_range = 6.5
-	luz.position = o.t * (c + Vector3(-0.6, 0.9, 0))
-	o.v.add_child(luz)
+	if not InteriorCilindro.ativo:
+		var luz := OmniLight3D.new()
+		luz.light_color = Color(0.4, 0.95, 0.8)
+		luz.light_energy = 1.1
+		luz.omni_range = 6.5
+		luz.position = o.t * (c + Vector3(-0.6, 0.9, 0))
+		o.v.add_child(luz)
 	boca_cilindro = o.t * (c + Vector3(MEIO_CIL, 0, 0))
 	cilindro_t = o.t * Transform3D(Basis.IDENTITY, c)
 	posto_drone = o.t * Vector3(c.x + MEIO_CIL + 2.3, cy + 2.1, c.z - 2.0)

@@ -4122,3 +4122,75 @@ origem): o scanner mostra a ficha da espécie e o álbum ganhou quatro páginas 
 Corvo). Os tiros assustam todos: as marmotas correm para a toca, os patos mergulham e os corvos voam.
 
 **Fotos:** `tools/capturas/bichos_montanha/`.
+
+## 138. O cilindro de melhorias por dentro (2026-11-22)
+
+Pedido do usuário: "o cilindro de upgrades precisa de uma melhoria visual, por dentro ser mais tecnológico e
+melhor conservado (imagine que deixaram ele fechado durante os anos todos e a parte interna ficou mais
+conservada), a forma que o robo fica parado la dentro podia ser melhor trabalhado também pra dar uma nocao de
+que o robo pode ser desmontado e reconstruído ali". O rascunho vai servir de base para uma proposta dele.
+
+**Estado:** no jogo desde 2026-11-22. O usuário aprovou o rascunho ("ficou bom") e escolheu ligar no jogo.
+Fica em `scripts/vale/interior_cilindro.gd` (`InteriorCilindro`). A chave `InteriorCilindro.ativo` já vem
+ligada; desligada, volta o interior antigo, com os braços antigos da `Oficina`. As fotos ficam em
+`tools/fotos_cilindro.gd` e `tools/capturas/cilindro_rascunho/`.
+
+**A ideia.** Por fora, o cilindro continua velho, com ferrugem e musgo. Por dentro, ficou fechado e se
+conservou: uma sala técnica limpa. Na boca, uma vedação de borracha preta e um aro de aço limpo marcam a
+passagem do ferrugem de fora para o limpo de dentro.
+- **Forro:** painéis cinza-claros em 16 faces (o tubo fica facetado), com juntas escuras entre eles. Painéis
+  mais escuros embaixo, como um rodapé. Costelas grafite a cada 75 cm, cada uma com uma luzinha laranja na
+  altura da cintura. No teto, uma placa de luz branca por vão; nos dois lados de cima, faixas verde-água.
+- **Piso:** grade de placas de 60 cm, luzes de pista nas beiradas e faixas de aviso amarelas na boca. O número
+  "07" está pintado nas paredes, perto da boca.
+- **Fundo:** a tela redonda com a planta do robô. Ela tem a grade, uma varredura girando e, instalando, mostra a
+  planta com as peças afastadas. Em volta, luzinhas na moldura e dois consoles com teclas acesas.
+- **Nichos:** quatro armários com vidro nas paredes do fundo, com peças de reposição do próprio modelo do
+  robô (um braço de cada lado, a cabeça, uma perna), cada um com luz própria.
+- **Braços de ferramenta:** dois trilhos no teto, com três braços: pinça, solda e leitor. Ficam recolhidos ao
+  longo do trilho e, instalando, chegam por trás e pelos lados até as folgas das peças.
+
+**O robô no berço.**
+- **Prato giratório:** o robô fica num prato de 1,5 m, com anel de luz e duas placas para os pés.
+- **Presilhas e cabos:** os tornozelos ficam presos por presilhas com luz laranja. Dois cabos descem do teto e
+  se encaixam na mochila.
+- **Aro de leitura:** pendurado do teto por três hastes. Fica acima da cabeça e desce na instalação.
+- **Pose parada:** pose de manequim, com os braços um pouco abertos e as pernas um pouco afastadas. Cada encaixe
+  tem um anel de luz fraco: o do pescoço, os ombros, os cotovelos, a cintura, os quadris, os joelhos e as costas.
+- **Instalando:** as peças se afastam alguns centímetros (vista explodida) e os anéis acendem mais. A cabeça
+  sobe, os braços abrem para os lados e a mochila sai para trás; o tronco sobe e as pernas descem. O modelo sobe
+  o mesmo tanto que as pernas descem, então os pés não saem das presilhas.
+- **Funções:**
+  - `prender(visual)` monta a pose, os anéis, as presilhas e os cabos.
+  - `abrir(f, brilho)` afasta as peças: 0 é o robô inteiro, 1 é a vista explodida. Também mexe no aro, na
+    tela, nos braços e na solda.
+  - `seguir()` leva presilhas, prato e cabos junto quando o robô vira.
+  - `soltar(visual)` devolve tudo ao lugar.
+  - `trabalhar(visual, f)` faz tudo de uma vez, para as fotos.
+
+**Achados no caminho** (problemas do cilindro antigo; as correções valem com a chave ligada):
+- **Berços de fora:** os dois berços que seguram o cilindro (0,9 m de altura) furavam o piso e apareciam lá
+  dentro, como uma laje escura ao lado do robô. Com a chave, eles têm 0,59 m.
+- **Estrado:** o bloco de ruína do estrado tem calombos que passavam da grade nova. Com a chave, a parte que se
+  vê desce 10 cm e a colisão fica onde estava.
+- **Sol:** o casco não segura o sol, e as manchas alaranjadas de dentro do cilindro de hoje são sol. O forro do
+  rascunho faz sombra dos dois lados.
+- **Terra no fundo:** o chão da clareira sobe acima do piso no fundo do tubo e aparecia lá dentro como terra
+  (o usuário viu nas primeiras fotos do rascunho). Com a chave, o `vale_chao.gdshader` deixa de desenhar o chão
+  dentro do tubo (`recorte_ativo`, `recorte_para_local`, `recorte_meio`, ligados por
+  `InteriorCilindro._recortar_chao`); o casco cobre a borda por fora. O teste do magenta, de dentro e de fora,
+  de perto e de longe, não achou brecha.
+- **Luz da oficina:** agora é branca fria, para combinar com a sala técnica (antes era quente). Também ficou
+  mais fraca (0,95 no lugar de 1,3), porque a sala já tem luzes próprias.
+
+**Na oficina:**
+- **Braços antigos:** com a chave ligada, a `Oficina` não monta mais os três braços antigos.
+- **Ao abrir a tela:** `_abrir` prende o robô no berço.
+- **Tela aberta:** a cada quadro, `seguir` acompanha o robô quando ele vira para mostrar uma peça; as
+  presilhas, o prato e os cabos vão junto.
+- **Instalando:** as peças se afastam e voltam no tempo da instalação (`sin` de 0 a π em 1,9 s), e os braços
+  tremem um pouco no trabalho.
+- **Ao sair:** `sair` e `_fechar` soltam o robô. As fotos conferiram que, depois de entrar e sair duas vezes, as
+  juntas voltam ao lugar e não sobra anel nem presilha.
+
+**Falta:** conferir de noite e no PC.

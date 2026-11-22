@@ -5,6 +5,11 @@ render_mode cull_back;
 // Chão do vale: a cor do capim (a mesma das folhas de capim), trilha de terra (COLOR.r),
 // margem molhada (COLOR.g), areia (COLOR.b) e pedra nas encostas.
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
+// O recorte de dentro do cilindro de melhorias (rascunho, doc §138): o terreno que sobe dentro do tubo some.
+// `recorte_para_local` leva do mundo ao lugar do tubo (X no eixo); `recorte_meio` é (meio comprimento, raio).
+uniform float recorte_ativo = 0.0;
+uniform mat4 recorte_para_local;
+uniform vec2 recorte_meio = vec2(0.0);
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -15,6 +20,12 @@ void vertex() {
 }
 
 void fragment() {
+	if (recorte_ativo > 0.5) {
+		vec3 l = (recorte_para_local * vec4(wpos, 1.0)).xyz;
+		if (abs(l.x) < recorte_meio.x && length(l.yz) < recorte_meio.y) {
+			discard;
+		}
+	}
 	float r = texture(ruido, wpos.xz * 0.08).r;
 	vec3 c = cor_capim(ruido, wpos.xz) * 0.92;
 	// longe da câmera, onde as touceiras já não existem, o chão é pintado como capim

@@ -42,6 +42,7 @@ var _de := Vector3.ZERO
 var _para := Vector3.ZERO
 var _cam: Camera3D
 var _luz: OmniLight3D
+var _luz_forca := 1.3
 var _bracos: Array[Dictionary] = []
 var _desce := 0.0  # 0 braços recolhidos no teto, 1 em volta do robô
 var _instalando := ""
@@ -65,12 +66,15 @@ func _ready() -> void:
 	_cam.near = 0.1
 	add_child(_cam)
 	_luz = OmniLight3D.new()
-	_luz.light_color = Color(1.0, 0.86, 0.66)
+	# o cilindro por dentro (doc §138) é branco e conservado: a luz fria combina; o antigo era de ferrugem
+	_luz.light_color = Color(0.86, 0.95, 1.0) if InteriorCilindro.ativo else Color(1.0, 0.86, 0.66)
+	_luz_forca = 0.95 if InteriorCilindro.ativo else 1.3  # o interior novo tem luzes próprias (de costas, a nuca estourava)
 	_luz.light_energy = 0.0
 	_luz.omni_range = 7.0
 	_luz.position = t * Vector3(BaseVale.MEIO_CIL - FUNDO + 0.9, 0.9, 0.0)
 	add_child(_luz)
-	_montar_bracos()
+	if not InteriorCilindro.ativo:
+		_montar_bracos()  # o interior novo tem os braços dele, nos trilhos do teto
 	_montar_tela()
 	_tinha_energia = Melhorias.energia >= Melhorias.CUSTO
 
@@ -82,6 +86,11 @@ func _parada() -> Vector3:
 
 func _eixo() -> Vector3:
 	return BaseVale.cilindro_t.basis.x.normalized()
+
+
+## O berço de montagem do cilindro (doc §138), quando o interior novo está no jogo.
+func _berco() -> InteriorCilindro:
+	return InteriorCilindro.atual if is_instance_valid(InteriorCilindro.atual) else null
 
 
 # ------------------------------------------------------------------ braços da máquina
@@ -957,6 +966,8 @@ func sair() -> void:
 	fase = Fase.SAINDO
 	_t = 0.0
 	_tela.visible = false
+	if _berco():
+		_berco().soltar(armadura.visual)
 	armadura.visual.previa = false
 	armadura.visual.vestir_melhorias()
 	_de = armadura.global_position
@@ -1016,7 +1027,7 @@ func _physics_process(delta: float) -> void:
 			armadura.global_position = _de.lerp(_para, smoothstep(0.0, 1.0, f))
 			armadura.velocity = -e * (2.6 if f < 0.9 else 0.0)
 			armadura.visual.yaw_forcado = atan2(e.x, e.z)
-			_luz.light_energy = 1.3 * f
+			_luz.light_energy = _luz_forca * f
 			_desce = clampf((_t - T_ENTRAR * 0.6) / 0.9, 0.0, 1.0)
 			_por_bracos(_desce, 0.0)
 			if _t >= T_ENTRAR + 0.6:
@@ -1025,10 +1036,19 @@ func _physics_process(delta: float) -> void:
 			armadura.velocity = Vector3.ZERO
 			_desce = minf(1.0, _desce + delta * 2.0)
 			_por_bracos(_desce, 0.0)
-			pass
+			var ic := _berco()
+			if ic:
+				ic.seguir()  # o robô vira para mostrar a peça: presilhas, prato e cabos vão junto
 		Fase.INSTALANDO:
-			_por_bracos(1.0, sin(clampf(_t / T_INSTALAR, 0.0, 1.0) * PI))
+			var k_i := sin(clampf(_t / T_INSTALAR, 0.0, 1.0) * PI)
+			_por_bracos(1.0, k_i)
+			var ic := _berco()
+			if ic:
+				ic.abrir(k_i if _t < T_INSTALAR else 0.0, 1.0)  # as peças se afastam e voltam
+				ic.seguir()
 			if _t >= T_INSTALAR:
+				if ic:
+					ic.abrir(0.0, 0.6)
 				var nome := _instalando
 				_instalando = ""
 				fase = Fase.ABERTA
@@ -1070,13 +1090,15 @@ func _physics_process(delta: float) -> void:
 			_por_bracos(_desce, 0.0)
 			armadura.global_position = _de.lerp(_para, smoothstep(0.0, 1.0, f))
 			armadura.velocity = _eixo() * (2.6 if f < 0.9 else 0.0)
-			_luz.light_energy = 1.3 * (1.0 - f)
+			_luz.light_energy = _luz_forca * (1.0 - f)
 			if f >= 1.0:
 				_fechar()
 
 
 func _abrir() -> void:
 	fase = Fase.ABERTA
+	if _berco():
+		_berco().prender(armadura.visual)
 	_escolhida = ""
 	aba = 0
 	_tela.visible = true
@@ -1086,6 +1108,8 @@ func _abrir() -> void:
 
 func _fechar() -> void:
 	fase = Fase.FORA
+	if _berco():
+		_berco().soltar(armadura.visual)
 	armadura.velocity = Vector3.ZERO
 	armadura.visual.yaw_forcado = NAN
 	armadura.travado = false
