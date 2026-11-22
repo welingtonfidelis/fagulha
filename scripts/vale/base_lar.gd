@@ -33,6 +33,7 @@ static var horta_vagas: Array[Vector3] = []  # no mundo: as covas do canteiro de
 static var radio := Vector3.INF  # no mundo: o rádio da bancada (RadioBase)
 static var sofa := Vector3.INF  # no mundo: o assento do sofá
 static var giz: MeshInstance3D  # a amarelinha (escondida até os robozinhos chegarem)
+static var desenho: Node3D  # o desenho das crianças do Faísca no mural (escondido até ler o fecho, doc §137.12)
 ## Onde os robozinhos jogam videogame (MiniRobos), no mundo: {assento, frente, pe, via: [pontos], tipo: "tv" ou
 ## "portatil"}. `assento` é onde a bacia apoia; `pe` é o chão na frente do móvel; `via` o caminho até lá.
 static var lugares_minis: Array = []
@@ -326,6 +327,48 @@ static func _cantinho(o: Ruinas.Obra, cy: float) -> void:
 	quadro(o, "pictureframe_small_B", Vector3(meio + 1.08, cy + 1.86, zq), PI, ESC, 0.03)
 	quadro(o, "pictureframe_large_A", Vector3(meio + 0.1, cy + 2.95, zq), PI, 0.5, -0.02)
 	quadro(o, "pictureframe_small_B", Vector3(meio - 1.1, cy + 1.62, zq), PI, 0.55, -0.04)
+	_desenho(o, Vector3(meio + 0.15, cy + 1.42, PAREDE - 0.012))  # embaixo do quadro grande, por cima do sofá
+
+
+## O desenho que as crianças da escola fizeram do Faísca, preso com duas fitas ao lado do mural. Fica escondido
+## até o fecho das lembranças dele (`mostrar_desenho`). A arte é de `tools/desenho_faisca.py`.
+static func _desenho(o: Ruinas.Obra, centro: Vector3) -> void:
+	var raiz := Node3D.new()
+	raiz.name = "DesenhoDoFaisca"
+	raiz.transform = o.t * Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.BACK, 0.05), centro)
+	var papel := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.46, 0.33)
+	papel.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://assets/vale/lembrancas/desenho_faisca.png")
+	m.roughness = 1.0
+	papel.material_override = m
+	papel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	raiz.add_child(papel)
+	var mf := StandardMaterial3D.new()
+	mf.albedo_color = Color(0.93, 0.9, 0.78, 0.75)
+	mf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mf.roughness = 0.6
+	for lado: float in [-1.0, 1.0]:
+		var fita := MeshInstance3D.new()
+		var qf := QuadMesh.new()
+		qf.size = Vector2(0.09, 0.03)
+		fita.mesh = qf
+		fita.material_override = mf
+		fita.position = Vector3(lado * 0.2, 0.155, 0.002)
+		fita.rotation.z = -lado * 0.55
+		fita.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		raiz.add_child(fita)
+	raiz.visible = false
+	o.v.add_child(raiz)
+	desenho = raiz
+
+
+## Pendura o desenho no mural (o fecho das lembranças do Faísca foi lido, agora ou num jogo salvo).
+static func mostrar_desenho() -> void:
+	if is_instance_valid(desenho):
+		desenho.visible = true
 
 
 # ---------------------------------------------------------------- a estante de troféus

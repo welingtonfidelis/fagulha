@@ -1747,6 +1747,26 @@ func _largo() -> void:
 			["g2_farol_de_longe", Vector3(ft.x - 420.0, 0, ft.z + 380.0), ft + Vector3(0, -20.0, 0)]]
 	if "--flores" in OS.get_cmdline_user_args():
 		vistas = [["f2_plato_flores", Vector3(640, 0, 120), Vector3(700, 36, 60)], ["f3_plato_mar", Vector3(700, 0, 160), Vector3(900, 10, 300)], ["f5_plato_alto", Vector3(420, 190, 330), Vector3(680, 38, 100)], ["f6_plato_borda", Vector3(505, 0, 160), Vector3(640, 30, 120)]]
+	if "--vilarejo" in OS.get_cmdline_user_args() and Vilarejo.montado:
+		# as tomadas da folha do Blender (tools/arte/vilarejo_vila1.py), agora no lugar e na luz do vale, e três de
+		# longe: [nome, câmera, alvo, robô (x, y, z do desenho), lente em mm]
+		vistas = []
+		for t: Array in [["w01_cima", [0, -45, 195], [0, 0, 0], [2, -12, 0], 50.0], ["w02_voo", [-70, -92, 44], [0, 0, 3], [2, -12, 0], 30.0],
+				["w03_praca", [7, -19, 1.6], [0, 2, 5.5], [2, -12, 0], 22.0], ["w04_ruela", [-1.5, -8, 1.7], [-9.2, -25.4, 2], [-6, -14.3, 0], 24.0],
+				["w05_rua", [-5.9, 9.5, 1.6], [3, 12.2, 0.6], [-3, 12.1, 0], 24.0], ["w06_rua_some", [8.1, 8.3, 1.8], [21.2, 25.3, 0.3], [12.5, 13.6, 0], 26.0],
+				["w07_meia", [-20.7, 4, 5.2], [-29.2, -2.9, 1.8], [-25.5, 0.6, 0], 26.0], ["w08_puxadinho", [0.6, 17.1, 3.2], [5.9, 27.8, 2.6], [5.1, 23.6, 0], 26.0],
+				["w09_sem_teto", [-5.4, 17.8, 2.4], [-16.2, 18.2, 1.6], [-11, 18.9, 0], 26.0], ["w10_alpendre", [25.4, 20.4, 1.9], [28.5, 31.4, 1.6], [27.8, 26.6, 0], 26.0],
+				["w11_oficina", [12.1, -10.9, 2], [22.4, -18.7, 1.6], [17.8, -16, 0], 26.0], ["w12_escola", [-6.9, -7.3, 2.6], [-9, -24.7, 1.6], [-9.3, -19.3, 0], 26.0],
+				["w13_torre", [5.5, -10.5, 1.5], [0, -1.5, 4.8], [2.2, -6.6, 0], 20.0],
+				["w14_do_mar", [250, 80, 45], [0, 0, 4], [60, 18, 0], 35.0], ["w15_da_mata", [-60, 16, 3.2], [0, 0, 4], [-54, 13, 0], 28.0],
+				["w16_de_longe", [560, 180, 130], [0, 0, 6], [60, 18, 0], 50.0]]:
+			vistas.append([t[0], Vilarejo.no_mundo(t[1]), Vilarejo.no_mundo(t[2]), Vilarejo.no_mundo(t[3]) + Vector3(0, 0.3, 0), t[4]])
+		# o que já estava espalhado pela ilha e caiu perto da vila (itens a 50 m uns dos outros, §26)
+		print("vilarejo: %d pontos anotados na ilha (pronto: %s)" % [PontosIlha.pontos.size(), PontosIlha.pronto])
+		for chave: String in PontosIlha.pontos:
+			var pp: Vector3 = PontosIlha.pontos[chave]
+			if Vector2(pp.x, pp.z).distance_to(Vilarejo.CENTRO) < Vilarejo.RAIO + 50.0:
+				print("vilarejo: %s a %.0f m do meio da praça" % [chave, Vector2(pp.x, pp.z).distance_to(Vilarejo.CENTRO)])
 	for v: Array in vistas:
 		var de: Vector3 = v[1]
 		if de.y == 0.0:
@@ -1768,6 +1788,12 @@ func _largo() -> void:
 			a.visual.visible = true
 		elif "--visual" in OS.get_cmdline_user_args():
 			a.visual.visible = false
+		if v.size() > 4:
+			# o robô no lugar dele e a lente da folha do Blender (36 mm de largura)
+			a.teleportar(v[3], Armadura.Estado.CHAO)
+			a.visual.visible = true
+			livre.keep_aspect = Camera3D.KEEP_WIDTH
+			livre.fov = rad_to_deg(2.0 * atan(18.0 / float(v[4])))
 		livre.global_position = de
 		livre.look_at(v[2])
 		await _esperar(2.2)

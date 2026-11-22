@@ -51,6 +51,7 @@ var troncos := 0
 var _x1 := 0.0
 var _z1 := 0.0
 var _mat_chao: ShaderMaterial
+var tex_cob: ImageTexture  # a cobertura em textura (o chão e a pele da Boca do Degelo)
 
 
 func carregar() -> bool:
@@ -162,22 +163,66 @@ func perto_dagua(x: float, z: float, folga: float) -> bool:
 	return false
 
 
+## O ar do lugar para o motor (doc §137.11): x é o frio da Montanha do Degelo (pela altitude e pela distância
+## ao pico), y o calor da bacia das fontes (pela distância ao Olho Azul e pela altura sobre a água dele) e z o
+## vapor da poça ou do respiro mais forte logo abaixo. Cada um de 0 a 1, em rampas suaves.
+func clima(p: Vector3) -> Vector3:
+	var q := Vector2(p.x, p.z)
+	var frio := smoothstep(Ajustes.FRIO_ALT_INI, Ajustes.FRIO_ALT_CHEIO, p.y) * (1.0 - smoothstep(
+			Ajustes.FRIO_RAIO, Ajustes.FRIO_RAIO_FIM, q.distance_to(Vector2(pico.x, pico.z))))
+	if fontes.is_empty():
+		return Vector3(frio, 0.0, 0.0)
+	var olho: Vector2 = fontes[0][0]
+	var d_olho := q.distance_to(olho)
+	if d_olho > Ajustes.QUENTE_RAIO_FIM:
+		return Vector3(frio, 0.0, 0.0)
+	var quente := (1.0 - smoothstep(Ajustes.QUENTE_RAIO, Ajustes.QUENTE_RAIO_FIM, d_olho)) * (1.0 - smoothstep(
+			Ajustes.QUENTE_TETO, Ajustes.QUENTE_TETO_FIM, p.y - float(fontes[0][2])))
+	var vapor := 0.0
+	for f: Array in fontes:
+		vapor = maxf(vapor, _vapor_de(q, p.y, f[0], float(f[1]), float(f[2]), float(f[3])))
+	for r: Vector2 in respiros:
+		if q.distance_squared_to(r) < 36.0:
+			vapor = maxf(vapor, _vapor_de(q, p.y, r, 1.2, altura(r.x, r.y), 1.0))
+	return Vector3(frio, quente, vapor)
+
+
+func _vapor_de(q: Vector2, y: float, centro: Vector2, raio: float, nivel: float, forca: float) -> float:
+	var fora := q.distance_to(centro) - raio
+	var acima := y - nivel
+	if fora > Ajustes.FONTE_BEIRA or acima > Ajustes.FONTE_TETO:
+		return 0.0
+	return forca * (1.0 - smoothstep(0.0, Ajustes.FONTE_BEIRA, fora)) * (1.0 - smoothstep(
+			Ajustes.RASANTE_ALTURA, Ajustes.FONTE_TETO, acima))
+
+
+## A força da fonte quente em cuja água o ponto está (a mesma conta de `agua`); 0 fora delas.
+func fonte_em(x: float, z: float) -> float:
+	for f: Array in fontes:
+		if Vector2(x, z).distance_to(f[0]) < float(f[1]) + FONTE_SOBRA and altura(x, z) < float(f[2]):
+			return float(f[3])
+	return 0.0
+
+
 # ---------------------------------------------------------------- montagem
 
 func montar(v: Vale) -> void:
 	if h.is_empty():
 		return
 	name = "TerraNova"
+	BocaDegelo.cavar(self)  # rebaixa a grade debaixo da gruta antes de o chão e a colisão saírem dela
 	_chao(v)
 	_colisao()
 	_aguas(v)
 	_fontes(v)
 	_praia(v)
+	Vilarejo.montar(v)
 
 
 func _chao(v: Vale) -> void:
 	var tex_h := ImageTexture.create_from_image(Image.create_from_data(NX, NZ, false, Image.FORMAT_RF, h.to_byte_array()))
 	var tex_c := ImageTexture.create_from_image(Image.create_from_data(NX, NZ, false, Image.FORMAT_RG8, cob))
+	tex_cob = tex_c
 	_mat_chao = ShaderMaterial.new()
 	_mat_chao.shader = load("res://scripts/shaders/terra_nova_chao.gdshader")
 	_mat_chao.set_shader_parameter("ruido", v._tex)
@@ -621,8 +666,11 @@ func plantar(v: Vale) -> void:
 				fila.append([tipo, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, hh - 0.15, pz))])
 			z += passo
 		Cache.gravar("terra_nova_mata", fila)
-	fila = fila.duplicate()
+	fila = fila.filter(func(item: Array) -> bool:
+		var o: Vector3 = (item[1] as Transform3D).origin
+		return not BocaDegelo.dentro(o.x, o.z, 4.0))
 	fila.append_array(_secas())
+	fila.append_array(Vilarejo.arvores(v))
 	arvores = fila.size()
 	var primeiro := v.arv_pos.size()
 	for item: Array in fila:
@@ -840,6 +888,10 @@ func lugares_com_nome() -> void:
 		Marcos.lugares.append([Naufragio.NOME, Vector2(Naufragio.centro.x, Naufragio.centro.z), 60.0])
 	if not fontes.is_empty():
 		Marcos.lugares.append(["As Fontes Quentes", fontes[0][0], 170.0])
+	if Vilarejo.montado:
+		Marcos.lugares.append([Vilarejo.NOME, Vilarejo.CENTRO, 60.0])
+	if BocaDegelo.existe:
+		Marcos.lugares.append([BocaDegelo.NOME, Vector2(BocaDegelo.salao.x, BocaDegelo.salao.z).lerp(Vector2(BocaDegelo.boca.x, BocaDegelo.boca.z), 0.5), 55.0])
 
 
 func _perto_de(p: Vector3, lista: Array[Vector3], dist: float) -> bool:

@@ -133,12 +133,12 @@ func rio_em(pontos: Array[Vector3]) -> void:
 		p.global_position = pos
 
 
-## 0 fora, 1 dentro do Sumidouro (debaixo da terra, num vazio dele).
+## 0 fora, 1 dentro do Sumidouro ou da Boca do Degelo (debaixo da terra, num vazio deles).
 func _peso_caverna() -> float:
-	if ouvinte == null or not Sumidouro.existe:
+	if ouvinte == null:
 		return 0.0
-	var o := ouvinte.global_position
-	if Sumidouro.no_vazio(o + Vector3.UP * 1.5):
+	var o := ouvinte.global_position + Vector3.UP * 1.5
+	if Sumidouro.no_vazio(o) or BocaDegelo.no_vazio(o):
 		return 1.0
 	return 0.0
 

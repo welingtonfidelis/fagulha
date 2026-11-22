@@ -92,6 +92,23 @@ const ESFRIA_AGUA := 45.0  # rasante, quase na hora
 const ESFRIA_SUPER_AR := 8.34  # superaquecido no ar: 12 s para esfriar
 const ESFRIA_SUPER_CHAO := 20.0  # superaquecido no chão: 5 s
 const ESFRIA_CHUVA := 6.0  # a chuva ajuda a esfriar
+# o ar do lugar na terra nova (doc §137.11, pedido do usuário, 2026-11-22). Só mexe no calor que sobe (voo e
+# pairar): o frio da Montanha do Degelo segura o motor, o ar quente da bacia das fontes o apressa
+const FRIO_ALT_INI := 250.0  # m: o frio começa na linha das árvores
+const FRIO_ALT_CHEIO := 520.0  # m: cheio acima da linha da neve
+const FRIO_RAIO := 900.0  # m do pico: frio cheio até aqui
+const FRIO_RAIO_FIM := 1400.0  # m do pico: some aqui (a ilha antiga fica toda fora)
+const FRIO_CORTE := 0.667  # no frio cheio sobra 1/3 do calor: o básico voa como o radiador duplo voa no resto
+const FRIO_ESFRIA := 0.5  # no frio cheio o motor esfria 50% mais depressa (no ar, no chão e superaquecido)
+const QUENTE_GANHO := 0.5  # na bacia das fontes o voo esquenta 50% mais depressa
+const QUENTE_RAIO := 200.0  # m do Olho Azul: calor cheio até aqui
+const QUENTE_RAIO_FIM := 320.0  # m do Olho Azul: some aqui (a bacia vai de 170 a 300 m)
+const QUENTE_TETO := 50.0  # m acima da água do Olho Azul: calor cheio até aqui
+const QUENTE_TETO_FIM := 130.0  # m acima da água: some aqui; voando alto se passa por cima
+const FONTE_CALOR := 6.0  # %/s que o vapor de uma poça soma no ar, rente a ela (força 1, robô básico)
+const FONTE_AGUA := 0.5  # dentro da água de uma poça, a pé ou nadando, esfria na metade da velocidade de outra água
+const FONTE_BEIRA := 4.0  # m além da beira da poça em que o vapor ainda pega
+const FONTE_TETO := 16.0  # m acima da água: o vapor some aqui (cheio até RASANTE_ALTURA)
 const QUEDA_TOQUE := 2.2  # metros de queda (ou qualquer chegada de voo) para o pouso mais leve, só um toque
 const QUEDA_LEVE := 3.0  # metros de queda para o pouso com estilo leve
 const PANE_GOLPES := 3  # acertos de máquina seguidos que desligam o robô

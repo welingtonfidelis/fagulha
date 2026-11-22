@@ -102,7 +102,12 @@ var escudo_cargas := Arsenal.ESCUDO_CARGAS  # acertos que o escudo ainda engole 
 var _escudo_sossego := 0.0  # tempo desde o último acerto no escudo (gasto em parte, ele se enche de novo)
 var escudos_gastos := 0  # testes
 var jato_cortado := false  # um lugar onde os jatos não funcionam (a maresia do ninho da ave): com asas, o robô plana
-var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da Fundição)
+var calor_extra := 0.0  # %/s que o lugar soma ao motor (o ar quente da torre da Fundição); só o MastroRadio escreve
+# o ar do lugar (doc §137.11), lido do mapa a cada quadro da física; a Hud e o visual leem
+var frio := 0.0  # 0 a 1: o frio da Montanha do Degelo segura o calor que sobe
+var quente := 0.0  # 0 a 1: o ar quente da bacia das fontes apressa o calor que sobe
+var vapor := 0.0  # 0 a 1: o vapor de uma poça quente logo abaixo (nada esfria e ainda soma calor)
+var na_fonte := 0.0  # a força da fonte quente em cuja água (ou rente a ela) o robô está; 0 fora delas
 ## Lugares de sentar (sofá, poltrona, bancos da fogueira): [posição da bacia, frente, saída], no mundo.
 ## Quem monta o cenário enche a lista (`BaseLar.assento_em`).
 static var assentos: Array = []
@@ -1100,10 +1105,12 @@ func _entrar_no_nado() -> void:
 	nado_rapido = rapido_na_entrada
 	_nado_solto = 0.0
 	_x_agua = 0.0
-	# mergulhar zera o calor na hora (e o medidor mostra "resfriado" por uns segundos)
-	calor = 0.0
-	resfriado = 3.0
-	mergulhos_frios += 1
+	# mergulhar zera o calor na hora (e o medidor mostra "resfriado" por uns segundos); na água das fontes
+	# quentes, não: ali ela esfria aos poucos, na metade da velocidade de outra água (doc §137.11)
+	if ilha.fonte_em(global_position.x, global_position.z) == 0.0:
+		calor = 0.0
+		resfriado = 3.0
+		mergulhos_frios += 1
 	nados += 1
 	_solto = false
 	caido = false
@@ -1344,6 +1351,11 @@ func _depois_de_mover(antes: Vector3) -> void:
 
 func _agua_e_calor(delta: float) -> void:
 	na_agua = ilha.agua_perto(global_position) if ilha else false
+	var ar := ilha.clima(global_position) if ilha else Vector3.ZERO
+	frio = ar.x
+	quente = ar.y
+	vapor = ar.z
+	na_fonte = ilha.fonte_em(global_position.x, global_position.z) if ilha and na_agua else 0.0
 	# mede a queda: o pico é a altura ao sair do chão ou do voo
 	if is_on_floor() or estado != Estado.AR:
 		_pico_y = global_position.y
@@ -1381,16 +1393,34 @@ func _agua_e_calor(delta: float) -> void:
 		tremor = maxf(tremor, 0.2)
 		banho.emit()
 	_na_queda = na_queda
-	if na_agua:
+	# o ar do lugar (doc §137.11): no frio da montanha o motor esquenta devagar e esfria depressa; na bacia das
+	# fontes esquenta depressa
+	if taxa > 0.0:
+		taxa *= (1.0 - Ajustes.FRIO_CORTE * frio) * (1.0 + Ajustes.QUENTE_GANHO * quente)
+	elif taxa < 0.0:
+		taxa *= 1.0 + Ajustes.FRIO_ESFRIA * frio
+	var no_chao := estado == Estado.CHAO or estado == Estado.POUSO
+	var na_agua_quente := na_fonte > 0.0 and (no_chao or estado == Estado.NADO)
+	if vapor > 0.0 and not no_chao and estado != Estado.NADO:
+		# voando no vapor de uma poça, nada esfria e ele ainda soma calor
+		if taxa < 0.0:
+			taxa *= 1.0 - vapor
+		taxa += Ajustes.FONTE_CALOR * vapor * Melhorias.fator_radiador()
+	if na_agua and na_fonte == 0.0:
 		taxa = minf(taxa, 0.0) - Ajustes.ESFRIA_AGUA
+	elif na_agua_quente:
+		# dentro da água de uma poça, a pé ou nadando: esfria, mas na metade da velocidade de outra água
+		taxa = (minf(taxa, 0.0) - Ajustes.ESFRIA_AGUA) * Ajustes.FONTE_AGUA
 	if chuva > 0.3:
 		taxa -= Ajustes.ESFRIA_CHUVA * chuva
 	if superaquecido:
-		# 12 s para esfriar no ar, 5 s no chão; a água e a chuva aceleram
-		var no_chao := estado == Estado.CHAO or estado == Estado.POUSO
-		taxa = -(Ajustes.ESFRIA_SUPER_CHAO if no_chao else Ajustes.ESFRIA_SUPER_AR)
-		if na_agua:
+		# 12 s para esfriar no ar, 5 s no chão; a água e a chuva aceleram (a das fontes, na metade), e o frio da
+		# montanha também
+		taxa = -(Ajustes.ESFRIA_SUPER_CHAO if no_chao else Ajustes.ESFRIA_SUPER_AR) * (1.0 + Ajustes.FRIO_ESFRIA * frio)
+		if na_agua and na_fonte == 0.0:
 			taxa -= Ajustes.ESFRIA_AGUA
+		elif na_agua_quente:
+			taxa -= Ajustes.ESFRIA_AGUA * Ajustes.FONTE_AGUA
 		if chuva > 0.3:
 			taxa -= Ajustes.ESFRIA_CHUVA * chuva
 	calor = clampf(calor + (taxa + calor_extra) * delta, 0.0, 100.0)

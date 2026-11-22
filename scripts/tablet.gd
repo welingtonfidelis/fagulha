@@ -69,6 +69,13 @@ static func texto(c: CanvasItem, pos: Vector2, s: String, tam: int, cor: Color, 
 	c.draw_string(negrito() if forte else fonte(), pos, s, alinh, larg, tam, cor)
 
 
+## O maior tamanho de letra (de `tam` para baixo, até `minimo`) em que `s` cabe numa linha de `larg`.
+static func caber(s: String, larg: float, tam: int, forte := false, minimo := 18) -> int:
+	while tam > minimo and largura(s, tam, forte) > larg:
+		tam -= 1
+	return tam
+
+
 static func paragrafo(c: CanvasItem, pos: Vector2, s: String, larg: float, tam: int, cor: Color, linhas := -1, alinh := HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	c.draw_multiline_string(fonte(), pos, s, alinh, larg, tam, linhas, cor)
 
@@ -190,6 +197,19 @@ static func pino(c: CanvasItem, p: Vector2, r: float, cor: Color) -> void:
 	c.draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.86, -r * 0.5), p + Vector2(0, r * 1.5), p + Vector2(r * 0.86, -r * 0.5)]), cor)
 	c.draw_circle(p - Vector2(0, r), r, cor)
 	c.draw_circle(p - Vector2(0, r), r * 0.42, TELA)
+
+
+## A fagulha das lembranças do Faísca (doc §137.12): um ponto claro com quatro faíscas miúdas por cima. Sem
+## `cheio`, só o contorno apagado (a vaga ainda não achada).
+static func fagulha(c: CanvasItem, p: Vector2, r: float, cor: Color, cheio := true) -> void:
+	if cheio:
+		c.draw_circle(p, r * 0.62, cor)
+		c.draw_circle(p, r * 0.34, Color(1.0, 0.96, 0.86))
+	else:
+		c.draw_arc(p, r * 0.62, 0.0, TAU, 20, cor, 2.0, true)
+	for k in 4:
+		var d := Vector2.from_angle(-PI * 0.5 + (k - 1.5) * 0.62)
+		c.draw_line(p + d * r * 0.88, p + d * r * (1.25 + 0.18 * (k % 2)), cor, maxf(1.5, r * 0.12), true)
 
 
 static func cristal(c: CanvasItem, p: Vector2, r: float, cor: Color, cheio := true) -> void:

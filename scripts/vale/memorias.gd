@@ -7,6 +7,10 @@ extends Node3D
 ## A história é a que o usuário contou (doc §87): gente boa tentando melhorar o mundo, sem vilão; os humanos
 ## se foram, a natureza tomou o lugar, e o Faísca passou a consciência ao robô que jogamos.
 ## Dá para reler: a memória continua no lugar, mais apagada.
+##
+## As lembranças do Faísca (2026-11-22, doc §137.12): seis na terra nova, contadas por ele em primeira pessoa,
+## da chegada à vila até a partida para o outro lado, e um fecho que abre depois da sexta. Não contam para o farol
+## (`ORDEM` fica com as 12), ficam numa fagulha em vez do cristal e vão para a chave "lembrancas" do save.
 
 const PEGA := 1.3
 const FUNDICAO_LADO := Vector2(-36.0, Fundicao.MZ + 14.0)  # do meio da Fundição até a memória dela (x leste, y sul); do lado oeste do patamar, longe do scanner
@@ -55,12 +59,50 @@ const TEXTOS := {
 	"robo_antigo": ["O que vinha olhar",
 		"Este robô subia o morro quase toda noite. Não tinha tarefa nenhuma aqui: vinha porque gostava.\n\nSentava sempre neste mesmo lugar, ao pé do telescópio, e ficava olhando pela fenda até o céu clarear. Quem trabalhava aqui deixava a porta aberta para ele.\n\nQuando todos se foram, ele continuou vindo. Numa dessas noites a bateria acabou no meio do caminho das estrelas, e ele ficou.\n\nAinda dá para acordá-lo. O drone leva para a base."],
 }
+## As lembranças do Faísca: chave -> [título, texto]. A ordem do caderno é a da vida dele; cada uma se lê sozinha.
+const TEXTOS_FAISCA := {
+	"f_navio": ["Os que chegaram com a tempestade",
+		"Este navio encalhou numa noite de tempestade, muito antes de mim.\n\nO povo da vila desceu com lanternas e cobertores. Ninguém perguntou de onde o pessoal do navio vinha. Arrumaram camas na escola e disseram: fiquem, tem lugar.\n\nEra só até a primavera. Ninguém foi embora."],
+	"f_oficina": ["O nome",
+		"Esta oficina era a casa dos robôs de ajuda da vila. De noite a gente descansava aqui, e de manhã as crianças da escola vinham chamar cada um pelo nome.\n\nO meu, foram elas que inventaram. Disseram que eu soltava faísca quando ria.\n\nEu ainda não sabia rir. Aprendi com elas."],
+	"f_turquesa": ["A cor da água",
+		"A professora trazia a turma até aqui para explicar a cor deste lago. É pó de pedra, bem fininho, que o gelo mói lá em cima e o rio traz.\n\nAs crianças não acreditavam. Achavam mais bonito dizer que um pedaço do céu tinha caído aqui.\n\nEu mergulhava e trazia um punhado do fundo, para provar. Elas olhavam o pó na minha mão e diziam: viu? É céu."],
+	"f_fontes": ["O inverno nas fontes",
+		"No inverno, a vila inteira vinha para cá. Os mais velhos ficavam na água até o queixo, contando as mesmas histórias de sempre.\n\nEu ficava aqui em cima, segurando as toalhas e olhando o vapor subir. Ninguém tinha pressa de voltar.\n\nFoi aqui que eu aprendi o que é sossego."],
+	"f_circo": ["A festa do degelo",
+		"Toda primavera, a vila subia até este lago para ouvir o gelo quebrar. Era um estalo comprido, que corria pelas paredes da montanha.\n\nEu levava os cobertores e o chá quente. Quando o gelo abria, alguém gritava: desceu!\n\nEra o sinal de que ia ter água nas hortas o ano inteiro."],
+	"f_pico": ["As luzes do outro lado",
+		"Quando a última família foi embora, baixei o portão da nossa oficina. Ele emperrou no meio, e eu deixei assim.\n\nDepois subi até aqui, devagar, com o frio segurando o calor do motor.\n\nDo outro lado, as torres ainda acendiam as luzes das casas vazias. Achei que era um convite. No outro dia, desci e fui para lá."],
+	"f_fecho": ["Para você",
+		"Agora você sabe de onde eu vim.\n\nDepois que todos se foram, procurei aquele sossego de novo, e o meu corpo cansou antes de eu achar. Você não precisa ter pressa.\n\nAs crianças da escola fizeram um desenho meu. Deixei no mural da base, para você."],
+}
+const ORDEM_FAISCA := ["f_navio", "f_oficina", "f_turquesa", "f_fontes", "f_circo", "f_pico"]
+const FECHO := "f_fecho"
+## Onde ficam (medidos pelo level designer em 2026-11-22; o y é só o ponto de partida do raio que acha o chão)
+const PONTOS_FAISCA := {
+	"f_navio": Vector3(-453.0, 1.6, -1713.2),  # no porão da frente do navio encalhado, entrando a pé pelo rombo
+	"f_oficina": Vector3(-736.4, 30.0, -2578.8),  # na calçada, na porta da oficina dos robôs de ajuda
+	"f_turquesa": Vector3(-1480.0, 28.3, -2745.0),  # no fundo do Lago Turquesa, no meio, a 16,6 m
+	"f_fontes": Vector3(-2266.0, 36.3, -538.0),  # no alto do monte de sínter das fontes
+	"f_circo": Vector3(-2378.0, 305.3, -2650.0),  # na beira da saída do lago do circo, junto à queda
+	"f_pico": Vector3(-2842.0, 861.8, -2850.0),  # no pico da Montanha do Degelo
+}
+const COR_FAGULHA := Color(1.0, 0.74, 0.4)  # a da faísca do prólogo (`Historia.COR_FAISCA`)
 const ORDEM := ["cachoeira", "serra", "sumidouro", "arcos", "represa", "rele", "fenda", "torres", "observatorio", "casco", "gigantes", "fundicao"]
 ## chave -> o nome do lugar, para a barra de cima do tablet (o pino à direita)
 const LUGARES := {"cachoeira": "Cachoeira", "serra": "Serra", "sumidouro": "Sumidouro", "arcos": "Arcos", "represa": "Represa",
 	"rele": "Relé", "fenda": "Fenda", "torres": "Torres", "observatorio": "Observatório", "casco": "Casco", "gigantes": "Gigantes",
 	"fundicao": "Fundição", "robo_mergulhador": "Represa", "ave_grande": "Alto do vento", "sinal_de_fora": "Mastro",
-	"robozinhos": "Canos", "robo_antigo": "Observatório"}
+	"robozinhos": "Canos", "robo_antigo": "Observatório",
+	"f_navio": "Navio Encalhado", "f_oficina": "Vilarejo", "f_turquesa": "Lago Turquesa", "f_fontes": "Fontes Quentes",
+	"f_circo": "Lago do Circo", "f_pico": "Pico do Degelo", "f_fecho": "Faísca"}
+
+
+## O título e o texto de uma memória da ilha ou de uma lembrança do Faísca; vazio se a chave não existe.
+static func dado(chave: String) -> Array:
+	if TEXTOS.has(chave):
+		return TEXTOS[chave]
+	return TEXTOS_FAISCA.get(chave, [])
 
 var armadura: Armadura
 var mapa: Vale
@@ -68,6 +110,10 @@ var hud: Hud
 var pecas: PecasMundo
 var onde := {}  # chave -> Vector3
 var lidas: Array = []
+var onde_faisca := {}  # as lembranças do Faísca: chave -> Vector3
+var lidas_faisca: Array = []  # as do Faísca já lidas (com o fecho, "f_fecho")
+var _fecho_depois := false  # a sexta acabou de ser lida: o fecho abre quando ela fechar
+var _lendo_faisca := false
 var aberta := ""  # a memória que está na tela agora
 var aberturas := 0  # quantas vezes uma memória foi aberta (testes)
 
@@ -84,6 +130,7 @@ var _fecha_em := 0.0
 
 func _ready() -> void:
 	lidas = (Guardado.progresso("memorias") as Array).duplicate() if Guardado.ativo else []
+	lidas_faisca = (Guardado.progresso("lembrancas") as Array).duplicate() if Guardado.ativo else []
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	await get_tree().physics_frame
@@ -131,7 +178,118 @@ func _ready() -> void:
 		no.position = onde[chave]
 		add_child(no)
 		_nos[chave] = no
+	_lembrancas_do_faisca()
 	_montar_tela()
+
+
+## As seis lembranças do Faísca, só com a terra nova montada. Cada ponto acha o chão com um raio de cima: no porão
+## e na oficina um raio curto (o de longe bateria no casco ou no telhado); no pico, de bem alto (a grade de
+## alturas fica uns 0,8 m abaixo da colisão ali).
+func _lembrancas_do_faisca() -> void:
+	if mapa == null or mapa.get("terra_nova") == null:
+		return
+	for chave: String in ORDEM_FAISCA:
+		var p: Vector3 = PONTOS_FAISCA[chave]
+		var de := 1000.0 - p.y if chave == "f_pico" else 3.0
+		var r := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, de, 0), p - Vector3(0, 12.0, 0), 1))
+		onde_faisca[chave] = r["position"] if not r.is_empty() else p
+		var no := _fagulha(lidas_faisca.has(chave))
+		no.position = onde_faisca[chave]
+		add_child(no)
+		_nos[chave] = no
+		# o ponto de luz da noite, para achar de longe (no porão e no fundo do lago não se vê de longe mesmo)
+		if not lidas_faisca.has(chave) and chave != "f_navio" and chave != "f_turquesa":
+			LuzesNoite.por(no.get_node("gira") as Node3D, Vector3.ZERO, LuzesNoite.AMBAR, 1.6)  # em volta dela, pulsando junto
+	if lidas_faisca.has(FECHO):
+		BaseLar.mostrar_desenho()
+
+
+static var _tex_bolinha: Texture2D
+
+
+static func _bolinha() -> Texture2D:
+	if _tex_bolinha == null:
+		_tex_bolinha = load("res://assets/fx/kenney/circle_05.png")
+	return _tex_bolinha
+
+
+## A fagulha das lembranças do Faísca: um ponto creme bem aceso com um halo laranja e faíscas miúdas subindo. Não
+## gira: pulsa devagar. Lida, fica menor, mais fraca e sem faíscas.
+func _fagulha(lida: bool) -> Node3D:
+	var no := Node3D.new()
+	no.set_meta("fagulha", true)
+	var gira := Node3D.new()
+	gira.name = "gira"
+	gira.position.y = 1.0
+	no.add_child(gira)
+	var miolo := MeshInstance3D.new()
+	var esfera := SphereMesh.new()
+	esfera.radius = 0.075 if lida else 0.1
+	esfera.height = esfera.radius * 2.0
+	esfera.radial_segments = 12
+	esfera.rings = 6
+	miolo.mesh = esfera
+	var mm := StandardMaterial3D.new()
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mm.albedo_color = Color(1.0, 0.95, 0.84) if not lida else Color(0.85, 0.66, 0.45)
+	miolo.material_override = mm
+	miolo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gira.add_child(miolo)
+	# o halo: um quadrado virado para a câmera com a bolinha macia do Kenney (a mesma das luzes da noite), somando luz
+	var halo := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * (0.45 if lida else 0.8)
+	halo.mesh = quad
+	var mh := StandardMaterial3D.new()
+	mh.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mh.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mh.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mh.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mh.albedo_color = Color(COR_FAGULHA, 0.3 if lida else 0.7)
+	mh.albedo_texture = _bolinha()
+	halo.material_override = mh
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gira.add_child(halo)
+	if not lida:
+		var fa := CPUParticles3D.new()
+		fa.amount = 7
+		fa.lifetime = 1.3
+		fa.local_coords = false
+		fa.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		fa.emission_sphere_radius = 0.08
+		fa.direction = Vector3.UP
+		fa.spread = 35.0
+		fa.initial_velocity_min = 0.25
+		fa.initial_velocity_max = 0.55
+		fa.gravity = Vector3(0.0, 0.15, 0.0)
+		fa.scale_amount_min = 0.035
+		fa.scale_amount_max = 0.06
+		var rampa := Gradient.new()
+		rampa.set_color(0, Color(1.0, 0.85, 0.55, 1.0))
+		rampa.set_color(1, Color(1.0, 0.5, 0.15, 0.0))
+		fa.color_ramp = rampa
+		var qf := QuadMesh.new()
+		qf.size = Vector2.ONE
+		var mf := StandardMaterial3D.new()
+		mf.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mf.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mf.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mf.vertex_color_use_as_albedo = true
+		mf.albedo_texture = _bolinha()
+		qf.material = mf
+		fa.mesh = qf
+		gira.add_child(fa)
+	var luz := OmniLight3D.new()
+	luz.light_color = COR_FAGULHA
+	luz.light_energy = 0.3 if lida else 1.2
+	luz.omni_range = 6.0
+	luz.shadow_enabled = false
+	luz.distance_fade_enabled = true
+	luz.distance_fade_begin = 90.0
+	luz.distance_fade_length = 30.0
+	gira.add_child(luz)
+	return no
 
 
 ## O cristal: um losango âmbar que gira devagar, com um halo de luz. Lido, fica menor e mais apagado.
@@ -201,7 +359,7 @@ func _montar_tela() -> void:
 
 
 func abrir(chave: String) -> void:
-	if aberta != "" or not TEXTOS.has(chave):
+	if aberta != "" or dado(chave).is_empty():
 		return
 	aberta = chave
 	aberturas += 1
@@ -210,7 +368,17 @@ func abrir(chave: String) -> void:
 		lidas.append(chave)
 		if Guardado.ativo:
 			Guardado.por_progresso("memorias", lidas)
-	var par: Array = TEXTOS[chave]
+	_lendo_faisca = TEXTOS_FAISCA.has(chave)
+	if _lendo_faisca and not lidas_faisca.has(chave):
+		lidas_faisca.append(chave)
+		# a sexta: o fecho já conta como lido (se o jogo fechar antes, ele fica no caderno) e o desenho vai ao mural
+		if ORDEM_FAISCA.all(func(k: String) -> bool: return lidas_faisca.has(k)) and not lidas_faisca.has(FECHO):
+			lidas_faisca.append(FECHO)
+			_fecho_depois = true
+			BaseLar.mostrar_desenho()
+		if Guardado.ativo:
+			Guardado.por_progresso("lembrancas", lidas_faisca)
+	var par: Array = dado(chave)
 	_titulo_txt = par[0]
 	_texto_txt = par[1]
 	# a altura do tablet acompanha o texto: 262 de cabeça, o parágrafo, 120 de rodapé (máximo 860)
@@ -218,6 +386,12 @@ func abrir(chave: String) -> void:
 	_tablet.size = Vector2(600, ch)
 	_tablet.custom_minimum_size = Vector2(600, ch)
 	_tablet.rotulo = ("Memória · %d de %d" % [lidas.size(), ORDEM.size()]) if das_dez else "Lembrança"
+	if ORDEM_FAISCA.has(chave):
+		var seis := ORDEM_FAISCA.filter(func(k: String) -> bool: return lidas_faisca.has(k)).size()
+		_tablet.rotulo = "Lembrança do Faísca · %d de %d" % [seis, ORDEM_FAISCA.size()]
+	elif chave == FECHO:
+		_tablet.rotulo = "Lembrança do Faísca"
+	_tablet.cor_rotulo = Tablet.AZUL if _lendo_faisca else Tablet.AMBAR
 	_tablet.rotulo_dir = String(LUGARES.get(chave, ""))
 	_tablet.queue_redraw()
 	_camada.visible = true
@@ -228,10 +402,10 @@ func abrir(chave: String) -> void:
 	if _musica.stream:
 		_musica.play()
 		create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).tween_property(_musica, "volume_db", -9.0, 1.6)
-	# lida: o cristal fica mais apagado
+	# lida: o cristal (ou a fagulha) fica mais apagado
 	if _nos.has(chave):
 		var velho: Node3D = _nos[chave]
-		var novo := _cristal(true)
+		var novo := _fagulha(true) if velho.has_meta("fagulha") else _cristal(true)  # a luz da noite sai com o velho
 		novo.position = velho.position
 		add_child(novo)
 		velho.queue_free()
@@ -244,9 +418,14 @@ func _pintar_tablet(c: CanvasItem, telas: Array) -> void:
 	var t: Rect2 = telas[0]
 	var cc := Vector2(t.get_center().x, t.position.y + 108)
 	Tablet.brilho(c, cc, 22, Color(1.0, 0.7, 0.3), 1.6)
-	Tablet.cristal(c, cc, 24, Tablet.AMBAR)
-	Tablet.texto(c, Vector2(t.position.x, t.position.y + 196), _titulo_txt, 32, Tablet.AMBAR.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, t.size.x)
-	c.draw_line(Vector2(t.get_center().x - 60, t.position.y + 218), Vector2(t.get_center().x + 60, t.position.y + 218), Color(Tablet.AMBAR, 0.6), 2.0)
+	var tinta := Tablet.AMBAR
+	if _lendo_faisca:
+		Tablet.fagulha(c, cc, 26, Tablet.LARANJA)
+		tinta = Tablet.AZUL
+	else:
+		Tablet.cristal(c, cc, 24, Tablet.AMBAR)
+	Tablet.texto(c, Vector2(t.position.x, t.position.y + 196), _titulo_txt, Tablet.caber(_titulo_txt, t.size.x - 48, 32, true), tinta.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, t.size.x)
+	c.draw_line(Vector2(t.get_center().x - 60, t.position.y + 218), Vector2(t.get_center().x + 60, t.position.y + 218), Color(tinta, 0.6), 2.0)
 	Tablet.paragrafo(c, Vector2(t.position.x + 40, t.position.y + 262), _texto_txt, t.size.x - 80, 20, Tablet.TINTA)
 	Tablet.rodape(c, t, [["x", "fechar"]])
 
@@ -262,6 +441,10 @@ func fechar() -> void:
 	var tw := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.tween_property(_musica, "volume_db", -60.0, 1.2)
 	tw.tween_callback(_musica.stop)
+	# a sexta lembrança do Faísca fechou: o fecho abre sozinho, logo depois
+	if _fecho_depois:
+		_fecho_depois = false
+		get_tree().create_timer(1.2, false).timeout.connect(abrir.bind(FECHO))  # parado com o jogo pausado
 
 
 func _process(delta: float) -> void:
@@ -277,8 +460,13 @@ func _process(delta: float) -> void:
 	for chave: String in _nos:
 		var no: Node3D = _nos[chave]
 		var gira := no.get_node("gira") as Node3D
-		gira.rotation.y = _t * 0.8
-		gira.position.y = 1.0 + sin(_t * 1.3 + no.position.x) * 0.12
+		if no.has_meta("fagulha"):
+			# a fagulha não gira: pulsa devagar e quase não sobe
+			gira.scale = Vector3.ONE * (1.0 + 0.1 * sin(_t * 2.2 + no.position.x))
+			gira.position.y = 1.0 + sin(_t * 0.9 + no.position.z) * 0.05
+		else:
+			gira.rotation.y = _t * 0.8
+			gira.position.y = 1.0 + sin(_t * 1.3 + no.position.x) * 0.12
 		var d := p.distance_to(no.position + Vector3(0, 1.0, 0))
 		if d > PEGA * 2.5:
 			_saiu[chave] = true

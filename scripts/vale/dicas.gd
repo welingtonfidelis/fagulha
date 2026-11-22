@@ -17,8 +17,12 @@ const TEXTOS := {
 	"agua": "Na água:  {pular}  sobe,  {soltar}  desce. Ela esfria o motor",
 	"calor": "Motor quente: pouse, ou voe rente à água",
 	"memoria": "Um cristal de memória. Encoste nele para ler",
+	"fagulha": "Isso é do Faísca. Ele morou deste lado da ilha. Encoste para lembrar",
 	"farol": "Você leu todas as memórias. Há uma luz apagada no nordeste, no Cabo do Vento",
 	"maquina": "Uma máquina antiga. Elas não se quebram: desligam.  {mirar}  +  {atirar}",
+	# o ar do lugar (doc §137.11); o floco e o vapor ao lado do arco do calor seguem avisando depois
+	"frio": "O ar frio da montanha segura o calor do motor. Aqui em cima dá para voar mais",
+	"fontes": "O ar e o vapor das fontes esquentam o motor. A água delas esfria, mas devagar",
 }
 
 var armadura: Armadura
@@ -79,14 +83,23 @@ func _olhar() -> void:
 		pedir("oficina")
 	if armadura.estado == Armadura.Estado.NADO:
 		pedir("agua")
-	if armadura.calor >= 70.0:
-		pedir("calor")
+	if armadura.calor >= 70.0 and armadura.quente < 0.2 and armadura.vapor == 0.0:
+		pedir("calor")  # nas fontes o "voe rente à água" não vale: ela não esfria ali
+	var voando := armadura.em_voo() or armadura.estado == Armadura.Estado.PAIRAR
+	if voando and armadura.frio > 0.5:
+		pedir("frio")
+	if voando and maxf(armadura.quente, armadura.vapor) > 0.4:
+		pedir("fontes")
 	if Fundicao.montada and Vector2(p.x - Fundicao.CENTRO.x, p.z - Fundicao.CENTRO.y).length() < Fundicao.RAIO:
 		pedir("fundicao")
 	if memorias:
 		for chave: String in memorias.onde:
 			if not memorias.lidas.has(chave) and p.distance_to(memorias.onde[chave]) < 30.0:
 				pedir("memoria")
+				break
+		for chave: String in memorias.onde_faisca:
+			if not memorias.lidas_faisca.has(chave) and p.distance_to(memorias.onde_faisca[chave]) < 30.0:
+				pedir("fagulha")
 				break
 	if not vistas.has("maquina"):
 		for n in get_tree().get_nodes_in_group("maquinas"):

@@ -118,6 +118,12 @@ static func calor_voo() -> float:
 	return 1.0 if tem("radiador") else 1.65
 
 
+## Quanto do calor de fora (o vapor e a água das fontes quentes) o radiador deixa entrar: 1 no básico, 0,61 com o
+## radiador e 0,33 com o duplo (doc §137.11).
+static func fator_radiador() -> float:
+	return calor_voo() / 1.65
+
+
 static func calor_pairar() -> float:
 	if tem("radiador2"):
 		return Ajustes.CALOR_PAIRAR

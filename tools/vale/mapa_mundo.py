@@ -51,6 +51,26 @@ hn, cn, mudou, nova = tu.juntar(h, cob, info["rios"], info["lagos"], info["fonte
 hn, mudou = tu.aprofundar(h, hn)
 cn = np.where((hn < 0) & (cn != 4) & ~np.isin(cn, [6, 8]), 4, cn).astype(np.uint8)
 
+# o vilarejo da área A (2026-11-22, doc §137.10): o chão vira um platô do tamanho da vila (a altura média que já
+# tinha ali), que volta ao chão de antes até a emenda. Por dentro é campo; em volta, a mata rala que a vila tinha
+# no desenho (tools/arte/vilarejo_vila1.py), com a frente para o mar (o leste, de onde se vê a costa) aberta.
+# Fica fora de tu.LUGARES de propósito: lá ele mexeria na costa.
+VILA = (-756.0, -2592.0)  # o meio da praça; o mesmo de scripts/vale/vilarejo.gd
+VILA_PLATO, VILA_EMENDA = 58.0, 95.0
+gx_, gz_ = np.meshgrid(tu.W0 + np.arange(N) * tu.P, tu.W0 + np.arange(N) * tu.P)
+dv = np.hypot(gx_ - VILA[0], gz_ - VILA[1])
+av = np.arctan2(gz_ - VILA[1], gx_ - VILA[0])
+plato = float(hn[dv <= VILA_PLATO].mean())
+sv = np.clip((VILA_EMENDA - dv) / (VILA_EMENDA - VILA_PLATO), 0.0, 1.0)
+wv = sv * sv * (3.0 - 2.0 * sv)
+hn = np.where(wv > 0, hn * (1.0 - wv) + plato * wv, hn)
+mudou = mudou | (wv > 0)
+borda_mata = 90.0 + 9.0 * np.sin(3.0 * av + 1.3) + 5.0 * np.sin(7.0 * av + 0.4)
+mata_v = (dv > 64.0) & (dv < borda_mata) & (np.cos(av) < 0.45) & (np.sin(2.0 * av + 0.7) + 0.6 * np.sin(5.0 * av + 2.1) > -0.6)
+cn = np.where((dv <= 62.0) & (hn > 0) & (cn != 4), 0, cn)
+cn = np.where(mata_v & (cn == 0), 1, cn).astype(np.uint8)
+print("vilarejo: platô a %.2f m, %d pontos de chão mexidos" % (plato, int((wv > 0).sum())))
+
 # de volta às duas grades
 v_h = hn[V0:V0 + VN, V0:V0 + VN].astype(np.float32)
 v_c = cn[V0:V0 + VN, V0:V0 + VN].copy()
@@ -87,7 +107,7 @@ cor = np.where((hn < 0)[..., None], agua, cor)
 img = Image.fromarray((np.clip(cor, 0, 1) * 255).astype(np.uint8))
 d = ImageDraw.Draw(img)
 fonte = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 16)
-for nome, x, z in tu.LUGARES:
+for nome, x, z in tu.LUGARES + [("Vilarejo", VILA[0], VILA[1])]:
     p = ((x - tu.W0) / tu.P, (z - tu.W0) / tu.P)
     d.ellipse((p[0] - 4, p[1] - 4, p[0] + 4, p[1] + 4), fill=(20, 90, 95), outline=(255, 255, 255), width=2)
     d.text((p[0] + 7, p[1] - 9), nome, fill=(20, 30, 30), font=fonte, stroke_width=2, stroke_fill=(255, 255, 255))

@@ -183,6 +183,17 @@ func na_cachoeira(_p: Vector3) -> bool:
 	return false
 
 
+## O ar do lugar para o motor (doc §137.11), de 0 a 1 em cada eixo: x é o frio da montanha, y o calor da bacia
+## das fontes quentes e z o vapor de uma poça logo abaixo. Só a terra nova tem.
+func clima(_p: Vector3) -> Vector3:
+	return Vector3.ZERO
+
+
+## A força da fonte quente em cuja água o ponto está; 0 fora delas.
+func fonte_em(_x: float, _z: float) -> float:
+	return 0.0
+
+
 func agua_perto(p: Vector3) -> bool:
 	var nivel := agua(p.x, p.z)
 	var acima := p.y - nivel

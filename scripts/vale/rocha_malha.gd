@@ -59,6 +59,8 @@ static func alto_da_caixa(mn: Vector2, mx: Vector2) -> float:
 static func dentro(x: float, z: float, folga := 0.0) -> bool:
 	if vale == null:
 		return false
+	if BocaDegelo.dentro(x, z, folga):
+		return true
 	if vale._fora(x, z) < Cavernas.chao_antes(x, z) - 0.3:
 		return true
 	if folga <= 0.0:
@@ -161,6 +163,13 @@ static func furos(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, pa
 
 ## Gera a malha da caixa e grava em `arquivo`. `chave` identifica o lugar (se o relevo mudar, avisa).
 static func assar(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, arquivo: String, chave: Vector3) -> void:
+	assar_com(mn, mx, func(p: Vector3) -> float: return rocha(p, vazio, extra),
+		func(p: Vector3) -> float: return Cavernas.chao_antes(p.x, p.z) - p.y, arquivo, chave)
+
+
+## O mesmo, para qualquer relevo: `dens` dá a distância com sinal até a rocha (negativa dentro) e `fundo`
+## quanto o ponto fica abaixo do chão de antes (a cor do vértice). A terra nova usa este (BocaDegelo).
+static func assar_com(mn: Vector3, mx: Vector3, dens_f: Callable, fundo_f: Callable, arquivo: String, chave: Vector3) -> void:
 	var t0 := Time.get_ticks_msec()
 	var nx := int((mx.x - mn.x) / PASSO) + 2
 	var ny := int((mx.y - mn.y) / PASSO) + 2
@@ -170,7 +179,7 @@ static func assar(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, ar
 	for k in nz:
 		for j in ny:
 			for i in nx:
-				dens[(k * ny + j) * nx + i] = rocha(mn + Vector3(i, j, k) * PASSO, vazio, extra)
+				dens[(k * ny + j) * nx + i] = dens_f.call(mn + Vector3(i, j, k) * PASSO)
 	# um vértice por célula cortada pela superfície, no meio dos cruzamentos das arestas
 	var indice := PackedInt32Array()
 	indice.resize(nx * ny * nz)
@@ -236,10 +245,10 @@ static func assar(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, ar
 	for i in verts.size():
 		var p := verts[i]
 		normais[i] = Vector3(
-			rocha(p + Vector3(e, 0, 0), vazio, extra) - rocha(p - Vector3(e, 0, 0), vazio, extra),
-			rocha(p + Vector3(0, e, 0), vazio, extra) - rocha(p - Vector3(0, e, 0), vazio, extra),
-			rocha(p + Vector3(0, 0, e), vazio, extra) - rocha(p - Vector3(0, 0, e), vazio, extra)).normalized()
-		var fundo := Cavernas.chao_antes(p.x, p.z) - p.y
+			float(dens_f.call(p + Vector3(e, 0, 0))) - float(dens_f.call(p - Vector3(e, 0, 0))),
+			float(dens_f.call(p + Vector3(0, e, 0))) - float(dens_f.call(p - Vector3(0, e, 0))),
+			float(dens_f.call(p + Vector3(0, 0, e))) - float(dens_f.call(p - Vector3(0, 0, e)))).normalized()
+		var fundo: float = fundo_f.call(p)
 		cores[i] = Color(1.0 - smoothstep(0.9, 2.2, fundo), clampf(fundo / 14.0, 0.0, 1.0), 0.0)
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
@@ -255,8 +264,9 @@ static func assar(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, ar
 		% [arquivo.get_file(), nx, ny, nz, idx.size() / 3, Time.get_ticks_msec() - t0, erro])
 
 
-## Põe a malha gravada no vale, com colisão dos dois lados. Devolve false se o arquivo falta.
-static func montar(arquivo: String, nome: String, chave: Vector3) -> bool:
+## Põe a malha gravada no vale, com colisão dos dois lados. Devolve false se o arquivo falta. Sem `mat`, a
+## rocha do Sumidouro.
+static func montar(arquivo: String, nome: String, chave: Vector3, mat: Material = null) -> bool:
 	if not ResourceLoader.exists(arquivo):
 		push_warning("%s: falta a malha (%s); rode -- --assar-rochas" % [nome, arquivo])
 		return false
@@ -266,7 +276,7 @@ static func montar(arquivo: String, nome: String, chave: Vector3) -> bool:
 	var mi := MeshInstance3D.new()
 	mi.name = nome
 	mi.mesh = m
-	mi.material_override = material()
+	mi.material_override = mat if mat else material()
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	vale.add_child(mi)
 	var corpo := StaticBody3D.new()
@@ -307,7 +317,7 @@ static func piso_teto(x: float, z: float, y0: float, vazio: Callable, extra: Cal
 
 
 ## Um grupo de cristais acesos com a luz dele.
-static func cristal(base: Vector3, cor: Color, rng: RandomNumberGenerator, porte := 1.0) -> void:
+static func cristal(base: Vector3, cor: Color, rng: RandomNumberGenerator, porte := 1.0, luz_k := 1.0) -> void:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = cor * 0.5
 	mat.emission_enabled = true
@@ -333,7 +343,7 @@ static func cristal(base: Vector3, cor: Color, rng: RandomNumberGenerator, porte
 		vale.add_child(mi)
 	var luz := OmniLight3D.new()
 	luz.light_color = cor
-	luz.light_energy = 1.2 * porte  # eram 2,2 e 17 m: as cavernas ficavam claras demais
+	luz.light_energy = 1.2 * porte * luz_k  # eram 2,2 e 17 m: as cavernas ficavam claras demais
 	luz.omni_range = 11.0 * porte
 	luz.shadow_enabled = false
 	luz.position = base + Vector3(0, maior + 0.8, 0)

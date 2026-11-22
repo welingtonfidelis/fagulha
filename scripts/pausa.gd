@@ -56,6 +56,7 @@ const COR := {"continuar": Tablet.LARANJA_V, "comandos": Tablet.AZUL, "simulacao
 	"voltar": Tablet.CINZA}
 const VERDE_AGUA := Color(0.3, 0.65, 0.65)
 const PETROLEO := Color(0.2, 0.5, 0.5)
+const SEPARADOR_FAISCA := 30.0  # px na aba Memórias entre as da ilha e as lembranças do Faísca
 
 var armadura: Armadura
 var na_simulacao := false  # a pausa do tutorial: "Acordar" no lugar de "Voltar à base"
@@ -913,16 +914,38 @@ static func _encaixar(v: Rect2) -> Rect2:
 	return v
 
 
+## As vagas da aba Memórias: 0–11 as da ilha; com alguma lembrança do Faísca lida, as vagas encolhem e, depois de
+## um separador, vêm as seis dele (12–17) e o fecho, largo, por último (18).
 func _vagas_lista() -> Array:
 	var L := Tablet.ESQ
 	var mw := (L.size.x - 28 - 10) / 2.0
 	var v: Array = []
+	if _lidas_faisca().is_empty():
+		for i in Memorias.ORDEM.size():
+			v.append(Rect2(L.position.x + 14 + (i % 2) * (mw + 10), L.position.y + 112 + (i / 2) * 104, mw, 96))
+		return v
 	for i in Memorias.ORDEM.size():
-		v.append(Rect2(L.position.x + 14 + (i % 2) * (mw + 10), L.position.y + 112 + (i / 2) * 104, mw, 96))
+		v.append(Rect2(L.position.x + 14 + (i % 2) * (mw + 10), L.position.y + 112 + (i / 2) * 58, mw, 52))
+	var y0 := L.position.y + 112 + 6 * 58 + SEPARADOR_FAISCA
+	for i in Memorias.ORDEM_FAISCA.size():
+		v.append(Rect2(L.position.x + 14 + (i % 2) * (mw + 10), y0 + (i / 2) * 58, mw, 52))
+	v.append(Rect2(L.position.x + 14, y0 + 3 * 58, mw * 2.0 + 10, 52))
 	return v
 
 
-## As vagas das memórias ainda não lidas: o contorno e o cristal apagado (as lidas são botões).
+## Em que vaga fica cada chave (-1 se não for de nenhuma).
+func _indice_vaga(chave: String) -> int:
+	var i := Memorias.ORDEM.find(chave)
+	if i >= 0:
+		return i
+	i = Memorias.ORDEM_FAISCA.find(chave)
+	if i >= 0:
+		return Memorias.ORDEM.size() + i
+	return Memorias.ORDEM.size() + Memorias.ORDEM_FAISCA.size() if chave == Memorias.FECHO else -1
+
+
+## As vagas das memórias ainda não lidas: o contorno e o cristal apagado (as lidas são botões). Com o Faísca, o
+## separador azul e as vagas dele com a fagulha apagada (o fecho só aparece lido).
 func _vagas_memoria(c: CanvasItem, vagas: Array) -> void:
 	var lidas := _lidas()
 	for i in Memorias.ORDEM.size():
@@ -931,6 +954,25 @@ func _vagas_memoria(c: CanvasItem, vagas: Array) -> void:
 		var r: Rect2 = vagas[i]
 		Tablet.caixa(c, r, Color(Tablet.TINTA, 0.04), 12, Color(Tablet.TINTA, 0.15), 1)
 		Tablet.cristal(c, r.get_center(), 8, Color(Tablet.TINTA, 0.25), false)
+	var dele := _lidas_faisca()
+	if dele.is_empty():
+		return
+	var L := Tablet.ESQ
+	var y: float = (vagas[Memorias.ORDEM.size() - 1] as Rect2).end.y + SEPARADOR_FAISCA * 0.5 + 3.0
+	var rot := "do Faísca"
+	var rw := Tablet.largura(rot, 14, true)
+	var meio := L.get_center().x
+	var ini := meio - (rw + 26) * 0.5
+	c.draw_line(Vector2(L.position.x + 14, y), Vector2(ini - 10, y), Color(Tablet.AZUL, 0.55), 2.0)
+	c.draw_line(Vector2(ini + rw + 36, y), Vector2(L.end.x - 14, y), Color(Tablet.AZUL, 0.55), 2.0)
+	Tablet.fagulha(c, Vector2(ini + 8, y + 1), 8, Tablet.LARANJA)
+	Tablet.texto(c, Vector2(ini + 24, y + 5), rot, 14, Tablet.AZUL.darkened(0.25), true)
+	for i in Memorias.ORDEM_FAISCA.size():
+		if dele.has(Memorias.ORDEM_FAISCA[i]):
+			continue
+		var r: Rect2 = vagas[Memorias.ORDEM.size() + i]
+		Tablet.caixa(c, r, Color(Tablet.AZUL, 0.05), 12, Color(Tablet.AZUL, 0.25), 1)
+		Tablet.fagulha(c, r.get_center(), 8, Color(Tablet.AZUL, 0.35), false)
 
 
 func _lidas() -> Array:
@@ -939,31 +981,53 @@ func _lidas() -> Array:
 	return memorias.lidas if memorias else []
 
 
+func _lidas_faisca() -> Array:
+	var principal := get_parent()
+	var memorias: Memorias = principal.get("memorias") if principal else null
+	return memorias.lidas_faisca if memorias else []
+
+
 func _pintar_memoria(b: Control, r: Rect2, foco: bool, sobre: bool, chave: String) -> void:
 	var grande := r.size.y > 70.0
 	var sel := foco or (_aba_caderno == 1 and chave == _mem_sel)
+	var titulo := String(Memorias.dado(chave)[0])
+	if Memorias.TEXTOS_FAISCA.has(chave):
+		# as do Faísca: cartão azul-claro com a fagulha
+		Tablet.caixa(b, r, Color(0.80, 0.89, 0.97, 0.85 if sobre or sel else 0.7), 12, Tablet.AZUL if sel else Color(Tablet.AZUL, 0.35), 3 if sel else 1)
+		Tablet.fagulha(b, Vector2(19, r.size.y * 0.5 + 1), 9, Tablet.LARANJA)
+		Tablet.paragrafo(b, Vector2(36, _linha_cartao(titulo, r.size.x - 42, r.size.y)), titulo, r.size.x - 42, 13, Tablet.TINTA, 2)
+		return
 	Tablet.caixa(b, r, Color(0.98, 0.86, 0.62, 0.75 if sobre or sel else 0.6), 12, Tablet.AMBAR if sel else Color(0, 0, 0, 0), 3 if sel else 0)
-	var titulo := String(Memorias.TEXTOS[chave][0])
 	if grande:
 		Tablet.brilho(b, Vector2(30, r.size.y * 0.5), 12, Color(1.0, 0.7, 0.3), 0.8)
 		Tablet.cristal(b, Vector2(30, r.size.y * 0.5), 12, Tablet.AMBAR)
 		Tablet.paragrafo(b, Vector2(54, r.size.y * 0.5 - 4), titulo, r.size.x - 62, 16, Tablet.TINTA, 2)
 	else:
-		Tablet.cristal(b, Vector2(18, 27), 8, Tablet.AMBAR)
-		Tablet.paragrafo(b, Vector2(32, 22), titulo, r.size.x - 38, 13, Tablet.TINTA, 2)
+		Tablet.cristal(b, Vector2(18, r.size.y * 0.5), 8, Tablet.AMBAR)
+		Tablet.paragrafo(b, Vector2(32, _linha_cartao(titulo, r.size.x - 38, r.size.y)), titulo, r.size.x - 38, 13, Tablet.TINTA, 2)
+
+
+## A primeira linha do título no cartão pequeno, com o texto (uma ou duas linhas) no meio da altura.
+func _linha_cartao(titulo: String, larg: float, alto: float) -> float:
+	return alto * 0.5 + (-4.0 if Tablet.largura(titulo, 13) > larg else 5.0)
 
 
 func _p_memorias(c: Control, L: Rect2, R: Rect2) -> void:
 	_vagas_memoria(c, _vagas_lista())
 	if _lidas().is_empty():
 		Tablet.paragrafo(c, Vector2(R.position.x + 24, R.position.y + 110), "Nenhuma memória lida ainda. Os cristais âmbar guardam o que aconteceu na ilha.", R.size.x - 48, 18, Color(Tablet.TINTA, 0.7), 4)
-	elif Memorias.TEXTOS.has(_mem_sel):
-		var dado: Array = Memorias.TEXTOS[_mem_sel]
+	elif not Memorias.dado(_mem_sel).is_empty():
+		var dado: Array = Memorias.dado(_mem_sel)
+		var dele := Memorias.TEXTOS_FAISCA.has(_mem_sel)
+		var tinta := Tablet.AZUL if dele else Tablet.AMBAR
 		var cc := Vector2(R.get_center().x, R.position.y + 96)
 		Tablet.brilho(c, cc, 20, Color(1.0, 0.7, 0.3), 1.4)
-		Tablet.cristal(c, cc, 22, Tablet.AMBAR)
-		Tablet.texto(c, Vector2(R.position.x + 10, R.position.y + 174), String(dado[0]), 26, Tablet.AMBAR.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, R.size.x - 20)
-		c.draw_line(Vector2(R.get_center().x - 60, R.position.y + 192), Vector2(R.get_center().x + 60, R.position.y + 192), Color(Tablet.AMBAR, 0.6), 2.0)
+		if dele:
+			Tablet.fagulha(c, cc, 24, Tablet.LARANJA)
+		else:
+			Tablet.cristal(c, cc, 22, Tablet.AMBAR)
+		Tablet.texto(c, Vector2(R.position.x + 10, R.position.y + 174), String(dado[0]), Tablet.caber(String(dado[0]), R.size.x - 40, 26, true), tinta.darkened(0.35), true, HORIZONTAL_ALIGNMENT_CENTER, R.size.x - 20)
+		c.draw_line(Vector2(R.get_center().x - 60, R.position.y + 192), Vector2(R.get_center().x + 60, R.position.y + 192), Color(tinta, 0.6), 2.0)
 		var onde := String(Memorias.LUGARES.get(_mem_sel, ""))
 		if onde != "":
 			var ow := Tablet.largura(onde, 15, true)
@@ -1277,15 +1341,20 @@ func _abrir_caderno() -> void:
 	var n := _contas()
 	var lidas := _lidas()
 	_caderno_contas.text = "Lugares visitados: %d   ·   Peças: %d   ·   Memórias: %d de %d" % [n["lugares"], Melhorias.instaladas.size() + Melhorias.achadas.size(), lidas.size(), Memorias.ORDEM.size()]
+	var dele := _lidas_faisca()
+	if not dele.is_empty():
+		var seis := Memorias.ORDEM_FAISCA.filter(func(k: String) -> bool: return dele.has(k)).size()
+		_caderno_contas.text += "   ·   Do Faísca: %d de %d" % [seis, Memorias.ORDEM_FAISCA.size()]
 	for velho in _caderno_memorias.get_children():
 		_caderno_memorias.remove_child(velho)
 		velho.queue_free()
-	for chave: String in Memorias.ORDEM:
-		if not lidas.has(chave):
+	var todas: Array = Memorias.ORDEM + Memorias.ORDEM_FAISCA + [Memorias.FECHO]
+	for chave: String in todas:
+		if not lidas.has(chave) and not dele.has(chave):
 			continue
 		var b := BotaoTablet.new()
 		b.estilo = "livre"
-		b.text = String(Memorias.TEXTOS[chave][0])
+		b.text = String(Memorias.dado(chave)[0])
 		b.pintor = _pintar_memoria.bind(chave)
 		b.set_meta("chave", chave)
 		b.mouse_entered.connect(b.grab_focus)
@@ -1294,7 +1363,7 @@ func _abrir_caderno() -> void:
 				_mem_sel = chave)
 		b.pressed.connect(func() -> void: _mem_sel = chave)
 		_caderno_memorias.add_child(b)
-	if _mem_sel == "" or not lidas.has(_mem_sel):
+	if _mem_sel == "" or not (lidas.has(_mem_sel) or dele.has(_mem_sel)):
 		_mem_sel = String(_caderno_memorias.get_child(0).get_meta("chave")) if _caderno_memorias.get_child_count() > 0 else ""
 	_aba_caderno = 0
 	_mostrar(_pagina_caderno)
@@ -1306,8 +1375,7 @@ func _abrir_caderno() -> void:
 func _arrumar_memorias() -> void:
 	var vagas := _vagas_lista()
 	for b: Node in _caderno_memorias.get_children():
-		var i := Memorias.ORDEM.find(String(b.get_meta("chave")))
-		var r: Rect2 = vagas[i]
+		var r: Rect2 = vagas[_indice_vaga(String(b.get_meta("chave")))]
 		(b as Control).position = r.position
 		(b as Control).size = r.size
 	_caderno_memorias.visible = _aba_caderno == 1

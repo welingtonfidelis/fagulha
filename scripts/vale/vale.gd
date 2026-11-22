@@ -133,9 +133,12 @@ func gerar(_semente := 7) -> void:
 	Tempos.marca("Paredoes.montar")
 	if "--assar-rochas" in OS.get_cmdline_user_args():
 		Sumidouro.assar()
+		BocaDegelo.assar()
 	await _avisar(0.76, "Acordando as ruínas")
 	Sumidouro.montar(self)
 	Tempos.marca("Sumidouro.montar")
+	BocaDegelo.montar(self)
+	Tempos.marca("BocaDegelo.montar")
 	Ruinas.montar(self)
 	Tempos.marca("Ruinas.montar")
 	Marcos.montar(self)
@@ -182,6 +185,14 @@ func cobertura(x: float, z: float) -> int:
 
 func _dentro(x: float, z: float) -> bool:
 	return maxf(absf(x), absf(z)) <= C_META
+
+
+func clima(p: Vector3) -> Vector3:
+	return terra_nova.clima(p) if _na_terra_nova(p.x, p.z) else Vector3.ZERO
+
+
+func fonte_em(x: float, z: float) -> float:
+	return terra_nova.fonte_em(x, z) if _na_terra_nova(x, z) else 0.0
 
 
 ## Fora do quadrado da ilha de hoje e dentro da grade da terra nova.

@@ -953,6 +953,8 @@ func _anotar_pontos() -> void:
 	if memorias:
 		for k: String in memorias.onde:
 			PontosIlha.anotar("memoria:" + k, memorias.onde[k])
+		for k: String in memorias.onde_faisca:
+			PontosIlha.anotar("lembranca:" + k, memorias.onde_faisca[k])
 	if rotas:
 		for id: String in rotas.lista:
 			PontosIlha.anotar("baliza:" + id, rotas.lista[id]["baliza"])

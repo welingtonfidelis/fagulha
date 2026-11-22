@@ -147,6 +147,26 @@ As peças dos três acampamentos (`assets/vale/acampamentos/`, copiadas em 2026-
 O resto (chapas onduladas, lonas, contêineres, vigas, cabos, bandeirolas, baterias, o chão batido e o miolo dos montes
 de sucata) é feito por código em `scripts/vale/acampamentos.gd`.
 
+## O Vilarejo (OpenGameArt)
+
+O vilarejo da terra nova (`assets/vale/vilarejo/`) é feito por código em `tools/arte/vilarejo_vila1.py`, menos três
+peças baixadas do [OpenGameArt](https://opengameart.org) em 2026-11-22.
+
+### Com crédito obrigatório (CC-BY)
+
+| Obra | Autor | Licença | Onde entra |
+|---|---|---|---|
+| [Path to the house, road, way, route, driveway](https://opengameart.org/content/path-to-the-house-road-way-route-driveway) | twochch | [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) | a ruela de pedra com a mureta, até a escola (`ruela_pedra.glb`) |
+| Paving square bricks (uma das texturas que vêm com o calçamento acima) | Keith333 | [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) | a pedra da mesma ruela |
+
+### De domínio público (CC0), com agradecimento
+
+| Obra | Autor | Onde entra |
+|---|---|---|
+| [Old fence](https://opengameart.org/content/old-fence) | carlosjorgereis | a cerca de madeira, repintada e assada com as casas |
+| [Old metal fence](https://opengameart.org/content/old-metal-fence) | Paul Wortmann | a grade de ferro da escola, repintada |
+| Mud, calçada portuguesa, stones, rock textures (as outras texturas do calçamento) | EmoPreben, Demetrius, Tont, GrEmlin | a pedra da ruela |
+
 ## Beehave (árvores de comportamento)
 
 A cabeça das máquinas usa a Beehave 2.9.3, de bitbrain (https://github.com/bitbrain/beehave), licença MIT

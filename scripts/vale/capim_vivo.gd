@@ -300,6 +300,11 @@ func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float
 			return -INF
 	if mapa.agua(px, pz) > -INF:
 		return -INF
+	# no vilarejo não nasce em cima da rua, da praça e dentro das casas (só um tufo ou outro, nas frestas), e em
+	# volta delas fica ralo, para os restos da rua aparecerem
+	var calcado := Vilarejo.calcado(px, pz)
+	if calcado > 0 and rng.randf() > (0.04 if calcado == 2 else 0.3):
+		return -INF
 	# em cima das lajes da pista do Anel só nasce um tufo ou outro, pelas frestas; nos vãos, o capim de sempre
 	if Pista.em(px, pz) == 1 and rng.randf() > 0.1:
 		return -INF

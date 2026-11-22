@@ -126,6 +126,9 @@ func _process(delta: float) -> void:
 			p.x, p.y, p.z, alvo.altura_do_chao()]
 		if CicloDia.atual:
 			_rotulo_medidor.text += "\n%s · %02d:%02d · chuva %d%%" % [CicloDia.atual.nome_momento(), int(CicloDia.atual.hora), int(fmod(CicloDia.atual.hora, 1.0) * 60.0), CicloDia.atual.chuva * 100.0]
+		if alvo.frio > 0.0 or alvo.quente > 0.0 or alvo.vapor > 0.0 or alvo.na_fonte > 0.0:
+			_rotulo_medidor.text += "\nfrio %d%% · quente %d%% · vapor %d%% · fonte %d%%" % [
+				alvo.frio * 100.0, alvo.quente * 100.0, alvo.vapor * 100.0, alvo.na_fonte * 100.0]
 	queue_redraw()
 
 
@@ -295,6 +298,20 @@ func _desenhar_bussola() -> void:
 				var pm := Vector2(cx + off_m2 * escala, y0 + 12.0)
 				draw_colored_polygon(PackedVector2Array([pm + Vector2(0, -8), pm + Vector2(5.5, 0), pm + Vector2(0, 8), pm + Vector2(-5.5, 0)]), ambar)
 				draw_colored_polygon(PackedVector2Array([pm + Vector2(0, -3.5), pm + Vector2(2.4, 0), pm + Vector2(0, 3.5), pm + Vector2(-2.4, 0)]), Color(1, 0.95, 0.8))
+		# as lembranças do Faísca ainda não lidas: a fagulha laranja, na mesma distância
+		for chave: String in memorias.onde_faisca:
+			if memorias.lidas_faisca.has(chave):
+				continue
+			var df: Vector3 = memorias.onde_faisca[chave] - alvo.global_position
+			df.y = 0.0
+			if df.length() > 300.0 or df.length() < 6.0:
+				continue
+			conta_marcas += 1
+			var off_f := wrapf(atan2(df.x, -df.z) - rumo, -PI, PI)
+			if absf(off_f) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_f), Memorias.COR_FAGULHA)
+			else:
+				Tablet.fagulha(self, Vector2(cx + off_f * escala, y0 + 13.0), 8.0, Memorias.COR_FAGULHA)
 	# a antena de busca: um triângulo verde para cada peça que estiver por perto
 	if alvo:
 		conta_marcas += Melhorias.sinais.size() + (1 if alvo.tem_marcador else 0)
@@ -353,6 +370,8 @@ var _dano_visto := 0.0
 var _mira_vista := 0.0
 var _calor_visto := 0.0
 var _frio_visto := 0.0
+var _ar_frio_visto := 0.0  # o floco do frio da montanha ao lado do arco do calor (doc §137.11)
+var _ar_quente_visto := 0.0  # o vapor das fontes quentes ao lado do arco do calor
 var _missil_visto := 0.0
 var _rajada_vista := 0.0
 var _missil_fica := 0.0  # segundos que o contador de mísseis ainda fica depois de um disparo
@@ -803,7 +822,7 @@ func _draw() -> void:
 	var pisca := fmod(Time.get_ticks_msec() * 0.001, 0.4) < 0.2
 	# "resfriado": a água, a chuva ou uma cachoeira está tirando calor (ou acabou de zerar). O arco aparece
 	# mesmo vazio, em azul claro, com a palavra embaixo.
-	var esfriando: bool = alvo.resfriado > 0.0 or (alvo.na_agua and alvo.em_voo()) or (alvo.chuva > 0.3 and alvo.em_voo())
+	var esfriando: bool = alvo.resfriado > 0.0 or (alvo.na_agua and alvo.na_fonte == 0.0 and alvo.em_voo()) or (alvo.chuva > 0.3 and alvo.em_voo())
 	_frio_visto = move_toward(_frio_visto, 1.0 if esfriando else 0.0, dt * (5.0 if esfriando else 1.2))
 	_calor_visto = move_toward(_calor_visto, 1.0 if (q > 0.06 or alvo.superaquecido or esfriando) else 0.0, dt * (5.0 if (q > 0.06 or esfriando) else 0.9))
 	if _calor_visto > 0.01:
@@ -826,6 +845,18 @@ func _draw() -> void:
 		var txt2 := "resfriado"
 		var w2 := _fonte.get_string_size(txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		draw_string(_fonte, Vector2(size.x * 0.5 - w2 * 0.5, size.y - 54.0), txt2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.6, 0.9, 1.0, 0.85 * _frio_visto))
+	# o ar do lugar (doc §137.11): o floco do frio da montanha ou o vapor das fontes, logo à direita do arco do
+	# calor, mais forte quanto mais o lugar pesa no motor. Sem palavra; só voando
+	var voando_ar: bool = alvo.em_voo() or alvo.estado == Armadura.Estado.PAIRAR
+	var q_frio: float = alvo.frio if voando_ar else 0.0
+	var q_quente: float = maxf(alvo.quente, alvo.vapor) if voando_ar else 0.0
+	_ar_frio_visto = move_toward(_ar_frio_visto, smoothstep(0.15, 0.6, q_frio), dt * 2.0)
+	_ar_quente_visto = move_toward(_ar_quente_visto, smoothstep(0.15, 0.6, q_quente), dt * 2.0)
+	var lado_ar := centro + Vector2.from_angle(meio - abre - deg_to_rad(5.5)) * raio
+	if _ar_frio_visto > 0.01:
+		Icones.desenhar(self, "floco", lado_ar, 0.62, Color(0.62, 0.9, 1.0, 0.92 * _ar_frio_visto), 1.7)
+	if _ar_quente_visto > 0.01:
+		Icones.desenhar(self, "vapor", lado_ar, 0.62, Color(1.0, 0.64, 0.32, 0.92 * _ar_quente_visto), 1.7)
 	# a vida: um pedaço de arco por acerto que o robô aguenta, acompanhando a curva por cima dela. Só
 	# aparece com dano, e some depois de sarar
 	var dano := float(alvo.avaria) + float(alvo.get("_dano_frac"))

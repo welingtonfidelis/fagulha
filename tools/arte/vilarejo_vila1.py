@@ -11,12 +11,18 @@
 # grade de ferro (CC0) e o calçamento com mureta (CC-BY 3.0, twochch).
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-#       -P tools/arte/vilarejo_vila1.py -- [--pintar] [pasta de saída, padrão tools/capturas/vilarejo]
+#       -P tools/arte/vilarejo_vila1.py -- [--pintar | --jogo] [pasta de saída, padrão tools/capturas/vilarejo]
 #
 # Sem --pintar sai a folha da forma (vila1_forma.png). Com --pintar, cada casa e cada área vira uma malha só com a
 # textura assada (sujeira, escorridos, bordas gastas), exportada em <saída>/vila1_glb/<grupo>.glb, e saem a folha
 # pintada (vila1_pintura.png) e as tomadas (vila1_glb/tomadas.json) para a vitrine do jogo, tools/arte/vitrine_vila.gd.
 # O mato e as árvores (ainda provisórias) e o calçamento baixado (com a textura dele) vão sem assar.
+# Com --jogo (depois de --pintar, sem fotos, pouco mais de um minuto): o que o jogo precisa além da pintura,
+# também em vila1_glb. As árvores e as moitas viram plantas do jogo (o lugar e o tamanho em vila.json), o capim
+# provisório sai (o do jogo nasce nas falhas) e as trepadeiras viram moitas pequenas subindo a quina; as hastes de
+# madeira dos postes, que pegavam a cor do mato, vão em hastes.glb. Vão também as casas (caixas para os bichos desviarem, em
+# vila.json) e o chão calçado (chao.bin, numa grade de 0,5 m em volta da praça: 2 onde há rua, laje, piso ou
+# canteiro, 1 até 1,5 m dali; o capim do jogo não nasce em cima e fica ralo em volta).
 import json
 import math
 import os
@@ -35,6 +41,7 @@ from mathutils import Matrix, Vector  # noqa: E402
 
 arg = ba.argumentos()
 PINTAR = "--pintar" in arg
+JOGO = "--jogo" in arg
 arg = [a for a in arg if not a.startswith("--")]
 PASTA = os.path.abspath(arg[0]) if arg else os.path.join(ba.RAIZ, "tools", "capturas", "vilarejo")
 OGA = os.path.join(os.path.dirname(ba.RAIZ), "bibliotecas", "oga-vilarejo")
@@ -1132,6 +1139,116 @@ if PINTAR:
         ba.exportar(os.path.join(GLB, nome_g + ".glb"), [ob])
         print("pintura %s: %d triângulos, %.0f s" % (nome_g, tri, time.time() - t0))
     print("pintura: %.1f min" % ((time.time() - inicio) / 60))
+
+# ---------------------------------------------------------------- o que vai ao jogo além da pintura (com --jogo)
+if JOGO:
+    from mathutils.bvhtree import BVHTree
+
+    os.makedirs(GLB, exist_ok=True)
+    bpy.context.view_layer.update()
+    ARV = re.compile(r"(.*_arvore(?:_laje)?|arvore_vila\d+|mata\d+)_(tronco|copa\d?)$")
+    arvores, moitas, mato, hastes, firmes = [], [], [], [], []
+    for o in ba.pecas(list(G.children_recursive)):
+        if grupo_de(o) != "mato":
+            firmes.append(o)
+            continue
+        if re.match(r"pl_\d+_haste$", o.name):  # as hastes de madeira dos postes de luz (cor de tronco)
+            hastes.append(o)
+            firmes.append(o)
+            continue
+        if o.active_material == CAPIM:  # o capim do jogo nasce nas falhas (o chão calçado tem buracos)
+            continue
+        if o.active_material == MUSGO:  # as moitas e as trepadeiras viram moitas do jogo
+            cx = [o.matrix_world @ Vector(c) for c in o.bound_box]
+            r = (max(c.z for c in cx) - min(c.z for c in cx)) / 1.5
+            moitas.append(dict(p=[round(sum(c.x for c in cx) / 8, 3), round(sum(c.y for c in cx) / 8, 3),
+                                  round(sum(c.z for c in cx) / 8 - 0.35 * r, 3)], r=round(r, 3)))
+            continue
+        m = ARV.match(o.name)
+        if not m:
+            mato.append(o)
+            continue
+        if m.group(2) != "tronco" or m.group(1).startswith("mata"):  # a mata em volta vem da cobertura do mapa
+            continue
+        cx = [o.matrix_world @ Vector(c) for c in o.bound_box]
+        pinho = (m.group(1) + "_copa0") in bpy.data.objects
+        alto = max(c.z for c in cx) - min(c.z for c in cx)
+        arvores.append(dict(nome=m.group(1), tipo="pinheiro" if pinho else "alamo",
+                            p=[round(sum(c.x for c in cx) / 8, 3), round(sum(c.y for c in cx) / 8, 3),
+                               round(min(c.z for c in cx), 3)],
+                            alt=round(alto / (0.35 if pinho else 0.55), 2)))
+    # as casas, a caixa d'água, a estufa e a energia: caixas para os bichos não atravessarem
+    obst = []
+    for nome, (L, F, A) in TAM.items():
+        r = bpy.data.objects[nome]
+        obst.append(dict(nome=nome, c=[round(r.matrix_world.translation.x, 3), round(r.matrix_world.translation.y, 3)],
+                         tam=[L, F, A], giro=round(math.degrees(r.matrix_world.to_euler().z), 2)))
+    for nome in ("torre", "estufa", "energia"):
+        pts = []
+        for o in ba.pecas(list(bpy.data.objects[nome].children_recursive)):
+            pts += [o.matrix_world @ Vector(c) for c in o.bound_box]
+        lo = Vector((min(p.x for p in pts), min(p.y for p in pts), 0))
+        hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+        obst.append(dict(nome=nome, c=[round((lo.x + hi.x) / 2, 3), round((lo.y + hi.y) / 2, 3)],
+                         tam=[round(hi.x - lo.x, 2), round(hi.y - lo.y, 2), round(hi.z, 2)], giro=0.0))
+    # o chão calçado: as faces viradas para cima e baixas das peças firmes, mais o lugar de cada casa
+    dg = bpy.context.evaluated_depsgraph_get()
+    vs, fs = [], []
+    for o in firmes:
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        mw = o.matrix_world
+        nm = mw.to_3x3().inverted().transposed()
+        for pl in me.polygons:
+            n = (nm @ pl.normal).normalized()
+            pts = [mw @ me.vertices[i].co for i in pl.vertices]
+            if n.z < 0.6 or max(p.z for p in pts) > 0.6:
+                continue
+            fs.append(list(range(len(vs), len(vs) + len(pts))))
+            vs += pts
+        ev.to_mesh_clear()
+    arvore_bvh = BVHTree.FromPolygons(vs, fs)
+    PASSO_C, MEIA_C = 0.5, 64.0
+    NC = int(2 * MEIA_C / PASSO_C)
+    grade = bytearray(NC * NC)
+    casas = [(bpy.data.objects[n].matrix_world.inverted(), TAM[n]) for n in TAM]
+    for j in range(NC):
+        y = -MEIA_C + (j + 0.5) * PASSO_C
+        for i in range(NC):
+            x = -MEIA_C + (i + 0.5) * PASSO_C
+            if arvore_bvh.ray_cast(Vector((x, y, 0.8)), Vector((0, 0, -1)), 2.0)[0] is not None:
+                grade[j * NC + i] = 1
+                continue
+            for inv, (L, F, A) in casas:
+                q = inv @ Vector((x, y, 0))
+                if abs(q.x) < L / 2 + 0.2 and abs(q.y) < F / 2 + 0.2:
+                    grade[j * NC + i] = 1
+                    break
+    # em volta do calçado (até 1,5 m) o capim fica ralo, para a rua aparecer: 2 em cima, 1 perto, 0 longe
+    perto = [(di, dj) for dj in range(-3, 4) for di in range(-3, 4) if 0 < di * di + dj * dj <= 9]
+    marca = bytearray(grade)
+    for k in [k for k in range(NC * NC) if grade[k]]:
+        marca[k] = 2
+        i0, j0 = k % NC, k // NC
+        for di, dj in perto:
+            i, j = i0 + di, j0 + dj
+            if 0 <= i < NC and 0 <= j < NC and not grade[j * NC + i]:
+                marca[j * NC + i] = 1
+    with open(os.path.join(GLB, "chao.bin"), "wb") as f:
+        f.write(bytes(marca))
+    print("mato que fica:", sorted({re.sub(r"\d+", "#", o.name) for o in mato}))
+    for nome_g, objs in (("mato", mato), ("hastes", hastes)):
+        if not objs:
+            continue
+        ob = ba.juntar("g_" + nome_g, objs)
+        ob.parent = G
+        ba.exportar(os.path.join(GLB, nome_g + ".glb"), [ob])
+    with open(os.path.join(GLB, "vila.json"), "w", encoding="utf-8") as f:
+        json.dump(dict(arvores=arvores, moitas=moitas, obstaculos=obst,
+                       chao=dict(arquivo="chao.bin", passo=PASSO_C, meia=MEIA_C, n=NC)), f, ensure_ascii=False, indent=1)
+    print("jogo: %d árvores, %d moitas, %d obstáculos, chão calçado em %.0f%% da grade, mato com %d peças, %d hastes" % (
+        len(arvores), len(moitas), len(obst), 100.0 * sum(grade) / len(grade), len(mato), len(hastes)))
+    sys.exit(0)
 
 # ---------------------------------------------------------------- fotos
 E = ba.Estudio(os.path.join(PASTA, "_paineis_vila1" + ("_pintura" if PINTAR else "")), largura=1120, altura=700)

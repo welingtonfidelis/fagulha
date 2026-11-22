@@ -39,6 +39,7 @@ var _hv_ant := 0.0
 var _raiz_y := 0.0
 var _alvos := {}
 var _chama_tamanho := 0.0
+var _bafo: CPUParticles3D  # o sopro branco da mochila no frio da montanha (doc §137.11); nasce na primeira vez
 var _yaw := 0.0
 var _abaixa := 0.0  # 0 de pé, 1 abaixado (suavizado)
 var _senta := 0.0  # 0 de pé, 1 sentado (suavizado)
@@ -818,6 +819,7 @@ func atualizar(delta: float, a) -> void:
 		MelhoriasVisual.animar(self, a, delta)
 	# chamas e brilho do calor
 	_chama_tamanho = lerpf(_chama_tamanho, chama, 1.0 - exp(-10.0 * delta))
+	_bafo_do_frio(a)
 	# a origem das peças do modelo fica no chão (não no bocal), então a chama não escala: muda o brilho
 	for c in chamas:
 		c.visible = _chama_tamanho > 0.08
@@ -972,3 +974,53 @@ func _lamina(acesa: bool) -> void:
 		luz.shadow_enabled = false
 		_lamina_no.add_child(luz)
 	_lamina_no.visible = acesa
+
+
+## No frio da Montanha do Degelo, com o motor ligado, um sopro branco curto sai da mochila e fica para trás no
+## ar (doc §137.11). Só o robô do jogador; as máquinas não sentem o frio.
+func _bafo_do_frio(a) -> void:
+	var ligar: bool = a is Armadura and a.frio > 0.35 and a.motor_ligado() and not a.em_pane
+	if _bafo == null:
+		if not ligar:
+			return
+		var pt := Armadura.porte
+		_bafo = CPUParticles3D.new()
+		_bafo.name = "BafoFrio"
+		_bafo.amount = 5
+		_bafo.lifetime = 1.1
+		_bafo.explosiveness = 0.85  # sai em sopros, como respiração no frio, e não num jato contínuo
+		_bafo.local_coords = false  # o sopro fica no ar e o robô segue em frente
+		_bafo.position = Vector3(0.0, 1.35 * pt, 0.42 * pt)  # nas costas, entre os dois propulsores
+		_bafo.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		_bafo.emission_sphere_radius = 0.14 * pt
+		_bafo.direction = Vector3(0.0, 0.25, 1.0)  # para trás, quase sem subir: não tampa a cabeça
+		_bafo.spread = 35.0
+		_bafo.initial_velocity_min = 0.9
+		_bafo.initial_velocity_max = 1.5
+		_bafo.gravity = Vector3(0.0, 0.12, 0.0)
+		_bafo.damping_min = 0.6
+		_bafo.damping_max = 1.2
+		_bafo.scale_amount_min = 0.38 * pt
+		_bafo.scale_amount_max = 0.55 * pt
+		var cresce := Curve.new()
+		cresce.add_point(Vector2(0.0, 0.5))
+		cresce.add_point(Vector2(1.0, 1.8))
+		_bafo.scale_amount_curve = cresce
+		var rampa := Gradient.new()
+		rampa.set_color(0, Color(1.0, 1.0, 1.0, 0.4))
+		rampa.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
+		_bafo.color_ramp = rampa
+		var mat := StandardMaterial3D.new()
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mat.vertex_color_use_as_albedo = true
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1.0, 1.0, 1.0)
+		if ResourceLoader.exists("res://assets/fx/kenney/smoke_04.png"):
+			mat.albedo_texture = load("res://assets/fx/kenney/smoke_04.png")
+		var quad := QuadMesh.new()
+		quad.size = Vector2(1.0, 1.0)
+		quad.material = mat
+		_bafo.mesh = quad
+		add_child(_bafo)
+	_bafo.emitting = ligar

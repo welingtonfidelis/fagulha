@@ -20,6 +20,7 @@ var minutos_por_dia := 60.0
 var chuva := 0.0  # 0 a 1 (suave)
 var mapa: Ilha  # para saber onde há água (a chuva some com a câmera debaixo dela)
 var escuro := 0.0  # 0 a 1: a câmera está debaixo da terra (a luz do céu e do sol quase não chega)
+var gruta_gelo := 0.0  # 0 a 1: a câmera está dentro da Boca do Degelo (lá a névoa de longe quase some)
 var chovendo := false  # ligado de fora (testes), fica até desligarem
 var parado := false  # hora fixa (fotos)
 var nevoa_longe := false  # vale grande: névoa por distância, que embaça perto como antes mas deixa ver longe
@@ -123,7 +124,8 @@ func _process(delta: float) -> void:
 		var coberto: bool = Cavernas.no_subsolo(cp) or (mapa != null and mapa.agua(cp.x, cp.z) > cp.y)
 		_gotas.emitting = chuva > 0.05 and not coberto
 		_gotas.visible = not coberto
-		escuro = move_toward(escuro, 1.0 if Cavernas.no_subsolo(cp) else 0.0, delta * 1.2)
+		escuro = move_toward(escuro, Cavernas.escuridao(cp), delta * 1.2)
+		gruta_gelo = move_toward(gruta_gelo, 1.0 if BocaDegelo.no_vazio(cp) else 0.0, delta * 1.2)
 		_gotas.amount_ratio = clampf(chuva, 0.05, 1.0)
 
 
@@ -181,6 +183,9 @@ func _aplicar() -> void:
 			env.fog_depth_curve = float(ag[ag.find("--nevoa") + 2])
 	else:
 		env.fog_density = dens
+	# dentro da gruta de gelo a névoa azul do céu lavava as paredes a 30 m; a luz do dia passa pelo gelo
+	env.fog_density *= lerpf(1.0, 0.12, gruta_gelo)
+	BocaDegelo.luz(clampf(luz_dia, 0.0, 1.0) * lerpf(1.0, 0.6, nublado))
 	env.adjustment_saturation = lerpf(a[9], b[9], t) * lerpf(1.0, 0.8, nublado) * lerpf(1.0, 0.85, neblina)
 	env.tonemap_exposure = lerpf(a[10], b[10], t) * lerpf(1.0, 0.88, nublado) * lerpf(1.0, 0.82, tempestade)
 	env.fog_light_color = env.fog_light_color.lerp(Color(0.86, 0.88, 0.9) * clampf(luz_dia + 0.2, 0.3, 1.0), neblina * 0.7)

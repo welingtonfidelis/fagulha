@@ -3548,9 +3548,10 @@ Ordem combinada:
 
 Tarefas anotadas:
 
-- [ ] Uma ou duas cavernas na montanha de gelo (pedido do usuário, 2026-11-21).
-- [ ] Uma base mais perto da ponta nova, para o resgate e a oficina (o usuário concordou, 2026-11-21).
-- [ ] O caderno (mapa) e o minimapa cobrindo a terra nova.
+- [x] Uma ou duas cavernas na montanha de gelo (pedido do usuário, 2026-11-21): ficou uma, a Boca do Degelo (§137.13).
+- [ ] Uma base mais perto da ponta nova, para o resgate e a oficina (o usuário concordou, 2026-11-21). O resgate já não
+  precisa dela: desde 2026-11-21 o drone deixa o robô a uns 100 m de onde caiu (§34). Sobra a oficina.
+- [x] O caderno (mapa) e o minimapa cobrindo a terra nova (o caderno cobre o mundo todo desde a §137.6; o jogo não tem minimapa).
 
 ### 137.1 Como ficou (2026-11-21)
 
@@ -3603,15 +3604,18 @@ O relevo sai de `tools/vale/mapa_terra_nova.py` (maquete em `docs/mapa/terra_nov
 - [x] Ideias minhas aprovadas ("gostei, pode fazer"): o navio encalhado na praia de A (§137.4) e as fontes
   quentes na metade leste de B (§137.5). Falta o usuário ver as fotos; o resto de A e o oeste de B seguem sem
   ideia.
-- [ ] Cavernas na montanha de gelo (uma ou duas; já anotado acima).
-- [ ] Mecânica nova para o calor do motor na região da neve: lá o motor esquenta devagar.
-- [ ] Nas fontes quentes (§137.5): voando perto da água delas ou dentro dela, o robô esquenta mais rápido
-  (pedido do usuário, 2026-11-21; entra junto da mecânica do calor na neve, pelas `TerraNova.fontes`).
-- [ ] Lembranças novas na terra nova, que não contam para o farol (as 12 do farol ficam como estão).
+- [x] Cavernas na montanha de gelo: uma, a Boca do Degelo, na nascente do rio do sul (§137.13, aprovada).
+- [x] Mecânica nova para o calor do motor na região da neve: lá o motor esquenta devagar (§137.11, esperando
+  aprovação pelas fotos).
+- [x] Nas fontes quentes (§137.5): voando perto da água delas ou dentro dela, o robô esquenta mais rápido
+  (pedido do usuário, 2026-11-21; feito com o ar quente da bacia inteira, §137.11).
+- [x] Lembranças novas na terra nova, que não contam para o farol (as 12 do farol ficam como estão): as seis do
+  Faísca e o fecho (§137.12, aprovado).
 - [x] Algumas bases de inimigos para desbloquear: decidido em 2026-11-22 que três acampamentos bastam para uma
   ilha "pacata", bem longe uns dos outros, um deles na terra nova (§137.9).
 - [ ] Bichos novos, se acharmos pacotes de modelos (CC0, CC-BY ou MIT; download só com permissão).
-- [ ] Os restos de um pequeno vilarejo que havia na terra nova (pedido do usuário, 2026-11-21).
+- [x] Os restos de um pequeno vilarejo que havia na terra nova (pedido do usuário, 2026-11-21; §137.10, esperando
+  aprovação pelas fotos no jogo).
 - [x] A terra nova unida à ilha antiga por pontes de terra largas e de cara natural, com uma lagoa no canal
   entre elas (pedido do usuário, 2026-11-21; §137.7, esperando aprovação pelas fotos).
 
@@ -3698,7 +3702,9 @@ delas.
 - **Árvores:** 46 pinheiros secos (`q_seca_a…e`) no brejo e na sínter, entre 45 e 270 m do Olho Azul, longe da
   água (`TerraNova._secas`).
 - **Lugar com nome:** "As Fontes Quentes" (raio 170 m).
-- **Ainda não fazem nada no jogo:** a água delas não molha nem esquenta. Isso fica para a mecânica do calor.
+- **No jogo:** esta linha dizia que a água delas não fazia nada, mas ela já entrava em `TerraNova.agua` e esfriava
+  o robô como qualquer água (o game designer achou em 2026-11-22). Desde a §137.11 o vapor esquenta quem voa e a
+  água delas esfria na metade da velocidade de outra água.
 
 ### 137.6 O mapa grande e o touchpad no PC (2026-11-21)
 
@@ -3842,3 +3848,208 @@ O usuário jogou a terra unida no PC e mandou uma lista. Tudo aprovado pelas fot
 - **Pesquisa de skills:** o relatório ficou fora do repositório (`Projects/others/pesquisa-skills-claude-code.md`).
   Não há especialistas prontos que sirvam; os nossos agentes de game design, níveis e arte 3D estão sendo
   escritos em `.claude/agents/`. As próximas etapas esperam por eles (pedido do usuário).
+
+### 137.10 O vilarejo da área A (2026-11-22)
+
+Uma vila pequena de casas de laje em volta de uma caixa d'água, largada há muito tempo, no campo alto da área A
+(x −756, z −2592), a 228 m do mar e a 145 m do rio do leste. É a ideia 1 da folha de estudo, que o usuário
+escolheu; forma e pintura aprovadas no Blender e na vitrine ("a vila está boa"). Vila pequena numa ilha: nada de
+prédio; os restos de rua ficam só dentro dela.
+
+- **O que tem:** nove casas em estados diferentes (inteira, puxadinho, varanda caindo, meia laje, laje caída, sem
+  teto com um pinheiro dentro), a escola com a grade caída e o parquinho, a oficina dos robôs de ajuda com o portão
+  emperrado, a estufa, as hortas, a energia (placas e baterias), os postes de luz caídos com os fios no chão, a
+  praça de lajotas com o chafariz e os bancos, o anel de asfalto rachado em volta dela, as ruelas que somem no mato
+  (com meio-fio solto, bueiros e bocas de lobo) e a ruela de pedra até a escola.
+- **Como é feito:** `tools/arte/vilarejo_vila1.py` (Blender, sem janela) faz tudo por código, menos três peças do
+  OpenGameArt (cerca, grade e calçamento; créditos no `CREDITOS.md`).
+  - `--pintar` assa a sujeira, os escorridos e as bordas gastas numa textura por casa ou área e exporta um .glb
+    para cada uma (uns 9 min); `tools/arte/vitrine_vila.gd` mostra os .glb na luz do jogo.
+  - `--jogo` (pouco mais de 1 min) grava o resto que o jogo usa: `vila.json` (árvores, moitas e casas) e
+    `chao.bin` (o chão calçado). As árvores e as moitas do desenho viram árvores e moitas do jogo; o capim
+    provisório sai, porque o do jogo nasce nas falhas da rua.
+  - Os .glb, `vila.json` e `chao.bin` vão de `tools/capturas/vilarejo/vila1_glb/` para `assets/vale/vilarejo/`.
+- **O chão:** `tools/vale/mapa_mundo.py` aplaina um platô de 58 m de raio na altura que o lugar já tinha (29,98 m),
+  que volta ao chão de antes até 95 m. Por dentro é campo; em volta, uma mata rala com o lado do mar aberto. A vila
+  fica fora de `terra_unida.LUGARES`, porque lá ela mexeria na costa. Conferido: só mudaram os 1765 pontos do
+  platô e 166 de cobertura, tudo a menos de 97 m do meio.
+- **No jogo:** `scripts/vale/vilarejo.gd`, chamado no fim de `TerraNova.montar`.
+  - Cada .glb vai com o shader do vale (`vale_base`) e a textura assada. A colisão é a própria malha
+    (`ConcavePolygonShape3D`, dos dois lados, 113 mil triângulos). O entulho, as hortas e o parquinho somem a partir
+    de 320 a 380 m.
+  - As árvores do desenho entram na fila de `TerraNova.plantar` (pinheiros do pacote e álamos amarelos, com a
+    altura do desenho; um deles em cima de uma laje). As 74 moitas e trepadeiras viram `q_moita` (umas com flor).
+  - O capim não nasce em cima de rua, praça, laje, piso e canteiro e fica ralo até 1,5 m dali, para a rua
+    aparecer (`Vilarejo.calcado`, em `CapimVivo._chao`).
+  - As casas, a caixa d'água, a estufa e a energia viram caixas para os bichos desviarem (`Obstaculos`). Bicho e
+    planta solta não nascem a menos de 56 m do meio (`Ruinas.livre`).
+  - "O Vilarejo" é lugar com nome (raio 60 m).
+  - Nenhuma peça, memória, baliza, toca ou acampamento fica a menos de 106 m da praça (os 45 pontos de
+    `PontosIlha`).
+- **Fotos:** `-- --vale-captura --largo --vilarejo --hora 12 --pasta vilarejo_jogo`: as 13 tomadas da folha do
+  Blender, no lugar, e três de longe. A folha fica em `tools/capturas/vilarejo_jogo/vilarejo_jogo.png`.
+- **Ainda sem decisão:** lembranças, postes que acendem, um banco para o robô sentar, um prêmio. Nada de jogo foi
+  posto na vila sem pedido.
+- **Peso:** os .glb somam 35 MB (só a ruela de pedra tem 12,7 MB, pela textura baixada), e o Godot ainda extrai as
+  texturas em .png ao lado. Antes do commit, ver se dá para diminuir.
+
+### 137.11 O ar da terra nova: frio na montanha, calor nas fontes (2026-11-22)
+
+Pedido do usuário (§137.2): na neve o motor esquenta devagar; perto das fontes quentes, e dentro da água delas,
+esquenta mais rápido. Na hora de aprovar a proposta, ele pediu também que a bacia inteira das fontes seja uma
+região quente, onde o voo esquenta mais depressa. A proposta veio do agente game-designer. Depois das fotos o
+usuário escolheu: o frio que deixa 1/3 do calor; o vapor esquenta quem voa, mas a água das fontes esfria, na
+metade da velocidade de outra água; e no frio o motor esfria mais depressa.
+
+- **A regra:** o ar do lugar mexe no calor que sobe (voo, subida, arrancada e pairar); só o frio mexe também no
+  que desce.
+  - **Frio:** `frio = S(250, 520, y) × (1 − S(900, 1400, distância ao pico))`, com `S` a rampa suave
+    (`smoothstep`). O calor que sobe vira `taxa × (1 − 0,667 × frio)`. No frio cheio sobra 1/3: o básico lá em
+    cima voa como o radiador duplo voa no resto da ilha. O que esfria vira `taxa × (1 + 0,5 × frio)`, no ar, no
+    chão e superaquecido (`FRIO_ESFRIA`). A ilha antiga fica toda fora.
+  - **Calor da bacia:** `quente = (1 − S(200, 320, distância ao Olho Azul)) × (1 − S(50, 130, altura sobre a água
+    dele))`. O calor que sobe vira `taxa × (1 + 0,5 × quente)`. Voando alto se passa por cima.
+  - **Vapor das poças:** `vapor = força × (1 − S(0, 4, metros além da beira)) × (1 − S(8, 16, altura sobre a
+    água))`, a poça ou o respiro mais forte. No ar, nada esfria ali (`taxa × (1 − vapor)` se esfriava) e o vapor
+    soma `6 × vapor × r` %/s, com `r` o quanto o radiador deixa entrar (`Melhorias.fator_radiador`: 1, 0,61 e
+    0,33).
+  - **Dentro da água de uma poça**, a pé ou nadando: esfria na metade da velocidade de outra água (`FONTE_AGUA`
+    0,5). Mergulhar numa poça não zera o calor, como zera nas outras águas: ali ele cai aos poucos (o robô do vale
+    tem 1,25 m e nada em 10 das 16 poças).
+  - **Superaquecido**, a fonte não soma nada e a água dela ajuda na metade: ninguém fica preso numa poça quente.
+  - `calor_extra` continua só do `MastroRadio` (ele grava a cada quadro e apagaria um segundo escritor).
+- **Medido no jogo** (pairando parado, `%/s`; hoje → agora):
+
+  | Lugar | básico | radiador | duplo |
+  |---|---|---|---|
+  | ilha antiga | 2,40 | 1,50 | 0,80 |
+  | montanha a 410 m (frio 0,64) | 1,38 | 0,86 | 0,46 |
+  | montanha a 520 m ou mais (frio cheio) | 0,80 | 0,50 | 0,27 |
+  | bacia, 40 m acima da água (quente cheio) | 3,60 | 2,25 | 1,20 |
+  | bacia, 100 m acima | 2,78 | 1,74 | 0,93 |
+  | 5 m acima do Olho Azul (quente e vapor cheios) | 9,60 | 5,89 | 3,20 |
+  | 12 m acima do Olho Azul (vapor pela metade) | 6,74 | 3,97 | 2,22 |
+
+  Esfriando, no básico (hoje → agora): caindo a 700 m na montanha, 12 → 18 %/s; superaquecido caindo lá, 12 s →
+  8 s até religar; no chão na neve alta, 15 → 22,5 %/s (conta). A pé numa poça quente rasa, −30 %/s (outra água:
+  −60). Nadando no Olho Azul, −37,5 %/s (na lagoa da clareira, −75). O mergulho no Olho Azul deixa o calor como
+  estava; na lagoa continua zerando. Pairando 5 m acima do Olho Azul o vapor ainda esquenta (+9,6 %/s). Voo reto no frio cheio, contas do game designer: o
+  básico enche em 182 s (eram 61 s), o radiador em 300 s e o duplo em 546 s; subindo do lago do circo ao pico, o
+  básico para uma vez, o radiador sobe de uma vez e o duplo sobe de uma vez desde o pé.
+- **Como o jogador percebe:**
+  - à direita do arco do calor, um floco azul (frio) ou três fios de vapor laranja (bacia e poças), mais fortes
+    quanto mais o lugar pesa; só voando (`Icones` "floco" e "vapor");
+  - o "resfriado" azul não aparece mais em cima das fontes;
+  - duas dicas do drone na fila das `Dicas`, uma vez só: "frio" e "fontes" ("O ar e o vapor das fontes esquentam
+    o motor. A água delas esfria, mas devagar"); a "calor" ("voe rente à água") não sai na bacia;
+  - no frio, com o motor ligado, um sopro branco curto sai da mochila em baforadas e fica para trás
+    (`ArmaduraVisual._bafo_do_frio`, a fumaça do Kenney);
+  - o medidor de desempenho mostra frio, quente, vapor e fonte.
+- **Onde mora:** constantes `FRIO_*`, `QUENTE_*` e `FONTE_*` em `Ajustes`; `Ilha.clima` e `Ilha.fonte_em`
+  (o `Vale` passa para a `TerraNova`); `Armadura.frio`, `quente`, `vapor` e `na_fonte`, lidos em `_agua_e_calor`.
+- **Fotos:** `tools/capturas/frio_fontes/frio_fontes.png`.
+- **Aprovado** ("ficou bom", 2026-11-22). Baterias depois: vale OK (113), voo OK (94) e simulação OK (28), já com o
+  vilarejo da §137.10 na árvore de trabalho.
+- **Encaixes para depois** (sem pedido): uma lembrança no pico, as cavernas da montanha e uma rota entre o vapor.
+
+### 137.12 As lembranças do Faísca (2026-11-22)
+
+Pedido do usuário: lembranças novas na terra nova, fora das 12 do farol. Proposta do game designer aprovada ("pode
+fazer"), com uma troca: em vez de uma aba nova no caderno, um separador embaixo das memórias da ilha, com cartões
+de outra cor para ficar fácil saber que são dele.
+
+- **O que são:** seis lembranças contadas pelo próprio Faísca, em primeira pessoa, na ordem da vida dele na terra
+  nova, e um fecho. Cada uma se lê sozinha; a ordem só importa no caderno. Os textos moram em
+  `Memorias.TEXTOS_FAISCA` (chave → título e texto).
+
+  | chave | título | onde | lugar no caderno |
+  |---|---|---|---|
+  | `f_navio` | Os que chegaram com a tempestade | no porão da frente do navio encalhado (entra a pé pelo rombo) | Navio Encalhado |
+  | `f_oficina` | O nome | na calçada, na porta da oficina dos robôs de ajuda | Vilarejo |
+  | `f_turquesa` | A cor da água | no fundo do Lago Turquesa, no meio, a 16,6 m (nadando) | Lago Turquesa |
+  | `f_fontes` | O inverno nas fontes | no alto do monte de sínter das fontes | Fontes Quentes |
+  | `f_circo` | A festa do degelo | na beira da saída do lago do circo, junto à queda | Lago do Circo |
+  | `f_pico` | As luzes do outro lado | no pico da Montanha do Degelo | Pico do Degelo |
+  | `f_fecho` | Para você | abre sozinho 1,2 s depois de fechar a sexta | Faísca |
+
+  As duas pontas da história ficam presas: o portão emperrado da oficina (o mesmo do vilarejo, §137.10) e as
+  luzes da ilha antiga, onde ele foi viver o resto (memórias da ilha).
+- **No mundo:** uma fagulha em vez do cristal, a 1 m do chão: ponto creme, halo laranja (a bolinha do Kenney), sete
+  faíscas miúdas subindo e uma luz laranja de 6 m. Não gira, pulsa devagar. Lida, fica menor, fraca e sem
+  faíscas. De noite ganha o ponto de luz das `LuzesNoite` (menos no porão e no fundo do lago). Só existe com a
+  terra nova montada; cada ponto acha o chão com um raio de cima (curto no porão e na oficina).
+- **Tablet:** a mesma leitura das memórias, com a fagulha no lugar do cristal, o título em azul e o rótulo
+  "Lembrança do Faísca · n de 6". Títulos compridos encolhem a letra para caber (`Tablet.caber`).
+- **O fecho:** ao ler a sexta, o fecho já conta como lido (se o jogo fechar antes, ele fica no caderno), o desenho
+  vai para o mural e, ao fechar a sexta, o fecho abre sozinho. O texto termina com o desenho das crianças.
+- **O desenho no mural:** um papel de 46 × 33 cm preso com duas fitas embaixo do quadro grande, por cima do sofá
+  (`BaseLar.desenho`, escondido até o fecho; `BaseLar.mostrar_desenho`). A arte é de giz de cera, feita por
+  código: `tools/desenho_faisca.py` → `assets/vale/lembrancas/desenho_faisca.png` (o Faísca de braços para cima,
+  três crianças de mãos dadas, a escola de teto reto, o sol e o lago turquesa, "FAÍSCA" em cima).
+- **Caderno:** na aba Memórias, com alguma do Faísca lida, as vagas encolhem (52 px), vem o separador azul com a
+  fagulha e "do Faísca", as seis dele em cartões azul-claros com a fagulha (as não lidas, vaga azul apagada) e o
+  fecho largo por último, só depois de lido. A conta ganha "Do Faísca: n de 6".
+- **Achar:** a bússola marca as não lidas a menos de 300 m com a fagulha laranja (as memórias seguem com o
+  losango); a dica "fagulha" do drone, uma vez só, a 30 m de uma não lida ("Isso é do Faísca. Ele morou deste lado
+  da ilha. Encoste para lembrar"); `PontosIlha` anota "lembranca:<chave>".
+- **Save:** a chave "lembrancas" em `progresso` (as lidas, com "f_fecho"). Não conta para o farol: o `FarolFinal`
+  continua olhando só as 12 de `Memorias.ORDEM`.
+- **Fotos:** `tools/capturas/lembrancas/fotos/`. O Turquesa não se vê de cima da água (só nadando ou pela bússola).
+- **Aprovado** ("está bom", 2026-11-22). Baterias depois: vale OK (113), voo OK (94) e simulação OK (28).
+
+### 137.13 A Boca do Degelo, a gruta de gelo (2026-11-22)
+
+Pedido do usuário: cavernas na montanha de gelo (§137.2). Das duas propostas ele escolheu a A, com estas respostas:
+uma gruta só, na nascente do rio do sul; entrada só voando; para passear e olhar (cristais de enfeite, sem
+objetivo); o mesmo frio da montanha.
+
+- **Onde:** na encosta logo acima da nascente do rio do sul (o primeiro ponto de `TerraNova.rios[1]`), com a boca
+  virada para o sul (o sol entra). A encosta ali é uma rampa de uns 58°, não um paredão em pé: a boca sai inclinada
+  (de cima se vê dentro dela; de dentro se vê o céu pelo alto da abertura). O piso da boca fica 8 m acima da
+  nascente, e o pulo duplo chega a 3,7 m: só voando.
+- **Forma** (`BocaDegelo.vazio` e `extra`, por distâncias): um corredor de uns 70 m que sobe devagar (piso de 8 a
+  15 m acima da nascente) e serpenteia (até 3,5 m para os lados) até um salão de uns 36 × 28 m e 20 m de altura,
+  com duas colunas de gelo de cintura fina. Na boca, o corte é um arco largo e baixo (mais largo que alto), de
+  borda torta (ali o ruído das paredes pesa mais).
+- **Como entra no mapa:** é uma peça própria de rocha (`RochaMalha`, "surface nets", como o Sumidouro da §40), mas
+  na grade da terra nova. `BocaDegelo.cavar` roda em `TerraNova.montar`, antes do chão e da colisão: guarda o chão
+  de antes da caixa e rebaixa a grade de perto 2,2 m abaixo do piso do vazio (mais dois nós em volta). A malha
+  refaz a encosta por cima. Ela fica gravada em `assets/vale/boca_degelo.res` (uns 29 mil triângulos;
+  `-- --assar-rochas` gera de novo). Na grade de longe (blocos de 8 a 40 m por quadrado) só a boca desce, e não nos pontos dos blocos de
+  20 e 40 m; o resto fica 1,5 m abaixo da casca, que cobre (com tudo rebaixado, abria-se uma cova larga vista de
+  longe).
+- **Cor:** a cor do chão da terra nova foi para um include (`terra_nova_cor.gdshaderinc`), que o chão e a gruta
+  usam. A casca de fora tem a cor do chão. As paredes de dentro são gelo, menos os 3 primeiros metros abaixo da
+  encosta: a beira da boca é uma beirada de pedra. O que é casca e o que é parede vem da forma (`BocaDegelo._fundo`:
+  qual termo manda no ponto), não da fundura. Pela fundura, as encostas íngremes saíam com pontas de gelo azul
+  furando o chão, por fora da montanha.
+- **O gelo** (`boca_degelo.gdshader`):
+  - covinhas de 1,2 m, as "conchas" que o degelo cava, que somem de longe para não piscar;
+  - azul safira no fundo delas e a borda clara;
+  - faixas finas de poeira, uma por inverno;
+  - o piso de geada com seixos.
+
+  A luz do dia atravessa o gelo: forte perto da boca, mais fraca no fundo e quase nada de noite. A uniforme `dia`
+  vem do Ciclo por `BocaDegelo.luz`.
+- **Luz e enfeites:**
+  - lá dentro escurece (`ESCURO` 0,8; no Sumidouro é 1), e a névoa do céu quase some (`Ciclo.gruta_gelo`), porque
+    lavava as paredes a 30 m;
+  - 10 cristais de gelo acesos (7 no salão, 3 no corredor), com meia luz (`RochaMalha.cristal(..., luz_k)`), e uma
+    luz fria e fraca no meio do salão;
+  - 380 pingentes no teto, 80 deles numa franja na beira da boca.
+
+  Lá dentro não chove e tem eco (`Cavernas.no_subsolo` e o `SomAmbiente`). O nome "A Boca do Degelo" aparece como
+  lugar descoberto (raio de 55 m). Não nasce árvore em cima da parte rebaixada.
+- **Frio:** o mesmo da montanha (§137.11); nada novo.
+- **Conferência das brechas** (pedido do usuário: "cuidado com as bordas e paredes cortadas pra encaixar a caverna,
+  não deixar brechas"):
+  - **Encaixe:** nenhum nó rebaixado fica fora da caixa da peça, e a grade do chão não entra no vazio.
+  - **De dentro:** com o céu magenta, fotografei 180 vistas (corredor e salão, para cima, para os lados, para a
+    frente e para baixo). Cada pixel magenta virou um raio pela forma da gruta: nenhum cruzou rocha; todo céu
+    visível passa pela boca.
+  - **De fora:** com o lado de dentro magenta, olhei de 103 pontos, de 60 m a 3,5 km e de cima. Agora só aparece a
+    boca. Esse teste achou dois defeitos, já corrigidos acima: as pontas de gelo nas encostas e a cova de longe.
+  - **Vistas normais:** 24 vistas de 450 m a 2,2 km e 16 de raspão nas beiras da parte rebaixada, sem cova nem
+    casca solta.
+- **Fotos:** `tools/capturas/cavernas_gelo/fotos/` (a proposta ficou em `tools/capturas/cavernas_gelo/proposta/`).
+- **Aprovado** ("está bom", 2026-11-22). Baterias depois: vale OK (113), voo OK (94) e simulação OK (28).
