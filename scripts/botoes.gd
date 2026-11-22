@@ -27,8 +27,8 @@ const ACOES := {
 	"agir": [["tri"], ["k_e"]],
 	"scanner": [["dir"], ["k_t"]],
 	"menu": [["options"], ["k_esc"]],
-	"caderno": [["touchpad"], ["k_m"]],
-	"medidor": [["create"], ["k_f3"]],
+	"caderno": [["create"], ["k_m"]],
+	"medidor": [["l1", "r1"], ["k_f3"]],
 }
 
 static var controle := false  # o último aparelho usado foi o controle

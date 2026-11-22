@@ -20,6 +20,11 @@ const LUGARES: Array = [
 	[Vector2(-860, -430), 1, false], [Vector2(-480, -60), 1, false], [Vector2(-880, -1130), 1, false],
 	[Vector2(-750, 500), 1, true], [Vector2(-1150, 420), 1, true],
 ]
+## Os soltos lutam como uma onda baixa da Fundição (Mecha.onda_nivel): mais devagar, com mais intervalo entre
+## ataques, esquivando menos e sem pular em cima (pedido do usuário, 2026-11-21: antes lutavam no máximo,
+## mais difíceis que os acampamentos e que a Fundição até a onda 15). Os procurados ficam como estão.
+const NIVEL := 2
+const NIVEL_GRANDE := 4
 
 var mapa: Vale
 var alvo: Armadura
@@ -41,6 +46,7 @@ func _ready() -> void:
 			mc.casa = c + Vector3(i * 7.0, 0, 0)
 			mc.semente = 700 + k
 			mc.chefe = l[2]
+			mc.onda_nivel = NIVEL_GRANDE if l[2] else NIVEL
 			add_child(mc)
 			todas.append(mc)
 			k += 1

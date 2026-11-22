@@ -10,9 +10,10 @@ const DEMORA := 7.0  # segundos de vista antes do sorteio
 const CHANCE := 0.4
 const DESCANSO := 240.0
 const AVE := "res://assets/vale/passaro.glb"
-## O passaro.glb é a pose de pousado: do rabo ao bico o corpo desce 29°. Na revoada isso parecia voar de cabeça
-## para baixo (visto pelo usuário em 2026-11-20); o bico sobe isso para o corpo ficar reto no horizonte.
-const AVE_NARIZ := 0.5  # rad
+## O passaro.glb é a pose de pousado: do rabo ao bico o corpo sobe 29°. Na revoada o bico desce isso para o corpo
+## ficar reto no horizonte. (Até 2026-11-22 o modelo tinha o bico pintado no rabo e as aves voavam de ré, com a
+## correção ao contrário.)
+const AVE_NARIZ := -0.5  # rad
 
 static var forcar := ""  # testes e fotos: "revoada", "folhas" ou "estrela" acontece sem sorteio nem descanso
 
@@ -84,7 +85,7 @@ func _comecar(qual: String) -> void:
 				add_child(no)
 				no.global_position = ponta - direita * fila * 3.2 + frente * lado * fila * 2.6 + Vector3(0, -0.3 * fila, 0)
 				no.look_at(no.global_position + _vel, Vector3.UP)
-				no.rotate_object_local(Vector3.RIGHT, AVE_NARIZ)  # + em X ergue a frente (-Z)
+				no.rotate_object_local(Vector3.RIGHT, AVE_NARIZ)  # + em X ergue a frente (-Z); aqui baixa
 				var modelo := cena.instantiate() as Node3D
 				modelo.rotation.y = PI
 				modelo.scale = Vector3.ONE * 3.4

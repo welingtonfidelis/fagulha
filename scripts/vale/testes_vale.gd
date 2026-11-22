@@ -442,7 +442,7 @@ func _ponto_11() -> void:
 	a.recomecar()
 
 
-## Pane: acertos seguidos desligam o robô, o dia avança e ele religa frio no mesmo lugar.
+## Pane: acertos seguidos desligam o robô, o dia avança e ele religa frio num chão seguro a uns 100 m.
 func _ponto_12() -> void:
 	_soltar_tudo()
 	_zerar()
@@ -464,12 +464,14 @@ func _ponto_12() -> void:
 	await _esperar(Ajustes.PANE_TEMPO + 1.5)
 	var andou := Vector2(a.global_position.x - onde.x, a.global_position.z - onde.z).length()
 	var passou := fposmod(ciclo.hora - 10.0, 24.0)
+	# o drone deixa o robô num chão seguro a uns 100 m (não mais na base nem no mesmo lugar)
+	var seguro := LugarSeguro.serve(m.ilha, a.global_position.x, a.global_position.z)
 	var g0: int = a.golpes
 	a.levar_golpe(Vector3(1, 0, 0), 4.0)  # na graça depois de religar não conta
 	_ok(not antes and entrou and not a.em_pane and a.panes == panes0 + 1 and a.calor < 1.0 and a.avaria == 0
-			and absf(passou - Ajustes.PANE_HORAS) < 0.2 and andou < 6.0 and a.golpes == g0,
-		"pane: %d acertos desligam (antes %s, depois %s), religou com calor %.0f e avaria %d, o dia andou %.1f h (esperado %.1f), ficou a %.1f m, golpe na graça ignorado (%d = %d)"
-			% [Ajustes.PANE_GOLPES, antes, entrou, a.calor, a.avaria, passou, Ajustes.PANE_HORAS, andou, a.golpes, g0])
+			and absf(passou - Ajustes.PANE_HORAS) < 0.2 and andou > 40.0 and andou < 340.0 and seguro and a.golpes == g0,
+		"pane: %d acertos desligam (antes %s, depois %s), religou com calor %.0f e avaria %d, o dia andou %.1f h (esperado %.1f), o drone o deixou a %.0f m num chão seguro (%s), golpe na graça ignorado (%d = %d)"
+			% [Ajustes.PANE_GOLPES, antes, entrou, a.calor, a.avaria, passou, Ajustes.PANE_HORAS, andou, seguro, a.golpes, g0])
 	a.graca_pane = 0.0
 	ciclo.hora = 10.0
 	ciclo.parado = false
@@ -643,10 +645,12 @@ func _ponto_16() -> void:
 	await _esperar(2.5)
 	var no_posto := dr != null and dr.modo == DroneColega.Modo.POSTO and dr.global_position.distance_to(dr.posto) < 3.2  # com o robô ali ele chega um pouco para o lado dele
 	var em_terra := v.altura(a.global_position.x, a.global_position.z) > 1.0 and v.distancia_da_costa(a.global_position.x, a.global_position.z) < 1.0
-	em_terra = em_terra and Vector2(a.global_position.x - v.spawn.x, a.global_position.z - v.spawn.z).length() < 4.0  # reaparece na base
+	# reaparece em terra firme perto da praia mais perto, num chão seguro (não mais na base)
+	em_terra = em_terra and LugarSeguro.serve(v, a.global_position.x, a.global_position.z) \
+			and Vector2(a.global_position.x - v.spawn.x, a.global_position.z - v.spawn.z).length() > 50.0
 	_ok(com_agua >= total - 1 and desce and v.agua(foz.x, foz.y) == Vale.MAR and lim != null and entrou and not a.em_pane and em_terra and a.panes == panes0 + 1 and chegou and no_posto
 			and BaseVale.pecas_kit > 30 and m.find_child("FaiscaCaido", true, false) != null and m.find_child("CilindroDeMelhorias", true, false) != null,
-		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e reaparece na base (%s, altura %.1f m); o drone chegou sobre o robô (%s) e voltou ao posto (%s); base com %d peças dos kits"
+		"rio e mar: água em %d de %d pontos do rio, nível só desce (%s), foz no mar (%.1f); a %.0f m da costa entra em pane (%s) e o drone o deixa em terra firme, num chão seguro (%s, altura %.1f m); o drone chegou sobre o robô (%s) e voltou ao posto (%s); base com %d peças dos kits"
 			% [com_agua, total, desce, v.agua(foz.x, foz.y), dist_longe, entrou, em_terra, v.altura(a.global_position.x, a.global_position.z), chegou, no_posto, BaseVale.pecas_kit])
 	a.graca_pane = 0.0
 	ciclo.hora = 10.0
@@ -697,11 +701,20 @@ func _ponto_18() -> void:
 	var vida: VidaVale = m.vida
 	var v: Vale = m.ilha
 	var ruins := 0
+	var na_praia := 0
 	var quadrantes := {}
 	for l: Dictionary in vida.lugares:
 		var p: Vector3 = l["pos"]
-		if l["tipo"] != "peixe" and (v.agua(p.x, p.z) > -INF or v.normal_em(p.x, p.z).y < 0.85 or p.y < Vale.MAR + 2.0 or Vector2(p.x, p.z).length() < VidaVale.CLAREIRA_FORA):
+		var ruim := false
+		if l["tipo"] in ["caranguejo", "foca", "gaivota", "gaivota_ar"]:
+			# os bichos da praia da terra nova vivem rente ao mar: basta estarem na areia ou na duna, fora d'água
+			na_praia += 1
+			ruim = v.agua(p.x, p.z) > -INF or p.y < Vale.MAR + 0.2 or not (v.cobertura(p.x, p.z) in [4, 9])
+		elif l["tipo"] != "peixe":
+			ruim = v.agua(p.x, p.z) > -INF or v.normal_em(p.x, p.z).y < 0.85 or p.y < Vale.MAR + 2.0 or Vector2(p.x, p.z).length() < VidaVale.CLAREIRA_FORA
+		if ruim:
 			ruins += 1
+			print("  chão ruim: %s em %s (água %s, normal %.2f, cobertura %d)" % [l["tipo"], p, v.agua(p.x, p.z) > -INF, v.normal_em(p.x, p.z).y, v.cobertura(p.x, p.z)])
 		quadrantes[Vector2i(int(signf(p.x)), int(signf(p.z)))] = true
 	var manada: Dictionary = {}
 	for l: Dictionary in vida.lugares:
@@ -723,9 +736,9 @@ func _ponto_18() -> void:
 	await _esperar(4.0)
 	var longe: int = (manada["nos"] as Array).size()
 	Input.action_release("mirar")
-	_ok(vida.lugares.size() >= 60 and ruins == 0 and quadrantes.size() == 4 and antes == 0 and perto >= 2 and no_chao and longe == 0,
-		"vida do vale: %d lugares, %d em chão ruim, %d quadrantes; manada com %d cervos longe, %d ao chegar (no chão: %s), %d ao sair"
-		% [vida.lugares.size(), ruins, quadrantes.size(), antes, perto, no_chao, longe])
+	_ok(vida.lugares.size() >= 60 and ruins == 0 and na_praia >= 15 and quadrantes.size() == 4 and antes == 0 and perto >= 2 and no_chao and longe == 0,
+		"vida do vale: %d lugares (%d na praia), %d em chão ruim, %d quadrantes; manada com %d cervos longe, %d ao chegar (no chão: %s), %d ao sair"
+		% [vida.lugares.size(), na_praia, ruins, quadrantes.size(), antes, perto, no_chao, longe])
 
 
 ## 19. Mechas: são sorteados (cada um com a ficha dele), enxergam o robô e atacam conforme a arma (o de espada
@@ -781,6 +794,11 @@ func _ponto_19() -> void:
 	var depois_sim := false
 	var deitou := false
 	if de_tiro:
+		# frio e sem recuar: na bateria inteira ele chegava aqui quente dos pontos de antes (ou do mergulho no
+		# vizinho), recuava em vez de atirar e desligava um tiro antes (visto em 2026-11-22, com os soltos mais
+		# lentos; sozinho o ponto passava)
+		de_tiro.religar()
+		de_tiro.recuando = false
 		p = de_tiro.global_position + Vector3(0, 0, 20)
 		a.teleportar(Vector3(p.x, v.altura(p.x, p.z) + 0.3, p.z), Armadura.Estado.CHAO)
 		a.graca_pane = 0.0
@@ -1428,10 +1446,13 @@ func _ponto_27() -> void:
 				break
 		cv.process_mode = Node.PROCESS_MODE_INHERIT
 	if mc:
-		# cercado: um anel de pedras em volta dele; ele tem de notar que travou
+		# cercado: um anel de pedras justo em volta dele; ele tem de notar que travou. O anel tinha 2,6 m fixos e
+		# sobrava 1 m de folga: com o mapa refeito em 2026-11-22 o mecha passou a rodar dentro dela (andava mais
+		# de 0,5 m a cada 1,2 s e nunca contava como preso). Agora a folga é de 0,2 m, pelo tamanho do corpo
 		var c0 := mc.global_position
+		var r_anel := 1.0 + mc.altura_m * 0.3 + 0.2
 		for k in 10:
-			Obstaculos.registrar(c0.x + cos(k * TAU / 10.0) * 2.6, c0.z + sin(k * TAU / 10.0) * 2.6, 1.0)
+			Obstaculos.registrar(c0.x + cos(k * TAU / 10.0) * r_anel, c0.z + sin(k * TAU / 10.0) * r_anel, 1.0)
 		mc._destino = c0 + Vector3(0, 0, -20)
 		mc._pausa = 0.0
 		var t0: int = mc.destravou
@@ -2215,8 +2236,10 @@ func _ponto_33() -> void:
 	var cach0: int = a.cachoeiras
 	a.teleportar(meio_q, Armadura.Estado.PAIRAR)
 	await _esperar(0.3)
-	_ok(v.cortinas.size() == 2 and a.cachoeiras == cach0 + 1 and a.calor < 5.0,
-		"cachoeira: %d quedas no vale; atravessar uma zera o calor (de 80%% para %.0f%%)" % [v.cortinas.size(), a.calor])
+	# as duas da ilha e as dos rios de degelo da terra nova
+	var n_tn: int = v.terra_nova.quedas.size() if v.terra_nova else 0
+	_ok(v.cortinas.size() == 2 + n_tn and n_tn > 0 and a.cachoeiras == cach0 + 1 and a.calor < 5.0,
+		"cachoeira: %d quedas no vale (%d na terra nova); atravessar uma zera o calor (de 80%% para %.0f%%)" % [v.cortinas.size(), n_tn, a.calor])
 	# a vida na água: fundo plantado, e um cardume nasce quando o robô chega perto e some quando ele vai embora
 	var va: VidaAgua = m.vida_agua
 	var lugar_c: Dictionary = va.lugares[0]
@@ -2343,12 +2366,13 @@ func _ponto_34() -> void:
 	var ficou_apagado: bool = (Guardado.progresso("pecas") as Array).is_empty()
 	Guardado.apagado = false
 	Guardado.dados = dados0
-	# fora do mapa (além de F_META) há fundo para o robô que mergulha
+	# fora do mapa (além de F_META) há fundo para o robô que mergulha (desde 2026-11-22 o mar de fora fica a
+	# TerraNova.FUNDO, 40 m; antes era a 14 m)
 	var espaco := a.get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(Vector3(Vale.F_META + 60.0, 5.0, 40.0), Vector3(Vale.F_META + 60.0, -39.0, 40.0), 1)
+	var q := PhysicsRayQueryParameters3D.create(Vector3(Vale.F_META + 60.0, 5.0, 40.0), Vector3(Vale.F_META + 60.0, TerraNova.FUNDO - 8.0, 40.0), 1)
 	var fundo := espaco.intersect_ray(q)
 	var fundo_y: float = fundo["position"].y if not fundo.is_empty() else -INF
-	_ok(voltar_travado and segue_em_pane and avisou and not luta_na_base and luta_ao_lado and entrou and clareou and not pode_com_memoria and segue_parado and pode_depois and not entrou_preso and not pode_na_oficina and ficou_apagado and fundo_y > -39.0,
+	_ok(voltar_travado and segue_em_pane and avisou and not luta_na_base and luta_ao_lado and entrou and clareou and not pode_com_memoria and segue_parado and pode_depois and not entrou_preso and not pode_na_oficina and ficou_apagado and fundo_y > TerraNova.FUNDO - 8.0,
 		"telas: a pausa não tem Voltar à base e, em pane, o robô segue desligado (%s, %s); controle desconectado abre a pausa (%s); drone espera com máquina perto (%s) e vem sem ela (%s); sair da pane clareia (%s, preto %.2f); pausa não abre sobre a memória (%s) nem a solta (%s), e abre depois (%s); oficina não entra com o robô preso (%s) e segura a pausa (%s); progresso apagado não é regravado (%s); fundo fora do mapa a %.1f m"
 			% [voltar_travado, segue_em_pane, avisou, luta_ao_lado, not luta_na_base, clareou, preto.color.a, not pode_com_memoria, segue_parado, pode_depois, not entrou_preso, not pode_na_oficina, ficou_apagado, fundo_y])
 	a.recomecar()

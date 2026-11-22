@@ -22,6 +22,11 @@ var onda_nivel := 0
 var pula_ataque := true
 var pula_alto := true
 var esquiva_mult := 1.0
+## O primeiro inimigo do jogo, o de perto da base (pedido do usuário, 2026-11-21: o Espadachim dali corria e
+## batia como os mais difíceis, e quem chega nele ainda não fabricou nada). Mais fácil que a onda 1: anda mais
+## devagar que o robô andando, bate com mais intervalo e com aviso mais longo, quase não esquiva, não pula em
+## cima e cada golpe esquenta menos.
+var iniciante := false
 const ONDA_PULO_ATAQUE := 10
 const ONDA_PULO_ALTO := 15
 var esquivas := 0  # testes
@@ -106,6 +111,15 @@ func _montar_corpo() -> void:
 		esquiva_mult = f * f
 		pula_ataque = onda_nivel >= ONDA_PULO_ATAQUE
 		pula_alto = onda_nivel >= ONDA_PULO_ALTO
+	if iniciante:
+		vel_caca *= 0.45  # o Espadachim fica em 2,9 m/s (o robô anda a 3 e corre a 7,5)
+		tempo_tiro /= 0.45
+		esquiva_mult = 0.1
+		pula_ataque = false
+		pula_alto = false
+		aviso_mult = 1.6
+		dano_golpe = 0.6
+		forca_golpe *= 0.6
 	_espera_esquiva = _rng.randf_range(1.0, 3.0)
 	_espera_pulo = _rng.randf_range(1.5, 4.0)
 
@@ -155,7 +169,7 @@ func _process(delta: float) -> void:
 	_mexer(delta)
 	# o aviso na arma: uma bola de luz na boca do cano (ou na mão da lâmina) que cresce enquanto ele arma o
 	# ataque, além dos olhos (dá para ver quem vai atirar antes do tiro)
-	var t_aviso := TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO
+	var t_aviso := (TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO) * aviso_mult
 	_vis.carga(0.15 + 0.85 * clampf(1.0 - _aviso / t_aviso, 0.0, 1.0) if _aviso > 0.0 and not desligada else 0.0)
 
 

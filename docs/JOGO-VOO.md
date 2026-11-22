@@ -916,6 +916,14 @@ Primeiro item da lista do que falta (base, mais vida, mais inimigos, cavernas, s
 - **Onde:** no ponto de nascimento da clareira (`Ruinas.BASE`, montada por `Ruinas._base` com as mesmas peças das ruínas). Um claro de chão batido novo em `Clareira.CLAROS` tira o capim dali.
 - **O que tem:** estrado baixo de pedra com dois aros de metal, o berço de recarga atrás (dois pilares, a viga e uma lâmpada verde-água que ilumina o estrado à noite), um resto de muro em meia-lua, a antena e duas caixas.
 - **Curto:** depois da pane (por golpes ou por ir longe no mar) o robô reaparece na base, com a tela já escura, olhando o campo (`Armadura.base`). Antes ele religava onde tinha caído. O aviso na tela virou "curto no motor · voltando à base".
+  - **Mudou em 2026-11-21 (pedido do usuário):** o drone não leva mais para a base. Ele deixa o robô a uns 100 m
+    de onde caiu, num chão seguro (`LugarSeguro`, `scripts/vale/lugar_seguro.gd`): terra firme fora d'água,
+    chão plano (normal acima de 0,95 e degraus de no máximo 0,6 m em volta), sem tronco, pedra, paredão, ruína
+    ou marco perto, fora das cavernas, do Sumidouro e do galpão da Fundição, e com o raio de cima batendo no
+    chão. Procura em anéis (70 a 130 m, depois 40 a 200 m, depois 20 a 320 m) e prefere o lugar mais longe das
+    máquinas acordadas. Pane no mar procura perto da praia mais perto. Sem nenhum lugar bom, volta à base como
+    antes. O aviso virou "curto no motor · o drone leva a um lugar seguro". Quando o robô religa longe da
+    base, o drone sobe e some na direção dela, em vez de atravessar a ilha num risco.
 - **Depois:** aqui entram a troca de robô e as melhorias.
 - **Fotos:** `--vale-captura --base`. **Testes:** `--teste-vale` 19 (o 13º confere o reaparecimento na base; o 17º conta quatro obras), `--teste` 95.
 
@@ -3521,3 +3529,316 @@ O que entrou:
 - **Ícone dos mísseis:** um foguete gordo, inclinado, com ponta redonda, duas aletas, janelinha e chaminha.
 
 Ficam para a 1.2: o jogo a dois (o filho no drone colega, num segundo controle) e a ilha do sinal do sudoeste.
+
+## 137. A terra nova do noroeste e a Montanha do Degelo (2026-11-21)
+
+Pedido do usuário: crescer a ilha para o oeste e o norte, numa terra nova separada da ilha de hoje por um
+canal, sem mudar a vista dos lugares de agora (principalmente das Torres do Vento). O contorno é o corte que o
+usuário desenhou por cima do esboço (`esboco_corte`): o braço do norte começa estreito perto das Torres e
+alarga para o oeste, e o braço do oeste desce até a altura da base. Na ponta do noroeste fica uma montanha bem
+alta, com neve no alto, e a neve derrete em rios que descem até o mar. Os pés da montanha são mata boreal,
+como nas Rochosas do Canadá: pinheiral escuro, álamos dourados, campina alpina, rio de degelo turquesa sobre
+cascalho e lagos verde-água.
+
+Ordem combinada:
+
+1. O terreno novo inteiro (o relevo do contorno, a costa, o mar em volta).
+2. A montanha e os pés dela (neve, rochas, rios de degelo, lagos, pinheiral).
+3. O resto da terra nova fica com relevo e campo simples, para discutirmos depois o que vai em cada área.
+
+Tarefas anotadas:
+
+- [ ] Uma ou duas cavernas na montanha de gelo (pedido do usuário, 2026-11-21).
+- [ ] Uma base mais perto da ponta nova, para o resgate e a oficina (o usuário concordou, 2026-11-21).
+- [ ] O caderno (mapa) e o minimapa cobrindo a terra nova.
+
+### 137.1 Como ficou (2026-11-21)
+
+O relevo sai de `tools/vale/mapa_terra_nova.py` (maquete em `docs/mapa/terra_nova_v1.png`) e o jogo monta em
+`scripts/vale/terra_nova.gd` (classe `TerraNova`), que o `Vale` chama logo depois da colisão de fora.
+
+- **Tamanho:** 8,5 km² de terra nova (a ilha de hoje tem 9). Grade de 4 m de x -3900 a 700 e z -3900 a 500;
+  dentro do quadrado de hoje ela não vale.
+- **Montanha do Degelo:** pico de 863 m em (-2820, -2860), com serras para o leste e para o sul. Granito
+  escuro e frio, neve acima de uns 410 m em todo chão que não é parede, e mais alto ela gruda até nas
+  encostas fortes.
+- **Lagos e rios:**
+  - O lago do circo, a 304 m, entre as paredes do pico.
+  - O Lago Turquesa, a 45 m, no pé da montanha.
+  - Dois rios de degelo:
+    - o do leste, 1,9 km, do lago do circo pelo Lago Turquesa até o mar do leste, com 4 quedas;
+    - o do sul, 2,5 km, da neve da face sul pelo braço do oeste até o mar do sul, com 5 quedas.
+  - Cada queda é a própria fita d'água em pé, com água branca (`espuma_queda` no rio.gdshader). Atravessar uma
+    esfria o motor, como na cachoeira do vale.
+- **Pés da montanha:** 15,6 mil árvores. Pinheiral fechado com álamos dourados (as bétulas amarelas), campina
+  alpina, pedra solta e cascalho na beira dos rios.
+- **Como é desenhado:**
+  - O chão vem em blocos de 200 m com quatro níveis de detalhe: 4 m até 650 m, depois 8, 20 e 40 m.
+  - Cada bloco é uma grade plana que o shader `terra_nova_chao` levanta pela textura de alturas. Uma saia
+    esconde a fresta entre os níveis.
+  - Os blocos de longe usam `terra_nova_alturas_longe.bin`, em que a beira dos rios fica mais funda, senão a
+    grade grossa tampava a água.
+  - A colisão vem em telhas de 512 m.
+- **Custo medido no Mac:** +0,5 a 0,9 ms por quadro nas vistas de cima e das Torres.
+- **Mudanças em volta:**
+  - O `Vale` pergunta à terra nova a altura, a água, a cobertura e a normal fora do quadrado de hoje.
+  - A grade da costa (limite do mar e praia mais perto) cobre as duas terras.
+  - O capim nasce na terra nova.
+  - O jogo retoma a posição salva lá.
+  - A rede de baixo do robô (recomeçar quem some do mapa) passou de 3 km para 7,5 km do meio.
+
+**A preencher** (`docs/mapa/terra_nova_areas_vazias.png`):
+
+- **A:** a ponta leste do braço do norte, ao norte das Torres. 0,9 km² de campo, entre a foz do rio do leste e
+  o canal.
+- **B:** o braço do oeste, abaixo da mata. 1,7 km² de campo, com o rio do sul passando no meio até o mar.
+
+- [x] O terreno novo, a montanha, os rios de degelo, os lagos e o pinheiral (2026-11-21, falta o usuário ver
+  as fotos).
+
+### 137.2 Pedidos do usuário para depois (2026-11-21)
+
+- [x] Área A: na ponta, uma praia ao longo da costa com caranguejos, gaivotas e outros bichos de praia (feita,
+  §137.3).
+- [x] Ideias minhas aprovadas ("gostei, pode fazer"): o navio encalhado na praia de A (§137.4) e as fontes
+  quentes na metade leste de B (§137.5). Falta o usuário ver as fotos; o resto de A e o oeste de B seguem sem
+  ideia.
+- [ ] Cavernas na montanha de gelo (uma ou duas; já anotado acima).
+- [ ] Mecânica nova para o calor do motor na região da neve: lá o motor esquenta devagar.
+- [ ] Nas fontes quentes (§137.5): voando perto da água delas ou dentro dela, o robô esquenta mais rápido
+  (pedido do usuário, 2026-11-21; entra junto da mecânica do calor na neve, pelas `TerraNova.fontes`).
+- [ ] Lembranças novas na terra nova, que não contam para o farol (as 12 do farol ficam como estão).
+- [x] Algumas bases de inimigos para desbloquear: decidido em 2026-11-22 que três acampamentos bastam para uma
+  ilha "pacata", bem longe uns dos outros, um deles na terra nova (§137.9).
+- [ ] Bichos novos, se acharmos pacotes de modelos (CC0, CC-BY ou MIT; download só com permissão).
+- [ ] Os restos de um pequeno vilarejo que havia na terra nova (pedido do usuário, 2026-11-21).
+- [x] A terra nova unida à ilha antiga por pontes de terra largas e de cara natural, com uma lagoa no canal
+  entre elas (pedido do usuário, 2026-11-21; §137.7, esperando aprovação pelas fotos).
+
+### 137.3 A praia da área A (2026-11-21)
+
+A praia corre pela costa do canal até a ponta leste (`PONTA_A`, x 150, z −1790): uns 300 mil m² de areia seca e,
+atrás dela, uma faixa de dunas baixas (cobertura 9, entre 98 e 215 m da água) antes do campo. Nos pacotes que
+temos não havia bicho de praia que servisse, então todos são feitos por código, em formas simples:
+
+- **Caranguejos** (`Caranguejos`, 14 lugares, 3 a 6 em cada): vermelhos, andam de lado, param e abanam as
+  garras; com o robô a menos de 6,5 m correm de lado para a água e somem, e voltam quando ele passa de 18 m.
+- **Focas** (`Focas`, 2 lugares perto da ponta, 2 a 4 em cada, junto de pedras cinza sem musgo): deitadas,
+  levantam a cabeça de vez em quando; a 28 m olham o robô, a 13 m vão aos pulinhos até o mar, nadam com a
+  cabeça de fora, mergulham e voltam a deitar quando ele passa de 50 m.
+- **Gaivotas na areia** (5 bandos de 5 a 9): o bando dos passarinhos (`Passaros`) com `escala` 3, asa a 3,4
+  batidas por segundo, pintado por `Gaivotas.pintar_gaivota` e pousando só na areia (`chao_ok`).
+- **Gaivotas no ar** (`Gaivotas`, 2 lugares, 3 ou 4 em cada): voltas largas a 18–40 m, de asa aberta, inclinando
+  nas curvas e batendo a asa de vez em quando.
+- **Troncos** que o mar trouxe (44, com colisão), deitados ao longo da areia alta, alguns com o nó das raízes ou
+  um galho quebrado.
+
+Os lugares saem de `TerraNova._praia` (semente fixa) e a `VidaVale` cria e apaga os bichos como os outros. A
+terra nova também ganhou os bichos da mata: 14 manadas de cervos, 22 tocas de coelho, 14 bandos de pássaros,
+10 raposas e 5 alcateias (sorteados depois dos da ilha, que não mudam).
+
+### 137.4 O navio encalhado (2026-11-21)
+
+Um cargueiro velho deitado na praia de A, a oeste da ponta (`TerraNova.NAVIO`, x −450, z −1713), com a proa
+virada para o canal. Está em `scripts/vale/naufragio.gd` (`Naufragio.montar`, chamado de `TerraNova._praia`).
+A ideia foi minha; mais tarde pode virar uma base de inimigos (§137.2).
+
+- **Tamanho:** desenhado como um navio de 46 m e crescido 1,45 vez (`E`), para dar 67 m de comprimento, 13 m de
+  largura e 9,4 m da quilha ao convés. Menor que isso, quase não se via das Torres de vento.
+- **Posição:** a quilha fica 2,75 m dentro da areia. O casco tomba 2° para um lado e afunda a popa 11°.
+- **Casco:** feito por código, com seções de superelipse (46 cortes) que afinam até a proa. Tem pele de fora e
+  de dentro, com 0,32 m de chapa, borda e popa fechadas.
+  - Os 3 m de cima são pintados de azul-petróleo (`casco_navio`); o resto é ferrugem.
+  - Furinhos de ferrugem perto da borda.
+- **Rombo:** um rasgo grande no lado do canal que desce até a areia. Por ele o robô entra no porão; o sol entra
+  pelo convés rasgado e desenha listras na areia de dentro.
+  - A colisão é a malha do próprio casco (`ConcavePolygonShape3D`, dos dois lados): o robô anda dentro.
+- **Convés:** chapas soltas e um porão da frente desabado, com chapas penduradas. Também tem a tampa da
+  escotilha, um guindaste caído com a lança de treliça no chão e o mastro da proa.
+- **Ponte de comando:** casa branca de dois andares com janelas foscas, a chaminé com a faixa escura e o mastro
+  do rádio.
+- **Na areia:** dois contêineres que caíram do navio (`MarcosMar._conteiner`), um azul fechado e um ocre aberto.
+- **Lugar com nome:** "O Navio Encalhado" (raio 60 m). Num raio de 46 m não nascem bichos nem troncos.
+- **Materiais novos:** `casco_navio`, `tinta_branca`, `chamine`, `conteiner_azul` e `conteiner_ocre`, todos sem
+  musgo.
+  - Lição: `tinta_velha` e `lata_*` têm musgo, que pinta de verde-limão toda face virada para cima. No convés
+    isso parecia grama.
+
+### 137.5 As fontes quentes (2026-11-21)
+
+Na metade leste de B, uma bacia rasa de brejo boreal com poças de água quente soltando vapor. Ideia minha; elas
+podem entrar na mecânica do calor do motor na neve (§137.2), por exemplo resfriando ou aquecendo o robô perto
+delas.
+
+- **Terreno** (`tools/vale/mapa_terra_nova.py`, seção das fontes; o mapa foi refeito):
+  - A bacia tem o centro em (−2150, −560) e vai de 170 a 300 m de raio. O fundo fica 3,5 m abaixo da média da
+    beira.
+  - A oeste há um monte de 7 m em (−2270, −530), com uma poça no alto.
+  - São 16 poças:
+    - o **Olho Azul**, de 24 m de raio;
+    - cinco médias;
+    - a do monte;
+    - duas escadas de degraus, de 5 e de 4 poças, que descem do monte.
+  - Cada poça tem a beira 0,3 m acima da água. Há 7 respiros, cones baixos que só soltam vapor.
+  - O JSON da terra nova ganhou `fontes` (`[centro, raio, nível, força]`, a primeira é o Olho Azul) e
+    `respiros`.
+- **Coberturas novas:**
+  - **10, sínter:** o mineral cinza-claro em volta das poças e no monte.
+  - **11, esteira:** a faixa de bactéria rente à água, laranja-ferrugem perto da poça e marrom para fora, com
+    raios tortos.
+  - **12, brejo:** manchas de chão encharcado, oliva escuro com musgo avermelhado.
+  - As três estão em `terra_nova_chao.gdshader`, bem mais escuras que o real. Com a luz do jogo, albedo 0,2 já
+    sai creme quase branco e 0,1 de vermelho já é laranja vivo.
+  - O capim vivo nasce em 60% do brejo e não nasce na sínter nem na esteira.
+- **Água:** `fonte_quente.gdshader` pinta cada poça pela distância ao centro: azul-escuro no furo, azul,
+  turquesa, um verde raso e o laranja da borda. A superfície tem um tremido leve.
+- **Vapor:** `VaporFonte` (`scripts/vale/vapor_fonte.gd`, feito por um agente Haiku e revisado por mim). São
+  partículas de fumaça claras que sobem devagar e se espalham com o vento. A quantidade e a força seguem o
+  tamanho da poça; o vapor aparece até 650 m.
+- **Árvores:** 46 pinheiros secos (`q_seca_a…e`) no brejo e na sínter, entre 45 e 270 m do Olho Azul, longe da
+  água (`TerraNova._secas`).
+- **Lugar com nome:** "As Fontes Quentes" (raio 170 m).
+- **Ainda não fazem nada no jogo:** a água delas não molha nem esquenta. Isso fica para a mecânica do calor.
+
+### 137.6 O mapa grande e o touchpad no PC (2026-11-21)
+
+O usuário testou no PC e pediu duas coisas: o touchpad do DualSense abria a pausa em vez do caderno, e queria um
+botão no caderno que abrisse o mapa mostrando onde o robô está.
+
+- **Touchpad no PC:** a Steam liga o Steam Input nos atalhos de fora da loja. Ele troca o DualSense por um
+  controle virtual de Xbox (no `config.vdf` aparece o "Steam Virtual Gamepad"), que não tem touchpad.
+  - No modelo padrão de PS5 da Steam (`controller_ps5_gamepad_joystick.vdf`), clicar na metade esquerda do touch
+    vira o Select (no jogo, o medidor), e na metade direita vira o Start (a pausa). O Options também é Start, e o
+    Create é Select.
+  - O jogo não tem como separar o touch do Options. O conserto é desligar o Steam Input só para o Fagulha (nas
+    propriedades do jogo na Steam, aba Controle). Assim o jogo lê o DualSense pelo SDL3 da Godot, com o
+    touchpad.
+- **Mapa do caderno:**
+  - `MapaCaderno` agora cobre o mundo todo, a ilha e a terra nova: um quadrado de 5,4 km, de (−3900, −3900) a
+    (1500, 1500). O robô não sai mais do mapa na terra nova.
+  - O relevo tem 720 x 720 pixels (7,5 m cada), com rios, lagos e as fontes quentes em azul e laranja.
+  - As cores seguem a altura: capim até uns 70 m, mata até 120, pedra até 420 e neve acima.
+  - A textura nasce no fim da montagem do Vale (`MapaCaderno.preparar_terra`, ~1,1 s no Mac na primeira vez de
+    cada build) e fica no `Cache`.
+- **Mapa grande (versão aprovada, a pedido do usuário):** a aba Mapa abre primeiro e o mapa ocupa as duas telas.
+  - São duas metades `MapaCaderno` (uma de cada lado da dobra) que mostram pedaços emendados do mundo: o que
+    fica embaixo da dobra não some (`Pausa._aplicar_zoom`, `MapaCaderno.mostrar`).
+  - O triângulo (ou o E) troca o zoom: o mundo todo, 2600 m e 1300 m de altura. De perto, o robô fica no meio de
+    uma das telas, nunca na dobra. O anel pulsa no robô.
+  - Em cima da direita, a frase de onde o robô está, com o artigo certo ("você está no Navio Encalhado", "você
+    está na Clareira", "você está perto das Fontes Quentes"; `Pausa._onde`).
+  - A aba Memórias ficou como era (a lista na esquerda e a lida em foco na direita). A página de resumo da aba
+    Mapa antiga (mapinha, legenda e "O scanner já leu") saiu; as contas seguem na tela inicial da pausa.
+  - Baterias depois do "está bom": vale 113, voo 94, simulação 28. Build mandada ao PC em 2026-11-21 (a frase
+    de onde o robô está ainda saía "você está em a ilha" nela; corrigida depois).
+- **Botões trocados (pedido do usuário, depois do mapa grande):**
+  - O Create (o Select no controle virtual da Steam) abre o caderno; o clique no touchpad continua abrindo também.
+  - O medidor de desempenho saiu do Create: no controle, liga e desliga segurando L1 e R1 juntos por 2 s
+    (`Controles.acorde`, contado no `Hud`); no teclado continua o F3.
+  - Enquanto L1 e R1 estão juntos, e até soltar os dois, a roda de armas não abre, o L1 não troca de arma e a
+    granada que estava na mão não sai.
+  - A tela de comandos e a dica da pausa foram atualizadas.
+
+### 137.7 As pontes de terra (2026-11-21)
+
+O usuário imaginava as duas terras unidas. Dos esboços (duas pontes de terra ou tudo unido com uma baía no
+norte) ele escolheu as pontes, mais largas e de cara natural, na largura "do meio".
+
+- **Onde:** `tools/vale/pontes_de_terra.py`.
+  - A ponte do oeste vai do braço do oeste até a costa oeste da ilha, ao norte do Casco Encalhado.
+  - A do noroeste vai do pé do braço do norte até o morro do Observatório.
+  - Cada uma tem 330 m de largura no meio e uns 600 m nas pontas, onde abre para encostar nas costas.
+  - O canal entre as duas virou uma lagoa de água do mar, com uma ilhota.
+  - Há mais quatro ilhotas por perto, duas delas no mar a oeste do Casco.
+- **Forma:** a beira é torta em duas escalas, com curvas grandes e enseadas pequenas. Tem praia em volta,
+  colinas de até uns 25 m no meio (nas pontas o chão de hoje manda) e manchas de mata. As fontes quentes ficam de
+  fora: nada da ponte a menos de 330 m delas.
+- **Emenda das duas grades:** o relevo das pontes é feito uma vez numa grade própria de 4 m, alinhada às duas.
+  O `mapa_3km.py` (a ilha, ±1500 m) e o `mapa_terra_nova.py` copiam cada um o seu pedaço, com um máximo suave
+  sobre o chão de hoje. Por isso as duas têm o mesmo valor na borda do quadrado.
+  - Medido no jogo: degrau de 0,02 m na emenda do oeste e zero na do norte em cima das pontes.
+  - Os dois geradores refazem o chão de hoje igualzinho (conferido byte a byte antes da mudança). Rodar
+    qualquer um deles de novo já traz as pontes.
+- **Cuidado:** ao sul de z 500 e a oeste de x −1500 não há grade, só o fundo do mar. Uma encosta de ilhota que
+  passe dali acaba num corte reto debaixo d'água.
+- **Notado, de antes das pontes:** na emenda do norte, de x −700 a 368, o mar raso da praia da área A fica até
+  6 m acima do fundo da grade da ilha (−7,8 contra −14). É um degrau debaixo d'água ao longo de z −1500.
+
+### 137.8 Uma terra só (2026-11-21)
+
+O usuário achou o formato das duas ilhas "muito artificial". Dos rascunhos de costa ele aprovou o 5, de costa
+natural ("ficou bem melhor, vamos seguir nesse formato").
+
+- **Onde:** `tools/vale/terra_unida.py`, chamado pelo `tools/vale/mapa_mundo.py` depois dos dois geradores. Ele
+  trabalha na grade do mundo (4 m, de −3900 a 1500 em x e z), já com as duas terras e as pontes de terra.
+- **O canal virou terra:** um fechamento de 360 m, só onde as duas terras ficam perto. Ficam de fora a baía do
+  norte (o Navio, a praia da área A e as Torres continuam de frente para o mar), a enseada do sudoeste (o Casco)
+  e uma lagoa no meio.
+- **A costa:** ganha forma em três escalas (curvas grandes, enseadas e pontas, recorte miúdo), mais forte na
+  costa da montanha. Perto dos lugares com nome, dos rios e dos lagos ela não mexe. A costa da ilha de antes só
+  muda perto do canal que virou terra.
+- **Fiordes e baías:** fiordes na costa da montanha, baías na costa de fora (que era quase reta) e umas ilhas
+  soltas.
+- **O relevo:** o que era terra fica, descendo até a costa nova (em praia na planície, em parede na montanha). A
+  terra que entrou é baixa perto das duas terras e tem colinas no meio.
+
+### 137.9 Leva de ajustes do usuário (2026-11-22)
+
+O usuário jogou a terra unida no PC e mandou uma lista. Tudo aprovado pelas fotos ("ficou bom").
+
+- **O espadachim da base, mais fácil:** é o primeiro inimigo que o jogador iniciante e sem peças acha.
+  - `Mecha.iniciante` (ligado no da semente 5, perto da base): anda a 45% da velocidade de caça, ataca com 1/0,45
+    do intervalo, quase não se esquiva (0,1) e não pula. O aviso antes do golpe dura 1,6 vez mais, e o golpe
+    esquenta 60% e empurra 60% (`Vigia.aviso_mult` e `Vigia.dano_golpe`).
+  - Medido: anda a 2,92 m/s (o robô anda a 3,0), golpe a cada 2,44 s, aviso de 0,88 s, cinco golpes até a pane.
+  - Os soltos pelo mapa lutam como a onda 2 da Fundição, e os grandes como a onda 4 (`InimigosVale.NIVEL` e
+    `NIVEL_GRANDE`; antes lutavam no máximo). Os procurados ficam como estavam.
+- **Três acampamentos, cada um de um jeito** (`scripts/vale/acampamentos.gd`, reescrito):
+  - Capinzal, o posto de sinal (−160, 940): nível 3, três máquinas, mastro listrado com bandeirolas e
+    telheiro.
+  - Barranco, a oficina (−880, −100): nível 6, quatro máquinas, torre de vigia, oficina debaixo de um toldo e
+    forja.
+  - Planície, o ferro-velho (−2950, −650), no oeste da área B: nível 9, cinco máquinas, muro alto, contêineres,
+    monte de sucata, ímã pendurado e cata-vento.
+  - Ficam a 1,27 km, 2,14 km e 3,21 km uns dos outros. O Planalto saiu, e os saves antigos têm o `planalto`
+    filtrado. Os ids continuam os mesmos.
+  - Todos têm pátio de terra batida (`CapimVivo.batidos`), barricada com entrada e farolete. De noite as
+    lanternas e os braseiros acendem; a luz vermelha no chão só aparece de noite (de dia parecia sangue).
+  - A horta passou para oito sementes; a conta do "faltam" ignora a semente do Planalto de um save antigo.
+  - Modelos: KayKit (Space Base, Resource, Block, RPG Tools, Halloween Bits) e Quaternius (Modular SciFi
+    MegaKit, Sci-Fi Essentials), todos CC0, em `assets/vale/acampamentos/`; chapas, lonas, contêineres e cabos
+    feitos por código.
+- **Rios e cachoeiras da Montanha do Degelo:**
+  - A fita d'água para na beira de cada queda e recomeça no pé (antes descia numa rampa que entrava no paredão).
+    A beira anda para trás até achar leito firme, com margens que seguram a água (`TerraNova._leito_firme`).
+  - A cortina é um meio-cano que sai da beira como um jato (2,4 m/s) e se afasta do paredão onde o chão estiver
+    no caminho (`_cortina`, `_vao_livre`). Tem névoa no pé, esfria o motor e tem som.
+  - O gerador põe a água em degrau na beira, cava um poço no pé de cada queda e dá leito e margem ao rio todo,
+    onde antes a encosta deixava a fita solta (`rio()` em `mapa_terra_nova.py`). Medido: das 2530 pontas da fita,
+    uma fica 0,1 m acima do chão.
+  - **Saída dos lagos:** o espelho d'água passa 18 m da margem e ficava solto em cima da queda. Agora o rio sai
+    no nível do lago por um canal com soleira e só cai 26 m além da margem (`soleira()`). No Lago Turquesa, onde a
+    água descia 16 m numa rampa, nasceu uma cachoeira.
+  - Quedas: o rio do leste tem cinco (56, 66, 58, 45 e 16 m) e o do sul tem cinco (64, 66, 59, 62 e 48 m).
+- **Água funda:**
+  - O mar afunda a partir da praia (`terra_unida.aprofundar`): 3,5 m a 40 m da costa, 13 m a 120 m, 26 m a 220 m
+    e até 40 m longe (`TerraNova.FUNDO`).
+  - O Lago Turquesa tem 16,6 m no meio, a lagoa do meio 14,8 m e a lagoa da represa 6 m (era 3,4;
+    `Clareira.LAGOA_FUNDO`). Os rios da ilha ficaram 1 m mais fundos no meio (`Vale.RIO_FUNDO_MEIO`), e os da
+    terra nova têm de 2,4 m a 3,8 m mais o poço.
+  - As argolas e a peça das barbatanas, que já ficavam sobre ou dentro do mar, ficaram mais fundas; os pontos
+    fixos não saíram do lugar.
+- **Vida no fundo:** `VidaAgua` cobre o mundo todo: 30 mil plantas e pedras (eram 16,7 mil) e 170 cardumes de 31
+  espécies. Abaixo de 10 m só nascem algas e pedras, e nenhuma planta passa da lâmina.
+- **Gaivotas de ré:** o modelo das aves (`tools/vale/passaro_base.py`) tinha o bico e os olhos na cauda. Meia
+  volta em Z conserta todas as aves; o nariz erguido do modelo é descontado (`Gaivotas.NARIZ`).
+- **Debaixo d'água:** a natureza (mata, grilos, chuva, rios e cachoeiras) passa pelo barramento "Natureza", que
+  ganha um passa-baixa forte e cai de volume. O resto fica só um pouco abafado. Entram um ronco de fundo, bolhas
+  de vez em quando e o splash de quem mergulha, sons feitos por síntese em `tools/sons_agua.py`.
+- **Baterias depois do "ficou bom":** vale 113, voo 94, simulação 28. Três testes do vale foram ajustados: o
+  fundo de fora do mapa agora fica a 40 m; o mecha atirador começa frio (chegava quente dos pontos de antes,
+  recuava e desligava um tiro antes); e o anel de pedras do "cercado" passou a ficar justo ao corpo do mecha
+  (com o mapa refeito ele rodava dentro da folga de 1 m). A build foi mandada ao PC em 2026-11-22.
+- **Pesquisa de skills:** o relatório ficou fora do repositório (`Projects/others/pesquisa-skills-claude-code.md`).
+  Não há especialistas prontos que sirvam; os nossos agentes de game design, níveis e arte 3D estão sendo
+  escritos em `.claude/agents/`. As próximas etapas esperam por eles (pedido do usuário).

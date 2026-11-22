@@ -14,7 +14,7 @@ const NIVEL := 19.4  # água do riacho e da lagoa
 const V := "res://assets/vale/"
 const RIACHO: Array[Vector2] = [Vector2(-96, -70), Vector2(-60, -48), Vector2(-34, -40), Vector2(-12, -22), Vector2(8, -18), Vector2(26, -6)]
 const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
-const LAGOA_FUNDO := 3.4  # metros a mais de fundura no meio
+const LAGOA_FUNDO := 6.0  # metros a mais de fundura no meio (era 3,4; pedido do usuário, 2026-11-22)
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
 const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2), Vector3(-13.36, 43.75, 5.0), Vector3(-9.27, 44.72, 5.0)]  # os cinco últimos: o chão batido da base, o da horta, o da fogueira (BaseLar) e o do cilindro, que saiu para o lado (2026-11-20)
@@ -206,6 +206,22 @@ func _materiais() -> void:
 		"pena_clara": _solido(Color(0.66, 0.40, 0.24)),
 		"bico": _solido(Color(0.78, 0.58, 0.20)),
 		"peixe": _solido(Color(0.09, 0.13, 0.12)),
+		# os bichos da praia da terra nova (a luz forte daqui clareia: o branco da gaivota já é cinza no albedo)
+		"caranguejo": _solido(Color(0.40, 0.11, 0.055)),
+		"caranguejo_claro": _solido(Color(0.62, 0.40, 0.24)),
+		"foca": _solido(Color(0.27, 0.26, 0.25)),
+		"foca_clara": _solido(Color(0.46, 0.43, 0.38)),
+		"gaivota": _solido(Color(0.56, 0.56, 0.55)),
+		"gaivota_dorso": _solido(Color(0.30, 0.33, 0.37)),
+		"bico_gaivota": _solido(Color(0.78, 0.60, 0.10)),
+		"rocha_mar": _solido(Color(0.30, 0.31, 0.33)),  # as pedras da beira do mar, sem musgo
+		# o navio encalhado: sem musgo (o sal da beira do mar não deixa), que pinta de verde o que olha para cima
+		"casco_navio": _solido(Color(0.13, 0.18, 0.21)),  # a tinta do casco, azul-escura e gasta
+		"tinta_branca": _solido(Color(0.44, 0.43, 0.40)),  # a casa do comando, branca encardida
+		"chamine": _solido(Color(0.34, 0.15, 0.11)),
+		"conteiner_azul": _solido(Color(0.15, 0.24, 0.31)),
+		"conteiner_ocre": _solido(Color(0.42, 0.31, 0.13)),
+		"madeira_deriva": _solido(Color(0.33, 0.30, 0.27)),
 	}
 	# árvores e plantas dos pacotes do Quaternius (assets/vale/q): textura do modelo com a luz do vale
 	var folha_q := Color(0.52, 0.64, 0.44)

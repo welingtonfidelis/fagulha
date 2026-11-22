@@ -34,6 +34,10 @@ Os sons do jogo são montados por `tools/montar_sons.py` a partir das gravaçõe
 
 Os três avisos (alarme de calor, marcador e religar) são sintetizados por `tools/gerar_sons.py`.
 
+Os sons de debaixo d'água (o ronco contínuo `agua_fundo_loop.wav`, as bolhas `bolhas_1` a `bolhas_4.wav` e o
+splash da entrada `mergulho.wav`) são do próprio projeto, feitos por síntese em `tools/sons_agua.py` (2026-11-22),
+sem gravação de terceiros.
+
 ## Modelos
 
 Parte das árvores, as plantas de chão, as flores, os cogumelos, as moitas e as pedras soltas vêm de dois pacotes de
@@ -126,6 +130,22 @@ Commons Zero (CC0). Baixada de https://opengameart.org/content/bird-basemesh em 
 O sofá, a poltrona, o tapete, as mesas, a luminária, os quadros, os cactos e os enfeites da bancada
 (`assets/vale/moveis/`) são do "KayKit Furniture Bits 1.0", de Kay Lousberg (www.kaylousberg.com), licença
 Creative Commons Zero (CC0).
+
+## Acampamentos de máquinas (KayKit e Quaternius)
+
+As peças dos três acampamentos (`assets/vale/acampamentos/`, copiadas em 2026-11-22 da coleção local em
+`bibliotecas/`, sem baixar nada):
+
+- de Kay Lousberg (www.kaylousberg.com), licença Creative Commons Zero (CC0), com a textura de cada pacote:
+  **KayKit Space Base Bits 1.0** (cata-vento, placa de sol, caixa-d'água), **KayKit Resource Bits 1.0** (tambores,
+  estrados, caixotes, miúdos de ferro), **KayKit Block Bits 1.0** (armação de ferro da torre), **KayKit RPG Tools
+  Bits 1.0** (balde, martelo, serrote, pá, malho, caixa de ferramentas) e **KayKit Halloween Bits 1.0** (lanternas);
+- do **Modular SciFi MegaKit** e do **Sci-Fi Essentials Kit**, de Quaternius (https://quaternius.com), CC0 1.0:
+  batente de porta, grade de ventilação, ventilador, holofote de chão, caixote, pilar, armário, bancada, estante e
+  tambor fechado (os mesmos kits da base, peças que ainda não estavam no projeto).
+
+O resto (chapas onduladas, lonas, contêineres, vigas, cabos, bandeirolas, baterias, o chão batido e o miolo dos montes
+de sucata) é feito por código em `scripts/vale/acampamentos.gd`.
 
 ## Beehave (árvores de comportamento)
 

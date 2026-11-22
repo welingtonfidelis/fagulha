@@ -14,10 +14,10 @@ const DICAS := [
 	"A mira assistida se fabrica na oficina: com ela, o tiro trava na máquina mais perto da mira.",
 	"As máquinas não são destruídas: desligam e religam depois.",
 	"Atrás de uma árvore ou de uma pedra, o tiro delas não chega.",
-	"Se o robô desligar, o drone colega vem buscar e leva para a base.",
+	"Se o robô desligar, o drone colega vem buscar e o deixa num lugar seguro ali perto.",
 	"Na água funda o robô nada com os jatos, e isso esfria o motor.",
 	"Parado, a seta para a esquerda tira a câmera de trás do robô para você olhar a paisagem.",
-	"O touchpad do controle (ou o M) abre o caderno: o mapa, as memórias e o que o scanner leu.",
+	"O botão Create do controle (ou o M) abre o caderno: o mapa, as memórias e o que o scanner leu.",
 ]
 # [o que é, no controle, no teclado e mouse]. `{@nome}` vira a imagem do botão (ver Botoes).
 const COMANDOS := [
@@ -44,9 +44,9 @@ const COMANDOS := [
 	["Oficina · sentar · acordar e trocar de robô", "{@tri} no chão, perto", "{@k_e}"],
 	["Luz · scanner (melhorias)", "{@cima} · {@dir}", "{@k_l} · {@k_t}"],
 	["Marcar um ponto", "{@baixo}", "{@k_q}"],
-	["Caderno: mapa e memórias", "{@touchpad}", "{@k_m}"],
+	["Caderno: mapa e memórias", "{@create}", "{@k_m}"],
 	["Nadar: subir · descer", "{@x} · {@o}", "{@k_espaco} · {@k_c}"],
-	["Pausa · medidor", "{@options} · {@create}", "{@k_esc} · {@k_f3}"],
+	["Pausa · medidor", "{@options} · segurar {@l1}{@r1}", "{@k_esc} · {@k_f3}"],
 ]
 const SUBTITULO := "Fagulha · Em Busca do Sossego"
 
@@ -56,7 +56,6 @@ const COR := {"continuar": Tablet.LARANJA_V, "comandos": Tablet.AZUL, "simulacao
 	"voltar": Tablet.CINZA}
 const VERDE_AGUA := Color(0.3, 0.65, 0.65)
 const PETROLEO := Color(0.2, 0.5, 0.5)
-const MAQUINAS := ["sentinela", "zangão", "robô", "máquina", "drone", "torre", "vigia", "aranha", "besouro", "carcaça"]
 
 var armadura: Armadura
 var na_simulacao := false  # a pausa do tutorial: "Acordar" no lugar de "Voltar à base"
@@ -73,7 +72,7 @@ var _titulo: Label  # o nome da tela (os testes leem; a barra de cima e o cabeç
 var _subtitulo: Label
 var _dica: Label  # a dica do drone desta abertura
 var _saindo := false
-var _so_caderno := false  # o caderno abriu sozinho (touchpad / M): voltar fecha e solta o jogo
+var _so_caderno := false  # o caderno abriu sozinho (Create / M): voltar fecha e solta o jogo
 
 # a página inicial
 var _inicio: Control
@@ -107,7 +106,6 @@ var _aba_comandos := 1  # 1 controle, 2 teclado e mouse
 var _pagina_caderno: Control
 var _pilulas_caderno: Control  # Mapa, Memórias e Álbum (servem às duas páginas)
 var _pilulas: Array[BotaoTablet] = []
-var _caderno_mapa: MapaCaderno
 var _caderno_contas: Label  # a conta em texto (os testes leem)
 var _caderno_memorias: Control  # um botão por memória lida
 var _voltar_caderno: BotaoTablet
@@ -116,6 +114,12 @@ var _pagina_album: PaginaAlbum
 var _voltar_album: BotaoTablet
 var _aba_caderno := 0  # 0 mapa, 1 memórias, 2 álbum
 var _mem_sel := ""
+
+# a aba Mapa (2026-11-21, pedido do usuário): o mapa nas duas telas, uma metade de cada lado da dobra
+const ZOOMS := [0.0, 2600.0, 1300.0]  # metros na altura do mapa: 0 é o mundo todo; os outros, em volta do robô
+var _mapa_esq: MapaCaderno
+var _mapa_dir: MapaCaderno
+var _zoom_mapa := 0
 
 # a telinha de Sim e Não que confirma sair, começar um jogo novo e apagar o progresso
 var _confirma: ColorRect
@@ -342,10 +346,6 @@ func _montar_comandos() -> void:
 func _montar_caderno() -> void:
 	var L := Tablet.ESQ
 	_pagina_caderno = _pagina()
-	_caderno_mapa = MapaCaderno.new()
-	_caderno_mapa.position = L.position + Vector2(12, 112)
-	_caderno_mapa.size = Vector2(394, 394)
-	_pagina_caderno.add_child(_caderno_mapa)
 	_caderno_memorias = Control.new()
 	_caderno_memorias.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_caderno_memorias.size = Tablet.TAM
@@ -354,6 +354,20 @@ func _montar_caderno() -> void:
 	_caderno_contas.visible = false
 	_pagina_caderno.add_child(_caderno_contas)
 	_voltar_caderno = _voltar_canto(_pagina_caderno, _fechar_caderno)
+	# a aba Mapa: o mapa nas duas telas. Cada metade mostra a sua parte do mundo, emendadas: o que fica
+	# embaixo da dobra não some
+	for lado in 2:
+		var mp := MapaCaderno.new()
+		mp.position = (L.position if lado == 0 else Tablet.DIR.position) + Vector2(12, 108)
+		mp.size = Vector2(394, 610)
+		mp.pulsar = true
+		mp.rosa = lado == 1
+		mp.clip_contents = true
+		_pagina_caderno.add_child(mp)
+		if lado == 0:
+			_mapa_esq = mp
+		else:
+			_mapa_dir = mp
 	# o álbum: uma página à parte (do tamanho do tablet), com o próprio Voltar
 	_pagina_album = PaginaAlbum.new()
 	_pagina_album.visible = false
@@ -527,10 +541,38 @@ func _lugar_agora() -> String:
 				var d := armadura.global_position.distance_to(it["pos"])
 				if d < d0:
 					d0 = d
-					melhor = "perto de " + String(it["nome"])
+					melhor = _perto_de(String(it["nome"]))
 		if melhor != "":
 			return melhor
 	return "a ilha"
+
+
+## A frase de onde o robô está, em duas partes (a miúda e o nome em negrito): "você está no" + "Navio Encalhado",
+## "você está na" + "Clareira", "você está" + "perto das Fontes Quentes".
+static func _onde(lugar: String) -> Array:
+	if lugar.begins_with("perto "):
+		return ["você está", lugar]
+	for par: Array in [["Os ", "nos"], ["As ", "nas"], ["O ", "no"], ["A ", "na"], ["a ", "na"], ["o ", "no"]]:
+		if lugar.begins_with(par[0]):
+			return ["você está " + String(par[1]), lugar.substr(String(par[0]).length())]
+	# sem artigo no nome: o gênero pela primeira palavra
+	var p1 := lugar.get_slice(" ", 0)
+	var em := "no"
+	if p1.ends_with("as"):
+		em = "nas"
+	elif p1.ends_with("os"):
+		em = "nos"
+	elif p1.ends_with("a") or p1.ends_with("ção") or p1 in ["Foz", "Ponte"]:
+		em = "na"
+	return ["você está " + em, lugar]
+
+
+## "perto de" com o artigo do nome junto: "perto do Navio Encalhado", "perto das Fontes Quentes".
+static func _perto_de(nome: String) -> String:
+	for par: Array in [["O ", "do "], ["A ", "da "], ["Os ", "dos "], ["As ", "das "]]:
+		if nome.begins_with(par[0]):
+			return "perto " + par[1] + nome.substr(String(par[0]).length())
+	return "perto de " + nome
 
 
 func _tempo_agora() -> String:
@@ -812,79 +854,62 @@ func _p_caderno(c: Control, L: Rect2, R: Rect2) -> void:
 		Tablet.rodape(c, R, [["l1", "{@r1} aba"], ["o", "voltar"]])
 		return
 	if _aba_caderno == 0:
-		_p_mapa(c, L, R)
+		_p_mapa_todo(c, L, R)
 	else:
 		_p_memorias(c, L, R)
 
 
-func _p_mapa(c: Control, L: Rect2, R: Rect2) -> void:
-	var mr := Rect2(_caderno_mapa.position, _caderno_mapa.size)
-	# a legenda, em figura
-	var ly := mr.end.y + 22.0
-	var leg := [
-		[func(p: Vector2) -> void: c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -9), p + Vector2(7, 7), p + Vector2(0, 3), p + Vector2(-7, 7)]), Tablet.LARANJA_V), "você"],
-		[func(p: Vector2) -> void: _casinha(c, p), "base"],
-		[func(p: Vector2) -> void: c.draw_circle(p, 5, Color(0.1, 0.5, 0.52)), "lugar visto"],
-		[func(p: Vector2) -> void: c.draw_circle(p, 6, Color(0.9, 0.25, 0.2)), "acampamento"],
-		[func(p: Vector2) -> void: c.draw_circle(p, 6, Color(0.3, 0.7, 0.35)), "liberado"],
-		[func(p: Vector2) -> void: Icones.desenhar(c, "coroa", p, 0.5, Color(0.85, 0.2, 0.18), 2.0), "procurado"],
-	]
-	for i in leg.size():
-		var lp := Vector2(L.position.x + 34 + (i % 3) * 132, ly + (i / 3) * 34)
-		leg[i][0].call(lp)
-		Tablet.texto(c, lp + Vector2(16, 5), leg[i][1], 14, Color(Tablet.TINTA, 0.75))
-	var aqui := Rect2(L.position.x + 14, ly + 74, L.size.x - 28, 62)
-	Tablet.caixa(c, aqui, Color(Tablet.TINTA, 0.06), 16)
-	Tablet.pino(c, aqui.position + Vector2(32, 34), 9, PETROLEO)
-	Tablet.texto(c, aqui.position + Vector2(56, 26), "você está em", 13, Color(Tablet.TINTA, 0.6))
-	Tablet.texto(c, aqui.position + Vector2(56, 47), _lugar_agora(), 18, Tablet.TINTA, true)
-	Tablet.botao(c, "baixo", aqui.position + Vector2(aqui.size.x - 116, 31), 24)
-	Tablet.texto(c, aqui.position + Vector2(aqui.size.x - 98, 37), "marcar", 14, Color(Tablet.TINTA, 0.7))
-	# a direita: as contas, as memórias e o scanner
-	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 90), "O que você já viu", 26, Tablet.TINTA, true)
-	var n := _contas()
-	var cw := (R.size.x - 32 - 16) / 3.0
-	var ctas := [
-		[func(p: Vector2) -> void: Tablet.pino(c, p + Vector2(0, 4), 8, PETROLEO), "%d de %d" % [n["lugares"], n["lugares_total"]], "lugares"],
-		[func(p: Vector2) -> void: Icones.desenhar(c, "peca", p, 0.75, Tablet.TINTA, 2.0), "%d de %d" % [n["pecas"], Melhorias.NOMES.size()], "peças"],
-		[func(p: Vector2) -> void: Tablet.cristal(c, p, 11, Tablet.AMBAR), "%d de %d" % [n["memorias"], Memorias.ORDEM.size()], "memórias"],
-	]
-	for i in 3:
-		Tablet.conta(c, Rect2(R.position.x + 16 + i * (cw + 8), R.position.y + 108, cw, 104), ctas[i][0], ctas[i][1], ctas[i][2])
-	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 250), "Memórias", 18, Tablet.AMBAR.darkened(0.25), true)
-	_vagas_memoria(c, _vagas_mapa())
-	Tablet.texto(c, Vector2(R.position.x + 24, R.position.y + 538), "O scanner já leu", 18, PETROLEO, true)
-	var sx := R.position.x + 16.0
-	var sy := R.position.y + 552.0
-	var lidos: Array = Melhorias.escaneados
-	if lidos.is_empty():
-		Tablet.texto(c, Vector2(sx + 8, sy + 24), "nada ainda", 15, Color(Tablet.TINTA, 0.5))
-	for nm: String in lidos:
-		var ww := Tablet.largura(nm, 15) + 48
-		if sx + ww > R.end.x - 16:
-			sx = R.position.x + 16
-			sy += 44
-		if sy > R.end.y - 120:
-			break
-		Tablet.caixa(c, Rect2(sx, sy, ww, 36), Color(Tablet.TINTA, 0.07), 18)
-		var maquina := false
-		for p: String in MAQUINAS:
-			if nm.to_lower().contains(p):
-				maquina = true
-		Icones.desenhar(c, "maquina" if maquina else "pata", Vector2(sx + 18, sy + 18), 0.42, Tablet.TINTA, 1.8)
-		Tablet.texto(c, Vector2(sx + 34, sy + 24), nm, 15, Tablet.TINTA)
-		sx += ww + 8
-	# o rodapé fica na esquerda, embaixo do mapa: a direita tem o Voltar no canto
-	Tablet.rodape(c, L, [["x", "ler"], ["l1", "{@r1} aba"], ["o", "fechar"]])
+## A aba Mapa: o mapa nas duas telas; em cima da direita, onde o robô está; embaixo, o zoom (triângulo / E).
+func _p_mapa_todo(c: Control, L: Rect2, R: Rect2) -> void:
+	var aqui := Rect2(R.position.x + 14, R.position.y + 54, R.size.x - 28, 46)
+	Tablet.caixa(c, aqui, Color(Tablet.TINTA, 0.06), 23)
+	Tablet.pino(c, aqui.position + Vector2(24, 24), 8, PETROLEO)
+	var onde := _onde(_lugar_agora())
+	var t: String = onde[0] + " "
+	Tablet.texto(c, aqui.position + Vector2(42, 29), t, 14, Color(Tablet.TINTA, 0.6))
+	Tablet.texto(c, aqui.position + Vector2(42 + Tablet.largura(t, 14), 29), onde[1], 17, Tablet.TINTA, true)
+	# o zoom em três pontinhos, embaixo da direita
+	for i in ZOOMS.size():
+		var zp := Vector2(R.position.x + 34 + i * 20, R.end.y - 37)
+		c.draw_circle(zp, 6.0 if i == _zoom_mapa else 4.0, VERDE_AGUA if i == _zoom_mapa else Color(Tablet.TINTA, 0.25))
+	Tablet.rodape(c, L, [["tri", "zoom"], ["l1", "{@r1} aba"], ["o", "fechar"]])
 
 
-## As vagas das 12 memórias no mapa (na direita) ou na aba Memórias (na esquerda, maiores).
-func _vagas_mapa() -> Array:
-	var R := Tablet.DIR
-	var mw := (R.size.x - 32 - 12) / 3.0
-	var v: Array = []
-	for i in Memorias.ORDEM.size():
-		v.append(Rect2(R.position.x + 16 + (i % 3) * (mw + 6), R.position.y + 264 + (i / 3) * 62, mw, 54))
+## O pedaço do mundo das duas metades do mapa: o mundo todo, ou um pedaço em volta do robô (sem sair do mundo).
+## De perto, o robô fica no meio de uma das telas, nunca na dobra: na direita, se der; na esquerda, se a direita
+## o empurra para a beira.
+func _aplicar_zoom() -> void:
+	var tam := Vector2(_mapa_esq.size.x * 2.0, _mapa_esq.size.y)  # as duas metades emendadas, sem a dobra
+	var m := MapaCaderno.mundo
+	var alto: float = ZOOMS[_zoom_mapa]
+	var v := Rect2()
+	if alto <= 0.0:
+		var esc := maxf(m.size.x / tam.x, m.size.y / tam.y)  # metros por pixel
+		v = _encaixar(Rect2(m.get_center() - tam * esc * 0.5, tam * esc))
+	else:
+		var esc := alto / tam.y
+		var pos := armadura.global_position if armadura else Vector3.ZERO
+		var nota := -1.0
+		for f: float in [0.75, 0.25]:  # onde o robô fica na largura das duas telas
+			var w := _encaixar(Rect2(Vector2(pos.x - f * tam.x * esc, pos.z - tam.y * esc * 0.5), tam * esc))
+			var sx := (pos.x - w.position.x) / w.size.x
+			var n := minf(absf(sx - 0.5), minf(sx, 1.0 - sx))  # longe da dobra e das beiradas
+			if n > nota:
+				nota = n
+				v = w
+	_mapa_esq.mostrar(Rect2(v.position, Vector2(v.size.x * 0.5, v.size.y)))
+	_mapa_dir.mostrar(Rect2(v.position + Vector2(v.size.x * 0.5, 0.0), Vector2(v.size.x * 0.5, v.size.y)))
+	_cartao.queue_redraw()
+
+
+## O pedaço sem sair do mundo; maior que o mundo, centrado nele (o resto é mar).
+static func _encaixar(v: Rect2) -> Rect2:
+	var m := MapaCaderno.mundo
+	for k in 2:
+		if v.size[k] < m.size[k]:
+			v.position[k] = clampf(v.position[k], m.position[k], m.end[k] - v.size[k])
+		else:
+			v.position[k] = m.get_center()[k] - v.size[k] * 0.5
 	return v
 
 
@@ -946,11 +971,6 @@ func _p_memorias(c: Control, L: Rect2, R: Rect2) -> void:
 			Tablet.texto(c, Vector2(R.get_center().x - ow * 0.5 + 6, R.position.y + 220), onde, 15, PETROLEO, true)
 		Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 256), String(dado[1]), R.size.x - 52, 17, Tablet.TINTA, 21)
 	Tablet.rodape(c, R, [["l1", "{@r1} aba"], ["o", "fechar"]])
-
-
-func _casinha(c: CanvasItem, p: Vector2) -> void:
-	c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(7.5, -1), p + Vector2(-7.5, -1)]), Color(0.75, 0.45, 0.15))
-	c.draw_rect(Rect2(p.x - 5, p.y - 1, 10, 7), Color(0.75, 0.45, 0.15))
 
 
 # ---- confirmação
@@ -1249,7 +1269,11 @@ func _abrir_caderno() -> void:
 	var locais: Locais = principal.get("locais") if principal else null
 	var mapa: Ilha = principal.get("ilha") if principal else null
 	var frente := -armadura.global_basis.z if armadura else Vector3.FORWARD
-	_caderno_mapa.preparar(mapa, locais, armadura.global_position if armadura else Vector3.ZERO, frente)
+	var pos := armadura.global_position if armadura else Vector3.ZERO
+	for mp: MapaCaderno in [_mapa_esq, _mapa_dir]:
+		mp.preparar(mapa, locais, pos, frente)
+	_zoom_mapa = 0
+	_aplicar_zoom()
 	var n := _contas()
 	var lidas := _lidas()
 	_caderno_contas.text = "Lugares visitados: %d   ·   Peças: %d   ·   Memórias: %d de %d" % [n["lugares"], Melhorias.instaladas.size() + Melhorias.achadas.size(), lidas.size(), Memorias.ORDEM.size()]
@@ -1268,10 +1292,7 @@ func _abrir_caderno() -> void:
 		b.focus_entered.connect(func() -> void:
 			if _aba_caderno == 1:
 				_mem_sel = chave)
-		b.pressed.connect(func() -> void:
-			_mem_sel = chave
-			if _aba_caderno == 0:
-				_ir_aba_caderno(1))
+		b.pressed.connect(func() -> void: _mem_sel = chave)
 		_caderno_memorias.add_child(b)
 	if _mem_sel == "" or not lidas.has(_mem_sel):
 		_mem_sel = String(_caderno_memorias.get_child(0).get_meta("chave")) if _caderno_memorias.get_child_count() > 0 else ""
@@ -1281,21 +1302,23 @@ func _abrir_caderno() -> void:
 	_focar_caderno()
 
 
-## As memórias lidas ficam nas vagas da aba: pequenas na direita do mapa, grandes na aba Memórias.
+## As memórias lidas ficam nas vagas da aba Memórias, na esquerda; a lida em foco aparece na direita.
 func _arrumar_memorias() -> void:
-	var vagas := _vagas_mapa() if _aba_caderno == 0 else _vagas_lista()
+	var vagas := _vagas_lista()
 	for b: Node in _caderno_memorias.get_children():
 		var i := Memorias.ORDEM.find(String(b.get_meta("chave")))
 		var r: Rect2 = vagas[i]
 		(b as Control).position = r.position
 		(b as Control).size = r.size
-	_caderno_mapa.visible = _aba_caderno == 0
+	_caderno_memorias.visible = _aba_caderno == 1
+	_mapa_esq.visible = _aba_caderno == 0
+	_mapa_dir.visible = _aba_caderno == 0
 
 
 func _focar_caderno() -> void:
 	var alvo: Control = _voltar_caderno
 	for b: Node in _caderno_memorias.get_children():
-		if _aba_caderno == 0 or String(b.get_meta("chave")) == _mem_sel:
+		if _aba_caderno == 1 and String(b.get_meta("chave")) == _mem_sel:
 			alvo = b
 			break
 	alvo.grab_focus()
@@ -1316,7 +1339,7 @@ func _ir_aba_caderno(i: int) -> void:
 		_titulo.text = "Caderno" if _so_caderno else "Pausa"
 
 
-## O caderno pelo botão próprio (touchpad / M): para o jogo e abre direto nele, com o próprio título; voltar
+## O caderno pelo botão próprio (Create / M): para o jogo e abre direto nele, com o próprio título; voltar
 ## (ou o mesmo botão) fecha e solta o jogo.
 func abrir_caderno_direto() -> void:
 	_abrir()
@@ -1420,6 +1443,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_fechar_album()
 			_ir_aba_caderno(atual + passo)
 			get_viewport().set_input_as_handled()
+		return
+	# o triângulo (ou o E) muda o zoom da aba Mapa: o mundo todo, perto e mais perto
+	if visible and _pagina_caderno.visible and _aba_caderno == 0 and event.is_action_pressed("agir"):
+		_zoom_mapa = (_zoom_mapa + 1) % ZOOMS.size()
+		_aplicar_zoom()
+		get_viewport().set_input_as_handled()
 		return
 	# o Esc é "menu" e também "voltar": dentro de uma página ele volta uma página, como o círculo
 	if visible and event.is_action_pressed("ui_cancel"):

@@ -2,8 +2,9 @@ class_name DroneColega
 extends Node3D
 ## O drone colega do robô (modelo Enemy_EyeDrone do Sci-Fi Essentials Kit do Quaternius, CC0). Fica no
 ## posto dele na base, ao lado da boca do cilindro de melhorias, pairando e olhando o robô quando ele chega
-## perto. Quando o robô entra em pane, aparece voando por cima dele, acende o facho e o leva de volta: a
-## tela escurece, os dois reaparecem na base e ele volta ao posto.
+## perto. Quando o robô entra em pane, aparece voando por cima dele, acende o facho e o leva: a tela escurece
+## e os dois reaparecem num chão seguro a uns 100 m dali (LugarSeguro; até 2026-11-21 era a base). Quando o
+## robô religa, ele volta ao posto; de longe, sobe e some na direção da base, sem atravessar a ilha num risco.
 ## Quem cria passa `armadura` e `posto` (no mundo).
 
 enum Modo { POSTO, BUSCA, SOBRE, VOLTA, INSTALA }
@@ -32,6 +33,7 @@ var _ocio_t := 5.0  # até o próximo olhar em volta
 var bipes := 0  # quantas vezes falou (testes)
 var _perto := false
 var _fala_t := 3.0
+var _volta_ate := Vector3.INF  # de longe, ele sobe até aqui na direção da base e só então reaparece no posto
 var cena_lugar := Vector3.INF  # as cenas da história (Historia) levam o drone para cá...
 var cena_olha := Vector3.ZERO  # ... olhando para cá
 
@@ -132,6 +134,11 @@ func _soltar() -> void:
 	modo = Modo.VOLTA
 	_t = 0.0
 	_de = global_position
+	_volta_ate = Vector3.INF
+	var rumo := posto - _de
+	rumo.y = 0.0
+	if rumo.length() > 150.0:
+		_volta_ate = _de + rumo.normalized() * 70.0 + Vector3(0, 32.0, 0)
 	gesto("BackFlip", 1.1)
 
 
@@ -252,10 +259,14 @@ func _process(delta: float) -> void:
 			_t += delta
 			_facho.visible = _t < 0.6
 			var k2 := smoothstep(0.0, 1.0, clampf((_t - 0.5) / 2.6, 0.0, 1.0))
-			global_position = _de.lerp(posto, k2) + balanco
+			var ate := _volta_ate if _volta_ate.is_finite() else posto
+			global_position = _de.lerp(ate, k2) + balanco
 			if _t > 0.5:
-				_olhar(posto + (posto - _de), delta, 3.0)
+				_olhar(ate + (ate - _de), delta, 3.0)
 			if k2 >= 1.0:
+				if _volta_ate.is_finite():
+					global_position = posto  # já longe e no alto: reaparece no posto
+					_volta_ate = Vector3.INF
 				modo = Modo.POSTO
 	if _facho.visible:
 		var m := _facho.material_override as StandardMaterial3D

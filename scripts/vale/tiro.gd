@@ -561,6 +561,13 @@ func _granada(delta: float) -> void:
 			no.queue_free()
 			_estouro(ate, float(Arsenal.granada()["dano"]), float(Arsenal.granada()["area"]))
 	# segurando o botão aparece o arco (a tela desenha `arco`); soltando, a granada sai do lançador do ombro
+	if Controles.acorde():
+		# L1 e R1 juntos é o atalho do medidor: a granada que estava na mão não sai
+		_mirando_granada = false
+		arco = PackedVector3Array()
+		CameraVoo.afasta = 0.0
+		_esconder_arco()
+		return
 	var pode := not RodaArmas.aberta and _pode_atirar() and Arsenal.granadas > 0
 	if Input.is_action_just_pressed("granada") and not RodaArmas.aberta and Arsenal.granadas <= 0:
 		Som.toque3d(self, "sem_municao", armadura.global_position, -4.0)

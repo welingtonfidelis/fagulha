@@ -18,6 +18,8 @@ uniform float forca_refracao = 0.06;
 uniform float escala = 0.035;
 uniform float prof_max = 9.0;
 uniform float prof_espuma = 0.45;
+// quedas d'água feitas na própria fita (os rios de degelo da terra nova): a parte em pé vira água branca
+uniform float espuma_queda = 0.0;
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
@@ -106,6 +108,16 @@ void fragment() {
 	float base = mix(0.1, 0.95, smoothstep(0.0, 1.5, prof0));
 	ALPHA = clamp(base + fres * (1.0 - base) * 0.7 + espuma * 0.4, 0.0, 1.0);
 
+	if (espuma_queda > 0.0) {
+		vec3 face = normalize(cross(dFdy(wpos), dFdx(wpos)));
+		float em_pe = (1.0 - smoothstep(0.45, 0.85, abs(face.y))) * espuma_queda;
+		// fios de água caindo depressa (pela altura, que é o que muda na parte em pé)
+		float fio = texture(ruido, vec2(ao_traves * 0.35, (wpos.y + TIME * 9.0) * 0.035)).r;
+		float fio2 = texture(ruido, vec2(ao_traves * 0.9 + 0.37, (wpos.y + TIME * 13.0) * 0.08)).r;
+		vec3 branca = mix(vec3(0.42, 0.62, 0.64), cor_espuma, smoothstep(0.35, 0.62, fio * 0.7 + fio2 * 0.5));
+		ALBEDO = mix(ALBEDO, branca, em_pe);
+		ALPHA = mix(ALPHA, 0.9, em_pe);
+	}
 	ROUGHNESS = 0.05;
 	SPECULAR = 0.5;
 	METALLIC = 0.0;

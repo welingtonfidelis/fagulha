@@ -61,6 +61,8 @@ func cachoeira_em(pos: Vector3) -> void:
 	add_child(p)
 	p.global_position = pos
 	p.play()
+	# debaixo d'água a cachoeira abafa junto com a natureza (o barramento é do SomAmbiente, que pode nascer depois)
+	(func() -> void: if AudioServer.get_bus_index(SomAmbiente.BUS_NATUREZA) >= 0: p.bus = SomAmbiente.BUS_NATUREZA).call_deferred()
 
 
 func _process(delta: float) -> void:

@@ -11,6 +11,23 @@ extends RefCounted
 ## e ligar o voo no ar: segurar o X; cortar os jatos voando: toque no X e segurar o X). No teclado nada muda.
 
 static var _feito := false
+static var _acorde := false
+static var _acorde_quadro := -1
+
+
+## L1 e R1 apertados juntos (o atalho do medidor). Vale desde que os dois estão apertados até soltar os dois,
+## para a roda de armas e a granada não agirem no meio (nem ao soltar um antes do outro).
+static func acorde() -> bool:
+	var q := Engine.get_process_frames()
+	if q != _acorde_quadro:
+		_acorde_quadro = q
+		var l := Input.is_action_pressed("roda")
+		var r := Input.is_action_pressed("granada")
+		if l and r:
+			_acorde = true
+		elif not l and not r:
+			_acorde = false
+	return _acorde
 
 
 static func configurar() -> void:
@@ -82,14 +99,16 @@ static func configurar() -> void:
 	_tecla("scanner", [KEY_T])
 	_botao("scanner", JOY_BUTTON_DPAD_RIGHT)
 	# O caderno (mapa, memórias e o que o scanner leu) tem botão próprio, fora da pausa (pedido do usuário,
-	# 2026-11-20): o clique no touchpad do DualSense / M.
+	# 2026-11-20): o Create (Select) / M, e também o clique no touchpad. No PC, com o Steam Input ligado, a Steam
+	# troca o DualSense por um controle de Xbox sem touchpad (a metade direita do touch vira Start e abria a
+	# pausa); por isso o Create, que lá vira Select (2026-11-21, pedido do usuário).
 	_tecla("caderno", [KEY_M])
+	_botao("caderno", JOY_BUTTON_BACK)
 	_botao("caderno", JOY_BUTTON_TOUCHPAD)
-	# Pausa e medidor de desempenho.
+	# Pausa e medidor de desempenho. No controle, o medidor é L1 e R1 juntos por 2 s (`acorde`, o Hud conta).
 	_tecla("menu", [KEY_ESCAPE, KEY_TAB])
 	_botao("menu", JOY_BUTTON_START)
 	_tecla("medidor", [KEY_F3])
-	_botao("medidor", JOY_BUTTON_BACK)
 	# Na Godot 4.7, confirmar e voltar dos menus não vêm ligados ao controle.
 	_botao("ui_accept", JOY_BUTTON_A)
 	_botao("ui_cancel", JOY_BUTTON_B)

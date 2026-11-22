@@ -46,6 +46,9 @@ var casa := Vector3.ZERO  # centro do bando
 var quantos := 6
 var semente := 0
 var pintar: Callable  # opcional: pintar.call(modelo) em cada pássaro instanciado
+var escala := 1.7  # maior que o real, para aparecer no capim (as gaivotas da praia usam mais)
+var freq := FREQ_BATER  # batidas por segundo (as gaivotas batem devagar)
+var chao_ok: Callable  # opcional: chao_ok.call(x, z) -> bool limita onde o bando pousa (as gaivotas, na areia)
 var estado := Estado.NO_CHAO
 var decolagens := 0  # quantas vezes o bando levantou voo (para testes)
 
@@ -117,7 +120,7 @@ func _ready() -> void:
 func _novo_passaro() -> Ave:
 	var modelo := _cena.instantiate() as Node3D
 	modelo.rotation.y = PI  # o modelo olha para +Z; aqui a frente é -Z
-	modelo.scale = Vector3.ONE * 1.7  # maior que o real, para aparecer no capim
+	modelo.scale = Vector3.ONE * escala
 	var a := Ave.new()
 	a.raiz = Node3D.new()
 	add_child(a.raiz)
@@ -419,6 +422,8 @@ func _tentar_pulo(a: Ave) -> bool:
 
 
 func _seco(x: float, z: float) -> bool:
+	if chao_ok.is_valid() and not chao_ok.call(x, z):
+		return false
 	return mapa.agua(x, z) == -INF and mapa.normal_em(x, z).y > 0.9
 
 
@@ -442,7 +447,7 @@ func _animar(a: Ave, delta: float) -> void:
 		plana = a.pos.y - mapa.altura(a.alvo.x, a.alvo.z) < 2.5  # no último trecho, planando
 	var bate := a.voo and not plana
 	if bate:
-		a.fase = fmod(a.fase + TAU * FREQ_BATER * delta, TAU)
+		a.fase = fmod(a.fase + TAU * freq * delta, TAU)
 	a.amp = lerpf(a.amp, AMP_BATER if bate else 0.0, k)
 	a.dobra = lerpf(a.dobra, 0.0 if a.voo else 1.0, k)
 	var dobra := a.dobra * DOBRA
@@ -456,7 +461,7 @@ func _animar(a: Ave, delta: float) -> void:
 	a.corpo.rotation = a.rot_corpo + Vector3(a.inclina, a.cabeca, 0.0)
 
 	# corpo no ar: aponta para onde vai, sobe/desce e inclina nas curvas
-	var pitch_alvo := clampf(atan2(a.vy, a.vh), -0.5, 0.5) if a.voo else 0.0
+	var pitch_alvo := clampf(atan2(a.vy, a.vh), -0.5, 0.5) - Gaivotas.NARIZ if a.voo else 0.0  # (o modelo pousado tem o bico erguido)
 	var roll_alvo := clampf(a.giro * a.vh * 0.1, -0.5, 0.5) if a.voo else 0.0
 	a.pitch = lerpf(a.pitch, pitch_alvo, k)
 	a.roll = lerpf(a.roll, roll_alvo, k)

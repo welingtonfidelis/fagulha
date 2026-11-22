@@ -651,7 +651,7 @@ func _controle() -> void:
 		g2.axis_value = 0.0
 		Input.parse_input_event(g2)
 		await get_tree().process_frame
-	var botoes := {"soltar": JOY_BUTTON_B, "menu": JOY_BUTTON_START, "medidor": JOY_BUTTON_BACK, "marcar": JOY_BUTTON_DPAD_DOWN, "granada": JOY_BUTTON_RIGHT_SHOULDER, "roda": JOY_BUTTON_LEFT_SHOULDER}
+	var botoes := {"soltar": JOY_BUTTON_B, "menu": JOY_BUTTON_START, "caderno": JOY_BUTTON_BACK, "marcar": JOY_BUTTON_DPAD_DOWN, "granada": JOY_BUTTON_RIGHT_SHOULDER, "roda": JOY_BUTTON_LEFT_SHOULDER}
 	for acao in botoes:
 		var e := InputEventJoypadButton.new()
 		e.button_index = botoes[acao]

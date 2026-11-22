@@ -156,6 +156,10 @@ func _ready() -> void:
 	armadura.global_position = ilha.spawn
 	if ilha is Vale:
 		armadura.base = ilha.spawn
+		# na pane o drone deixa o robô num chão seguro a uns 100 m, e não mais na base (2026-11-21)
+		var vale_resgate := ilha as Vale
+		armadura.achar_resgate = func(p: Vector3) -> Vector3:
+			return LugarSeguro.achar(vale_resgate, p, armadura.get_world_3d().direct_space_state, get_tree())
 	camera = CameraVoo.new()
 	camera.name = "Camera"
 	camera.alvo = armadura
@@ -376,6 +380,7 @@ func _ready() -> void:
 		# (ficava em -62, -56, a 120 m da base e na direção natural da primeira caminhada; 2026-11-19)
 		mecha.casa = Vector3(-128, ilha.altura(-128, -118), -118)
 		mecha.semente = 5
+		mecha.iniciante = true  # o primeiro que o jogador acha: o mais fácil do jogo (2026-11-21)
 		add_child(mecha)
 		var peixes := Peixes.new()
 		peixes.mapa = ilha
@@ -867,7 +872,9 @@ func _retomar_progresso() -> void:
 	var pos_g = Guardado.progresso("posicao")
 	if pos_g is Array and (pos_g as Array).size() >= 4 and ilha is Vale:
 		var onde := Vector3(float(pos_g[0]), float(pos_g[1]), float(pos_g[2]))
-		if maxf(absf(onde.x), absf(onde.z)) < Vale.F_META - 20.0 and ilha.agua(onde.x, onde.z) == -INF:
+		var no_mapa: bool = maxf(absf(onde.x), absf(onde.z)) < Vale.F_META - 20.0 \
+				or ((ilha as Vale).terra_nova != null and (ilha as Vale).terra_nova.cobre(onde.x, onde.z))
+		if no_mapa and ilha.agua(onde.x, onde.z) == -INF:
 			# se o relevo mudou de uma versão para outra e o ponto ficou enterrado, sobe para o chão de agora
 			onde.y = maxf(onde.y, ilha.altura(onde.x, onde.z)) + 0.4
 			armadura.teleportar(onde, Armadura.Estado.AR)

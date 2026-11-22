@@ -1,7 +1,7 @@
 class_name Hud
 extends Control
 ## Mira com a barra de calor em arco, velocidade e altura no canto, aviso de superaquecimento e
-## o medidor de desempenho (F3 ou Create/Share).
+## o medidor de desempenho (F3, ou L1 e R1 juntos por 2 s no controle).
 
 const TEMPO_ENTRAR := 0.4  # alfa do nome lugar sobe em 0,4 s
 const TEMPO_FICAR := 2.5
@@ -12,6 +12,9 @@ var locais: Locais  # null no modo de teste: o HUD funciona sem ele
 var tiro: Tiro  # para desenhar o colchete na máquina travada
 var medidor := false
 var _rotulo_medidor: Label
+const ACORDE := 2.0  # s segurando L1 e R1 juntos para ligar ou desligar o medidor
+var _acorde_t := 0.0
+var _acorde_feito := false
 var _fonte: Font
 var _nome_lugar := ""
 var _sub_lugar := ""  # "lugar descoberto · N de M" na primeira visita
@@ -68,6 +71,21 @@ func _ao_chegar(nome: String, primeira_vez: bool) -> void:
 	_tempo_lugar = 0.0
 
 
+## L1 e R1 juntos por 2 s: vale uma vez a cada vez que os dois são apertados (o Create, que era do medidor,
+## passou para o caderno em 2026-11-21).
+func _acorde_medidor(delta: float) -> bool:
+	if Controles.acorde() and Input.is_action_pressed("roda") and Input.is_action_pressed("granada"):
+		_acorde_t += delta / maxf(Engine.time_scale, 0.05)
+		if _acorde_t >= ACORDE and not _acorde_feito:
+			_acorde_feito = true
+			return true
+	else:
+		_acorde_t = 0.0
+		if not Controles.acorde():
+			_acorde_feito = false
+	return false
+
+
 static var aro_rota := Vector3.INF  # o aro da vez de uma rota do piloto de teste (Rotas): um círculo laranja na tela e na bússola
 static var marcas := 0  # quantos marcadores a bússola mostra agora (memórias perto, peças da antena, o marcador do jogador); a vibração avisa quando surge um
 static var limpa := false  # apreciando a vista (a câmera avisa): a tela some
@@ -92,7 +110,7 @@ func _process(delta: float) -> void:
 				_nome_lugar = f[0]
 				_sub_lugar = f[1]
 				_tempo_lugar = 0.0
-	if Input.is_action_just_pressed("medidor"):
+	if Input.is_action_just_pressed("medidor") or _acorde_medidor(delta):
 		medidor = not medidor
 	_rotulo_medidor.visible = medidor
 	if medidor and alvo:

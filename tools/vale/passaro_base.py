@@ -4,11 +4,12 @@
 # na raiz, e tudo sai com os nomes que o jogo espera: corpo, asaE, asaD, olhos; materiais pena, pena_clara,
 # bico e pelo_escuro (o jogo pinta por esses nomes).
 #   blender -b --factory-startup --disable-autoexec <bird.blend> -P tools/vale/passaro_base.py -- assets/vale/passaro.glb
+import math
 import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 saida = sys.argv[sys.argv.index("--") + 1]
 COMP = 0.34  # comprimento do pássaro pronto, do bico à cauda, em metros
@@ -21,6 +22,10 @@ velha = [o for o in bpy.data.objects if o.type == "MESH"][0]
 dg = bpy.context.evaluated_depsgraph_get()
 me0 = bpy.data.meshes.new_from_object(velha.evaluated_get(dg))
 me0.transform(velha.matrix_world)
+# a basemesh olha para +Y. A primeira versão tomou essa ponta pelo rabo e pôs o bico e os olhos na cauda: as
+# aves voavam de ré (visto pelo usuário em 2026-11-22). Meia volta em Z deixa a cabeça em -Y, a frente do
+# Blender, que sai em +Z no glTF
+me0.transform(Matrix.Rotation(math.pi, 4, "Z"))
 bpy.data.objects.remove(velha)
 ave = bpy.data.objects.new("corpo", me0)
 bpy.context.scene.collection.objects.link(ave)

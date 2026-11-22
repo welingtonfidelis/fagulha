@@ -33,6 +33,8 @@ var _rajada_t := 0.0
 var corpo_a_corpo := false  # em vez de atirar, chega junto e bate (espada ou martelo)
 var forca_golpe := 7.0
 var alcance_golpe := 0.0  # corpo a corpo: até onde o golpe pega, do meio do corpo (0: dist_tiro * 1.25)
+var aviso_mult := 1.0  # o aviso antes do ataque, vezes isto (mais longo no iniciante da base)
+var dano_golpe := 1.0  # o calor que um golpe põe no robô, vezes isto (Ajustes.GOLPE_CALOR)
 var rodeia := false  # em vez de ficar parado na distância de tiro, corre em volta do robô
 var motor := "carrapato_loop"
 
@@ -296,13 +298,13 @@ func _process(delta: float) -> void:
 						if corpo_a_corpo:
 							# o golpe só pega se o robô ainda estiver ao alcance (e não muito acima ou abaixo)
 							if dist < alcance() * 1.2 and absf(dy) < altura_m and alvo and not alvo.em_pane:
-								alvo.levar_golpe(_rumo, forca_golpe)
+								alvo.levar_golpe(_rumo, forca_golpe, dano_golpe)
 								golpes_dados += 1
 						else:
 							_rajada_resta = rajada
 							_rajada_t = 0.0
 				elif _recarga <= 0.0 and ve and (dist < alcance() and absf(dy) < altura_m if corpo_a_corpo else para_alvo.length() < dist_tiro * 2.2):
-					_aviso = TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO
+					_aviso = (TEMPO_AVISO_GOLPE if corpo_a_corpo else TEMPO_AVISO) * aviso_mult
 					_recarga = tempo_tiro
 		Estado.VOLTA:
 			var para := casa - global_position

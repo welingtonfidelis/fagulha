@@ -9,7 +9,17 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+import pontes_de_terra  # as pontes de terra até a terra nova (o mesmo relevo nas duas grades)
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# o que o jogo usa sai do juntador das duas terras (tools/vale/mapa_mundo.py): ele roda este arquivo com
+# MAPA_SAIDA numa pasta à parte e grava em assets/vale/mapa/ o mundo unido. Rodado sozinho, este arquivo chama
+# o juntador, que refaz tudo
+SAIDA = os.environ.get("MAPA_SAIDA")
+if SAIDA is None:
+    import subprocess
+    import sys
+    sys.exit(subprocess.call([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mapa_mundo.py")]))
 N = 751
 P = 4.0
 META = 1500.0
@@ -175,7 +185,8 @@ d_lag = np.sqrt((xx - LAGOA[0]) ** 2 + (zz - LAGOA[1]) ** 2)
 borda_lag = suave(LAGOA[2] + 150, LAGOA[2] + 20, d_lag)
 alto = np.maximum(alto, (LAGOA_NIVEL + 12 + fbm(80, 83) * 10) * borda_lag)
 bacia = 1 - suave(LAGOA[2] - 26, LAGOA[2] + 8, d_lag)
-alto = alto * (1 - bacia) + (LAGOA_NIVEL - 7.0 + 5.0 * suave(30, LAGOA[2], d_lag)) * bacia
+# (o meio descia 7 m; agora 14, com a beira rasa igual: pedido do usuário, 2026-11-22, "tudo é muito raso")
+alto = alto * (1 - bacia) + (LAGOA_NIVEL - 14.0 + 12.0 * suave(25, LAGOA[2], d_lag)) * bacia
 CORREGO = [(REPRESA_X + 2, -333), (1150, -318), (1200, -338), (1250, -300), (1300, -285), (1380, -270)]
 d_cor, t_cor = dist_linha(CORREGO)
 leito = 12.0 * (1 - np.clip(t_cor / 0.72, 0, 1)) ** 1.15 - 1.0
@@ -225,6 +236,8 @@ velho_vale = (fora <= -40) & (np.abs(h - velho_e) < 1.5)
 # a fenda também corta o que sobrou do mapa antigo no caminho
 h = np.where(d_fen < 60, np.minimum(h, piso + (h - piso) * suave(7, 30, d_fen)), h)
 h = np.maximum(h, FUNDO)
+# as pontes de terra do oeste e do noroeste (2026-11-21), que levam à terra nova
+subiu_pontes = pontes_de_terra.aplicar_altura(h, -META, -META)
 
 # ---------- cobertura: 0 campo, 1 mata, 2 mata fechada, 3 flores, 4 areia ----------
 mata = fbm(220, 41) + fbm(60, 43) * 0.4
@@ -245,9 +258,10 @@ cob[(h < 2.6) & (h > FUNDO + 0.05)] = 4
 cob[(h <= FUNDO + 0.05)] = 4  # o fundo do mar é areia (com campo, o mar mudava de cor na borda dos dados)
 inclin = np.hypot(np.gradient(h, axis=0), np.gradient(h, axis=1)) / P
 cob[(inclin > 0.9) & (cob != 4)] = np.where(velho_vale, cob, 0)[(inclin > 0.9) & (cob != 4)]
+pontes_de_terra.aplicar_cobertura(cob, subiu_pontes, -META, -META)
 
-h.astype(np.float32).tofile(RAIZ + "/assets/vale/mapa/alturas.bin")
-cob.tofile(RAIZ + "/assets/vale/mapa/cobertura.bin")
+h.astype(np.float32).tofile(SAIDA + "/alturas.bin")
+cob.tofile(SAIDA + "/cobertura.bin")
 
 # ---------- a maquete ----------
 cor = np.zeros((N, N, 3))

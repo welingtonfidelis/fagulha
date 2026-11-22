@@ -21,7 +21,8 @@ const RIO: Array[Vector2] = [Vector2(34, -2), Vector2(52, 30), Vector2(74, 66), 
 	Vector2(232, 320), Vector2(282, 430), Vector2(316, 560), Vector2(332, 700), Vector2(344, 820), Vector2(352, 1000)]
 const RIO_LEITO := 4.5  # metade da largura do leito chato
 const RIO_FAIXA := 11.0  # metade da largura da fita d'água (as margens escondem a sobra)
-const RIO_FUNDO := 1.3
+const RIO_FUNDO := 1.3  # na beira do leito
+const RIO_FUNDO_MEIO := 3.0  # no meio (era 1,3 em todo o leito: raso demais; pedido do usuário, 2026-11-22)
 
 # O riacho que vem do norte: nasce na serra, cai na cachoeira (o fim do trecho de cima) dentro do poço
 # e desce pela mata fechada até o começo do riacho da clareira.
@@ -59,6 +60,9 @@ func na_cachoeira(p: Vector3) -> bool:
 var _fora_h := PackedFloat32Array()
 var _cob := PackedByteArray()
 var arvores_fora := 0
+## A terra nova do noroeste, com a Montanha do Degelo (doc §137). Fora do quadrado de hoje, a altura, a água
+## e a cobertura vêm dela.
+var terra_nova: TerraNova = null
 
 # distância até a terra, numa grade de 16 m (para o limite do mar)
 ## Até onde o vulto das árvores de fora é desenhado. Eram 1.300 m na ilha de 2 km; na de 3 km, do alto da
@@ -66,6 +70,9 @@ var arvores_fora := 0
 const VULTO_ATE := 2300.0
 const C_PASSO := 16.0
 const C_N2 := 189
+# a grade da costa cobre a ilha de hoje e, quando há, a terra nova (canto de cima à esquerda e tamanho)
+var _c0 := Vector2(-F_META, -F_META)
+var _cn := Vector2i(C_N2, C_N2)
 var _costa_dist := PackedFloat32Array()
 var _costa_terra := PackedInt32Array()  # índice da célula de terra mais perto
 
@@ -75,6 +82,10 @@ func gerar(_semente := 7) -> void:
 	Obstaculos.limpar()
 	Tempos.marca("Obstaculos.limpar")
 	_carregar()
+	terra_nova = TerraNova.new()
+	if not terra_nova.carregar():
+		terra_nova.free()
+		terra_nova = null
 	Tempos.marca("_carregar")
 	_preparar_rio()
 	Tempos.marca("_preparar_rio")
@@ -94,6 +105,10 @@ func gerar(_semente := 7) -> void:
 	Tempos.marca("_malha_fora")
 	_colisao_fora()
 	Tempos.marca("_colisao_fora")
+	if terra_nova:
+		add_child(terra_nova)
+		terra_nova.montar(self)
+		Tempos.marca("TerraNova.montar")
 	_falesia_da_borda()
 	Tempos.marca("_falesia_da_borda")
 	_mar()
@@ -107,6 +122,9 @@ func gerar(_semente := 7) -> void:
 	await _avisar(0.46, "Plantando a mata")
 	_mata_fora()
 	Tempos.marca("_mata_fora")
+	if terra_nova:
+		terra_nova.plantar(self)
+		Tempos.marca("TerraNova.plantar")
 	await _avisar(0.54, "Espalhando flores e pedras")
 	_plantas_do_chao()
 	Tempos.marca("_plantas_do_chao")
@@ -122,9 +140,13 @@ func gerar(_semente := 7) -> void:
 	Tempos.marca("Ruinas.montar")
 	Marcos.montar(self)
 	Tempos.marca("Marcos.montar")
+	if terra_nova:
+		terra_nova.lugares_com_nome()
 	await _avisar(0.86, "Acendendo as forjas")
 	Fundicao.montar(self)
 	Tempos.marca("Fundicao.montar")
+	MapaCaderno.preparar_terra(self)  # o relevo do mapa do caderno (do Cache depois da primeira vez)
+	Tempos.marca("MapaCaderno.preparar_terra")
 	print("vale gerado em %d ms, %d árvores fora da clareira" % [Time.get_ticks_msec() - t0, arvores_fora])
 
 
@@ -151,6 +173,8 @@ func _fora(x: float, z: float) -> float:
 
 
 func cobertura(x: float, z: float) -> int:
+	if maxf(absf(x), absf(z)) > F_META:
+		return terra_nova.cobertura(x, z) if _na_terra_nova(x, z) else 0
 	var ix := clampi(roundi((x + F_META) / F_PASSO), 0, F_N - 1)
 	var iz := clampi(roundi((z + F_META) / F_PASSO), 0, F_N - 1)
 	return _cob[iz * F_N + ix]
@@ -158,6 +182,18 @@ func cobertura(x: float, z: float) -> int:
 
 func _dentro(x: float, z: float) -> bool:
 	return maxf(absf(x), absf(z)) <= C_META
+
+
+## Fora do quadrado da ilha de hoje e dentro da grade da terra nova.
+func _na_terra_nova(x: float, z: float) -> bool:
+	return terra_nova != null and maxf(absf(x), absf(z)) > F_META and terra_nova.cobre(x, z)
+
+
+## O relevo de fora em qualquer lugar: a grade de hoje, a da terra nova, ou o fundo do mar além das duas.
+func _alt_fora(x: float, z: float) -> float:
+	if maxf(absf(x), absf(z)) <= F_META or terra_nova == null:
+		return _fora(x, z)
+	return terra_nova.altura(x, z) if terra_nova.cobre(x, z) else TerraNova.FUNDO
 
 
 ## O chão da clareira, misturado ao de fora perto da borda, e com o leito do rio que sai da lagoa.
@@ -400,7 +436,7 @@ func _cavar_rio(x: float, z: float, h: float) -> float:
 		if r.y < 0.5 and r.x > RIO_LEITO:
 			continue
 		var n := c.nivel(r.y)
-		var leito := minf(h, n - RIO_FUNDO)
+		var leito := minf(h, n - lerpf(RIO_FUNDO_MEIO, RIO_FUNDO, smoothstep(0.0, RIO_LEITO, r.x)))
 		var rampa := n + 0.55 + maxf(0.0, r.x - 10.0) * 0.25
 		var margem := minf(maxf(h, n + 0.55), maxf(rampa, n + 0.55))
 		if h < n + 0.55:
@@ -631,7 +667,7 @@ func _cachoeira() -> void:
 
 
 func altura(x: float, z: float) -> float:
-	return super.altura(x, z) if _dentro(x, z) else _fora(x, z)
+	return super.altura(x, z) if _dentro(x, z) else _alt_fora(x, z)
 
 
 func agua(x: float, z: float) -> float:
@@ -640,6 +676,8 @@ func agua(x: float, z: float) -> float:
 	var h := altura(x, z)
 	if h < MAR:
 		return MAR
+	if _na_terra_nova(x, z):
+		return terra_nova.agua(x, z, h)
 	for c: Curso in _cursos:
 		var r := c.perto(x, z, RIO_FAIXA)
 		if r.x < RIO_FAIXA and r.y >= c.fita_de - 2.0 and r.y <= c.fita_ate + 2.0:
@@ -664,6 +702,8 @@ func agua(x: float, z: float) -> float:
 func normal_em(x: float, z: float) -> Vector3:
 	if _dentro(x, z):
 		return super.normal_em(x, z)
+	if _na_terra_nova(x, z):
+		return terra_nova.normal_em(x, z)
 	var e := F_PASSO
 	return Vector3(_fora(x - e, z) - _fora(x + e, z), 2.0 * e, _fora(x, z - e) - _fora(x, z + e)).normalized()
 
@@ -700,17 +740,21 @@ func _cume() -> void:
 
 ## Grade grossa com a distância de cada ponto do mar até a terra mais perto (busca em largura a partir da terra).
 func _preparar_costa() -> void:
-	_costa_dist.resize(C_N2 * C_N2)
+	if terra_nova:
+		_c0 = Vector2(TerraNova.X0, TerraNova.Z0)
+		_cn = Vector2i(int((F_META - _c0.x) / C_PASSO) + 1, int((F_META - _c0.y) / C_PASSO) + 1)
+	var nx := _cn.x
+	_costa_dist.resize(_cn.x * _cn.y)
 	_costa_dist.fill(INF)
-	_costa_terra.resize(C_N2 * C_N2)
+	_costa_terra.resize(_cn.x * _cn.y)
 	_costa_terra.fill(-1)
 	var fila := PackedInt32Array()
-	for iz in C_N2:
-		for ix in C_N2:
-			var x := -F_META + ix * C_PASSO
-			var z := -F_META + iz * C_PASSO
-			if _fora(x, z) > 1.2:
-				var i := iz * C_N2 + ix
+	for iz in _cn.y:
+		for ix in nx:
+			var x := _c0.x + ix * C_PASSO
+			var z := _c0.y + iz * C_PASSO
+			if _alt_fora(x, z) > 1.2:
+				var i := iz * nx + ix
 				_costa_dist[i] = 0.0
 				_costa_terra[i] = i
 				fila.append(i)
@@ -718,31 +762,32 @@ func _preparar_costa() -> void:
 	while k < fila.size():
 		var i := fila[k]
 		k += 1
-		var ix := i % C_N2
-		var iz := i / C_N2
+		var ix := i % nx
+		var iz := i / nx
 		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var jx := ix + d.x
 			var jz := iz + d.y
-			if jx < 0 or jz < 0 or jx >= C_N2 or jz >= C_N2:
+			if jx < 0 or jz < 0 or jx >= nx or jz >= _cn.y:
 				continue
-			var j := jz * C_N2 + jx
+			var j := jz * nx + jx
 			if _costa_terra[j] >= 0:
 				continue
 			_costa_terra[j] = _costa_terra[i]
 			var t := _costa_terra[i]
-			_costa_dist[j] = Vector2(jx - t % C_N2, jz - t / C_N2).length() * C_PASSO
+			_costa_dist[j] = Vector2(jx - t % nx, jz - t / nx).length() * C_PASSO
 			fila.append(j)
 
 
 func _celula_costa(x: float, z: float) -> int:
-	var ix := clampi(roundi((x + F_META) / C_PASSO), 0, C_N2 - 1)
-	var iz := clampi(roundi((z + F_META) / C_PASSO), 0, C_N2 - 1)
-	return iz * C_N2 + ix
+	var ix := clampi(roundi((x - _c0.x) / C_PASSO), 0, _cn.x - 1)
+	var iz := clampi(roundi((z - _c0.y) / C_PASSO), 0, _cn.y - 1)
+	return iz * _cn.x + ix
 
 
-## Metros até a terra mais perto (0 em terra). Fora do mapa soma o que passou da borda.
+## Metros até a terra mais perto (0 em terra). Fora da grade soma o que passou da borda.
 func distancia_da_costa(x: float, z: float) -> float:
-	var fora_mapa := Vector2(maxf(0.0, absf(x) - F_META), maxf(0.0, absf(z) - F_META)).length()
+	var fim := _c0 + Vector2(_cn - Vector2i.ONE) * C_PASSO
+	var fora_mapa := Vector2(maxf(0.0, maxf(_c0.x - x, x - fim.x)), maxf(0.0, maxf(_c0.y - z, z - fim.y))).length()
 	return _costa_dist[_celula_costa(x, z)] + fora_mapa
 
 
@@ -751,17 +796,17 @@ func praia_perto(x: float, z: float) -> Vector3:
 	var t := _costa_terra[_celula_costa(x, z)]
 	if t < 0:
 		return spawn
-	var px := -F_META + (t % C_N2) * C_PASSO
-	var pz := -F_META + (t / C_N2) * C_PASSO
+	var px := _c0.x + (t % _cn.x) * C_PASSO
+	var pz := _c0.y + (t / _cn.x) * C_PASSO
 	# alguns passos para dentro da terra, para não nascer na linha d'água
 	var dentro := (Vector2(px, pz) - Vector2(x, z)).normalized()
 	for passo in 6:
 		var q := Vector2(px, pz) + dentro * 4.0
-		if _fora(q.x, q.y) < 1.2:
+		if _alt_fora(q.x, q.y) < 1.2:
 			break
 		px = q.x
 		pz = q.y
-		if _fora(px, pz) > 2.5:
+		if _alt_fora(px, pz) > 2.5:
 			break
 	return Vector3(px, altura(px, pz) + 0.4, pz)
 
@@ -865,6 +910,9 @@ func _falesia_da_borda() -> void:
 			var b: Array = linhas[k + 1]
 			if float(a[0]) < fundo + 0.5 and float(b[0]) < fundo + 0.5:
 				continue
+			# onde a grade da terra nova continua do lado de fora, o chão segue nela (a terra é uma só): sem falésia
+			if terra_nova and _fora_coberto(a[1], para_fora) and _fora_coberto(b[1], para_fora):
+				continue
 			var fora3 := Vector3(para_fora.x, 0, para_fora.y)
 			for f in 2:
 				for tri: Array in [[a[1 + f], b[1 + f], b[2 + f]], [a[1 + f], b[2 + f], a[2 + f]]]:
@@ -904,6 +952,10 @@ func _falesia_da_borda() -> void:
 	var cs := CollisionShape3D.new()
 	cs.shape = forma
 	corpo.add_child(cs)
+
+
+func _fora_coberto(p: Vector3, para_fora: Vector2) -> bool:
+	return terra_nova.cobre(p.x + para_fora.x * 8.0, p.z + para_fora.y * 8.0)
 
 
 func normal_em_fora(gx: int, gz: int) -> Vector3:

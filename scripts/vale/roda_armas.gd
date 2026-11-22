@@ -104,6 +104,13 @@ func _process(_delta: float) -> void:
 	# de SEGURAR, abre a roda. O toque não exige apontar nada: serve para os pequenos.
 	var apertado := Input.is_action_pressed("roda")
 	_fita_t = maxf(0.0, _fita_t - _delta / maxf(Engine.time_scale, 0.05))
+	if Controles.acorde():
+		# L1 e R1 juntos é o atalho do medidor: a roda não abre e o L1 não troca de arma
+		if aberta:
+			_fechar(false)
+		_seg = -1.0
+		_antes = apertado
+		return
 	if aberta:
 		if not pode or not apertado:
 			_fechar(pode)

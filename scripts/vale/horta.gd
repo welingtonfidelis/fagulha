@@ -1,6 +1,6 @@
 class_name Horta
 extends Node3D
-## A horta da base (1.1, doc §136): nove sementes pela ilha e um canteiro para plantar. Cinco sementes ficam
+## A horta da base (1.1, doc §136): oito sementes pela ilha (nove até 2026-11-22, quando os acampamentos viraram três) e um canteiro para plantar. Cinco sementes ficam
 ## perto dos lugares bonitos (a Árvore-Mãe, o Anel, a Cachoeira, os Arcos, as Colunas), a uns 55 a 95 m do meio
 ## deles e longe das outras coisas para achar (`PontosIlha`), e cada acampamento de máquinas liberado deixa mais
 ## uma no meio das flores. A semente brilha verde de leve (de noite é um ponto de
@@ -224,7 +224,12 @@ func _pegar(id: String) -> void:
 	_guardar()
 	_bussola()
 	if hud:
-		var falta := ILHA.size() + Acampamentos.LISTA.size() - achadas.size()
+		# conta só as sementes que ainda existem: um save antigo pode ter a do acampamento do Planalto, que saiu
+		var falta := ILHA.size() + Acampamentos.LISTA.size()
+		for a: String in achadas:
+			if ILHA.any(func(s: Dictionary) -> bool: return s["id"] == a) or Acampamentos.LISTA.any(
+					func(l: Dictionary) -> bool: return "camp_" + String(l["id"]) == a):
+				falta -= 1
 		hud.avisar("Semente achada!", "plante no canteiro da horta, na base · %d na mão · %s" %
 			[na_mao(), "faltam %d pela ilha" % falta if falta > 0 else "achou todas"])
 

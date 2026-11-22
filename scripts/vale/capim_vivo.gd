@@ -21,6 +21,10 @@ const NASCE_ATE := 88.0
 const AMOSTRA := 2.0  # metros entre as amostras de cobertura e normal (o bloco inteiro usa 17 x 17)
 const PALETA: Array[Color] = [Color(0.93, 0.30, 0.52), Color(0.98, 0.78, 0.12), Color(0.58, 0.36, 0.90), Color(0.97, 0.96, 0.88)]
 
+## Lugares de chão batido, (x, z, raio): quem anota são os acampamentos de máquinas, no começo, antes de o
+## capim nascer por perto (as tarefas só leem).
+static var batidos: Array[Vector3] = []
+
 var mapa: Vale
 var alvo: Node3D
 
@@ -280,12 +284,20 @@ func _semente(chave: Vector2i, extra: int) -> int:
 ## da origem); -INF se não. Entre 115 e 121 m, metade dos pontos nasce, para emendar com a clareira.
 func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float:
 	if absf(px) > Vale.F_META - 10.0 or absf(pz) > Vale.F_META - 10.0:
-		return -INF
+		# além do quadrado de hoje, só na terra nova (e longe da emenda com a borda da ilha)
+		var tn := mapa.terra_nova
+		if tn == null or maxf(absf(px), absf(pz)) < Vale.F_META + 10.0 or not tn.cobre(px, pz):
+			return -INF
 	var r := Vector2(px, pz).length()
 	if r < 115.0:
 		return -INF
 	if r < 121.0 and rng.randf() >= 0.5:
 		return -INF
+	# chão batido (os pátios dos acampamentos): quase nada no meio, o capim vai voltando até a beira
+	for b: Vector3 in batidos:
+		var db := Vector2(px - b.x, pz - b.y).length() / b.z
+		if db < 1.0 and rng.randf() > 0.05 + smoothstep(0.6, 1.0, db) * 0.95:
+			return -INF
 	if mapa.agua(px, pz) > -INF:
 		return -INF
 	# em cima das lajes da pista do Anel só nasce um tufo ou outro, pelas frestas; nos vãos, o capim de sempre
@@ -305,7 +317,15 @@ func _chance(c: int) -> float:
 			return 0.35
 		2:
 			return 0.12
-	return 0.0
+		7:
+			return 0.55  # campina alpina: capim baixo e ralo
+		8:
+			return 0.08  # cascalho do rio: um tufo ou outro
+		9:
+			return 0.22  # duna: capim ralo na areia
+		12:
+			return 0.6  # brejo das fontes quentes: capim alto e ralo entre as poças de lama
+	return 0.0  # areia, neve e pedra
 
 
 func _calcular(chave: Vector2i) -> Dictionary:

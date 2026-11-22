@@ -10,7 +10,15 @@ extends Node3D
 
 const PERTO := 150.0
 const LONGE := 210.0
-const CARDUMES := 120
+const CARDUMES := 170
+## Onde procurar: a grade do mundo inteiro, ilha de hoje e terra nova (x e z de -3900 a 1500). Até 2026-11-22
+## era só a ilha de hoje, e os lagos e o mar da terra nova ficavam sem nada no fundo (visto pelo usuário)
+const MUNDO_DE := -3900.0
+const MUNDO_ATE := 1500.0
+## Com o mar mais fundo (2026-11-22), as plantas descem até aqui (no fundo só algas altas e pedras) e os
+## cardumes até ali; os peixes pequenos nadam perto da lâmina, os grandes mais embaixo
+const FUNDO_PLANTAS := -24.0
+const FUNDO_CARDUMES := -32.0
 const PEIXES_POR_CARDUME := 18  # o máximo num cardume de peixes pequenos
 ## Os peixes vêm do Cute Fish Pack do Quaternius (CC0), que já estava na máquina do usuário: 32 espécies em
 ## assets/vale/peixes/ (ficaram de fora o peixe-pescador, a piranha e o tubarão-duende, pelos dentes). Todos
@@ -81,10 +89,10 @@ func _plantar() -> void:
 	rng.seed = 8128
 	var por_tipo := {}
 	var passo := 7.0
-	var z := -Vale.F_META + 6.0
-	while z < Vale.F_META - 6.0:
-		var x := -Vale.F_META + 6.0
-		while x < Vale.F_META - 6.0:
+	var z := MUNDO_DE + 6.0
+	while z < MUNDO_ATE - 6.0:
+		var x := MUNDO_DE + 6.0
+		while x < MUNDO_ATE - 6.0:
 			var px := x + rng.randf_range(-3.0, 3.0)
 			var pz := z + rng.randf_range(-3.0, 3.0)
 			var sorte := rng.randf()
@@ -96,7 +104,10 @@ func _plantar() -> void:
 			if h > -0.7 and mapa.agua(px, pz) == -INF:
 				continue
 			var nivel := mapa.agua(px, pz)
-			if nivel == -INF or nivel - h < 0.7 or h < -12.5:
+			if nivel == -INF or nivel - h < 0.7 or h < FUNDO_PLANTAS:
+				continue
+			# no fundo (mais de 10 m) as plantas rareiam e só ficam as algas altas e as pedras
+			if nivel - h > 10.0 and (sorte > 0.3 or fposmod(sorte * 37.0, 1.0) < 0.82 and fposmod(sorte * 37.0, 1.0) >= 0.34):
 				continue
 			# manchas: uns trechos cheios, outros quase vazios
 			var mancha := sin(px * 0.031 + 1.7) * cos(pz * 0.027 - 0.4) + sin(px * 0.011 - pz * 0.013)
@@ -126,6 +137,10 @@ func _plantar() -> void:
 				escala = lerpf(1.5, 3.0, tam)
 			if not mapa._malhas.has(nome):
 				continue
+			# nada fura a lâmina: nos rios, agora fundos o bastante para ganhar plantas, elas saíam da água
+			escala = minf(escala, fundura * 0.6)
+			if escala < 0.5:
+				continue
 			var chave := "%s|%d|%d" % [nome, floori(px / 120.0), floori(pz / 120.0)]
 			if not por_tipo.has(chave):
 				por_tipo[chave] = [nome, []]
@@ -146,6 +161,14 @@ func _sortear() -> void:
 		Vector2(MarcosMar.RELE.x - 70.0, MarcosMar.RELE.y), Vector2(MarcosOeste.CASCO.x - 30.0, MarcosOeste.CASCO.y + 16.0),
 		Vector2(Vale.REPRESA_LAGOA.x, Vale.REPRESA_LAGOA.y), Vector2(Vale.REPRESA_LAGOA.x + 40.0, Vale.REPRESA_LAGOA.y - 20.0),
 		Vector2(Vale.REPRESA_LAGOA.x - 40.0, Vale.REPRESA_LAGOA.y + 25.0), Vector2(Vale.POCO.x + 4.0, Vale.POCO.y + 3.0)]
+	# os lagos da terra nova: um cardume no meio e, nos grandes, mais um de cada lado
+	if mapa.terra_nova:
+		for l: Array in mapa.terra_nova.lagos:
+			var c: Vector2 = l[0]
+			fixos.append(c)
+			if float(l[1]) > 100.0:
+				fixos.append(c + Vector2(float(l[1]) * 0.5, 0.0))
+				fixos.append(c - Vector2(float(l[1]) * 0.5, 0.0))
 	var feitos: Array[Vector2] = []
 	for f: Vector2 in fixos:
 		if _agua_boa(f.x, f.y, 2.5) > -INF:
@@ -153,8 +176,8 @@ func _sortear() -> void:
 	var tentativas := 0
 	while feitos.size() < CARDUMES and tentativas < CARDUMES * 300:
 		tentativas += 1
-		var p := Vector2(rng.randf_range(-Vale.F_META + 40.0, Vale.F_META - 40.0), rng.randf_range(-Vale.F_META + 40.0, Vale.F_META - 40.0))
-		if _agua_boa(p.x, p.y, 2.5) == -INF or mapa.altura(p.x, p.y) < -12.5:
+		var p := Vector2(rng.randf_range(MUNDO_DE + 40.0, MUNDO_ATE - 40.0), rng.randf_range(MUNDO_DE + 40.0, MUNDO_ATE - 40.0))
+		if _agua_boa(p.x, p.y, 2.5) == -INF or mapa.altura(p.x, p.y) < FUNDO_CARDUMES:
 			continue
 		var livre := true
 		for q in feitos:
@@ -190,7 +213,8 @@ func _sortear() -> void:
 			medida = MAR_PEQUENOS[especie]
 			if especie == "Flatfish" or especie == "Turbot" or especie == "Blobfish" or especie.contains("LionFish") or especie == "Lionfish" or especie == "Puffer":
 				quantos = rng.randi_range(3, 6)  # estes não andam em cardume grande
-		lugares.append({"pos": Vector3(p2.x, lerpf(fundo, nivel, 0.45), p2.y), "nivel": nivel, "fundo": fundo, "semente": 300 + i * 7, "especie": especie, "medida": medida,
+		var meia_agua := maxf(lerpf(fundo, nivel, 0.45), nivel - (16.0 if raio > 10.0 else 8.0))
+		lugares.append({"pos": Vector3(p2.x, meia_agua, p2.y), "nivel": nivel, "fundo": fundo, "semente": 300 + i * 7, "especie": especie, "medida": medida,
 			"quantos": quantos, "raio": raio, "no": null, "peixes": []})
 
 

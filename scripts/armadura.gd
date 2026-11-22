@@ -142,7 +142,12 @@ var graca_pane := 0.0  # depois de religar, as máquinas não o enxergam por est
 var panes := 0
 var _avaria_tempo := 0.0
 var _pane_t := 0.0
-var _pane_volta := Vector3.INF  # para onde o robô volta no meio da pane (pane no mar)
+var _pane_volta := Vector3.INF  # para onde o robô vai no meio da pane, se não houver lugar seguro (a base)
+var _pane_de := Vector3.INF  # perto de onde procurar o lugar seguro (pane no mar: a praia); INF = onde ele caiu
+## Desde 2026-11-21 o drone não leva mais o robô para a base: deixa a uns 100 m de onde ele desligou, num chão
+## seguro (LugarSeguro). Quem cria passa a busca (recebe o ponto, devolve o lugar ou INF); sem ela, vai à base.
+var achar_resgate := Callable()
+var resgatado_em := Vector3.INF  # onde o drone deixou o robô na última pane (testes e fotos)
 var queda_altura := 0.0  # metros caídos no último pouso
 
 var camera: CameraVoo
@@ -278,18 +283,21 @@ func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 		em_pane = true
 		_pane_t = 0.0
 		_pane_volta = base
+		_pane_de = Vector3.INF
 		if estado != Estado.CHAO:
 			_mudar(Estado.AR)
 		entrou_pane.emit()
 
 
-## Pane sem golpe (longe demais no mar): desliga e, com a tela já escura, volta para `volta` (a praia).
+## Pane sem golpe (longe demais no mar): desliga e, com a tela já escura, o drone o deixa em terra firme perto
+## de `volta` (a praia mais perto).
 func pane_forcada(volta: Vector3) -> void:
 	if em_pane:
 		return
 	em_pane = true
 	_pane_t = 0.0
 	_pane_volta = base if base.is_finite() else volta
+	_pane_de = volta
 	if estado != Estado.CHAO:
 		_mudar(Estado.AR)
 	entrou_pane.emit()
@@ -313,14 +321,20 @@ func _pane(delta: float) -> bool:
 	postura = 0
 	_pane_t += delta
 	if _pane_volta.is_finite() and _pane_t >= Ajustes.PANE_VOLTA:
-		# a tela já escureceu: o robô reaparece na praia
-		global_position = _pane_volta
+		# a tela já escureceu: o drone deixa o robô num chão seguro a uns 100 m dali (sem lugar, na base)
+		var perto := _pane_de if _pane_de.is_finite() else global_position
+		var lugar: Vector3 = achar_resgate.call(perto) if achar_resgate.is_valid() else Vector3.INF
+		var na_base := not lugar.is_finite()
+		global_position = _pane_volta if na_base else lugar
 		_corte = true
 		velocity = Vector3.ZERO
 		_pane_volta = Vector3.INF
+		_pane_de = Vector3.INF
 		_pico_y = global_position.y
-		if base.is_finite() and camera:
-			camera.yaw = yaw_inicio
+		resgatado_em = global_position
+		if camera:
+			if na_base and base.is_finite():
+				camera.yaw = yaw_inicio
 			camera.pitch = -0.12
 		_mudar(Estado.AR)
 		voltou_base.emit()
@@ -545,7 +559,9 @@ func _passo(delta: float) -> void:
 	var yaw_agora := atan2(-dir_voo.x, -dir_voo.z)
 	giro_lateral = lerpf(giro_lateral, wrapf(yaw_agora - _yaw_ultimo, -PI, PI) / delta, 1.0 - exp(-6.0 * delta))
 	_yaw_ultimo = yaw_agora
-	if global_position.y < -40.0 or Vector2(global_position.x, global_position.z).length() > 3000.0:
+	# (o limite do mar segura o robô bem antes; isto é só a rede de baixo. Eram 3 km, mas a terra nova vai
+	# até uns 5,5 km do meio)
+	if global_position.y < -40.0 or Vector2(global_position.x, global_position.z).length() > 7500.0:
 		recomecar()
 	_mira_e_marcador()
 
