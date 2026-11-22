@@ -3613,7 +3613,8 @@ O relevo sai de `tools/vale/mapa_terra_nova.py` (maquete em `docs/mapa/terra_nov
   Faísca e o fecho (§137.12, aprovado).
 - [x] Algumas bases de inimigos para desbloquear: decidido em 2026-11-22 que três acampamentos bastam para uma
   ilha "pacata", bem longe uns dos outros, um deles na terra nova (§137.9).
-- [ ] Bichos novos, se acharmos pacotes de modelos (CC0, CC-BY ou MIT; download só com permissão).
+- [x] Bichos novos: lagópodes, marmotas, patos-arlequim e corvos, todos feitos aqui, sem download (§137.14,
+  aprovados).
 - [x] Os restos de um pequeno vilarejo que havia na terra nova (pedido do usuário, 2026-11-21; §137.10, esperando
   aprovação pelas fotos no jogo).
 - [x] A terra nova unida à ilha antiga por pontes de terra largas e de cara natural, com uma lagoa no canal
@@ -4053,3 +4054,71 @@ objetivo); o mesmo frio da montanha.
     casca solta.
 - **Fotos:** `tools/capturas/cavernas_gelo/fotos/` (a proposta ficou em `tools/capturas/cavernas_gelo/proposta/`).
 - **Aprovado** ("está bom", 2026-11-22). Baterias depois: vale OK (113), voo OK (94) e simulação OK (28).
+
+### 137.14 Os bichos da Montanha do Degelo (2026-11-22)
+
+Último item da §137.2. Até aqui a terra nova só tinha os bichos da mata, abaixo de 380 m (cervos, coelhos,
+passarinhos, raposas e lobos), os da praia de A e os peixes dos lagos. A montanha, a campina alpina, os rios do degelo
+e as fontes estavam vazios.
+
+Pedidos do usuário:
+- bichos que façam sentido em cada região, sem exagero, porque é uma ilha com comida e espaço limitados;
+- depois de ver a proposta, um pouco mais de cada e os lobos como estavam ("dei os limites como referência, mas você
+  tem licença criativa").
+
+Ficaram quatro espécies, cada uma num canto (sorteio em `VidaVale._montanha`, numa caixa de 2 km em volta do pico):
+
+- **Lagópodes** (`Passaros` com o modelo `lagopode.glb`):
+  - 5 bandos de 4 a 6 nas pedras, na neve e na campina, de 330 a 720 m (o sorteio pede 6; com 150 m entre eles,
+    cabem 5);
+  - dorso pintado de pardo e escuro, asa e pés brancos, cauda preta e crista vermelha;
+  - voam baixo (3 a 6 m) com a asa batendo rápido e pousam logo adiante;
+  - só pousam no alto.
+- **Marmotas** (`Marmotas`, feitas por código como as focas):
+  - 5 colônias de 3 a 5 na campina alpina, de 200 a 420 m, cada uma com uma pedra cinza e duas a quatro tocas (o monte
+    de terra cavada e o buraco);
+  - uma fica de vigia, sentada em pé na pedra; as outras pastam perto das tocas;
+  - com o robô a menos de 40 m da colônia, a vigia dá o alarme (a cabeça jogada para trás) e todas ficam em pé
+    olhando para ele;
+  - a menos de 20 m, cada uma corre para a sua toca e some;
+  - depois põem a cabeça para fora e, com o robô a mais de 32 m, voltam a pastar.
+- **Patos-arlequim** (`Patos`, por código):
+  - casais e trios no lago do circo, no Lago Turquesa, em três poços embaixo de quedas (dois no rio do circo e um no
+    do sul) e no Olho Azul, a água morna das fontes;
+  - o macho é azul-ardósia, com os flancos castanhos e os riscos brancos; a fêmea é parda, com as pintas brancas na
+    cara;
+  - nadam de cabeça balançando, mergulham atrás de comida e voltam à tona uns metros adiante;
+  - com o robô perto, nadam para longe; perto demais, mergulham e só aparecem longe dele;
+  - nunca passam de um poço para outro numa queda (o nível da água tem de ser o da casa).
+- **Corvos** (`Corvos`, com o modelo `corvo.glb`):
+  - três casais: no pico, no Vilarejo e na beira do lago do circo;
+  - pousam nas pedras altas e nos telhados (o alto de cada poleiro vem de um raio de cima;
+    `Vilarejo.telhados` dá o meio e as beiras de cada casa);
+  - pulam, olham em volta e grasnam (o corpo dá trancos para a frente);
+  - de tempos em tempos, ou com o robô chegando, levantam voo juntos, planam em voltas largas e às vezes um dá uma
+    cambalhota; depois descem para outro poleiro, longe do robô.
+
+**Os modelos.** As três aves (o passarinho, o lagópode e o corvo) saem da mesma "bird basemesh" CC0 por
+`tools/vale/aves.py`, que substituiu o `passaro_base.py`:
+- cada espécie deforma os vértices por uma conta só, igual em todas as peças;
+- a asa separada é só a parte de cima e da frente do flanco: antes ela levava os dedos dos pés e as pontas da cauda,
+  que giravam para fora quando a asa dobrava;
+- as pernas são uma peça própria, com a junta no quadril.
+
+Os bichos de código usam formas simples, como as focas. As cores novas estão na Clareira (`lagopode`, `corvo`,
+`marmota`, `pato`...).
+
+**Asas fechadas.** No lagópode e no corvo a asa fecha mais (`dobra_max` 1,48) e estreita (`encolhe` 0,4). Assim
+ela vira uma faixa junto do corpo, em vez de uma tábua de lado.
+
+**Pés no voo** (pedido do usuário, 2026-11-22: "nos pássaros voando eles não colocam os pés guardados"; aprovado):
+`Passaros.recolher_pes` gira as pernas no quadril para trás (`PES_GIRO` 1,7) e as encolhe (`PES_ENCOLHE`: a perna
+dobra e os dedos fecham), e o pé some quase todo nas penas da barriga. Fazem isso os passarinhos, as gaivotas, a
+revoada, os lagópodes e os corvos. No pouso, os pés descem no planeio final. Os buracos que as pernas deixavam na
+barriga, ao saírem do corpo, são fechados pelo `aves.py` com a cor dela (apareciam como anéis vistos de baixo).
+
+**Álbum e scanner.** Cada ave e cada bicho dos grupos é um `BichoFicha` no grupo "bichos" (o nó do grupo fica na
+origem): o scanner mostra a ficha da espécie e o álbum ganhou quatro páginas (Lagópode, Marmota, Pato-arlequim e
+Corvo). Os tiros assustam todos: as marmotas correm para a toca, os patos mergulham e os corvos voam.
+
+**Fotos:** `tools/capturas/bichos_montanha/`.

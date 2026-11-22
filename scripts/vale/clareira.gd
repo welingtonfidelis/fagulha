@@ -215,6 +215,23 @@ func _materiais() -> void:
 		"gaivota_dorso": _solido(Color(0.30, 0.33, 0.37)),
 		"bico_gaivota": _solido(Color(0.78, 0.60, 0.10)),
 		"rocha_mar": _solido(Color(0.30, 0.31, 0.33)),  # as pedras da beira do mar, sem musgo
+		# os bichos da Montanha do Degelo (doc §137.14): lagópode, corvo, marmota e pato-arlequim
+		"lagopode": _solido(Color(0.36, 0.32, 0.26)),
+		"lagopode_escuro": _solido(Color(0.16, 0.14, 0.115)),
+		"lagopode_branco": _solido(Color(0.60, 0.60, 0.58)),
+		"lagopode_crista": _solido(Color(0.55, 0.07, 0.05)),
+		"bico_escuro": _solido(Color(0.04, 0.04, 0.045)),
+		"corvo": _solido(Color(0.085, 0.09, 0.11)),  # preto puro virava só silhueta
+		"marmota": _solido(Color(0.36, 0.27, 0.17)),
+		"marmota_escura": _solido(Color(0.15, 0.11, 0.08)),
+		"marmota_clara": _solido(Color(0.56, 0.48, 0.37)),
+		"toca": _solido(Color(0.025, 0.02, 0.018)),
+		"terra_toca": _solido(Color(0.37, 0.30, 0.21)),
+		"pato": _solido(Color(0.15, 0.19, 0.29)),
+		"pato_castanho": _solido(Color(0.44, 0.17, 0.08)),
+		"pato_branco": _solido(Color(0.62, 0.62, 0.60)),
+		"pato_femea": _solido(Color(0.24, 0.21, 0.19)),
+		"bico_pato": _solido(Color(0.13, 0.14, 0.16)),
 		# o navio encalhado: sem musgo (o sal da beira do mar não deixa), que pinta de verde o que olha para cima
 		"casco_navio": _solido(Color(0.13, 0.18, 0.21)),  # a tinta do casco, azul-escura e gasta
 		"tinta_branca": _solido(Color(0.44, 0.43, 0.40)),  # a casa do comando, branca encardida

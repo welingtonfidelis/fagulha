@@ -74,6 +74,7 @@ func _ready() -> void:
 		if asa_e == null or asa_d == null:
 			raiz.queue_free()
 			continue
+		Passaros.recolher_pes(modelo.find_child("pernas", true, false) as Node3D, 1.0)  # sempre no ar
 		_aves.append({
 			"raiz": raiz, "asa_e": asa_e, "asa_d": asa_d, "rot_e": asa_e.rotation, "rot_d": asa_d.rotation,
 			"th": _rng.randf() * TAU, "raio": _rng.randf_range(25.0, 60.0), "alt": _rng.randf_range(18.0, 40.0),

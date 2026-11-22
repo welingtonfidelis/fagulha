@@ -90,6 +90,7 @@ func _comecar(qual: String) -> void:
 				modelo.rotation.y = PI
 				modelo.scale = Vector3.ONE * 3.4
 				no.add_child(modelo)
+				Passaros.recolher_pes(modelo.find_child("pernas", true, false) as Node3D, 1.0)
 				_aves.append([no, modelo.find_child("asaE", true, false), modelo.find_child("asaD", true, false), i * 0.7])
 			Album.marcar_cena("revoada", 24.0, _aves[0][0])
 		"folhas":

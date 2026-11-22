@@ -39,6 +39,11 @@ const SINAL_BATER_D := -1.0
 const PULO_DUR := 0.4
 const PULO_ALT := 0.12  # altura do pulinho: pequena, o pássaro quase não sai do chão
 const INCLINA_BICAR := -0.5  # corpo inclinado para a frente ao bicar (negativo = focinho para baixo)
+# rad: no voo as pernas giram no quadril para trás, rente à barriga (+ em X leva o pé para a cauda). Passa de 90°
+# porque o modelo é a pose de pousado: voando, a frente baixa (NARIZ) e as pernas iriam junto para a frente
+const PES_GIRO := 1.7
+# ... e encolhem: a perna dobra (Y) e os dedos fecham (Z), e o pé some quase todo nas penas da barriga
+const PES_ENCOLHE := Vector3(0.75, 0.35, 0.25)
 
 var mapa: Ilha
 var ameaca: Node3D  # o robô; pode ser null
@@ -49,6 +54,11 @@ var pintar: Callable  # opcional: pintar.call(modelo) em cada pássaro instancia
 var escala := 1.7  # maior que o real, para aparecer no capim (as gaivotas da praia usam mais)
 var freq := FREQ_BATER  # batidas por segundo (as gaivotas batem devagar)
 var chao_ok: Callable  # opcional: chao_ok.call(x, z) -> bool limita onde o bando pousa (as gaivotas, na areia)
+var cena := CENA  # o modelo (os lagópodes da montanha usam o deles)
+var alt_voo := Vector2(ALT_MIN, ALT_MAX)  # altitude das voltas sobre o relevo (os lagópodes voam baixo)
+var especie := ""  # a página do álbum, quando não é a dos pássaros
+var dobra_max := DOBRA  # quanto a asa fecha (os lagópodes fecham mais)
+var encolhe := 1.0  # a largura da asa fechada (menos que 1: vira uma faixa junto do corpo, em vez de uma tábua de lado)
 var estado := Estado.NO_CHAO
 var decolagens := 0  # quantas vezes o bando levantou voo (para testes)
 
@@ -69,6 +79,8 @@ class Ave:
 	var corpo: Node3D
 	var asa_e: Node3D
 	var asa_d: Node3D
+	var pernas: Node3D  # pode faltar num modelo antigo
+	var pes := 0.0  # 0 pés no chão, 1 recolhidos (no voo)
 	var rot_corpo := Vector3.ZERO  # repouso das peças
 	var rot_e := Vector3.ZERO
 	var rot_d := Vector3.ZERO
@@ -106,9 +118,9 @@ func _ready() -> void:
 		return
 	add_to_group("bichos")
 	_rng.seed = semente * 7919 + 31
-	_cena = load(CENA) as PackedScene
+	_cena = load(cena) as PackedScene
 	if _cena == null:
-		push_error("passaros: modelo não encontrado em %s" % CENA)
+		push_error("passaros: modelo não encontrado em %s" % cena)
 		return
 	for i in quantos:
 		var a := _novo_passaro()
@@ -122,12 +134,14 @@ func _novo_passaro() -> Ave:
 	modelo.rotation.y = PI  # o modelo olha para +Z; aqui a frente é -Z
 	modelo.scale = Vector3.ONE * escala
 	var a := Ave.new()
-	a.raiz = Node3D.new()
+	# com espécie própria (os lagópodes), cada ave é achada pelo scanner e pelo álbum
+	a.raiz = BichoFicha.nova(especie, self, 0.15 * escala) if especie != "" else Node3D.new()
 	add_child(a.raiz)
 	a.raiz.add_child(modelo)
 	a.corpo = modelo.find_child("corpo", true, false) as Node3D
 	a.asa_e = modelo.find_child("asaE", true, false) as Node3D
 	a.asa_d = modelo.find_child("asaD", true, false) as Node3D
+	a.pernas = modelo.find_child("pernas", true, false) as Node3D
 	if a.corpo == null or a.asa_e == null or a.asa_d == null:
 		push_error("passaros: peças 'corpo', 'asaE' ou 'asaD' não achadas no modelo")
 		a.raiz.queue_free()
@@ -142,6 +156,17 @@ func _novo_passaro() -> Ave:
 	a.yaw_alvo = a.yaw
 	a.prox = _rng.randf_range(0.5, 2.5)
 	return a
+
+
+## Os pés recolhidos no voo (`quanto` 1) ou baixados para pousar (0): as pernas giram no quadril para trás e encolhem.
+## Serve para todo modelo das aves (tools/vale/aves.py): os pássaros, as gaivotas, a revoada, os lagópodes e os corvos.
+static func recolher_pes(pernas: Node3D, quanto: float) -> void:
+	if pernas == null:
+		return
+	if not pernas.has_meta("repouso"):
+		pernas.set_meta("repouso", pernas.rotation)
+	pernas.rotation = (pernas.get_meta("repouso") as Vector3) + Vector3(PES_GIRO * quanto, 0.0, 0.0)
+	pernas.scale = Vector3.ONE.lerp(PES_ENCOLHE, quanto)
 
 
 # ---------------------------------------------------------------- API
@@ -284,7 +309,7 @@ func _decolar() -> void:
 		a.voo = false
 		a.atraso = _rng.randf_range(0.0, ATRASO_MAX) + 0.01
 		a.sentido = sentido
-		a.alt = _rng.randf_range(ALT_MIN, ALT_MAX)
+		a.alt = _rng.randf_range(alt_voo.x, alt_voo.y)
 		var dx := a.pos.x - orbita.x
 		var dz := a.pos.z - orbita.z
 		a.raio = maxf(Vector2(dx, dz).length(), 3.0)
@@ -450,10 +475,18 @@ func _animar(a: Ave, delta: float) -> void:
 		a.fase = fmod(a.fase + TAU * freq * delta, TAU)
 	a.amp = lerpf(a.amp, AMP_BATER if bate else 0.0, k)
 	a.dobra = lerpf(a.dobra, 0.0 if a.voo else 1.0, k)
-	var dobra := a.dobra * DOBRA
+	# os pés: recolhidos no voo; descem no planeio do pouso, antes de tocar o chão
+	a.pes = lerpf(a.pes, 1.0 if bate else 0.0, 1.0 - exp(-6.0 * delta))
+	recolher_pes(a.pernas, a.pes)
+	var dobra := a.dobra * dobra_max
 	var bater := a.amp * sin(a.fase)
 	a.asa_e.rotation = a.rot_e + Vector3(0.0, SINAL_DOBRA_E * dobra, SINAL_BATER_E * bater)
 	a.asa_d.rotation = a.rot_d + Vector3(0.0, SINAL_DOBRA_D * dobra, SINAL_BATER_D * bater)
+	if encolhe < 1.0:
+		# a escala vem antes do giro: estreita a asa (o eixo z do modelo é a largura dela) e encurta um pouco
+		var esc := Vector3(lerpf(1.0, 0.85, a.dobra), 1.0, lerpf(1.0, encolhe, a.dobra))
+		a.asa_e.scale = esc
+		a.asa_d.scale = esc
 
 	# cabeça e bico: bicada inclina o corpo; no chão, o pássaro olha em volta
 	a.inclina = lerpf(a.inclina, INCLINA_BICAR if (a.bicar > 0.0 and not a.voo) else 0.0, k)

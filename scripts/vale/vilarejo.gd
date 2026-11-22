@@ -184,6 +184,25 @@ static func _altura_modelo(v: Vale, nome: String) -> float:
 	return topo
 
 
+## Onde um bicho pousa em cima das casas (os corvos, doc §137.14): o meio e as quatro beiras de cada casa, caixa
+## d'água, estufa e energia, no chão do mundo (x, z). O alto vem de um raio de cima, na hora.
+static func telhados() -> Array[Vector2]:
+	var r: Array[Vector2] = []
+	if not montado:
+		return r
+	for o: Dictionary in _info["obstaculos"]:
+		var oc: Array = o["c"]
+		var tam: Array = o["tam"]
+		var g := deg_to_rad(float(o["giro"]))
+		var mx := float(tam[0]) * 0.5 - 0.6
+		var my := float(tam[1]) * 0.5 - 0.6
+		for d: Vector2 in [Vector2.ZERO, Vector2(mx, 0), Vector2(-mx, 0), Vector2(0, my), Vector2(0, -my)]:
+			var l := d.rotated(g)  # o giro do desenho, no plano do Blender (o mesmo da caixa em `montar`)
+			var p := no_mundo([float(oc[0]) + l.x, float(oc[1]) + l.y, 0.0])
+			r.append(Vector2(p.x, p.z))
+	return r
+
+
 ## Dentro da vila (para bicho e planta solta não nascerem no meio das casas).
 static func dentro(x: float, z: float) -> bool:
 	return Vector2(x, z).distance_squared_to(CENTRO) < RAIO * RAIO

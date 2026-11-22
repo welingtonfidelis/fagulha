@@ -710,6 +710,10 @@ func _ponto_18() -> void:
 			# os bichos da praia da terra nova vivem rente ao mar: basta estarem na areia ou na duna, fora d'água
 			na_praia += 1
 			ruim = v.agua(p.x, p.z) > -INF or p.y < Vale.MAR + 0.2 or not (v.cobertura(p.x, p.z) in [4, 9])
+		elif l["tipo"] == "pato":
+			ruim = v.agua(p.x, p.z) == -INF  # os patos-arlequim vivem na água (doc §137.14)
+		elif l["tipo"] == "corvo":
+			ruim = (l["poleiros"] as Array).is_empty()  # os corvos voam: a casa é o meio das voltas
 		elif l["tipo"] != "peixe":
 			ruim = v.agua(p.x, p.z) > -INF or v.normal_em(p.x, p.z).y < 0.85 or p.y < Vale.MAR + 2.0 or Vector2(p.x, p.z).length() < VidaVale.CLAREIRA_FORA
 		if ruim:

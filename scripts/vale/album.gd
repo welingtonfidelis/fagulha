@@ -17,7 +17,7 @@ const ALT := 360
 const SOLTAS := 8
 const GRUPOS := [
 	["BICHOS", [["cervo", "Cervo"], ["coelho", "Coelho"], ["raposa", "Raposa"], ["lobo", "Lobo"], ["passaros", "Pássaros"],
-		["peixes", "Peixes"]]],
+		["peixes", "Peixes"], ["lagopode", "Lagópode"], ["marmota", "Marmota"], ["pato", "Pato-arlequim"], ["corvo", "Corvo"]]],
 	["AMIGOS", [["drone", "Drone colega"], ["robozinho", "Robozinho"], ["faisca", "Faísca"]]],
 	["MÁQUINAS", [["maquina", "Máquina"], ["vigia", "Vigia"], ["sentinela", "Sentinela"], ["espadachim", "Espadachim"],
 		["couraca", "Couraça"], ["batedor", "Batedor"], ["artilheiro", "Artilheiro"]]],
@@ -31,7 +31,7 @@ static var soltas: Array = []  # caminhos das fotos sem página, da mais nova pa
 static var cenas_agora := {}  # id -> [até quando (ms), onde (Vector3.INF = em qualquer direção)]
 static var _texturas := {}
 static var fotos_bichos := 0  # fotos com algum bicho no quadro, nesta partida (os pedidos do drone contam)
-const BICHOS := ["cervo", "coelho", "raposa", "lobo", "passaros", "peixes"]
+const BICHOS := ["cervo", "coelho", "raposa", "lobo", "passaros", "peixes", "lagopode", "marmota", "pato", "corvo"]
 
 var armadura: Armadura
 var camera: CameraVoo
@@ -267,6 +267,8 @@ func _tapado(olho: Vector3, p: Vector3) -> bool:
 static func pagina_de(o) -> String:
 	if o is String:
 		return "faisca"
+	if o is BichoFicha:
+		return (o as BichoFicha).especie
 	if o is Raposa:
 		return "raposa"
 	if o is Lobo:
