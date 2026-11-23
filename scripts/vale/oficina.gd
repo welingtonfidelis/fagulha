@@ -32,7 +32,7 @@ var sons: Sons
 var drone: DroneColega
 var fase := Fase.FORA
 var perto := false
-const ABAS := ["Peças da ilha", "Armas", "Defesa", "Rastro"]
+const ABAS := ["Peças da ilha", "Armas", "Defesa", "Rastro", "Corpo"]
 var aba := 0
 var entradas := 0  # testes
 var recargas := 0
@@ -196,7 +196,7 @@ func _por_bracos(f: float, trabalho: float) -> void:
 # lâmpadas das melhorias, os carimbos do custo e o botão de segurar X (segurar evita gastar sem querer).
 
 const T_SEGURAR := 0.55  # segundos segurando X para instalar, fabricar ou melhorar
-const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["rastro", "Rastro"]]
+const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["rastro", "Rastro"], ["corpo", "Corpo"]]
 const ARMAS := ["pistola", "espada", "duplo", "canhao", "precisao", "rajada", "misseis", "granadas"]
 const DEFESA := ["mira", "escudo", "vida"]
 ## Os nomes curtos dos quadradinhos de peça.
@@ -219,6 +219,9 @@ var _aviso := ""  # o recado curto da tela da direita ("Instalado!", "ainda não
 var _aviso_cor := Tablet.OK
 var _aviso_t := 0.0
 var _fazendo := ""  # "Melhorando…" etc. enquanto os braços trabalham
+var _corpo_sel := ""  # aba Corpo: o conjunto do último cartão em foco ("" é o de fábrica)
+var _parte := "tudo"  # aba Corpo: a parte que o cartão troca ("tudo" ou uma de Corpo.PARTES)
+var _corpo_pedido := {}  # o corpo que os braços estão vestindo agora
 
 
 func _montar_tela() -> void:
@@ -243,7 +246,8 @@ func _montar_tela() -> void:
 	_lista.size = Tablet.TAM
 	_casca.add_child(_lista)
 	var L := Tablet.ESQ
-	var cores := [Tablet.VERDE, Tablet.LARANJA_V, Tablet.AZUL, Tablet.LILAS]
+	var cores := [Tablet.VERDE, Tablet.LARANJA_V, Tablet.AZUL, Tablet.LILAS, Tablet.RUBI]
+	var pw := (L.size.x - 36.0) / PILULAS.size()
 	for i in PILULAS.size():
 		var p := BotaoTablet.new()
 		p.estilo = "pilula"
@@ -251,8 +255,8 @@ func _montar_tela() -> void:
 		p.text = PILULAS[i][1]
 		p.cor = cores[i]
 		p.focus_mode = Control.FOCUS_NONE
-		p.position = Vector2(L.position.x + 18 + i * 96, L.position.y + 58)
-		p.size = Vector2(96, 38)
+		p.position = Vector2(L.position.x + 18 + i * pw, L.position.y + 58)
+		p.size = Vector2(pw, 38)
 		p.pressed.connect(func() -> void: _mudar_aba(i - aba))
 		_casca.add_child(p)
 		_pilulas.append(p)
@@ -287,6 +291,7 @@ func _mudar_aba(passo: int) -> void:
 		return
 	aba = wrapi(aba + passo, 0, ABAS.size())
 	_escolhida = ""
+	_corpo_de_volta()
 	_refazer_lista()
 	if sons:
 		sons._toque("roda_troca", -8.0, 0.0)
@@ -310,6 +315,8 @@ func _refazer_lista() -> void:
 			bom = _lista_defesa()
 		3:
 			bom = _lista_rastro()
+		4:
+			bom = _lista_corpo()
 	if _escolhida != "" and _botoes.has(_escolhida):
 		bom = _botoes[_escolhida]
 	if bom == null and _lista.get_child_count() > 0:
@@ -380,6 +387,28 @@ func _lista_rastro() -> Button:
 	return bom
 
 
+## As partes (tudo, cabeça, tronco, braços, pernas) numa fileira e os conjuntos em cartões com retrato.
+func _lista_corpo() -> Button:
+	var L := Tablet.ESQ
+	var partes: Array = ["tudo"] + Corpo.PARTES
+	var bw := (L.size.x - 28 - 4 * 6) / 5.0
+	for i in partes.size():
+		_item("parte_" + String(partes[i]), Rect2(L.position.x + 14 + i * (bw + 6), L.position.y + 116, bw, 62), _pintar_parte.bind(String(partes[i])))
+	var chaves: Array = [""]
+	for c: Array in Corpo.CONJUNTOS:
+		chaves.append(c[0])
+	var cw := (L.size.x - 28 - 3 * 8) / 4.0
+	var ch := 132.0
+	var y0 := L.position.y + 196.0
+	var bom: Button = null
+	for i in chaves.size():
+		var chave: String = chaves[i]
+		var b := _item("corpo_" + chave, Rect2(L.position.x + 14 + (i % 4) * (cw + 8), y0 + (i / 4) * (ch + 8), cw, ch), _pintar_corpo.bind(chave))
+		if chave == _corpo_sel:
+			bom = b
+	return bom
+
+
 # ------------------------------------------------------------------ o estado de cada item
 
 ## Uma arma (ou o escudo) pronta que sobe de degrau?
@@ -394,6 +423,8 @@ func _pode(nome: String) -> bool:
 	if nome.begins_with("rastro_"):
 		var id := nome.substr(7)
 		return Rotas.rastro != id and (id == "" or int(Rotas.feitas.get(id, 0)) >= 1)
+	if nome.begins_with("corpo_") or nome.begins_with("parte_"):
+		return Corpo.aberto(_corpo_sel) and _pedido_corpo() != Corpo.vestido
 	if _de_degrau(nome):
 		return Arsenal.falta_degrau(nome) == ""
 	if Arsenal.RECEITAS.has(nome):
@@ -549,6 +580,34 @@ func _pintar_rastro(b: Control, r: Rect2, foco: bool, sobre: bool, id: String) -
 		Tablet.paragrafo(b, Vector2(66, 60), Rotas.titulo(id), r.size.x - 74, 12, Color(Tablet.TINTA, 0.45), 2)
 
 
+## Um botão da fileira das partes: a figura da parte e o nome; cheio quando é a parte escolhida.
+func _pintar_parte(b: Control, r: Rect2, foco: bool, sobre: bool, parte: String) -> void:
+	var ativa := _parte == parte
+	var fundo := Color(Tablet.RUBI, 0.85) if ativa else Color(Tablet.TINTA, 0.06 + (0.04 if sobre else 0.0))
+	Tablet.caixa(b, r, fundo, 14, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	var tinta := Color.WHITE if ativa else Tablet.TINTA
+	Icones.desenhar(b, "corpo" if parte == "tudo" else parte, Vector2(r.size.x * 0.5, 24), 0.78, tinta, 2.0)
+	Tablet.texto(b, Vector2(0, r.size.y - 9), "Tudo" if parte == "tudo" else String(Corpo.NOMES_PARTE[parte]), 13, tinta, ativa, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+
+
+## Um cartão de conjunto: o retrato, o nome curto, o visto quando está no corpo e o cadeado com o nível.
+func _pintar_corpo(b: Control, r: Rect2, foco: bool, sobre: bool, chave: String) -> void:
+	var aberto := Corpo.aberto(chave)
+	var fundo := Color(1.0, 0.72, 0.3, 0.26) if foco else Color(Tablet.TINTA, 0.06 + (0.04 if sobre else 0.0))
+	Tablet.caixa(b, r, fundo, 14, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
+	var tex := Corpo.retrato(chave)
+	var lado := r.size.x - 10.0
+	if tex:
+		b.draw_texture_rect(tex, Rect2(5, 4, lado, lado), false, Color(1, 1, 1, 1.0 if aberto else 0.3))
+	Tablet.texto(b, Vector2(0, r.size.y - 12), Corpo.curto(chave), 14, Tablet.TINTA if aberto else Color(Tablet.TINTA, 0.45), foco, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	if not aberto:
+		b.draw_circle(Vector2(r.size.x * 0.5, lado * 0.5 + 4), 17, Color(0.85, 0.82, 0.75, 0.92))
+		Icones.desenhar(b, "cadeado", Vector2(r.size.x * 0.5, lado * 0.5 + 4), 0.62, Tablet.TINTA, 1.8)
+		Tablet.texto(b, Vector2(0, lado * 0.5 + 40), "nível %d" % Corpo.nivel(chave), 13, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	elif Corpo.vestido.values().has(chave):
+		Tablet.visto(b, Vector2(r.size.x - 16, 16), 9)
+
+
 # ------------------------------------------------------------------ o tablet inteiro
 
 func _pintar(c: Control, telas: Array) -> void:
@@ -576,6 +635,8 @@ func _pintar(c: Control, telas: Array) -> void:
 			_dir_defesa(c, R)
 		3:
 			_dir_rastro(c, R)
+		4:
+			_dir_corpo(c, R)
 	Tablet.rodape(c, R, [["o", "sair"], ["l1", "{@r1} trocar de aba"]])
 
 
@@ -830,10 +891,82 @@ func _dir_rastro(c: Control, R: Rect2) -> void:
 		_segurar(c, R, ganha and Rotas.rastro != sel, "segure para usar" if ganha else "ainda não ganho")
 
 
+## O conjunto em foco: o retrato grande, as quatro partes (as que mudam em destaque) e o botão de vestir.
+func _dir_corpo(c: Control, R: Rect2) -> void:
+	var aberto := Corpo.aberto(_corpo_sel)
+	var pedido := _pedido_corpo()
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), Corpo.nome(_corpo_sel), 30, Tablet.TINTA, true)
+	var quadro := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 250)
+	Tablet.caixa(c, quadro, Color(Tablet.TINTA, 0.07), 16)
+	var tex := Corpo.retrato(_corpo_sel)
+	if tex:
+		var lado := quadro.size.y - 10.0
+		c.draw_texture_rect(tex, Rect2(quadro.get_center() - Vector2(lado, lado) * 0.5, Vector2(lado, lado)), false, Color(1, 1, 1, 1.0 if aberto else 0.35))
+	if not aberto:
+		var ct := quadro.get_center()
+		c.draw_circle(ct, 30, Color(0.85, 0.82, 0.75, 0.95))
+		Icones.desenhar(c, "cadeado", ct, 1.1, Tablet.TINTA, 2.4)
+		Tablet.texto(c, Vector2(quadro.position.x, ct.y + 62), "abre no nível %d" % Corpo.nivel(_corpo_sel), 20, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, quadro.size.x)
+	# as quatro partes: a figura, o nome e de que conjunto ela fica
+	var yp := R.position.y + 380.0
+	for i in Corpo.PARTES.size():
+		var parte: String = Corpo.PARTES[i]
+		var muda := String(pedido[parte]) != String(Corpo.vestido[parte])
+		var y := yp + i * 52.0
+		Tablet.caixa(c, Rect2(R.position.x + 22, y, R.size.x - 44, 44), Color(Tablet.LARANJA, 0.2) if muda else Color(Tablet.TINTA, 0.05), 14)
+		Icones.desenhar(c, parte, Vector2(R.position.x + 50, y + 22), 0.7, Tablet.TINTA, 2.0)
+		Tablet.texto(c, Vector2(R.position.x + 76, y + 29), String(Corpo.NOMES_PARTE[parte]), 16, Color(Tablet.TINTA, 0.7))
+		Tablet.texto(c, Vector2(R.position.x + 186, y + 29), Corpo.curto(String(pedido[parte])), 17, Tablet.TINTA, muda)
+		if muda:
+			Tablet.brilhinho(c, Vector2(R.end.x - 44, y + 22), 8, Tablet.LARANJA)
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 612), "só muda o jeito: anda, voa e luta igual", 15, Color(Tablet.TINTA, 0.6))
+	if pedido == Corpo.vestido and _aviso_t <= 0.0 and fase != Fase.INSTALANDO:
+		Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Em uso")
+	else:
+		_segurar(c, R, _pode("corpo_" + _corpo_sel), "segure para vestir" if aberto else "ainda fechado")
+
+
+## O corpo que o cartão em foco pede: o conjunto inteiro, ou só a parte escolhida e o resto como está.
+func _pedido_corpo() -> Dictionary:
+	var pedido := Corpo.vestido.duplicate()
+	for parte: String in Corpo.PARTES:
+		if _parte == "tudo" or _parte == parte:
+			pedido[parte] = _corpo_sel
+	return pedido
+
+
+## O robô mostra o corpo pedido (prévia); os de rabo viram de lado para ele aparecer.
+func _previa_corpo() -> void:
+	var pedido := _pedido_corpo()
+	if armadura.visual.corpo != pedido:
+		armadura.visual.vestir_corpo(pedido)
+	var e := _eixo()
+	var com_rabo := Corpo.COM_RABO.has(_corpo_sel) and _parte in ["tudo", "tronco"]
+	armadura.visual.yaw_forcado = atan2(-e.x, -e.z) + (1.35 if com_rabo else -0.35)
+	_lista.queue_redraw()
+	for b in _lista.get_children():
+		(b as Control).queue_redraw()
+
+
+## Fora da aba Corpo o robô volta ao corpo que está vestido de verdade.
+func _corpo_de_volta() -> void:
+	if armadura and armadura.visual and armadura.visual.corpo != Corpo.vestido:
+		armadura.visual.vestir_corpo(Corpo.vestido)
+
+
 ## A peça (ou arma) em foco aparece no corpo do robô, virado para o lado em que ela se vê.
 func _escolher(nome: String) -> void:
 	_escolhida = nome
 	_segura = 0.0
+	if nome.begins_with("parte_"):
+		_parte = nome.substr(6)
+		_previa_corpo()
+		return
+	if nome.begins_with("corpo_"):
+		_corpo_sel = nome.substr(6)
+		_previa_corpo()
+		return
+	_corpo_de_volta()
 	if nome.begins_with("rastro_"):
 		armadura.visual.vestir_melhorias()
 		_virar("bocais")
@@ -926,6 +1059,20 @@ func instalar(nome: String) -> void:
 		if sons:
 			sons._toque("religar", -6.0)
 		return
+	if nome.begins_with("corpo_") or nome.begins_with("parte_"):
+		if not Corpo.aberto(_corpo_sel):
+			_avisar("abre no nível %d" % Corpo.nivel(_corpo_sel), Tablet.RUBI)
+			return
+		if _pedido_corpo() == Corpo.vestido:
+			return
+		fase = Fase.INSTALANDO
+		_instalando = "corpo"
+		_corpo_pedido = _pedido_corpo()
+		_t = 0.0
+		_fazendo = "Trocando…"
+		if sons:
+			sons._toque("religar", -6.0)
+		return
 	if nome.begins_with("rastro_"):
 		var id := nome.substr(7)
 		if id != "" and int(Rotas.feitas.get(id, 0)) < 1:
@@ -969,6 +1116,7 @@ func sair() -> void:
 	if _berco():
 		_berco().soltar(armadura.visual)
 	armadura.visual.previa = false
+	_corpo_de_volta()
 	armadura.visual.vestir_melhorias()
 	_de = armadura.global_position
 	# sai pela rampa até o chão, 2,5 m à frente da boca
@@ -1064,6 +1212,15 @@ func _physics_process(delta: float) -> void:
 						armadura.escudo_cargas = Arsenal.escudo_cargas()
 					_avisar("Luz acesa!")
 					return
+				if nome == "corpo":
+					Corpo.vestido = _corpo_pedido.duplicate()
+					Corpo.guardar()
+					if sons:
+						sons._toque("marcar", -4.0, 0.0)
+					_refazer_lista()
+					_previa_corpo()
+					_avisar("Vestido!")
+					return
 				if Arsenal.RECEITAS.has(nome):
 					if Arsenal.fabricar(nome):
 						armadura.visual.escudos_vistos = armadura.escudos_gastos
@@ -1101,6 +1258,8 @@ func _abrir() -> void:
 		_berco().prender(armadura.visual)
 	_escolhida = ""
 	aba = 0
+	_corpo_sel = String(Corpo.vestido["tronco"])  # a aba Corpo abre no conjunto que está no peito
+	_parte = "tudo"
 	_tela.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refazer_lista()

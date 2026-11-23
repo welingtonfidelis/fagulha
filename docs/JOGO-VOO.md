@@ -4300,3 +4300,89 @@ mais, sem diferença de tempo maior que a variação normal.
 **Falta:** sons dos bichos novos (o grasnado dos gansos, por exemplo); conferir de noite e no PC.
 
 **Estado das §139 a §142:** baterias OK em 2026-11-22 (vale 113, voo 94, simulação 28), build no PC no mesmo dia.
+
+## 143. O corpo em peças: 13 conjuntos e a aba Corpo (2026-11-22 e 23)
+
+Pedido do usuário: um robô modular, "só visual". Ele escolheu os modelos de referência, com a regra de que
+"o tamanho/comprimento das peças devem ser os mesmos do atual pra nao gerar problemas de mecanicas ou
+animacoes". O corpo tem quatro partes trocáveis: **cabeça, tronco, braços e pernas**. Cada uma pode vir de um
+conjunto diferente. A mochila (o jato) e as melhorias continuam as mesmas em todos.
+
+**Os conjuntos** (dois por nível, do 1 ao 7):
+
+| Nível | Conjuntos |
+| --- | --- |
+| 1 | Gato, Cachorro |
+| 2 | Urso, Enfermeira |
+| 3 | Besouro, Marinheiro |
+| 4 | Caldeira, Lucano |
+| 5 | Majestade, Dente-de-sabre |
+| 6 | Samurai, Solar |
+| 7 | Cavaleiro |
+
+Gato, Cachorro e Dente-de-sabre têm rabo. A arte foi aprovada pelas folhas do Blender: `todos_frentes`,
+`todos_costas` e `rabos`, em `tools/capturas/robo_pecas/`.
+
+**Como as peças são feitas** (`tools/vale/robo_pecas.py`). O gerador roda o corpo do `robo_v2.py` até a marca
+`# ---- fim do corpo`. Depois põe as peças de cada conjunto presas nas mesmas juntas, com as mesmas medidas.
+- `FOLHA=conjuntos|frentes|costas|rabos` faz as folhas de prova.
+- `EXPORTAR_PECAS=assets/vale/corpo` grava um `<conjunto>.glb` por conjunto: o esqueleto inteiro, com juntas
+  vazias, e só as peças daquele conjunto (8,9 MB os 13).
+- `RETRATOS=assets/vale/corpo/retratos` grava os retratos de fundo transparente da tela (`atual.png` é o de
+  fábrica).
+- Os materiais das peças começam com `placa_`, `detalhe_` ou `laranja_`. `ArmaduraVisual._da_familia` aceita
+  esses nomes na troca para o estilo do vale.
+- Nada pode se chamar `grade*` nem `radiador`: as melhorias escondem esses nomes. A grade do Solar virou
+  `linha_painel`.
+
+**No jogo** (`scripts/corpo.gd`, classe `Corpo`).
+- **O que fica guardado:** `Corpo.vestido` diz o conjunto de cada parte (`""` é a de fábrica). Vai no
+  progresso, na chave `corpo`, carregado no `main.gd` junto com o `Arsenal`.
+- **Abertos:** `Corpo.aberto(chave)` compara com `Arsenal.nivel()`. Nos testes e nas fotos, `Corpo.tudo` abre
+  todos.
+- **A troca** (`ArmaduraVisual.vestir_corpo(pedido)`): as malhas de fábrica de cada parte ficam guardadas.
+  Quando a parte é de um conjunto, elas são escondidas e renomeadas `guardada_*`, com a meta `guardada`. Assim
+  as melhorias acham o cano e a luz da arma das peças novas pelos nomes de sempre. As malhas do conjunto passam
+  para a junta de mesmo nome do robô, sem dono (`_sem_dono`, para o Godot não reclamar). O rabo entra inteiro,
+  preso na `raiz`.
+- **O resto do robô:** o berço do cilindro e as melhorias seguem funcionando sem mudança, porque as peças
+  ficam presas nas juntas. No fim da troca as melhorias são vestidas de novo, porque o tronco de fábrica traz o
+  radiador de volta. Só o robô do jogador troca; o mergulhador e os inimigos ficam como são.
+
+**O rabo** (`ArmaduraVisual._animar_rabo`). O rabo é feito de gomos em juntas (`rabo0`, `rabo1`… e
+`rabo_ponta`).
+- **Parado:** balança numa onda que vai da raiz à ponta, larga e devagar (20°).
+- **Correndo:** estica para trás e um pouco para cima.
+- **Voando e nadando:** estica no sentido contrário ao do movimento.
+- **Esticado:** sobra 25% da curva original, e a ponta tremula curtinho (5°) e rápido.
+- **Em pane ou sentado:** não estica.
+
+A conta é feita no referencial do modelo. O primeiro gomo vira para o alvo, e cada um dos seguintes desfaz
+75% da dobra que tinha em relação ao anterior.
+
+**A aba Corpo na oficina** (a quinta pílula; com cinco, as pílulas ficam estreitas e o `Tablet.pilula` diminui
+a margem e a letra).
+- **Na esquerda:** em cima, uma fileira com as partes (Tudo, Cabeça, Tronco, Braços, Pernas), com ícones novos
+  em `Icones`. Embaixo, 14 cartões com retrato: Original e os 13 conjuntos. Os fechados aparecem apagados, com
+  cadeado e "nível N".
+- **Na direita:** o nome, o retrato grande e as quatro partes, com as que vão mudar em destaque. Embaixo, o
+  "segure para vestir" ou o "Em uso".
+- **A prévia:** o cartão em foco já aparece no robô, até os fechados, para dar vontade. Os de rabo viram de
+  lado para mostrar o rabo.
+- **Vestir:** segurar X faz os braços trabalharem ("Trocando…") e o berço abrir. Depois disso grava e mostra
+  "Vestido!". Saindo da aba ou da oficina, o robô volta ao corpo vestido.
+
+**Ferramentas.**
+- `tools/vitrine_corpo.gd`: o robô de cada conjunto em fundo liso, e os rabos com uma armadura de mentira
+  (`-- --rabos`).
+- `tools/fotos_corpo.gd`: no jogo, a aba e os seus estados, o gato e o dente-de-sabre parados, correndo e
+  voando, e a fila dos conjuntos com as melhorias no chão batido da base. As fotos ficam em
+  `tools/capturas/corpo/`.
+
+**Testes.** O ponto 46 do `--teste-vale` confere a troca, o rabo (balança parado e estica correndo) e a aba
+Corpo (prévia, vestir inteiro, só a cabeça, fechado por nível e o corpo vestido ao sair). Depois do "pode
+enviar" do usuário: `--teste-vale` 115 pontos e `--teste` 94.
+
+**Falta:**
+- no jogo, o Dente-de-sabre fica mais amarelo que no Blender, e o rabo dele, curto, quase não aparece;
+- conferir no PC e no controle.

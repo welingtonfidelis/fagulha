@@ -450,6 +450,7 @@ if INIM:
             caixa("capa", (k * 0.078, 0.2, 0.38), (0.075, 0.02, 0.42), AZUL, costas, base=(1.15, 1), topo=(0.9, 1), rot=(10, 0, k * -5), bevel=0.008)
             caixa("capa_borda", (k * 0.078, 0.212, 0.18), (0.08, 0.02, 0.03), LARANJA, costas, rot=(10, 0, k * -5), bevel=0.004)
 
+# ---- fim do corpo: tools/vale/robo_pecas.py executa este arquivo até esta linha ----
 # pessoa de referência (1,75 m), escondida fora do painel de escala
 pessoa = bpy.data.objects.new("pessoa_raiz", None)
 col.objects.link(pessoa)

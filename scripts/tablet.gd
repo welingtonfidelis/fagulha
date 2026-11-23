@@ -454,11 +454,13 @@ static func pilula(c: CanvasItem, r: Rect2, ic: String, nome: String, cor: Color
 		caixa(c, r, cor, int(r.size.y * 0.5))
 	if foco:
 		caixa(c, r.grow(2), Color(0, 0, 0, 0), int(r.size.y * 0.5) + 2, LARANJA, 3)
-	var x := r.position.x + 14.0
+	# estreita (cinco abas na fileira): margem, figura e letra menores
+	var estreita := r.size.x < 90.0
+	var x := r.position.x + (7.0 if estreita else 14.0)
 	if ic != "":
-		icone(c, ic, Vector2(x + 8, r.get_center().y), 18, Color.WHITE if ativa else cor.darkened(0.15), cor if ativa else TELA)
-		x += 24.0
-	texto(c, Vector2(x, r.get_center().y + 6), nome, 15, Color.WHITE if ativa else TINTA, ativa)
+		icone(c, ic, Vector2(x + 8, r.get_center().y), 16 if estreita else 18, Color.WHITE if ativa else cor.darkened(0.15), cor if ativa else TELA)
+		x += 20.0 if estreita else 24.0
+	texto(c, Vector2(x, r.get_center().y + 5 if estreita else r.get_center().y + 6), nome, 13 if estreita else 15, Color.WHITE if ativa else TINTA, ativa)
 
 
 ## A fileira de abas desenhada (as abas trocam por L1 / R1): [[figura, nome, cor], ...]

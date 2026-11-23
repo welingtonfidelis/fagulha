@@ -106,6 +106,10 @@ func preparar() -> void:
 			j["luva" + lado] = luva
 	_raiz_y = (j["raiz"] as Node3D).position.y
 	_trocar_materiais(modelo)
+	# o corpo em peças (Corpo): só o robô do jogador, no modelo de hoje (o mergulhador fica como é)
+	if caminho_modelo == "" and MODELO.ends_with("robo_v2.glb"):
+		_guardar_fabrica()
+		vestir_corpo(Corpo.vestido)
 	if caminho_modelo == "" and (MODELO.ends_with("robo_v1.glb") or corpo_novo()):
 		MelhoriasVisual.preparar(self)
 		vestir_melhorias()
@@ -249,6 +253,13 @@ func _aplicar_ossos(bob: float, t: float) -> void:
 		esqueleto.set_bone_pose_position(raiz_idx, _hips_rest + Vector3(0, bob / modelo.scale.y, 0))
 
 
+## As cores pintadas do robô: as de fábrica e as dos conjuntos do Corpo, que começam com o nome da família
+## (placa_gato, detalhe_samurai, laranja_ouro...).
+static func _da_familia(nome: String) -> bool:
+	return nome in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje", "laranja", "vidro"] \
+		or nome.begins_with("placa_") or nome.begins_with("detalhe_") or nome.begins_with("laranja_")
+
+
 func _trocar_materiais(no: Node) -> void:
 	if no is MeshInstance3D:
 		var mi := no as MeshInstance3D
@@ -257,14 +268,14 @@ func _trocar_materiais(no: Node) -> void:
 			if m == null:
 				continue
 			# estilo pintado: placas foscas com borda acesa (metal espelhado ficava preto sem reflexo)
-			if toon and m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje", "laranja", "vidro"]:
+			if toon and m is StandardMaterial3D and _da_familia(m.resource_name):
 				var mt := ShaderMaterial.new()
 				mt.shader = load("res://scripts/shaders/vale_solido.gdshader")
 				mt.set_shader_parameter("cor", (m as StandardMaterial3D).albedo_color)
 				mt.set_shader_parameter("brilho_borda", 0.18)
 				mi.set_surface_override_material(s, mt)
 				continue
-			if m is StandardMaterial3D and m.resource_name in ["placa_escura", "placa_clara", "detalhe", "bocal", "traje", "laranja", "vidro"]:
+			if m is StandardMaterial3D and _da_familia(m.resource_name):
 				var sm := m as StandardMaterial3D
 				sm.metallic = 0.15
 				sm.roughness = 0.62
@@ -324,7 +335,7 @@ func _medir_malhas() -> void:
 			quadris.append(j[nome])
 	for n in modelo.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
-		if mi.mesh == null or (mi in chamas) or (mi in chamas_pequenas):
+		if mi.mesh == null or (mi in chamas) or (mi in chamas_pequenas) or mi.has_meta("guardada"):
 			continue
 		var faces := mi.mesh.get_faces()
 		if faces.is_empty():
@@ -781,6 +792,7 @@ func atualizar(delta: float, a) -> void:
 			no.rotation = no.rotation.lerp(alvo, t)
 		_torcer_luvas(delta, a)
 		_olhos(delta, a)
+		_animar_rabo(delta, a)
 		(j["raiz"] as Node3D).position.y = lerpf((j["raiz"] as Node3D).position.y, _raiz_y + bob, t)
 		# aletas abrem como asas ao planar
 		var ab := smoothstep(0.0, 1.0, abertura_aletas)
@@ -1024,3 +1036,153 @@ func _bafo_do_frio(a) -> void:
 		_bafo.mesh = quad
 		add_child(_bafo)
 	_bafo.emitting = ligar
+
+
+# ------------------------------------------------------------------ o corpo em peças (Corpo, doc §143)
+
+var corpo := {}  # parte -> conjunto vestido agora ("" é a peça de fábrica)
+var _de_fabrica := {}  # parte -> malhas do modelo, escondidas quando a parte é de um conjunto
+var _enxertos: Array[Node] = []
+var _rabo: Array[Node3D] = []  # as juntas do rabo, da raiz para a ponta
+var _rabo_dir: Array[Vector3] = []  # cada gomo em descanso (da junta até a seguinte), no referencial do modelo
+var _rabo_fase := 0.0
+var _rabo_estica := 0.0
+var _rabo_alvo := Vector3(0, 0, -1)
+
+
+## Guarda as malhas de fábrica de cada parte (chamar uma vez, logo depois de achar as juntas).
+func _guardar_fabrica() -> void:
+	for parte: String in Corpo.PARTES:
+		_de_fabrica[parte] = []
+	for n in modelo.find_children("*", "MeshInstance3D", true, false):
+		var parte := Corpo.parte_de(n)
+		if parte != "":
+			(_de_fabrica[parte] as Array).append(n)
+			n.set_meta("nome_fabrica", n.name)
+
+
+## Veste as partes pedidas ({parte: conjunto}; "" ou ausente é a de fábrica). Pode ser chamado a qualquer hora:
+## as peças vão presas nas juntas, então seguem a pose de agora.
+func vestir_corpo(pedido: Dictionary) -> void:
+	if _de_fabrica.is_empty():
+		return
+	for n in _enxertos:
+		if is_instance_valid(n):
+			n.get_parent().remove_child(n)
+			n.queue_free()
+	_enxertos.clear()
+	_rabo.clear()
+	_rabo_dir.clear()
+	_malhas.clear()
+	_pontos.clear()
+	_perna.clear()
+	corpo = {}
+	for parte: String in Corpo.PARTES:
+		var chave := String(pedido.get(parte, ""))
+		if Corpo.cena(chave) == null:
+			chave = ""
+		corpo[parte] = chave
+		for n: MeshInstance3D in _de_fabrica[parte]:
+			var fabrica := chave == ""
+			n.visible = fabrica
+			# a de fábrica guardada troca de nome: as peças novas ficam com os nomes que as melhorias procuram
+			# (o cano da luva, por exemplo)
+			n.name = String(n.get_meta("nome_fabrica")) if fabrica else "guardada_" + String(n.get_meta("nome_fabrica"))
+			if fabrica:
+				n.remove_meta("guardada")
+			else:
+				n.set_meta("guardada", true)
+	for parte: String in Corpo.PARTES:
+		var chave: String = corpo[parte]
+		if chave == "":
+			continue
+		var copia := Corpo.cena(chave).instantiate()
+		for nome_j: String in Corpo.JUNTAS[parte]:
+			var de := copia.find_child(nome_j, true, false)
+			var para := j.get(nome_j) as Node3D
+			if para == null:
+				para = modelo.find_child(nome_j, true, false) as Node3D
+			if de == null or para == null:
+				continue
+			for f in de.get_children():
+				if f is MeshInstance3D:
+					_sem_dono(f)
+					f.reparent(para, false)
+					_trocar_materiais(f)
+					_enxertos.append(f)
+			if parte == "tronco" and nome_j == "raiz":
+				var r0 := de.find_child("rabo0", false, false)
+				if r0 != null:
+					_sem_dono(r0)
+					r0.reparent(para, false)
+					_trocar_materiais(r0)
+					_enxertos.append(r0)
+					_achar_rabo(r0 as Node3D)
+		copia.free()
+	# o tronco de fábrica de volta traz o radiador e as grades: as melhorias decidem de novo o que aparece
+	if has_meta("descanso"):
+		vestir_melhorias()
+
+
+## A peça tirada do arquivo do conjunto deixa de pertencer a ele (senão o Godot reclama ao mudar de pai).
+static func _sem_dono(n: Node) -> void:
+	n.owner = null
+	for f in n.get_children():
+		_sem_dono(f)
+
+
+## As juntas do rabo (rabo0, rabo1... e a ponta) e a direção de cada gomo em descanso.
+func _achar_rabo(r0: Node3D) -> void:
+	var no := r0
+	while no != null:
+		_rabo.append(no)
+		var prox := no.find_child("rabo%d" % _rabo.size(), false, false) as Node3D
+		if prox == null:
+			var ponta := no.find_child("rabo_ponta", false, false) as Node3D
+			_rabo_dir.append(ponta.position if ponta else Vector3(0, 0, -0.08))
+		else:
+			_rabo_dir.append(prox.position)
+		no = prox
+	_rabo_fase = 0.0
+	_rabo_estica = 0.0
+
+
+## O ângulo de um gomo no plano de trás e de cima (giro em torno do x do modelo; 0 é para trás).
+static func _ang_rabo(v: Vector3) -> float:
+	return atan2(v.y, -v.z)
+
+
+## O rabo (pedido do usuário): parado ele balança de um lado para o outro, numa onda que vai da raiz à ponta;
+## correndo e voando ele estica para trás, para longe de onde o robô vai, e sobra só a curvinha da ponta.
+func _animar_rabo(delta: float, a) -> void:
+	if _rabo.is_empty():
+		return
+	var raiz := j.get("raiz") as Node3D
+	if raiz == null:
+		return
+	var hv := Vector2(a.velocity.x, a.velocity.z).length()
+	var estica := 0.0
+	var para_tras := Vector3.ZERO
+	if (a.em_voo() or a.estado == Armadura.Estado.NADO) and a.velocity.length() > 1.5:
+		estica = 1.0
+		para_tras = -a.velocity.normalized()
+	elif a.estado == Armadura.Estado.CHAO and hv > 0.8:
+		estica = clampf((hv - 0.8) / maxf(0.5, Armadura.correr() * 0.45), 0.0, 1.0)
+		para_tras = (Vector3(-a.velocity.x, 0.0, -a.velocity.z).normalized() + Vector3(0, 0.15, 0)).normalized()
+	if a.em_pane or a.no_assento:
+		estica = 0.0
+	_rabo_estica = lerpf(_rabo_estica, estica, 1.0 - exp(-5.0 * delta))
+	if para_tras != Vector3.ZERO:
+		var local := raiz.global_basis.orthonormalized().inverse() * para_tras
+		_rabo_alvo = _rabo_alvo.lerp(local, 1.0 - exp(-8.0 * delta)).normalized()
+	# balanço: devagar e largo parado, curtinho e rápido esticado (a ponta tremula no vento)
+	_rabo_fase += delta * lerpf(2.4, 9.0, _rabo_estica)
+	var amp := deg_to_rad(lerpf(20.0, 5.0, _rabo_estica)) * (0.25 if a.em_pane else 1.0)
+	var t := 1.0 - exp(-12.0 * delta)
+	for i in _rabo.size():
+		var d := _rabo_dir[i]
+		var ang := _ang_rabo(_rabo_alvo) - _ang_rabo(d) if i == 0 else 0.75 * (_ang_rabo(_rabo_dir[i - 1]) - _ang_rabo(d))
+		var esticar := Quaternion.IDENTITY.slerp(Quaternion(Vector3.RIGHT, ang), _rabo_estica)
+		var lado := d.cross(Vector3.RIGHT)
+		var balanca := Quaternion(lado.normalized(), amp * sin(_rabo_fase - i * 0.8)) if lado.length() > 0.0001 else Quaternion.IDENTITY
+		_rabo[i].quaternion = _rabo[i].quaternion.slerp(esticar * balanca, t)

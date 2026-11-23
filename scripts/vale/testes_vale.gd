@@ -71,6 +71,7 @@ func rodar(main: Node) -> void:
 		await _ponto_43()
 		await _ponto_44()
 		await _ponto_45()
+		await _ponto_46()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -3274,3 +3275,82 @@ func _ponto_45() -> void:
 	_ok(VigiaArvore.arvores > 0 and cacou and avisou and recuou and afastou and procurou and foi_olhar and voltou,
 		"árvore do Vigia (Beehave): %d árvores; vê e caça (%s), avisa a vizinha (%s), quente recua (%s) e se afasta (%s), sem ver procura (%s) onde viu por último (%s) e depois volta (%s)"
 			% [VigiaArvore.arvores, cacou, avisou, recuou, afastou, procurou, foi_olhar, voltou])
+
+
+## 46. O corpo em peças (doc §143): vestir troca as peças de fábrica pelas do conjunto; o rabo balança parado e
+## estica correndo; na aba Corpo da oficina o cartão em foco aparece no robô, segurar veste (inteiro ou uma parte
+## só), o conjunto fechado por nível não veste e, saindo, o robô fica com o corpo vestido.
+func _ponto_46() -> void:
+	print("corpo em peças: troca, rabo e aba da oficina")
+	_soltar_tudo()
+	a.recomecar()
+	await _esperar(0.5)
+	var v: ArmaduraVisual = a.visual
+	Corpo.zerar()
+	for parte: String in Corpo.PARTES:
+		Corpo.vestido[parte] = "gato"
+	v.vestir_corpo(Corpo.vestido)
+	var fabrica_vista := 0
+	for n in v.modelo.find_children("*", "MeshInstance3D", true, false):
+		if n.has_meta("guardada") and (n as MeshInstance3D).visible:
+			fabrica_vista += 1
+	var enxertos: int = v._enxertos.size()
+	var gomos: int = v._rabo.size()
+	# o rabo, no chão batido da base (aberto para correr para +x)
+	a.teleportar(Vector3(-6.0, m.ilha.altura(-6.0, 44.0) + 0.4, 44.0), Armadura.Estado.CHAO)
+	await _esperar(0.8)
+	var q1: Quaternion = v._rabo[0].quaternion if gomos > 0 else Quaternion.IDENTITY
+	await _esperar(0.5)
+	var q2: Quaternion = v._rabo[0].quaternion if gomos > 0 else Quaternion.IDENTITY
+	var balanca: bool = q1.angle_to(q2) > 0.03
+	var parado_estica: float = v._rabo_estica
+	cam.yaw = -PI * 0.5
+	Input.action_press("frente")
+	Input.action_press("correr")
+	await _esperar(1.2)
+	var estica: float = v._rabo_estica
+	_soltar_tudo()
+	await _esperar(0.8)
+	_ok(enxertos > 40 and fabrica_vista == 0 and gomos >= 3 and balanca and parado_estica < 0.1 and estica > 0.8,
+		"vestiu o Gato: %d peças novas, nenhuma de fábrica à vista (%d); rabo de %d gomos balança parado (%s) e estica correndo (%.2f → %.2f)"
+			% [enxertos, fabrica_vista, gomos, balanca, parado_estica, estica])
+	# a aba Corpo
+	Corpo.zerar()
+	v.vestir_corpo(Corpo.vestido)
+	var of: Oficina = m.oficina
+	var b := BaseVale.boca_cilindro
+	a.teleportar(Vector3(b.x, m.ilha.altura(b.x, b.z) + 0.4, b.z), Armadura.Estado.CHAO)
+	await _esperar(0.5)
+	of.entrar()
+	await _esperar(2.4)
+	var aberta: bool = of.fase == Oficina.Fase.ABERTA
+	of._mudar_aba(4 - of.aba)
+	await _esperar(0.2)
+	of._escolher("parte_tudo")
+	of._escolher("corpo_urso")
+	var previa: bool = v.corpo["tronco"] == "urso" and Corpo.vestido["tronco"] == ""
+	of.instalar("corpo_urso")
+	await _esperar(2.3)
+	var vestiu: bool = Corpo.vestido.values().count("urso") == 4 and v.corpo == Corpo.vestido
+	of._escolher("parte_cabeca")
+	of._escolher("corpo_gato")
+	of.instalar("corpo_gato")
+	await _esperar(2.3)
+	var so_cabeca: bool = Corpo.vestido["cabeca"] == "gato" and Corpo.vestido["tronco"] == "urso"
+	Corpo.tudo = false
+	of._escolher("parte_tudo")
+	of._escolher("corpo_cavaleiro")
+	of.instalar("corpo_cavaleiro")
+	await _esperar(0.3)
+	var fechado: bool = Arsenal.nivel() >= Corpo.nivel("cavaleiro") or (of.fase == Oficina.Fase.ABERTA and Corpo.vestido["tronco"] == "urso")
+	Corpo.tudo = true
+	of.sair()
+	await _esperar(1.8)
+	var voltou: bool = of.fase == Oficina.Fase.FORA and v.corpo == Corpo.vestido and not a.travado
+	_ok(aberta and previa and vestiu and so_cabeca and fechado and voltou,
+		"aba Corpo: prévia no robô (%s), vestiu o Urso inteiro (%s) e depois só a cabeça de Gato (%s); fechado por nível não veste (%s); saindo fica o vestido (%s)"
+			% [previa, vestiu, so_cabeca, fechado, voltou])
+	Corpo.zerar()
+	v.vestir_corpo(Corpo.vestido)
+	a.recomecar()
+	await _esperar(0.3)

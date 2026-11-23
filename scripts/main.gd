@@ -90,6 +90,8 @@ func _ready() -> void:
 	Melhorias.instaladas = []
 	Arsenal.zerar()
 	Arsenal.tudo = Melhorias.tudo
+	Corpo.zerar()
+	Corpo.tudo = Melhorias.tudo  # nos testes e nas fotos todos os conjuntos do corpo abertos
 	# a simulação: pedida pela pausa, pela linha de comando, ou num jogo novo (nunca visto e nenhum lugar visitado)
 	var novo: bool = Guardado.ativo and not bool(Guardado.progresso("simulacao_vista")) and (Guardado.progresso("lugares") as Array).is_empty()
 	# a história (2026-11-21): num jogo novo a ilha abre primeiro, para o prólogo, e só depois vem a simulação;
@@ -104,6 +106,7 @@ func _ready() -> void:
 	if Guardado.ativo and not simulacao:
 		Melhorias.carregar()
 		Arsenal.carregar()
+		Corpo.carregar()
 	# no jogo de verdade o mundo é montado atrás da tela de carregamento
 	set_process(false)
 	var carga: Carregando = null
