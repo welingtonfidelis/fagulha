@@ -11,7 +11,7 @@ extends RefCounted
 const ARQUIVO := "user://fagulha.json"
 const PADRAO := {
 	"ajustes": {"qualidade": 1, "sensibilidade": 2, "inverter_y": false, "vibra": true},
-	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}, "memorias": [], "lembrancas": [], "simulacao_vista": false, "dicas": [], "farol_aceso": false, "posicao": [], "robo_antigo": false, "robo_mergulhador": false, "robo_em_uso": 0, "acoes": {}, "achados": {}, "prologo_visto": false, "despertar_visto": false, "rotas": {}, "rastro": "", "acampamentos": [], "acampamentos_horas": {}, "procurados": [], "pedidos": {}, "radio": false, "horta": {}, "album": {}, "raposa": {}, "recordes": [], "corpo": {}},
+	"progresso": {"lugares": [], "hora": 9.5, "pecas": [], "melhorias": [], "energia_base": 100.0, "escaneados": [], "arsenal": {}, "memorias": [], "lembrancas": [], "simulacao_vista": false, "dicas": [], "farol_aceso": false, "posicao": [], "robo_antigo": false, "robo_mergulhador": false, "robo_em_uso": 0, "acoes": {}, "achados": {}, "prologo_visto": false, "despertar_visto": false, "rotas": {}, "rastro": "", "acampamentos": [], "acampamentos_horas": {}, "procurados": [], "pedidos": {}, "radio": false, "horta": {}, "album": {}, "raposa": {}, "recordes": [], "corpo": {}, "corpo_vistos": {}},
 }
 
 static var ativo := true

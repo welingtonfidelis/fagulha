@@ -166,6 +166,8 @@ func tirar() -> void:
 			_texturas.erase(caminho)
 			if not paginas.has(id):
 				novas.append(id)
+				if not id.begins_with("lugar_"):  # os lugares já dão experiência ao chegar (doc §148)
+					Experiencia.descobrir("album:" + id, Experiencia.ALBUM)
 			paginas[id] = {"foto": caminho, "hora": snappedf(CicloDia.atual.hora if CicloDia.atual else 12.0, 0.1)}
 	_guardar()
 	fotos += 1

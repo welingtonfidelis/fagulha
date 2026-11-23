@@ -55,6 +55,7 @@ var _caixas: Array[Dictionary] = []
 var _caixa_n := 0
 var _caixa_t := 25.0
 var subidas := 0  # vezes que subiu de nível na arena (testes)
+var _fogo_visto := 1.0  # o fogo das forjas, que segue o fôlego devagar
 var caixas_soltas := 0  # testes
 var caixas_pegas := 0
 
@@ -104,9 +105,12 @@ const ABRE_PORTA := 0.66  # rad que cada folha abre
 const CONCRETO := Color(0.36, 0.38, 0.36)
 const FERRO := Color(0.3, 0.27, 0.24)
 const FOGO := Color(1.0, 0.5, 0.14)
+const BRASA_FORJA := Color(0.55, 0.1, 0.04)  # sem fôlego, a boca da forja fica nesta brasa
 
 static var _tex: Texture2D
 static var luzes_forja: Array[OmniLight3D] = []
+## O fogo na boca das forjas: [material, cor, força]. Baixa até a brasa quando o fôlego da luta acaba (doc §148).
+static var fogo_forja: Array = []
 static var bracos_forja: Array[Node3D] = []
 static var lampadas: Array[Dictionary] = []
 static var luz_porta: OmniLight3D
@@ -441,8 +445,12 @@ static func _forja(v: Node3D, corpo: StaticBody3D, p: Vector3, giro: float) -> v
 	_kit(v, "machine-window", Transform3D((b * Basis(Vector3.UP, PI * 0.5)).scaled(Vector3.ONE * 2.6), p + b * Vector3(5.0, 0, 0.5)), ferro, 0.5, 0.3, corpo)
 	# a boca: um vão escuro com o fogo no fundo
 	_caixa(v, corpo, Vector3(3.8, 3.0, 0.3), Transform3D(b, p + b * Vector3(0, 2.0, -3.72)), escuro, false)
-	_caixa(v, corpo, Vector3(3.2, 2.2, 0.2), Transform3D(b, p + b * Vector3(0, 1.8, -3.82)), _luz(FOGO, 3.2), false)
-	_caixa(v, corpo, Vector3(3.2, 0.5, 0.25), Transform3D(b, p + b * Vector3(0, 0.9, -3.87)), _luz(Color(1.0, 0.82, 0.4), 4.5), false)
+	var fogo := _luz(FOGO, 3.2)
+	var chama := _luz(Color(1.0, 0.82, 0.4), 4.5)
+	fogo_forja.append([fogo, FOGO, 3.2])
+	fogo_forja.append([chama, Color(1.0, 0.82, 0.4), 4.5])
+	_caixa(v, corpo, Vector3(3.2, 2.2, 0.2), Transform3D(b, p + b * Vector3(0, 1.8, -3.82)), fogo, false)
+	_caixa(v, corpo, Vector3(3.2, 0.5, 0.25), Transform3D(b, p + b * Vector3(0, 0.9, -3.87)), chama, false)
 	_fumaca(v, p + b * Vector3(2.9, 13.5, 1.6), 6.0, Color(0.5, 0.5, 0.5, 0.3), 14)
 	_fumaca(v, p + b * Vector3(0, 3.4, -4.2), 2.6, Color(1.0, 0.6, 0.3, 0.22), 8)
 	# a esteira (duas peças em fila, saindo da boca), com peças em brasa esfriando
@@ -722,6 +730,7 @@ static func _morro(v: Vale, raiz: Node3D) -> void:
 static func montar(v: Vale) -> void:
 	_tex = v._tex
 	luzes_forja.clear()
+	fogo_forja.clear()
 	bracos_forja.clear()
 	esteiras.clear()
 	pecas_kit = 0
@@ -1112,7 +1121,7 @@ static func nome_do_chefe(numero: int) -> String:
 func ligar() -> void:
 	if fase != Fase.PARADA or armadura.em_pane:
 		return
-	conta = {"xp": 0, "vencidos": 0, "ondas": 0, "recorde_antes": Arsenal.recorde}
+	conta = {"xp": 0, "vencidos": 0, "ondas": 0, "recorde_antes": Arsenal.recorde, "nivel_antes": Arsenal.nivel()}
 	if hud:
 		hud.resumo_t = 0.0
 	onda = 1  # toda horda começa da onda 1 (pedido do usuário, 2026-11-20)
@@ -1279,18 +1288,23 @@ func _andar_caixas(delta: float) -> void:
 func _recompensa(mc: Vigia) -> void:
 	vencidos_total += 1
 	# a conta mora no Arsenal: os acampamentos e os procurados usam a mesma (doc §136)
-	var ganho := Arsenal.premio(mc.chefe, onda, mc.semente)
+	# a experiência passa pelo fôlego da luta (doc §148); os materiais rendem sempre cheio
+	var ganho := Arsenal.pelo_folego(Arsenal.premio(mc.chefe, onda, mc.semente))
 	conta["xp"] += int(ganho["xp"])
 	conta["vencidos"] += 1
 	for k: String in rodada:
 		rodada[k] += int(ganho[k])
+	var antes := Arsenal.nivel()
 	if Arsenal.ganhar(ganho):
 		subidas += 1
-		EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
-		if hud:
-			hud.avisar("Nível %d" % Arsenal.nivel(), "novas fabricações e melhorias na base")
-		if sons:
-			sons._toque("nivel", -2.0, 0.0)
+		if is_instance_valid(Experiencia.atual):
+			Experiencia.atual.festejar(antes)  # no meio da onda, só o "Nível N"; o cartão espera o respiro
+		else:
+			EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
+			if hud:
+				hud.avisar("Nível %d" % Arsenal.nivel(), "")
+			if sons:
+				sons._toque("nivel", -2.0, 0.0)
 	# os espólios: cubinhos de luz que saem do robô caído e voam para o jogador
 	Espolio.soltar(self, mc.global_position, ganho, armadura)
 	_caidos.append({"no": mc, "t": 0.0})
@@ -1313,6 +1327,7 @@ func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 			"ondas": int(conta["ondas"]), "recorde": Arsenal.recorde, "vencidos": int(conta["vencidos"]), "xp": int(conta["xp"]),
 			"sucata": int(rodada["sucata"]) - int(perdeu.get("sucata", 0)), "nucleos": int(rodada["nucleos"]) - int(perdeu.get("nucleos", 0)),
 			"chips": int(rodada["chips"]) - int(perdeu.get("chips", 0)), "perdeu_metade": not perdeu.is_empty(),
+			"conjuntos": _conjuntos_da_rodada(), "sem_folego": Arsenal.folego <= 0.0,
 		}
 		hud.mostrar_resumo(motivo, linhas, Arsenal.recorde > int(conta["recorde_antes"]), dados)
 		motivo = ""
@@ -1336,7 +1351,21 @@ func _parar(motivo: String, sub := "", perdeu := {}) -> void:
 			hud.avisar(motivo, sub)
 
 
+## Os conjuntos que abriram nesta rodada (o resumo mostra o retrato ao lado da experiência).
+func _conjuntos_da_rodada() -> Array:
+	var lista: Array = []
+	for n in range(int(conta.get("nivel_antes", Arsenal.nivel())) + 1, Arsenal.nivel() + 1):
+		lista.append_array(Corpo.do_nivel(n))
+	return lista
+
+
+func _exit_tree() -> void:
+	Experiencia.segurar = false
+
+
 func _physics_process(delta: float) -> void:
+	# no meio de uma onda o cartão do nível espera (doc §148)
+	Experiencia.segurar = fase == Fase.ONDA or fase == Fase.CONTAGEM
 	if armadura == null:
 		return
 	# robôs vencidos afundam no chão e somem; os espólios voam para o jogador
@@ -1352,8 +1381,19 @@ func _physics_process(delta: float) -> void:
 				_caidos.erase(c)
 	# as forjas tremem como fogo e os braços seguem trabalhando devagar
 	var agora := Time.get_ticks_msec() * 0.001
+	# o fôlego da luta no fogo delas: cheio, a boca acesa; acabando, só a brasa (doc §148)
+	var folego := clampf(Arsenal.folego / Arsenal.FOLEGO_MAX, 0.0, 1.0)
+	_fogo_visto = move_toward(_fogo_visto, folego, delta * 0.5)
+	var forca := lerpf(0.16, 1.0, _fogo_visto)
 	for i in luzes_forja.size():
-		luzes_forja[i].light_energy = 2.6 + sin(agora * 9.0 + i * 1.7) * 0.5 + sin(agora * 23.0 + i) * 0.3
+		luzes_forja[i].light_energy = (2.6 + sin(agora * 9.0 + i * 1.7) * 0.5 + sin(agora * 23.0 + i) * 0.3) * forca
+		luzes_forja[i].light_color = BRASA_FORJA.lerp(FOGO, _fogo_visto)
+	for f: Array in fogo_forja:
+		var m: StandardMaterial3D = f[0]
+		var cor := BRASA_FORJA.lerp(f[1] as Color, _fogo_visto)
+		m.albedo_color = cor
+		m.emission = cor
+		m.emission_energy_multiplier = float(f[2]) * forca
 	for l in lampadas:
 		if l["pisca"]:
 			var acesa := fmod(agora * 1.3 + (l["luz"] as OmniLight3D).position.x, 5.0) > 0.5 and sin(agora * 37.0) > -0.6

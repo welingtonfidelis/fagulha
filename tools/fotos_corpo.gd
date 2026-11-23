@@ -100,32 +100,19 @@ func _rodar() -> void:
 	var fora := b + of._eixo() * 0.6
 	a.teleportar(Vector3(fora.x, m.ilha.altura(fora.x, fora.z) + 0.4, fora.z), Armadura.Estado.CHAO)
 	await _esp(60)
-	# ---- a aba Corpo
+	# ---- a aba Corpo: as fotos dela ficam no tools/fotos_aba_corpo.gd (§146, peça por peça); aqui só vestir o Gato
 	of.entrar()
 	await _esp(200)
 	of._mudar_aba(4 - of.aba)
 	await _esp(20)
-	await _focar(of, "corpo_gato")
-	await _foto("c1_aba_gato")
-	await _focar(of, "corpo_sabre")
-	await _foto("c2_aba_sabre")
-	await _focar(of, "parte_cabeca")
-	await _focar(of, "corpo_samurai")
-	await _foto("c3_so_a_cabeca_samurai")
-	await _focar(of, "parte_tudo")
-	Corpo.tudo = false
-	of._refazer_lista()
-	await _esp(5)
-	await _focar(of, "corpo_cavaleiro")
-	await _foto("c4_fechado_cavaleiro")
-	Corpo.tudo = true
-	of._refazer_lista()
-	await _esp(5)
-	await _focar(of, "corpo_gato")
-	of.instalar("corpo_gato")
-	await _esp(int(Oficina.T_INSTALAR * 0.5 * 60.0))
-	await _foto("c5_vestindo")
-	await _esp(int(Oficina.T_INSTALAR * 0.5 * 60.0) + 15)
+	(of._botoes["linha_inteiro"] as Control).grab_focus()
+	await _esp(25)
+	for i in Corpo.ordem().size():
+		if String(of._montagem["tronco"]) == "gato":
+			break
+		of._trocar_peca("inteiro", 1)
+	of.instalar("linha_inteiro")
+	await _esp(int(Oficina.T_INSTALAR * 60.0) + 15)
 	await _foto("c6_vestido")
 	print("vestido: ", Corpo.vestido)
 	of.sair()

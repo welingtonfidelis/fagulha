@@ -75,6 +75,7 @@ func _ready() -> void:
 func _guardar(nome: String, valor: Variant) -> void:
 	feitas[nome] = valor
 	contagem += 1
+	Experiencia.descobrir("acao:" + nome, Experiencia.ACAO)  # a primeira vez de cada uma (doc §148)
 	if Guardado.ativo:
 		Guardado.por_progresso("acoes", feitas)
 

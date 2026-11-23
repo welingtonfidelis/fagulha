@@ -6,7 +6,7 @@ extends Node3D
 ## Regras: depois de sair do chão não se pousa mais até o fim (o calor é o desafio; água, chuva e cachoeira
 ## esfriam no caminho). Feita uma vez, a mesma baliza passa a dar a versão difícil, em que cada aro vai apagando
 ## se o robô demora (um relógio que se vê, sem número).
-## Prêmios: a primeira vez de cada rota dá uma cor de rastro para os jatos (`RastroJatos`); a difícil põe uma
+## Prêmios: a primeira vez de cada rota dá uma cor para o fogo dos jatos (`ArmaduraVisual`, doc §147); a difícil põe uma
 ## miniatura do lugar na estante da base (`Miniaturas`); todas as rotas feitas dão a peça "corrida".
 ## Feita a difícil, a baliza passa a dar a corrida: a gravação do recorde de um piloto de teste de antigamente
 ## (`RivalHolograma`) espera na baliza e sai junto quando o robô decola, sem prazo nos aros. Chegar antes dele
@@ -46,7 +46,7 @@ const ALVO_RAIO := 7.0  # o alvo do mergulho do mastro
 const NINHO_RAIO := 9.0
 
 static var feitas := {}  # id -> 1 (feita) ou 2 (feita na difícil)
-static var rastro := ""  # a cor de rastro em uso ("" sem rastro)
+static var rastro := ""  # a cor dos jatos em uso ("" a de fábrica); o nome ficou do rastro de fitas, que saiu
 static var recordes: Array = []  # ids das rotas com o recorde do piloto de teste batido
 ## A velocidade da gravação em cada rota (m/s): entre o voo normal (18) e a arrancada (28), para ganhar dela é
 ## preciso arrancar e cuidar do calor. No ninho só se plana; na represa se nada.
@@ -618,11 +618,16 @@ func _completar() -> void:
 		feitas[id] = nivel
 		if Guardado.ativo:
 			Guardado.por_progresso("rotas", feitas)
+	# a experiência da primeira volta e da difícil, uma vez cada (doc §148)
+	if antes == 0:
+		Experiencia.descobrir("rota:" + id, Experiencia.ROTA)
+	if nivel == 2 and antes < 2:
+		Experiencia.descobrir("rota_dificil:" + id, Experiencia.ROTA_DIFICIL)
 	if antes == 0:
 		rastro = id
 		if Guardado.ativo:
 			Guardado.por_progresso("rastro", rastro)
-		sub = "rastro novo: " + String(NOMES_COR[id]) + " · troque na oficina da base"
+		sub = "jatos novos: " + String(NOMES_COR[id]) + " · troque na oficina da base"
 	elif nivel == 2 and antes < 2:
 		sub = "uma miniatura do lugar foi para a estante da base"
 	if todas_feitas() and not Melhorias.achadas.has("corrida") and not Melhorias.instaladas.has("corrida"):
@@ -758,13 +763,10 @@ func _fim_corrida(id: String) -> void:
 			recordes.append(id)
 			if Guardado.ativo:
 				Guardado.por_progresso("recordes", recordes)
-			var nivel_antes := Arsenal.nivel()
-			Arsenal.xp += 50
 			Arsenal.sucata += 3
 			Arsenal.guardar()
-			sub = "recorde batido! uma tacinha foi para a estante · +50 de experiência"
-			if Arsenal.nivel() > nivel_antes and hud:
-				hud.avisar.call_deferred("Nível %d" % Arsenal.nivel(), "novas fabricações e melhorias na base")
+			Experiencia.descobrir("corrida:" + id, Experiencia.CORRIDA)  # doc §148
+			sub = "recorde batido! uma tacinha foi para a estante · +%d de experiência" % Experiencia.CORRIDA
 		else:
 			sub = "recorde batido de novo!"
 		if recordes.size() == ROTAS.size():

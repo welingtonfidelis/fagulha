@@ -29,6 +29,7 @@ const NIVEL_GRANDE := 4
 var mapa: Vale
 var alvo: Armadura
 var pintar: Callable
+var hud: Hud  # para o aviso do nível (quem cria passa; sem ele, só a aura)
 var todas: Array[Node3D] = []
 
 var _t := 0.0
@@ -49,12 +50,20 @@ func _ready() -> void:
 			mc.onda_nivel = NIVEL_GRANDE if l[2] else NIVEL
 			add_child(mc)
 			todas.append(mc)
+			mc.desligou.connect(_vencida.bind(mc))
 			k += 1
 			if l[2]:
 				grandes += 1
 	if alvo:
 		alvo.golpe_chao.connect(func(onde: Vector3) -> void: get_tree().call_group("maquinas", "levar_impacto", onde))
 	print("inimigos do vale: %d mechas (%d grandes)" % [todas.size(), grandes])
+
+
+## Uma máquina solta desligada: um pouco de experiência e de sucata, dentro do fôlego da luta, a cada vez que
+## ela for desligada (ela religa depois de um tempo). Doc §148.
+func _vencida(mc: Mecha) -> void:
+	var g := {"xp": Experiencia.MAQUINA_GRANDE if mc.chefe else Experiencia.MAQUINA, "sucata": 3 if mc.chefe else 1}
+	Espolio.premiar(self, mc.global_position + Vector3(0, 1, 0), Arsenal.pelo_folego(g), alvo, hud)
 
 
 ## O ponto pedido, ou o chão bom mais perto dele (fora d'água, pouco inclinado).

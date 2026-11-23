@@ -12,6 +12,7 @@
 # As costas (mochila, jatos, abas, casulos) não trocam.
 #
 # Folha de prova:  [FOLHA=conjuntos|rabos] [PECAS=besouro,gato,...] blender -b --factory-startup -P tools/vale/robo_pecas.py -- <saida.png> [escala]
+# Miniaturas da aba Corpo:  MINIATURAS=assets/vale/corpo/pecas [PECAS=...] blender -b --factory-startup -P tools/vale/robo_pecas.py -- x.png
 import math
 import os
 import sys
@@ -1036,7 +1037,7 @@ class Marinheiro:
 
 class Sabre:
     """Dente-de-sabre: cabeça larga ocre com testa listrada, orelhas curtas e focinho creme com dois presões
-    grossos de ponta redonda; peito creme; antebraços grossos listrados com patas grandes; rabo curto."""
+    curtos de ponta redonda; peito creme; antebraços grossos listrados com patas grandes; rabo curto."""
     nome = "Dente-de-sabre"
 
     @staticmethod
@@ -1052,10 +1053,10 @@ class Sabre:
         casca("focinho", (0, -0.165, 0.81), (0.2, 0.11, 0.09), C, cabeca, topo=(0.85, 0.9), bevel=0.03)
         esfera("nariz", (0, -0.222, 0.845), (0.034, 0.02, 0.022), M, cabeca, u=14, v=8)
         for s in (1, -1):
-            # o presão: grosso, levemente curvo, ponta redonda
-            pts = arco((s * 0.05, -0.19, 0.79), (s * 0.044, -0.2, 0.69), (0, -0.012, 0), 5)
-            tubo("presa", pts, (0.02, 0.019, 0.017, 0.015, 0.013), C, cabeca, segs=10)
-            esfera("ponta_presa", tuple(pts[-1]), (0.013,) * 3, C, cabeca, u=10, v=6)
+            # o presão: curto e levemente curvo, de ponta redonda (era o dobro e ficou feio, pedido de 2026-11-23)
+            pts = arco((s * 0.05, -0.19, 0.79), (s * 0.046, -0.198, 0.728), (0, -0.007, 0), 5)
+            tubo("presa", pts, (0.013, 0.0125, 0.0115, 0.0102, 0.0088), C, cabeca, segs=10)
+            esfera("ponta_presa", tuple(pts[-1]), (0.0088,) * 3, C, cabeca, u=10, v=6)
             caixa("orelha_sabre", (s * 0.15, 0.03, 1.11), (0.09, 0.05, 0.08), O, cabeca, topo=(0.35, 0.6), rot=(-8, s * 20, 0), bevel=0.018)
             caixa("orelha_dentro", (s * 0.148, 0.0, 1.104), (0.05, 0.01, 0.05), C, cabeca, topo=(0.35, 0.8), rot=(-8, s * 20, 0), bevel=0.004)
             for k in range(2):
@@ -1169,9 +1170,160 @@ class Solar:
         sola(s, lado)
 
 
+# ---------- os conjuntos dos robôs achados (2026-11-23): abrem acordando o robô, não por nível ----------
+def meia_lua(nome, centro, r, esp, s, mat, pai, segs=12):
+    """Meio disco de frente (virado para -y), do lado s: os dois lados juntos fazem um olho redondo só, e cada
+    metade fica na junta do seu olho (o jogo pisca e inclina cada uma)."""
+    bm = bmesh.new()
+    x0, y0, z0 = centro
+    frente, tras = [], []
+    for k in range(segs + 1):
+        a = -math.pi / 2 + k * math.pi / segs
+        x, z = x0 + s * r * math.cos(a), z0 + r * math.sin(a)
+        frente.append(bm.verts.new((x, y0 - esp / 2, z)))
+        tras.append(bm.verts.new((x, y0 + esp / 2, z)))
+    f = bm.faces.new(frente if s < 0 else list(reversed(frente)))
+    bm.faces.new(list(reversed(tras)) if s < 0 else tras)
+    anel = list(range(segs + 1))
+    for k in anel[:-1]:
+        bm.faces.new((frente[k], frente[k + 1], tras[k + 1], tras[k]))
+    bm.faces.new((frente[-1], frente[0], tras[0], tras[-1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    del f
+    return malha(nome, bm, mat, pai, 0, 1)
+
+
+class Mergulhador:
+    """Mergulhador: o robô da comporta da Represa. O mesmo jeito do robô de hoje em amarelo e verde-petróleo,
+    escotilha redonda de aro cinza com parafusos no lugar do visor, sem crista nem antena; dois cilindros de ar
+    nas costas; pés de pato."""
+    nome = "Mergulhador"
+
+    @staticmethod
+    def cores():
+        return (cor("placa_mergulhador", (0.62, 0.40, 0.03), 0.0, 0.45), cor("detalhe_mergulhador", (0.01, 0.13, 0.15), 0.05, 0.4),
+                cor("laranja_mergulhador", (0.55, 0.56, 0.55), 0.0, 0.45))
+
+    @staticmethod
+    def cabeca():
+        Y, T, M = Mergulhador.cores()
+        casco(Y)
+        # a escotilha: o vidro redondo sai um pouco à frente do aro, e os olhos de tela ficam na frente do vidro
+        cil("aro_escotilha", (0, -0.163, 0.925), 0.15, 0.15, 0.04, M, cabeca, rot=(90, 0, 0), segs=20, bevel=0.008)
+        cil("visor", (0, -0.172, 0.925), 0.125, 0.125, 0.044, VIDRO, cabeca, rot=(90, 0, 0), segs=20, bevel=0.006)
+        for k in range(6):
+            a = k * math.pi / 3.0
+            cil("parafuso", (math.cos(a) * 0.138, -0.186, 0.925 + math.sin(a) * 0.138), 0.009, 0.009, 0.01, JUNTA, cabeca,
+                rot=(90, 0, 0), segs=6, bevel=0)
+        for s, lado in LADOS:
+            caixa("olho", (s * 0.06, -0.2015, 0.928), (0.032, 0.006, 0.07), OLHOS, J["olho" + lado], bevel=0)
+            caixa("placa_lado", (s * 0.172, -0.03, 0.945), (0.03, 0.16, 0.17), T, cabeca, base=(1, 0.45), rot=(-22, 0, 0), bevel=0.01)
+            cil("orelha", (s * 0.175, 0.075, 0.87), 0.045, 0.045, 0.03, JUNTA, cabeca, rot=(0, 90, 0), segs=8, bevel=0.006)
+            cil("orelha_luz", (s * 0.192, 0.075, 0.87), 0.022, 0.022, 0.006, M, cabeca, rot=(0, 90, 0), segs=8, bevel=0)
+        caixa("queixo", (0, -0.14, 0.785), (0.22, 0.10, 0.04), Y, cabeca, base=(0.75, 0.9), bevel=0.014)
+        # o engate da mangueira, atrás do capacete
+        cil("engate", (0.07, 0.205, 0.86), 0.026, 0.026, 0.03, M, cabeca, rot=(90, 0, 0), segs=10, bevel=0.004)
+        cil("engate_boca", (0.07, 0.222, 0.86), 0.016, 0.016, 0.01, JUNTA, cabeca, rot=(90, 0, 0), segs=8, bevel=0)
+
+    @staticmethod
+    def tronco_():
+        Y, T, M = Mergulhador.cores()
+        pelve(Y)
+        caixa("tronco_p", (0, 0, 0.575), (0.27, 0.20, 0.19), Y, tronco, base=(0.66, 0.82), bevel=0.035, segs=2)
+        caixa("gola", (0, 0.005, 0.677), (0.19, 0.16, 0.028), T, tronco, bevel=0.01)
+        nucleo(aro=T, anel=M)
+        for s in (1, -1):
+            caixa("ombro_laranja", (s * 0.15, 0, 0.652), (0.05, 0.10, 0.03), M, tronco, bevel=0.008)
+            # os dois cilindros de ar, por fora da mochila (que não troca)
+            cil("cilindro_ar", (s * 0.125, 0.16, 0.60), 0.036, 0.036, 0.2, M, tronco, segs=12, bevel=0.012)
+            cil("valvula", (s * 0.125, 0.16, 0.715), 0.016, 0.02, 0.03, JUNTA, tronco, segs=8, bevel=0)
+            cil("cinta_ar", (s * 0.125, 0.16, 0.56), 0.039, 0.039, 0.016, T, tronco, segs=12, bevel=0.003)
+
+    @staticmethod
+    def braco(s, lado):
+        Y, T, M = Mergulhador.cores()
+        om, lu = J["ombro" + lado], J["luva" + lado]
+        caixa("ombro_p", (s * 0.218, 0, 0.642), (0.115, 0.135, 0.105), Y, om, topo=(0.75, 0.8), bevel=0.028, segs=2)
+        caixa("ombro_azul", (s * 0.278, 0, 0.635), (0.012, 0.075, 0.055), T, om, bevel=0.004)
+        cil("braco", (s * 0.228, 0, 0.57), 0.028, 0.028, 0.10, JUNTA, om, rot=(0, s * -20, 0), segs=8)
+        caixa("antebraco", (s * 0.262, -0.005, 0.43), (0.12, 0.135, 0.17), Y, lu, base=(1.22, 1.2), topo=(0.85, 0.85), bevel=0.028, segs=2)
+        caixa("faixa_luva", (s * 0.258, -0.005, 0.512), (0.085, 0.10, 0.018), M, lu, bevel=0.005)
+        caixa("bracelete", (s * 0.338, -0.005, 0.41), (0.016, 0.095, 0.11), T, lu, base=(1, 0.7), bevel=0.005)
+        cano(s, lado)
+        mao(s, lado)
+
+    @staticmethod
+    def perna(s, lado):
+        Y, T, M = Mergulhador.cores()
+        qu, jo, to = J["quadril" + lado], J["joelho" + lado], J["tornozelo" + lado]
+        coxa(s, lado, placa=Y)
+        caixa("joelho_p", (s * 0.097, -0.062, 0.262), (0.075, 0.04, 0.075), T, jo, topo=(0.65, 1), bevel=0.012)
+        caixa("bota", (s * 0.10, 0.0, 0.158), (0.12, 0.145, 0.17), Y, jo, base=(1.25, 1.2), bevel=0.028, segs=2)
+        caixa("faixa_bota", (s * 0.10, 0.088, 0.17), (0.06, 0.012, 0.09), M, jo, bevel=0.004)
+        caixa("pe", (s * 0.10, -0.04, 0.05), (0.15, 0.25, 0.07), Y, to, topo=(0.82, 0.66), bevel=0.02)
+        caixa("bico", (s * 0.10, -0.15, 0.04), (0.125, 0.05, 0.05), T, to, topo=(0.85, 0.6), bevel=0.012)
+        caixa("pe_de_pato", (s * 0.10, -0.24, 0.022), (0.19, 0.17, 0.02), T, to, bevel=0.006)
+        sola(s, lado)
+
+
+class Antigo:
+    """Antigo: o robô de peças de antes (robo_v1), redesenhado no tamanho de hoje. Casco creme bem arredondado,
+    visor escuro largo com um olho redondo só (metade em cada junta de olho), orelhas verde-água e antena de
+    bolinha; juntas e ombros cinza-ardósia; cinto verde-água; antebraços e botas creme com punho verde-água."""
+    nome = "Antigo"
+
+    @staticmethod
+    def cores():
+        return (cor("placa_antigo", (0.62, 0.58, 0.48), 0.0, 0.55), cor("detalhe_antigo", (0.17, 0.46, 0.40), 0.05, 0.45),
+                cor("placa_antigo_cinza", (0.085, 0.10, 0.12), 0.1, 0.5))
+
+    @staticmethod
+    def cabeca():
+        C, T, G = Antigo.cores()
+        casca("cabeca_p", (0, 0.015, 0.935), (0.44, 0.40, 0.40), C, cabeca, base=(0.92, 0.92), topo=(0.9, 0.9), bevel=0.15)
+        caixa("visor", (0, -0.15, 0.925), (0.34, 0.10, 0.165), VIDRO, cabeca, bevel=0.06, segs=4)
+        for s, lado in LADOS:
+            meia_lua("olho", (0, -0.2015, 0.925), 0.05, 0.006, s, OLHOS, J["olho" + lado])
+            casca("orelha_antigo", (s * 0.232, 0.0, 0.93), (0.034, 0.075, 0.13), T, cabeca, bevel=0.016)
+            cil("orelha_base", (s * 0.218, 0.0, 0.93), 0.04, 0.04, 0.012, G, cabeca, rot=(0, 90, 0), segs=12, bevel=0.003)
+        cil("antena", (0.075, 0.06, 1.2), 0.006, 0.005, 0.15, G, cabeca, segs=6, bevel=0)
+        esfera("ponta_antena", (0.075, 0.06, 1.285), (0.018, 0.018, 0.018), T, cabeca, u=12, v=8)
+
+    @staticmethod
+    def tronco_():
+        C, T, G = Antigo.cores()
+        caixa("pelve", (0, 0, 0.42), (0.17, 0.135, 0.09), G, raiz, base=(0.72, 0.9), bevel=0.022)
+        casca("tronco_p", (0, 0, 0.58), (0.27, 0.2, 0.2), C, tronco, base=(0.8, 0.86), bevel=0.05)
+        caixa("cinto", (0, 0, 0.505), (0.25, 0.19, 0.022), T, tronco, bevel=0.007)
+        nucleo(y=-0.1, z=0.595, aro=G, anel=G)
+        cil("gola", (0, 0.005, 0.683), 0.095, 0.105, 0.024, G, tronco, segs=16, bevel=0.005)
+
+    @staticmethod
+    def braco(s, lado):
+        C, T, G = Antigo.cores()
+        om, lu = J["ombro" + lado], J["luva" + lado]
+        casca("ombro_p", (s * 0.222, 0, 0.645), (0.1, 0.11, 0.095), G, om, topo=(0.85, 0.85), bevel=0.03)
+        cil("braco", (s * 0.228, 0, 0.57), 0.026, 0.026, 0.10, G, om, rot=(0, s * -20, 0), segs=10)
+        casca("antebraco", (s * 0.262, -0.005, 0.44), (0.11, 0.125, 0.155), C, lu, base=(1.1, 1.1), bevel=0.035)
+        caixa("punho_antigo", (s * 0.262, -0.005, 0.37), (0.13, 0.145, 0.024), T, lu, bevel=0.007)
+        cano(s, lado, G)
+        mao(s, lado, mat=G)
+
+    @staticmethod
+    def perna(s, lado):
+        C, T, G = Antigo.cores()
+        jo, to = J["joelho" + lado], J["tornozelo" + lado]
+        coxa(s, lado, r=0.042, mat=G)
+        casca("joelho_p", (s * 0.097, -0.05, 0.262), (0.07, 0.05, 0.06), T, jo, bevel=0.018)
+        casca("bota", (s * 0.10, 0.0, 0.158), (0.12, 0.14, 0.17), C, jo, base=(1.12, 1.08), bevel=0.04)
+        casca("pe", (s * 0.10, -0.035, 0.045), (0.15, 0.24, 0.07), G, to, topo=(0.85, 0.8), bevel=0.025)
+        sola(s, lado, comp=0.24, y=-0.035)
+
+
 CONJUNTOS = {"besouro": Besouro, "gato": Gato, "urso": Urso, "cachorro": Cachorro, "caldeira": Caldeira,
              "majestade": Majestade, "lucano": Lucano, "cavaleiro": Cavaleiro, "enfermeira": Enfermeira,
-             "samurai": Samurai, "marinheiro": Marinheiro, "sabre": Sabre, "solar": Solar}
+             "samurai": Samurai, "marinheiro": Marinheiro, "sabre": Sabre, "solar": Solar,
+             "mergulhador": Mergulhador, "antigo": Antigo}
 SLOTS = ("cabeca", "tronco", "bracoE", "bracoD", "pernaE", "pernaD")
 
 
@@ -1392,6 +1544,47 @@ if __name__ == "__main__":
             cam.rotation_euler = (Vector((0, 0, 0.9)) - Vector(cam.location)).to_track_quat("-Z", "Y").to_euler()
             scene.render.filepath = os.path.join(PASTA_RET, (chave or "atual") + ".png")
             bpy.ops.render.render(write_still=True)
+        os._exit(0)
+
+    # ---------- miniaturas para a aba Corpo: MINIATURAS=<pasta> grava <pasta>/<conjunto|atual>_<vaga>.png ----------
+    # Cada vaga sozinha (as outras malhas escondidas), câmera ortográfica de três quartos pela frente, do lado da vaga;
+    # o tronco dos conjuntos de rabo é visto de três quartos por trás, para o rabo aparecer (§146).
+    PASTA_MIN = os.environ.get("MINIATURAS")
+    if PASTA_MIN:
+        os.makedirs(PASTA_MIN, exist_ok=True)
+        scene.render.film_transparent = True
+        scene.render.resolution_x = scene.render.resolution_y = 160
+        cam_d.type = "ORTHO"
+        COM_RABO = {"gato", "cachorro", "sabre"}
+        for chave in [""] + pedidos:
+            cls = CONJUNTOS[chave] if chave else None
+            for slot in SLOTS:
+                montar({slot: cls} if cls else {})
+                de_pe()
+                mostrar = [o for o in FEITAS if o.type == "MESH"] if cls else list(ATUAIS.get(slot, []))
+                guarda = {}
+                for o in bpy.data.objects:
+                    if o.type == "MESH":
+                        guarda[o.name] = o.hide_render
+                        o.hide_render = o not in mostrar
+                bpy.context.view_layer.update()
+                pts = []
+                for o in mostrar:
+                    pts += [o.matrix_world @ Vector(c) for c in o.bound_box]
+                mn = Vector((min(q.x for q in pts), min(q.y for q in pts), min(q.z for q in pts)))
+                mx = Vector((max(q.x for q in pts), max(q.y for q in pts), max(q.z for q in pts)))
+                lado = 0.38 if slot.endswith("E") else -0.38
+                vista = Vector((lado, -1.0, 0.28))
+                if slot == "tronco" and chave in COM_RABO:
+                    vista = Vector((-0.75, 0.85, 0.35))
+                vista.normalize()
+                cam.location = (mn + mx) * 0.5 + vista * 4.0
+                cam.rotation_euler = (-vista).to_track_quat("-Z", "Y").to_euler()
+                cam_d.ortho_scale = max(mx - mn) * 1.18
+                scene.render.filepath = os.path.join(PASTA_MIN, "%s_%s.png" % (chave or "atual", slot))
+                bpy.ops.render.render(write_still=True)
+                for nome_o, h in guarda.items():
+                    bpy.data.objects[nome_o].hide_render = h
         os._exit(0)
 
     FRENTE = ((-2.6, -4.2, 1.1), (0, 0, 0.56))

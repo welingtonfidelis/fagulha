@@ -1,23 +1,21 @@
 class_name RoboAntigo
 extends Node3D
-## Os robôs que se acham no vale e passam a ficar guardados nos cilindros da base (2026-11-19).
+## Os robôs que se acham no vale e passam a morar na base (2026-11-19; desde 2026-11-23, doc §144, não se troca
+## mais de robô: acordar um abre o jeito dele na aba Corpo, Corpo.ACHADOS, e ele vira um AmigoRobo).
 ##  - **o anterior** (`robo_v1.glb`, o robô de peças de antes): desligado, sentado no chão dentro do
 ##    Observatório, olhando para cima. Era o lugar de que ele gostava.
 ##  - **o mergulhador** (`robo_v3.glb`): no fundo da lagoa da Represa, ao pé da parede, segurando a comporta.
 ##    A água sai dali com força: só o nado rápido **com as barbatanas** vence a correnteza.
-## Chegando perto e apertando o botão de agir, aparece a lembrança do robô e o drone o leva para a base.
-## Cada um tem o cilindro dele; o terceiro cilindro guarda o robô novo quando outro está em uso. Perto de um
-## cilindro com robô, "trocar de robô" veste aquele. Muda só o visual (o anterior atira pelos jatos das mãos).
-## Quem cria passa `armadura`, `hud`, `memorias`, `pecas` e `cilindros`.
+## Chegando perto e apertando o botão de agir, aparece a lembrança do robô e o drone o leva para a base: o
+## antigo passa a viver pela base (e de noite no telhado), o mergulhador na água mais perto dela.
+## Saves de antes, com um deles em uso (`robo_em_uso`), passam a vestir o conjunto daquele robô.
+## Quem cria passa `armadura`, `hud`, `memorias` e `pecas`.
 
 const V1 := "res://assets/vale/robo_v1.glb"
-const V2 := "res://assets/vale/robo_v2.glb"
 const V3 := "res://assets/vale/robo_v3.glb"
 ## [chave no save, modelo, lembrança]
 const ROBOS := [["robo_antigo", V1, "robo_antigo"], ["robo_mergulhador", V3, "robo_mergulhador"]]
 const PERTO := 3.0
-const PERTO_CILINDRO := 1.9
-const VAGA := 0  # o cilindro do robô anterior (o do mergulhador é o 1 e o do robô novo, o 2)
 const VAGA_NOVO := 2
 # a correnteza da comporta
 const CORRENTE := 11.6  # m/s: entre o nado rápido sem as barbatanas (10,1) e com elas (13)
@@ -28,12 +26,9 @@ var armadura: Armadura
 var hud: Hud
 var memorias: Memorias
 var pecas: PecasMundo
-var cilindros: CilindrosBase
 var achados: Array[bool] = [false, false]
-var em_uso := 0  # 0 o robô novo, 1 o anterior, 2 o mergulhador
-var trocas := 0  # testes
 var estatuas: Array[Node3D] = [null, null]  # cada robô no lugar dele, enquanto não foi achado
-var guardados: Array[Node3D] = [null, null, null]  # o robô dentro de cada cilindro
+var amigos: Array[AmigoRobo] = [null, null]  # cada robô achado, morando na base
 var comporta := Vector3.INF  # no mundo: de onde a correnteza sai
 var _dica_minha := ""
 var _nadando_t := 0.0  # há quanto tempo o robô nada sem parar (quem cai do ar em cima da comporta ainda não conta)
@@ -45,26 +40,34 @@ var achado: bool:
 var estatua: Node3D:
 	get:
 		return estatuas[0]
-var guardado_no: Node3D:
-	get:
-		return guardados[0]
 
 
 func _ready() -> void:
+	var em_uso := 0
 	if Guardado.ativo:
 		for k in ROBOS.size():
 			achados[k] = bool(Guardado.progresso(ROBOS[k][0]))
 		em_uso = int(Guardado.progresso("robo_em_uso"))
-		if em_uso > 0 and not achados[em_uso - 1]:
-			em_uso = 0
+	for k in ROBOS.size():
+		Corpo.resgatados[Corpo.do_robo(k)] = achados[k]
 	for i in 5:
 		await get_tree().physics_frame
-	if em_uso > 0:
-		armadura.trocar_modelo(ROBOS[em_uso - 1][1])
+	# o save de quando se trocava de robô: quem jogava com um achado passa a vestir o conjunto dele
+	if em_uso > 0 and em_uso <= ROBOS.size() and achados[em_uso - 1]:
+		var chave := Corpo.do_robo(em_uso - 1)
+		for parte: String in Corpo.PARTES:
+			Corpo.vestido[parte] = chave
+		Corpo.guardar()
+		if armadura.visual:
+			armadura.visual.vestir_corpo(Corpo.vestido)
+	if em_uso != 0 and Guardado.ativo:
+		Guardado.por_progresso("robo_em_uso", 0)
 	if not achados[0]:
 		_por_no_observatorio()
 	_por_na_represa()
-	_por_guardados()
+	for k in ROBOS.size():
+		if achados[k]:
+			_por_amigo(k)
 
 
 func _pose(cena: Node3D, pose: Dictionary, desce := 0.0) -> void:
@@ -179,31 +182,17 @@ func _por_na_represa() -> void:
 		"joelhoE": Vector3(22, 0, 0), "joelhoD": Vector3(10, 0, 0), "dedosE": Vector3(100, 0, 0), "dedosD": Vector3(100, 0, 0)})
 
 
-## Os robôs dentro dos cilindros: cada achado no dele, e o robô novo no terceiro quando outro está em uso.
-func _por_guardados() -> void:
-	if cilindros == null:
+## O robô `k` achado, morando na base (o antigo) ou na água mais perto dela (o mergulhador).
+func _por_amigo(k: int) -> void:
+	if amigos[k] and is_instance_valid(amigos[k]):
 		return
-	for k in guardados.size():
-		if guardados[k] and is_instance_valid(guardados[k]):
-			guardados[k].queue_free()
-		guardados[k] = null
-		if k >= cilindros.cilindros.size():
-			continue
-		var modelo := ""
-		if k < ROBOS.size():
-			if achados[k] and em_uso != k + 1:
-				modelo = ROBOS[k][1]
-		elif em_uso != 0:
-			modelo = V2
-		if modelo == "":
-			continue
-		var no := Node3D.new()
-		no.position.y = 0.14
-		cilindros.cilindros[k].add_child(no)
-		var cena := (load(modelo) as PackedScene).instantiate() as Node3D
-		no.add_child(cena)
-		_apagar(cena)
-		guardados[k] = no
+	var a := AmigoRobo.new()
+	a.name = "Amigo" + ("Antigo" if k == 0 else "Mergulhador")
+	a.tipo = "antigo" if k == 0 else "mergulhador"
+	a.armadura = armadura
+	a.mapa = pecas.mapa
+	add_child(a)
+	amigos[k] = a
 
 
 ## Apaga tudo o que brilha num modelo: as chamas somem e as peças com luz própria ficam escuras.
@@ -231,40 +220,29 @@ func achar_robo(k: int) -> void:
 	if k < 0 or k >= ROBOS.size() or achados[k]:
 		return
 	achados[k] = true
+	Corpo.resgatados[Corpo.do_robo(k)] = true
+	# a experiência e o cartão do conjunto dele (doc §148): os dois esperam a lembrança fechar
+	var de := Vector3.INF
+	if estatuas[k] and is_instance_valid(estatuas[k]):
+		de = (estatuas[k] as Node3D).global_position + Vector3(0, 1, 0)
+	Experiencia.descobrir("robo:" + Corpo.do_robo(k), Experiencia.ROBO, de)
+	if is_instance_valid(Experiencia.atual):
+		Experiencia.atual.conjunto_novo(Corpo.do_robo(k))
 	if Guardado.ativo:
 		Guardado.por_progresso(ROBOS[k][0], true)
 	if estatuas[k] and is_instance_valid(estatuas[k]):
 		estatuas[k].queue_free()
 	estatuas[k] = null
-	_por_guardados()
+	_por_amigo(k)
 	if hud:
 		hud.dica = ""
-		hud.avisar("Robô levado para a base", "o drone o guardou num cilindro; lá dá para trocar")
+		hud.avisar("Robô levado para a base", "ele vai morar lá; o jeito dele abriu na oficina, na aba Corpo")
 	if memorias:
 		memorias.abrir(ROBOS[k][2])
 
 
 func achar() -> void:
 	achar_robo(0)
-
-
-## Passa a usar o robô `n` (0 o novo, 1 o anterior, 2 o mergulhador), se ele já foi achado.
-func usar(n: int) -> void:
-	if n == em_uso or n < 0 or n > ROBOS.size() or (n > 0 and not achados[n - 1]):
-		return
-	em_uso = n
-	trocas += 1
-	if Guardado.ativo:
-		Guardado.por_progresso("robo_em_uso", em_uso)
-	armadura.trocar_modelo(V2 if n == 0 else ROBOS[n - 1][1])
-	_por_guardados()
-	if hud:
-		hud.avisar("Robô trocado", "o outro fica guardado no cilindro")
-
-
-## Troca entre o robô novo e o anterior (o jeito de antes de haver mais de um achado).
-func trocar() -> void:
-	usar(1 if em_uso != 1 else 0)
 
 
 ## A correnteza da comporta: empurra para longe dela quem está na água ali perto.
@@ -306,11 +284,6 @@ func _process(_delta: float) -> void:
 			if estatuas[k] and p.distance_to(estatuas[k].global_position) < PERTO and chegou:
 				convite = "{agir}  acordar o robô"
 				alvo = k
-		if alvo < 0 and cilindros and armadura.estado == Armadura.Estado.CHAO:
-			for k in guardados.size():
-				if guardados[k] and k < cilindros.cilindros.size() and p.distance_to(cilindros.cilindros[k].global_position) < PERTO_CILINDRO:
-					convite = "{agir}  trocar de robô"
-					alvo = 10 + k
 	if hud:
 		if convite != "":
 			hud.dica = convite
@@ -319,7 +292,4 @@ func _process(_delta: float) -> void:
 			hud.dica = ""
 			_dica_minha = ""
 	if convite != "" and Input.is_action_just_pressed("agir") and not armadura.escaneando and not armadura.contemplando:
-		if alvo >= 10:
-			usar(alvo - 10 + 1 if alvo - 10 < ROBOS.size() else 0)
-		else:
-			achar_robo(alvo)
+		achar_robo(alvo)

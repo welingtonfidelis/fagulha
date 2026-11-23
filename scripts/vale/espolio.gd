@@ -18,13 +18,17 @@ var _t := 0.0
 ## Soma o prêmio, solta os cubinhos de `de` e festeja a subida de nível (o aviso vem depois do aviso de quem
 ## chamou, no mesmo quadro). Devolve true se o nível subiu.
 static func premiar(pai: Node, de: Vector3, ganho: Dictionary, armadura: Armadura, hud: Hud) -> bool:
+	var antes := Arsenal.nivel()
 	var subiu := Arsenal.ganhar(ganho)
 	soltar(pai, de, ganho, armadura)
 	if subiu and armadura:
-		EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
-		Som.toque3d(pai, "nivel", armadura.global_position + Vector3(0, 1, 0), -2.0)
-		if hud:
-			hud.avisar.call_deferred("Nível %d" % Arsenal.nivel(), "novas fabricações e melhorias na base")
+		if is_instance_valid(Experiencia.atual):
+			Experiencia.atual.festejar(antes)  # a aura, o som e o cartão do nível (doc §148)
+		else:
+			EfeitosTiro.aura_nivel(armadura, armadura.altura_corpo())
+			Som.toque3d(pai, "nivel", armadura.global_position + Vector3(0, 1, 0), -2.0)
+			if hud:
+				hud.avisar.call_deferred("Nível %d" % Arsenal.nivel(), "")
 	return subiu
 
 

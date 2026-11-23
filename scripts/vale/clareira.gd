@@ -17,7 +17,7 @@ const LAGOA := Vector3(34.0, -2.0, 12.0)  # x, z, raio
 const LAGOA_FUNDO := 6.0  # metros a mais de fundura no meio (era 3,4; pedido do usuário, 2026-11-22)
 # Sem estradas (pedido do usuário): ninguém passa sempre por aqui. Só alguns claros naturais de terra
 # e capim ralo, de borda irregular (x, z, raio).
-const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2), Vector3(-13.36, 43.75, 5.0), Vector3(-9.27, 44.72, 5.0)]  # os cinco últimos: o chão batido da base, o da horta, o da fogueira (BaseLar) e o do cilindro, que saiu para o lado (2026-11-20)
+const CLAROS: Array[Vector3] = [Vector3(-6, 58, 4.5), Vector3(9, 24, 3.2), Vector3(-31, -11, 5.0), Vector3(52, 40, 3.6), Vector3(2, 44, 12.5), Vector3(-4.1, 33.3, 5.6), Vector3(10.5, 36.6, 5.2), Vector3(-13.36, 43.75, 5.0), Vector3(-9.27, 44.72, 5.0), Vector3(28.6, 5.8, 3.6)]  # os cinco antes do último: o chão batido da base, o da horta, o da fogueira (BaseLar) e o do cilindro, que saiu para o lado (2026-11-20); o último, a prainha da lagoa do lado da base, onde o mergulhador mora (AmigoRobo, 2026-11-23)
 const MIRANTE := Vector2(-46.0, 22.0)
 
 var cervos_em: Array[Vector3] = []

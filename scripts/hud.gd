@@ -99,6 +99,10 @@ func _process(delta: float) -> void:
 		if _conselho_t <= 0.0:
 			conselho = ""
 	resumo_t = maxf(0.0, resumo_t - delta)
+	if _cartao_t >= 0.0:
+		_cartao_t += delta
+		if _cartao_t > CARTAO_DURA:
+			_cartao_t = -1.0
 	if _tempo_lugar >= 0.0:
 		_tempo_lugar += delta
 		if not _fila.is_empty() and _tempo_lugar < TEMPO_ENTRAR + TEMPO_FICAR:
@@ -241,8 +245,12 @@ func _desenhar_bussola() -> void:
 		var db := Melhorias.base - alvo.global_position
 		db.y = 0.0
 		var off_b := wrapf(atan2(db.x, -db.z) - rumo, -PI, PI)
+		# um conjunto do corpo aberto e ainda não visto: o pontinho laranja na casinha (doc §148)
+		var novo := not Corpo.novos().is_empty()
 		if db.length() > 14.0 and absf(off_b) > meia:
 			_seta_da_ponta(cx, y0, signf(off_b), Color(1.0, 0.82, 0.5))
+			if novo:
+				_pontinho(Vector2(cx + signf(off_b) * 252.0, y0 - 6.0))
 		elif db.length() > 14.0:
 			var xb := cx + off_b * escala
 			var yb := y0 + 13.0
@@ -250,6 +258,8 @@ func _desenhar_bussola() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(xb, yb - 9.0), Vector2(xb + 8.5, yb - 1.0), Vector2(xb - 8.5, yb - 1.0)]), cor_b)
 			draw_rect(Rect2(xb - 5.5, yb - 1.0, 11.0, 8.0), cor_b)
 			draw_rect(Rect2(xb - 1.5, yb + 2.0, 3.0, 5.0), Color(0, 0, 0, 0.55))
+			if novo:
+				_pontinho(Vector2(xb + 8.0, yb - 9.0))
 	# a Fundição: uma engrenagem, só depois da primeira visita (antes era uma caveira sempre à vista, que
 	# puxava o jogador novo para a luta); some quando o robô já está nela
 	if alvo and Fundicao.montada and _fundicao_vista():
@@ -339,9 +349,92 @@ func _fundicao_vista() -> bool:
 
 ## Fora dos 120° da faixa, o lugar vira uma setinha na ponta do lado em que está (antes o ícone inteiro ficava
 ## preso na ponta e parecia que o lugar estava sempre ali).
+## O pontinho laranja de "tem coisa nova na base".
+func _pontinho(p: Vector2) -> void:
+	draw_circle(p, 5.0, Color(0, 0, 0, 0.5))
+	draw_circle(p, 3.8, Color(1.0, 0.55, 0.18))
+
+
 func _seta_da_ponta(cx: float, y: float, lado: float, cor: Color) -> void:
 	var x := cx + lado * 252.0
 	draw_colored_polygon(PackedVector2Array([Vector2(x + lado * 6.0, y + 4.0), Vector2(x - lado * 3.0, y - 2.0), Vector2(x - lado * 3.0, y + 10.0)]), Color(cor, 0.9))
+
+
+## O cartão do nível (doc §148): no alto, debaixo da bússola, sem parar o jogo. O anel com o número do nível, o
+## cadeado que abre e vira o retrato de cada conjunto novo (até três, e "+N"), as figuras das armas que abriram e,
+## embaixo, "Urso · na oficina". Sem `niveis` é o conjunto de um robô achado: o anel leva a figura do corpo.
+const CARTAO_DURA := 5.5
+var _cartao_niveis: Array = []
+var _cartao_conjuntos: Array = []
+var _cartao_armas: Array = []
+var _cartao_t := -1.0
+
+
+func cartao_nivel(niveis: Array, conjuntos: Array) -> void:
+	_cartao_niveis = niveis.duplicate()
+	_cartao_conjuntos = conjuntos.duplicate()
+	_cartao_armas.clear()
+	for n: int in niveis:
+		for arma: String in Arsenal.RECEITAS:
+			if int(Arsenal.RECEITAS[arma]["nivel"]) == n:
+				_cartao_armas.append(arma)
+	_cartao_t = 0.0
+
+
+## Tem aviso (nome de lugar ou recado) na tela ou na fila: o cartão do nível espera ele passar.
+func aviso_na_tela() -> bool:
+	return _tempo_lugar >= 0.0 or not _fila.is_empty()
+
+
+func _desenhar_cartao() -> void:
+	if _cartao_t < 0.0:
+		return
+	var t := _cartao_t
+	var a := clampf(minf(t / 0.3, (CARTAO_DURA - t) / 0.6), 0.0, 1.0)
+	var mostra := mini(3, _cartao_conjuntos.size())
+	var armas := mini(5, _cartao_armas.size())
+	var w := 112.0 + mostra * 78.0 + (16.0 + armas * 36.0 if armas > 0 else 0.0) + (40.0 if _cartao_conjuntos.size() > 3 else 0.0)
+	w = maxf(w, 300.0)
+	var r := Rect2(size.x * 0.5 - w * 0.5, 74.0, w, 124.0)
+	Tablet.caixa(self, r, Color(0.02, 0.05, 0.08, 0.74 * a), 18, Color(1, 1, 1, 0.22 * a), 2)
+	# o anel do nível
+	var anel := Vector2(r.position.x + 56.0, r.position.y + 50.0)
+	Tablet.brilho(self, anel, 22, Color(1.0, 0.7, 0.3), 0.9 * a)
+	draw_arc(anel, 27.0, 0.0, TAU, 40, Color(1.0, 0.72, 0.35, a), 4.0, true)
+	if _cartao_niveis.is_empty():
+		Icones.desenhar(self, "corpo", anel, 1.05, Color(1, 1, 1, a), 2.2)
+	else:
+		Tablet.texto(self, anel + Vector2(-27, 9), str(int(_cartao_niveis[-1])), 26, Color(1, 1, 1, a), true, HORIZONTAL_ALIGNMENT_CENTER, 54)
+	# os conjuntos: o cadeado sobe e some, o retrato aparece no lugar
+	var x := r.position.x + 128.0
+	for i in mostra:
+		var ct := Vector2(x + i * 78.0 + 32.0, r.position.y + 50.0)
+		var abre := clampf((t - 0.35 - i * 0.2) / 0.55, 0.0, 1.0)
+		if abre < 1.0:
+			Icones.desenhar(self, "cadeado", ct + Vector2(0, -abre * 10.0), 1.6, Color(1, 1, 1, a * (1.0 - abre)), 2.4)
+		if abre > 0.4:
+			var f := smoothstep(0.4, 1.0, abre) * a
+			Tablet.brilho(self, ct, 26, Color(1.0, 0.62, 0.3), 0.8 * f)
+			var tex := Corpo.retrato(String(_cartao_conjuntos[i]))
+			if tex:
+				draw_texture_rect(tex, Rect2(ct - Vector2(32, 32), Vector2(64, 64)), false, Color(1, 1, 1, f))
+	if _cartao_conjuntos.size() > 3:
+		Tablet.texto(self, Vector2(x + 3 * 78.0, r.position.y + 58.0), "+%d" % (_cartao_conjuntos.size() - 3), 20, Color(1, 1, 1, a), true)
+	# as armas que abriram, figuras pequenas à direita
+	var xa := r.end.x - 24.0 - armas * 36.0
+	for i in armas:
+		Icones.desenhar(self, String(_cartao_armas[i]), Vector2(xa + i * 36.0 + 18.0, r.position.y + 50.0), 0.85, Color(1.0, 0.8, 0.55, a), 2.0)
+	# o texto de apoio
+	var nomes: Array = []
+	for k: String in _cartao_conjuntos:
+		nomes.append(Corpo.curto(k))
+	var sub := ""
+	if not nomes.is_empty():
+		sub = ", ".join(nomes) + " · na oficina"
+	elif not _cartao_armas.is_empty():
+		sub = "fabricações novas na oficina"
+	if sub != "":
+		Tablet.texto(self, Vector2(r.position.x, r.end.y - 18.0), sub, 16, Color(1, 1, 1, 0.88 * a), false, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 
 
 func _desenhar_lugar() -> void:
@@ -356,6 +449,8 @@ func _desenhar_lugar() -> void:
 		a = clampf(1.0 - (t - fim_fica) / TEMPO_SAIR, 0.0, 1.0)
 	var cx := size.x * 0.5
 	var y := size.y * 0.22
+	if _cartao_t >= 0.0:
+		y = maxf(y, 74.0 + 124.0 + 44.0)  # com o cartão do nível na tela, o aviso desce para debaixo dele
 	var w := _fonte.get_string_size(_nome_lugar, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
 	draw_string(_fonte, Vector2(cx - w * 0.5 + 1.0, y + 1.0), _nome_lugar, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0, 0, 0, 0.5 * a))
 	draw_string(_fonte, Vector2(cx - w * 0.5, y), _nome_lugar, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(1, 1, 1, a))
@@ -508,6 +603,17 @@ func _pintar_resumo_tablet(c: CanvasItem, t: Rect2) -> void:
 	Tablet.texto(c, Vector2(nc.x - 20, nc.y + 6), str(Arsenal.nivel()), 15, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, 40)
 	Tablet.texto(c, Vector2(x0 + 78, y + 36), "+%d" % int(d.get("xp", 0)), 26, Tablet.TINTA, true)
 	Tablet.texto(c, Vector2(x0 + 78, y + 58), "de experiência · nível %d" % Arsenal.nivel(), 15, Color(Tablet.TINTA, 0.6))
+	# o conjunto que abriu na rodada, ao lado do anel (doc §148), e a brasa quando o fôlego da luta acabou
+	var novos: Array = d.get("conjuntos", [])
+	var xr := x0 + w - 44.0
+	if not novos.is_empty():
+		var tex := Corpo.retrato(String(novos[-1]))
+		Tablet.brilho(c, Vector2(xr, y + 38), 22, Color(1.0, 0.62, 0.3), 0.8)
+		if tex:
+			c.draw_texture_rect(tex, Rect2(xr - 28, y + 10, 56, 56), false)
+		xr -= 62.0
+	if bool(d.get("sem_folego", false)):
+		_brasa(c, Vector2(xr, y + 40))
 	y += 96.0
 	# o que levou para casa: três carimbos, cinza quando não ganhou aquele material
 	var rotulo_levou := "Levou para casa" + (" · metade ficou lá" if bool(d.get("perdeu_metade", false)) else "")
@@ -534,6 +640,14 @@ var chefe_vida := -1.0  # 0 a 1; negativo: sem barra
 
 
 ## A barra do minichefe, no alto, debaixo da bússola: o nome e quanto falta para ele desligar.
+## A brasa do fôlego acabado: uma chaminha baixa, vermelho-escura, sem texto.
+func _brasa(c: CanvasItem, p: Vector2) -> void:
+	Tablet.brilho(c, p, 12, Color(0.85, 0.25, 0.1), 0.9)
+	c.draw_colored_polygon(PackedVector2Array([p + Vector2(-11, 8), p + Vector2(-7, -4), p + Vector2(-3, 1), p + Vector2(0, -12),
+		p + Vector2(4, 0), p + Vector2(8, -5), p + Vector2(11, 8)]), Color(0.72, 0.2, 0.08))
+	c.draw_colored_polygon(PackedVector2Array([p + Vector2(-5, 8), p + Vector2(0, -3), p + Vector2(5, 8)]), Color(1.0, 0.55, 0.2))
+
+
 func _desenhar_chefe() -> void:
 	if chefe_vida < 0.0:
 		return
@@ -679,6 +793,7 @@ func _desenhar_dica() -> void:
 func _draw() -> void:
 	_desenhar_bussola()
 	_desenhar_lugar()
+	_desenhar_cartao()
 	_desenhar_conselho()
 	_desenhar_dica()
 	_desenhar_placar()

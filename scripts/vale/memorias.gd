@@ -368,12 +368,15 @@ func abrir(chave: String) -> void:
 		lidas.append(chave)
 		if Guardado.ativo:
 			Guardado.por_progresso("memorias", lidas)
+		Experiencia.descobrir("memoria:" + chave, Experiencia.MEMORIA)
 	_lendo_faisca = TEXTOS_FAISCA.has(chave)
 	if _lendo_faisca and not lidas_faisca.has(chave):
 		lidas_faisca.append(chave)
+		Experiencia.descobrir("lembranca:" + chave, Experiencia.LEMBRANCA)
 		# a sexta: o fecho já conta como lido (se o jogo fechar antes, ele fica no caderno) e o desenho vai ao mural
 		if ORDEM_FAISCA.all(func(k: String) -> bool: return lidas_faisca.has(k)) and not lidas_faisca.has(FECHO):
 			lidas_faisca.append(FECHO)
+			Experiencia.descobrir("lembranca:" + FECHO, Experiencia.LEMBRANCA)
 			_fecho_depois = true
 			BaseLar.mostrar_desenho()
 		if Guardado.ativo:

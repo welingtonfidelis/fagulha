@@ -3376,9 +3376,10 @@ Em 2026-11-21 o usuário pediu "todas que sugeriu", menos o jogo a dois, que vai
 conversado. Tudo está feito e fotografado, esperando a aprovação pelas fotos. Seguindo a regra dele, as
 baterias só rodam depois do "está bom". Cada parte tem a explicação no topo do próprio script.
 
-- **Rotas do piloto de teste** (`Rotas`, `RastroJatos`, `Miniaturas`):
+- **Rotas do piloto de teste** (`Rotas`, `Miniaturas`):
   - Sete balizas.
-  - A primeira vez de cada rota dá uma cor de rastro, que se troca na aba Rastro da oficina.
+  - A primeira vez de cada rota dá uma cor de rastro, que se troca na aba Rastro da oficina. Desde a §147 é a cor
+    do fogo dos jatos, na aba Jatos, e as fitas (`RastroJatos`) saíram.
   - A versão difícil dá uma miniatura do lugar na estante do cantinho (`shelf_B_large`, do KayKit).
   - Com todas feitas, a peça "corrida".
 - **Corrida contra o rival** (`RivalHolograma`):
@@ -4307,8 +4308,9 @@ Pedido do usuário: um robô modular, "só visual". Ele escolheu os modelos de r
 "o tamanho/comprimento das peças devem ser os mesmos do atual pra nao gerar problemas de mecanicas ou
 animacoes". O corpo tem quatro partes trocáveis: **cabeça, tronco, braços e pernas**. Cada uma pode vir de um
 conjunto diferente. A mochila (o jato) e as melhorias continuam as mesmas em todos.
+Desde a §146 (2026-11-23) são seis partes, com braço e perna de cada lado à parte, e a aba é outra.
 
-**Os conjuntos** (dois por nível, do 1 ao 7):
+**Os conjuntos** (dois por nível, do 1 ao 7; desde a §148 é um por nível, do 2 ao 12):
 
 | Nível | Conjuntos |
 | --- | --- |
@@ -4322,6 +4324,8 @@ conjunto diferente. A mochila (o jato) e as melhorias continuam as mesmas em tod
 
 Gato, Cachorro e Dente-de-sabre têm rabo. A arte foi aprovada pelas folhas do Blender: `todos_frentes`,
 `todos_costas` e `rabos`, em `tools/capturas/robo_pecas/`.
+Em 2026-11-23 os presões do Dente-de-sabre ficaram com metade do comprimento e mais finos, porque o usuário
+achou feios os compridos (`tools/capturas/corpo/6_sabre_dentes_antes_depois.jpg`).
 
 **Como as peças são feitas** (`tools/vale/robo_pecas.py`). O gerador roda o corpo do `robo_v2.py` até a marca
 `# ---- fim do corpo`. Depois põe as peças de cada conjunto presas nas mesmas juntas, com as mesmas medidas.
@@ -4367,8 +4371,8 @@ a margem e a letra).
   cadeado e "nível N".
 - **Na direita:** o nome, o retrato grande e as quatro partes, com as que vão mudar em destaque. Embaixo, o
   "segure para vestir" ou o "Em uso".
-- **A prévia:** o cartão em foco já aparece no robô, até os fechados, para dar vontade. Os de rabo viram de
-  lado para mostrar o rabo.
+- **A prévia:** o cartão em foco já aparece no robô, até os fechados, para dar vontade. Todos ficam de frente,
+  também os de rabo (antes os de rabo viravam de lado; o usuário pediu de frente em 2026-11-23).
 - **Vestir:** segurar X faz os braços trabalharem ("Trocando…") e o berço abrir. Depois disso grava e mostra
   "Vestido!". Saindo da aba ou da oficina, o robô volta ao corpo vestido.
 
@@ -4386,3 +4390,259 @@ enviar" do usuário: `--teste-vale` 115 pontos e `--teste` 94.
 **Falta:**
 - no jogo, o Dente-de-sabre fica mais amarelo que no Blender, e o rabo dele, curto, quase não aparece;
 - conferir no PC e no controle.
+
+## 144. Os robôs achados moram na base e abrem um conjunto (2026-11-23)
+
+Pergunta do usuário: com as peças abrindo por nível, que sentido tem resgatar os dois robôs achados (o antigo do
+Observatório e o mergulhador da Represa) para jogar com eles? A resposta aprovada ("Sim, faz assim"): ninguém
+troca mais de robô. Os dois acordam e **viram amigos que moram na base**, e cada resgate abre um conjunto
+especial na aba Corpo.
+
+**Os conjuntos** (`tools/vale/robo_pecas.py`, classes `Antigo` e `Mergulhador`):
+- **Antigo:** creme, verde-água e grafite, com a cabeça arredondada, o visor e um olho redondo só (duas meias-luas,
+  uma em cada junta de olho), as orelhas e a antena.
+- **Mergulhador:** amarelo-ouro e petróleo, com a escotilha na cabeça, os cilindros de ar nas costas e as nadadeiras
+  nos pés.
+- Em `Corpo.CONJUNTOS` eles têm nível 0 e ficam em `Corpo.ACHADOS`, com o robô, a figura e o lugar. `Corpo.aberto`
+  olha `Corpo.resgatados`, que o `RoboAntigo` preenche.
+
+**Na aba Corpo:**
+- **Fechado:** o cartão mostra a sombra e um círculo com a figura do lugar (a lua do Observatório, as
+  nadadeiras da Represa). Na direita, uma pílula clara diz "acorde o robô no Observatório" ou "no fundo da
+  Represa".
+- **Prévia:** fechado, o conjunto não aparece no robô, para não estragar a surpresa.
+- **Aberto:** o cartão ganha um selo com a figura no canto.
+
+**Os amigos** (`scripts/vale/amigo_robo.gd`, classe `AmigoRobo`, criados pelo `RoboAntigo`). O jogo carrega o
+GLB do robô original de cada um e converte os materiais para o estilo do vale. Eles acenam quando o jogador
+chega perto depois de ter estado longe: os de pé se viram para ele; os sentados viram só a cabeça. O scanner
+mostra a ficha deles.
+- **O antigo:**
+  - De dia, troca entre a horta, a beira do campo e o banco da fogueira.
+  - De noite, pula com o jato para o telhado do telheiro e fica sentado olhando o céu.
+  - De manhã, desce.
+- **O mergulhador:**
+  - Mora na lagoa da clareira, sentado na água rasa, de frente para a base. A `Clareira.CLAROS` abriu uma
+    prainha sem capim para ele aparecer.
+  - De vez em quando, entra e nada em roda.
+- **Para quem já usava um deles:** quem salvou o jogo com um robô achado em uso fica com o corpo inteiro do
+  conjunto dele, e o `robo_em_uso` volta a 0. O cilindro não pergunta mais "trocar de robô".
+
+**Ferramentas.** `tools/fotos_achados.gd` tira as fotos da aba, dos vestidos e dos dois na base. As fotos ficam
+em `tools/capturas/achados/`.
+
+**Testes.** Os pontos 38 e 39 do `--teste-vale` foram reescritos para a base e a lagoa.
+
+**Estado:** o usuário aprovou ("Ficou bom", 2026-11-23). Na rodada completa do `--teste-vale`, 114 de 115
+passaram. O ponto 38 falhou porque o aceno que ele mesmo testa antes ainda durava 2 s, e acenando o robô não
+anda. Depois de zerar o aceno no teste, o 38 passou sozinho. O `--teste` passou com 94 pontos. Sem commit.
+
+## 145. Lista para consertar depois (2026-11-23)
+
+Pedidos do usuário anotados para uma leva futura:
+- [ ] **Sentar em lugar já ocupado.** Hoje o nosso robô senta em cima de outro, nos bancos
+  (`Armadura.assentos`, `BaseLar.assento_em`) e nas poltronas. Tem de perceber quando o lugar está ocupado:
+  - sentar no lugar livre ao lado;
+  - ou não mostrar o "sentar".
+  Os casos:
+  - os mini robôs jogando no sofá e na poltrona (`MiniRobos`, `BaseLar.lugares_minis`);
+  - o robô antigo no banco da fogueira (`AmigoRobo`, lugar "banco"). O usuário chamou de "o robô do farol".
+
+## 146. A aba Corpo peça por peça (2026-11-23)
+
+Pedido do usuário: "achei dificil trocar peças separadas, eu tinha imaginado algo mais focados nas peças separadas
+(exemplo o jogar precisa ecolher cabeça, braço direito, braço esquerdo, etc)", e "durante a troca de peças, da foco
+em cada peça que esta sendo trocada e coloca um botao de açao pra visualizar tudo de longe". O game designer
+propôs a aba nova, o usuário aprovou o rascunho em fotos ("Sim, faz assim") e ela foi feita. As fotos do rascunho
+estão em `tools/capturas/corpo/rascunho/`.
+
+**Por que a de antes era difícil:**
+- a parte escolhida funcionava como um modo escondido na fileira de cima;
+- o cartão mostrava o robô inteiro;
+- cada parte pedia um "segure X";
+- braços e pernas iam sempre em par.
+
+**Seis partes** (`Corpo.PARTES`): cabeça, tronco, braço D, braço E, perna D e perna E. D e E são do robô, então,
+de frente, o braço D fica à esquerda de quem olha.
+- `Corpo.JUNTAS` separa os lados, as mesmas vagas do gerador. Não precisou de arte nova.
+- O save antigo, com "bracos" e "pernas", vira os dois lados no `Corpo.carregar` (`Corpo.ANTIGAS`).
+- Cada nível novo abre 12 peças.
+
+**Na esquerda: uma linha por parte, como nos Ajustes.**
+- A primeira linha é **Inteiro**: troca as seis peças de uma vez, a partir do conjunto do tronco, e diz
+  "Misturado" quando elas são de conjuntos diferentes.
+- Cada linha tem:
+  - o robozinho de traço com a parte acesa e o nome pequeno;
+  - as setas ◀ ▶ (clicáveis);
+  - a miniatura só da peça;
+  - o nome do conjunto;
+  - o visto na peça vestida.
+- A linha em foco ganha os pontinhos, um por peça:
+  - cheio: aberta;
+  - vazio: fechada;
+  - verde-água: de robô achado;
+  - grande e laranja: a peça da vez.
+- **Controle:** o direcional para cima e para baixo troca de linha. Para os lados, troca a peça e dá a volta.
+  Segurando, as peças passam sozinhas (0,45 s e depois a cada 0,14 s).
+- A aba abre na linha da cabeça.
+
+**Na direita: a planta.**
+- As seis peças ficam no formato do corpo.
+- A peça da linha em foco tem a borda laranja, as que mudam têm o brilhinho e as fechadas têm o cadeado.
+- Embaixo: "N mudam", "N fechadas" e um só **segure para vestir**, que veste a montagem toda.
+- Clicar numa peça da planta põe o foco na linha dela.
+
+**Peças fechadas:**
+- **Por nível:** aparecem apagadas, com o cadeado e "nível N", e mesmo assim mostram no robô, para dar vontade.
+  O vestir mostra "abre no nível N", e apertar X faz a linha piscar vermelha.
+- **De robô achado:** mostram a sombra e a figura do lugar. O robô não muda, porque é surpresa. O vestir mostra
+  "acorde o robô" e o lugar.
+
+**A câmera** (`Oficina._camera_perto`):
+- **Na linha:** a câmera chega perto da parte em foco e a põe no meio da faixa que o tablet deixa livre. A
+  distância fica em `CAM_PERTO`: cabeça 1,85 m, tronco 1,8, braço 1,95, perna 2,2.
+- **No movimento:** ela desliza (`interpolate_with`, uns 0,35 s). As setas para os lados não mexem a câmera,
+  então dá para comparar peças no mesmo quadro.
+- **O robô** vira um pouco para o lado da linha: −0,35 rad no lado D e +0,35 rad no lado E.
+- **O △ (E no teclado):** alterna entre perto e "ver tudo". No rodapé aparece o △, depois a figura (o robô entre
+  cantos de enquadrar, ou a lupa) e por último o texto. Ao trocar de linha, a câmera volta para perto. Na linha
+  Inteiro, o △ some.
+- **Vestindo:** a câmera afasta para mostrar o robô inteiro e fica longe até a próxima troca de linha.
+
+**A montagem** (`Oficina._montagem`) fica guardada ao trocar de aba e some ao sair da oficina. Nesse caso o robô
+volta ao corpo vestido.
+
+**As miniaturas** (`assets/vale/corpo/pecas/<conjunto|atual>_<vaga>.png`, 96 de 160 px, 2,4 MB):
+- saem do `robo_pecas.py` com `MINIATURAS=assets/vale/corpo/pecas`;
+- cada vaga é fotografada sozinha, com câmera ortográfica de três quartos pela frente, do lado da vaga;
+- o tronco do Gato, do Cachorro e do Dente-de-sabre é fotografado de três quartos por trás, para o rabo aparecer.
+
+**Ferramentas e testes:**
+- `tools/fotos_aba_corpo.gd` tira as fotos no nível 3, que ficam em `tools/capturas/corpo/aba/`.
+- O ponto 46 do `--teste-vale` foi reescrito: setas, Inteiro, só a cabeça, só o braço D, a câmera perto e longe,
+  a peça fechada e a saída.
+- `tools/fotos_corpo.gd` e `tools/fotos_achados.gd` usam as linhas.
+
+**Estado:** aprovada ("ficou muito bom a aba de corpo"). `--teste-vale` 115/115 e `--teste` 94/94. Sem commit.
+
+## 147. A cor dos jatos no lugar do rastro (2026-11-23)
+
+**O pedido, em duas voltas:**
+1. Ao entrar na aba Rastro, o robô sobe um pouco com os jatos ligados, para mostrar a cor nova.
+2. Vendo as fotos, o usuário mudou a ideia: em vez de fitas atrás do robô no voo, o prêmio das rotas passa a ser a cor
+   do fogo dos jatos dos pés e das costas.
+
+**As fitas saíram:** o `RastroJatos` (§136) foi apagado.
+
+**A cor** (`ArmaduraVisual`, ao lado do alfa de `mat_chama`):
+- o fogo dos pés e das costas acende em `Rotas.CORES[Rotas.rastro]`;
+- sem cor escolhida, fica o laranja de fábrica (`COR_CHAMA`);
+- os jatos das mãos ficam sempre laranja;
+- só o robô do jogador muda; as máquinas e os amigos usam o mesmo visual e ficam no de fábrica.
+- O nome `Rotas.rastro` e a chave "rastro" do save ficaram, para não perder a escolha de quem já tinha.
+
+**A aba passou a se chamar Jatos**, com a figura dos bocais:
+- a primeira linha virou "De fábrica", com a bolinha laranja;
+- o título é o nome da cor ("Azul do rio") ou "Cor não ganha";
+- o quadro da direita mostra um robozinho de costas subindo, com o fogo na cor;
+- o aviso da rota feita diz "jatos novos: …".
+
+**No berço** (`InteriorCilindro.pairar`):
+- o robô fica de costas, com o mesmo giro de quando mostra os bocais;
+- ele sobe `PAIRA` (0,34 na medida do modelo) em 0,7 s, na pose da subida da decolagem, a de segurar o X
+  (`POSE_SUBIDA`);
+- as presilhas seguem presas aos tornozelos, e os cabos e os braços da máquina ficam como sempre;
+- os jatos ficam acesos (`jatos_vitrine` 1,2, o fogo da decolagem) na cor em foco (`cor_vitrine`);
+- a cor ainda não ganha não aparece (na lista ela é um "?"): os jatos ficam no laranja.
+
+**Ao trocar de aba, sair ou fechar a oficina**, `_rastro_de_volta` apaga os jatos e desce o robô, que volta à
+pose do berço (`POSE_BERCO`).
+
+**Fotos:** `tools/fotos_aba_rastro.gd` tira a aba, a volta ao estrado e a decolagem com o vermelho, de dia e de noite.
+Ficam em `tools/capturas/rastro/aba/`.
+
+**Os jatos das costas** (2026-11-23, depois da aprovação da cor), em `tools/vale/robo_v2.py`:
+- o bocal, a brasa e a chama de cada lado se inclinam 25° para fora (`ESTAB_FORA`), a esquerda para a esquerda e a
+  direita para a direita;
+- a caixa de onde saem ficou em pé e menor (`ESTAB` 0,78 das medidas antigas), para caber dentro da mochila sem
+  sobrar borda; o bocal e a chama saem da ponta dela, já inclinados;
+- antes e depois em `tools/capturas/rastro/costas_antes_depois.jpg`.
+
+**Estado:** a cor dos jatos foi aprovada em 2026-11-23 ("ficou bom a mudança dos jatos"). Os jatos das costas
+inclinados e menores esperam a aprovação pelas fotos. Os testes ainda não rodaram.
+
+## 148. A experiência: descobertas, fôlego da luta e um conjunto por nível (2026-11-23)
+
+**O pedido:** o robô ganha experiência achando lugares novos e memórias, além das lutas dentro e fora da Fundição.
+Os níveis abrem os conjuntos do corpo (§143), sem abrir tudo depressa demais nem pedir horas demais: umas 15 h para um
+jogador que luta na Fundição com frequência. O jogador precisa saber quando um conjunto novo abriu.
+O level designer propôs o plano e o usuário escolheu:
+1. o fôlego da luta, além da curva nova;
+2. um conjunto por nível;
+3. a experiência começa do zero (no Mac, o save ganhou alguns níveis para o teste);
+4. as máquinas soltas dão experiência dentro do fôlego;
+5. o fôlego aparece no fogo das forjas;
+6. na base, só a luz e o pontinho (sem holograma).
+
+**A curva** (`Arsenal.xp_do_nivel(n) = 250·n·(n−1)`): o nível 2 pede 500, o 3 pede 1500, o 6 pede 7500 e o 12 pede
+33000. Um conjunto por nível, do 2 ao 12: Urso, Enfermeira, Besouro, Marinheiro, Caldeira, Lucano, Majestade,
+Dente-de-sabre, Samurai, Solar e Cavaleiro (Gato e Cachorro no 1). Os dois robôs achados abrem o deles ao acordar (§144).
+
+**Do zero:** o save guarda `versao` (`Arsenal.XP_VERSAO` 2) no arsenal. O save sem ela volta a experiência para
+zero ao carregar; o resto (materiais, armas, peças) fica.
+
+**O fôlego da luta** (`Arsenal.folego`, até `FOLEGO_MAX` 1200, guardado):
+- a luta da Fundição e das máquinas soltas passa por `Arsenal.pelo_folego`: a experiência entra inteira até acabar o
+  fôlego e, passado dele, vale um quarto (`FOLEGO_FORA`);
+- os materiais entram sempre inteiros;
+- ele enche de novo com as horas do dia: um dia inteiro do jogo (uma hora jogando) enche tudo (`Experiencia._relogio`,
+  no relógio dos acampamentos);
+- os acampamentos, os procurados, os pedidos e as descobertas ficam fora dele;
+- **no fogo:** as bocas e as luzes das forjas seguem o fôlego devagar; cheio é o fogo laranja de sempre, vazio é uma
+  brasa vermelha fraca (`Fundicao.fogo_forja`, `BRASA_FORJA`). O resumo da rodada mostra uma brasa ao lado da
+  experiência quando a rodada acabou sem fôlego.
+
+**As descobertas** (`Experiencia.descobrir(chave, quanto)`, uma vez cada; as chaves ficam em `Arsenal.descobertas`):
+
+| O quê | Experiência |
+| --- | --- |
+| Lugar com nome, na primeira chegada (a Clareira não conta) | 120 |
+| Memória | 240 |
+| Lembrança do Faísca (o fecho também) | 240 |
+| Peça da ilha | 160 |
+| Robô acordado | 240 |
+| Ação de lugar (a primeira vez de cada uma) | 120 |
+| Rota: a primeira volta, a difícil, a corrida | 100, 100, 160 (a corrida dava +50) |
+| Semente | 50 |
+| Página do álbum (os lugares não contam: já deram ao chegar) | 40 |
+| Máquina solta desligada, a cada vez (dentro do fôlego) | 13; a grande 48 |
+
+Os pedidos do drone dão o dobro de antes. Cada descoberta solta um cubinho verde-água que voa para o robô.
+
+**O aviso** (`Experiencia.festejar`):
+- a aura e o som do nível, no primeiro quadro sem pausa (a memória aberta pausa o jogo);
+- o **cartão do nível** no alto, debaixo da bússola, sem parar o jogo (`Hud.cartao_nivel`, 5,5 s): o anel com o
+  número, o cadeado que abre e vira o retrato do conjunto novo (até três, e "+N"), as figuras das armas que abriram
+  naquele nível e "Urso · na oficina";
+- no meio de uma onda da Fundição só aparece o "Nível N" de sempre, e o cartão espera o respiro (`Experiencia.segurar`);
+- o cartão também espera o recado da descoberta passar ("Semente achada!", o nome do lugar: `Hud.aviso_na_tela`), e um
+  recado que chega com o cartão na tela desce para debaixo dele;
+- o robô achado mostra o cartão sem nível, com a figura do corpo no anel, depois de a lembrança fechar;
+- o resumo da Fundição leva o retrato do conjunto que abriu na rodada.
+
+**Até ver o conjunto** (`Corpo.novos()`; visto é guardado em `corpo_vistos`; os do nível 1 nunca são novos):
+- a casinha da base na bússola ganha um pontinho laranja (também ao lado da seta da ponta);
+- a boca do cilindro da base tem um aro de luz amarelo-laranja (mais claro que a ferrugem, com um halo) que respira
+  devagar, a cada 2,6 s, e uma luz que pinta o chão da frente;
+- na oficina, a pílula Corpo tem um pontinho; a aba abre na linha Inteiro com o conjunto novo na montagem; a
+  linha Inteiro tem o pontinho, a peça nova ganha uma estrelinha (✦) e, nos pontinhos das peças, o novo é uma
+  estrelinha;
+- o conjunto conta como visto depois de 1,5 s em foco na montagem (`Oficina.VER`).
+
+**Fotos:** `tools/fotos_experiencia.gd` tira o cartão, a bússola, a boca de dia e de noite, a oficina, o fogo das
+forjas e o resumo. Ficam em `tools/capturas/experiencia/`.
+
+**Falta depois do "está bom":** acertar os testes que contam com a curva velha (`testes_vale`, `capturas_vale` e
+`tools/fotos_aba_corpo.gd`, que usa 380 de experiência) e rodar as baterias.
+
+**Estado:** esperando a aprovação pelas fotos. Os testes ainda não rodaram.

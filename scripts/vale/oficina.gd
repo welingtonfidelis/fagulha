@@ -32,7 +32,7 @@ var sons: Sons
 var drone: DroneColega
 var fase := Fase.FORA
 var perto := false
-const ABAS := ["Peças da ilha", "Armas", "Defesa", "Rastro", "Corpo"]
+const ABAS := ["Peças da ilha", "Armas", "Defesa", "Jatos", "Corpo"]
 var aba := 0
 var entradas := 0  # testes
 var recargas := 0
@@ -196,7 +196,7 @@ func _por_bracos(f: float, trabalho: float) -> void:
 # lâmpadas das melhorias, os carimbos do custo e o botão de segurar X (segurar evita gastar sem querer).
 
 const T_SEGURAR := 0.55  # segundos segurando X para instalar, fabricar ou melhorar
-const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["rastro", "Rastro"], ["corpo", "Corpo"]]
+const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["bocais", "Jatos"], ["corpo", "Corpo"]]
 const ARMAS := ["pistola", "espada", "duplo", "canhao", "precisao", "rajada", "misseis", "granadas"]
 const DEFESA := ["mira", "escudo", "vida"]
 ## Os nomes curtos dos quadradinhos de peça.
@@ -219,9 +219,20 @@ var _aviso := ""  # o recado curto da tela da direita ("Instalado!", "ainda não
 var _aviso_cor := Tablet.OK
 var _aviso_t := 0.0
 var _fazendo := ""  # "Melhorando…" etc. enquanto os braços trabalham
-var _corpo_sel := ""  # aba Corpo: o conjunto do último cartão em foco ("" é o de fábrica)
-var _parte := "tudo"  # aba Corpo: a parte que o cartão troca ("tudo" ou uma de Corpo.PARTES)
+## A aba Corpo (§146): uma linha por parte, com setas; a primeira, "inteiro", troca as seis juntas.
+const LINHAS_CORPO := ["inteiro", "cabeca", "tronco", "bracoD", "bracoE", "pernaD", "pernaE"]
+## A distância da câmera à parte em foco (m), com o campo de visão de 40°.
+const CAM_PERTO := {"cabeca": 1.85, "tronco": 1.8, "bracoD": 1.95, "bracoE": 1.95, "pernaD": 2.2, "pernaE": 2.2}
+var _linha := "cabeca"  # aba Corpo: a linha em foco
+var _montagem := {}  # aba Corpo: a peça escolhida de cada parte (vale até sair da oficina; vestir veste tudo)
+var _perto := true  # aba Corpo: a câmera perto da parte em foco (o △ alterna)
+var _cam_longe := Transform3D.IDENTITY  # a câmera de sempre da oficina: de onde ela sai e para onde volta
+var _seta_t := 0.0  # segurando ◀ ou ▶, as peças passam sozinhas
+var _piscar := 0.0  # a linha da peça fechada pisca vermelha ao tentar vestir
 var _corpo_pedido := {}  # o corpo que os braços estão vestindo agora
+var _novo_mostrado := false  # aba Corpo: o conjunto novo já foi posto na montagem nesta visita (doc §148)
+var _visto_t := 0.0  # segundos com um conjunto novo em foco: passado `VER`, ele deixa de ser novo
+const VER := 1.5
 
 
 func _montar_tela() -> void:
@@ -292,6 +303,7 @@ func _mudar_aba(passo: int) -> void:
 	aba = wrapi(aba + passo, 0, ABAS.size())
 	_escolhida = ""
 	_corpo_de_volta()
+	_rastro_de_volta()
 	_refazer_lista()
 	if sons:
 		sons._toque("roda_troca", -8.0, 0.0)
@@ -305,6 +317,13 @@ func _refazer_lista() -> void:
 	_botoes.clear()
 	for i in _pilulas.size():
 		_pilulas[i].ativa = i == aba
+	_ponto_corpo()
+	if aba == 4 and not _novo_mostrado and not Corpo.novos().is_empty():
+		# um conjunto novo: a aba abre na linha Inteiro com ele vestido na montagem (doc §148)
+		_novo_mostrado = true
+		_linha = "inteiro"
+		for parte: String in Corpo.PARTES:
+			_montagem[parte] = Corpo.novos()[0]
 	var bom: Button = null
 	match aba:
 		0:
@@ -387,26 +406,127 @@ func _lista_rastro() -> Button:
 	return bom
 
 
-## As partes (tudo, cabeça, tronco, braços, pernas) numa fileira e os conjuntos em cartões com retrato.
+## Uma linha por parte (a primeira, "Inteiro", troca as seis), com setas; e a planta da direita, para o mouse.
 func _lista_corpo() -> Button:
 	var L := Tablet.ESQ
-	var partes: Array = ["tudo"] + Corpo.PARTES
-	var bw := (L.size.x - 28 - 4 * 6) / 5.0
-	for i in partes.size():
-		_item("parte_" + String(partes[i]), Rect2(L.position.x + 14 + i * (bw + 6), L.position.y + 116, bw, 62), _pintar_parte.bind(String(partes[i])))
-	var chaves: Array = [""]
-	for c: Array in Corpo.CONJUNTOS:
-		chaves.append(c[0])
-	var cw := (L.size.x - 28 - 3 * 8) / 4.0
-	var ch := 132.0
-	var y0 := L.position.y + 196.0
+	if _montagem.is_empty():
+		_montagem = Corpo.vestido.duplicate()
+	var x := L.position.x + 14.0
+	var w := L.size.x - 28.0
+	var y := L.position.y + 114.0
 	var bom: Button = null
-	for i in chaves.size():
-		var chave: String = chaves[i]
-		var b := _item("corpo_" + chave, Rect2(L.position.x + 14 + (i % 4) * (cw + 8), y0 + (i / 4) * (ch + 8), cw, ch), _pintar_corpo.bind(chave))
-		if chave == _corpo_sel:
+	for i in LINHAS_CORPO.size():
+		var linha: String = LINHAS_CORPO[i]
+		var h := 86.0 if i == 0 else 84.0
+		var b := _item("linha_" + linha, Rect2(x, y, w, h), _pintar_linha.bind(linha))
+		b.gui_input.connect(_seta_linha.bind(b, linha))
+		if linha == _linha:
 			bom = b
+		y += h + (12.0 if i == 0 else 4.0)
+	# clicar numa peça da planta põe o foco na linha dela
+	for parte: String in Corpo.PARTES:
+		var t := BotaoTablet.new()
+		t.estilo = "livre"
+		t.focus_mode = Control.FOCUS_NONE
+		var q := _quadro_planta(parte)
+		t.position = q.position
+		t.size = q.size
+		t.pressed.connect(func() -> void:
+			if _botoes.has("linha_" + parte):
+				(_botoes["linha_" + parte] as Control).grab_focus())
+		_lista.add_child(t)
 	return bom
+
+
+## O pontinho laranja na pílula do Corpo enquanto houver conjunto novo não visto.
+func _ponto_corpo() -> void:
+	if _pilulas.size() > 4:
+		var tem := not Corpo.novos().is_empty()
+		if _pilulas[4].ponto != tem:
+			_pilulas[4].ponto = tem
+			_pilulas[4].queue_redraw()
+
+
+## Uma estrelinha de quatro pontas (o ✦ do conjunto novo).
+static func _estrela(c: CanvasItem, ct: Vector2, r: float, cor: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 8:
+		var ang := i * TAU / 8.0 - PI * 0.5
+		pts.append(ct + Vector2(cos(ang), sin(ang)) * (r if i % 2 == 0 else r * 0.32))
+	var fora := PackedVector2Array()
+	for i in 8:
+		var ang := i * TAU / 8.0 - PI * 0.5
+		fora.append(ct + Vector2(cos(ang), sin(ang)) * ((r + 3.0) if i % 2 == 0 else (r * 0.32 + 2.2)))
+	c.draw_colored_polygon(fora, Color(1, 1, 1, 0.95))
+	c.draw_colored_polygon(pts, cor)
+
+
+## ◀ e ▶ (ou um clique nas setas da linha) trocam a peça daquela parte.
+func _seta_linha(ev: InputEvent, b: Control, linha: String) -> void:
+	var passo := 0
+	if ev.is_action_pressed("ui_left"):
+		passo = -1
+	elif ev.is_action_pressed("ui_right"):
+		passo = 1
+	elif ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mx := (ev as InputEventMouseButton).position.x
+		if mx > 76.0 and mx < 106.0:
+			passo = -1
+		elif mx > b.size.x - 40.0:
+			passo = 1
+	if passo != 0:
+		_seta_t = 0.0
+		_trocar_peca(linha, passo)
+		b.accept_event()
+
+
+## A peça seguinte (ou a anterior) daquela parte, dando a volta; na linha "inteiro", as seis juntas, a partir do
+## conjunto do tronco.
+func _trocar_peca(linha: String, passo: int) -> void:
+	if fase != Fase.ABERTA:
+		return
+	var ordem := Corpo.ordem()
+	var atual := String(_montagem.get("tronco" if linha == "inteiro" else linha, ""))
+	var chave: String = ordem[wrapi(ordem.find(atual) + passo, 0, ordem.size())]
+	if linha == "inteiro":
+		for parte: String in Corpo.PARTES:
+			_montagem[parte] = chave
+	else:
+		_montagem[linha] = chave
+	_segura = 0.0
+	_previa_corpo()
+	if sons:
+		sons._toque("roda_troca", -12.0, 0.0)
+
+
+## Segurando ◀ ou ▶ no controle (ou no teclado), as peças passam sozinhas.
+func _repetir_seta(delta: float) -> void:
+	var dir := int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
+	if dir == 0:
+		_seta_t = 0.0
+		return
+	_seta_t += delta
+	if _seta_t > 0.45:
+		_seta_t -= 0.14
+		_trocar_peca(_linha, dir)
+
+
+## A primeira peça da montagem que ainda está fechada (por nível ou de robô achado), ou "".
+func _fechada() -> String:
+	for parte: String in Corpo.PARTES:
+		var k := String(_montagem.get(parte, ""))
+		if not Corpo.aberto(k):
+			return k
+	return ""
+
+
+## O conjunto das seis peças, se forem todas do mesmo; "#" se a montagem é misturada.
+func _um_so() -> String:
+	var k := String(_montagem.get("cabeca", ""))
+	for parte: String in Corpo.PARTES:
+		if String(_montagem.get(parte, "")) != k:
+			return "#"
+	return k
 
 
 # ------------------------------------------------------------------ o estado de cada item
@@ -423,8 +543,8 @@ func _pode(nome: String) -> bool:
 	if nome.begins_with("rastro_"):
 		var id := nome.substr(7)
 		return Rotas.rastro != id and (id == "" or int(Rotas.feitas.get(id, 0)) >= 1)
-	if nome.begins_with("corpo_") or nome.begins_with("parte_"):
-		return Corpo.aberto(_corpo_sel) and _pedido_corpo() != Corpo.vestido
+	if nome.begins_with("linha_"):
+		return _fechada() == "" and _montagem != Corpo.vestido
 	if _de_degrau(nome):
 		return Arsenal.falta_degrau(nome) == ""
 	if Arsenal.RECEITAS.has(nome):
@@ -554,9 +674,10 @@ func _pintar_rastro(b: Control, r: Rect2, foco: bool, sobre: bool, id: String) -
 	var fundo := Color(Tablet.TINTA, 0.05 + (0.04 if sobre and not foco else 0.0))
 	Tablet.caixa(b, r, fundo, 16, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
 	if id == "":
-		b.draw_arc(Vector2(36, 32), 16, 0, TAU, 24, Color(Tablet.TINTA, 0.4), 2.0, true)
-		b.draw_line(Vector2(25, 43), Vector2(47, 21), Color(Tablet.TINTA, 0.4), 2.0)
-		Tablet.texto(b, Vector2(66, 40), "Sem rastro", 18, Tablet.TINTA)
+		var cf := ArmaduraVisual.COR_CHAMA
+		b.draw_circle(Vector2(36, 32), 16, cf.darkened(0.08))
+		b.draw_arc(Vector2(36, 32), 16, 0, TAU, 24, cf.darkened(0.4), 1.5, true)
+		Tablet.texto(b, Vector2(66, 40), "De fábrica", 18, Tablet.TINTA)
 		if Rotas.rastro == "":
 			Tablet.visto(b, Vector2(r.size.x - 26, 32), 11)
 		return
@@ -581,31 +702,111 @@ func _pintar_rastro(b: Control, r: Rect2, foco: bool, sobre: bool, id: String) -
 
 
 ## Um botão da fileira das partes: a figura da parte e o nome; cheio quando é a parte escolhida.
-func _pintar_parte(b: Control, r: Rect2, foco: bool, sobre: bool, parte: String) -> void:
-	var ativa := _parte == parte
-	var fundo := Color(Tablet.RUBI, 0.85) if ativa else Color(Tablet.TINTA, 0.06 + (0.04 if sobre else 0.0))
-	Tablet.caixa(b, r, fundo, 14, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
-	var tinta := Color.WHITE if ativa else Tablet.TINTA
-	Icones.desenhar(b, "corpo" if parte == "tudo" else parte, Vector2(r.size.x * 0.5, 24), 0.78, tinta, 2.0)
-	Tablet.texto(b, Vector2(0, r.size.y - 9), "Tudo" if parte == "tudo" else String(Corpo.NOMES_PARTE[parte]), 13, tinta, ativa, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+## O robozinho de traço da linha, com a parte acesa (de frente: o braço D dele fica à esquerda de quem olha).
+func _silhueta(c: CanvasItem, ct: Vector2, acesa: String) -> void:
+	var apagado := Color(Tablet.TINTA, 0.22)
+	var aceso := Color(0.86, 0.42, 0.1)
+	var pecas := {"cabeca": Rect2(-9, -26, 18, 14), "tronco": Rect2(-10, -10, 20, 19), "bracoD": Rect2(-17, -9, 6, 18),
+		"bracoE": Rect2(11, -9, 6, 18), "pernaD": Rect2(-9, 10, 7, 17), "pernaE": Rect2(2, 10, 7, 17)}
+	for p: String in pecas:
+		var r: Rect2 = pecas[p]
+		Tablet.caixa(c, Rect2(ct + r.position, r.size), aceso if acesa == "inteiro" or acesa == p else apagado, 4 if p == "cabeca" or p == "tronco" else 3)
 
 
-## Um cartão de conjunto: o retrato, o nome curto, o visto quando está no corpo e o cadeado com o nível.
-func _pintar_corpo(b: Control, r: Rect2, foco: bool, sobre: bool, chave: String) -> void:
+func _seta(c: CanvasItem, ct: Vector2, dir: float, cor: Color) -> void:
+	c.draw_colored_polygon(PackedVector2Array([ct + Vector2(7 * dir, 0), ct + Vector2(-5 * dir, -9), ct + Vector2(-5 * dir, 9)]), cor)
+
+
+## Uma peça num quadrado: a miniatura (apagada se fechada por nível, com o cadeado); a de robô achado fechada é só
+## a sombra e a figura do lugar, e aberta ganha a figura pequena no canto.
+func _peca_no_quadro(c: CanvasItem, q: Rect2, chave: String, parte: String) -> void:
 	var aberto := Corpo.aberto(chave)
-	var fundo := Color(1.0, 0.72, 0.3, 0.26) if foco else Color(Tablet.TINTA, 0.06 + (0.04 if sobre else 0.0))
-	Tablet.caixa(b, r, fundo, 14, Tablet.LARANJA if foco else Color(0, 0, 0, 0), 3 if foco else 0)
-	var tex := Corpo.retrato(chave)
-	var lado := r.size.x - 10.0
+	var achado := Corpo.de_achado(chave)
+	var tex := Corpo.miniatura(chave, parte)
 	if tex:
-		b.draw_texture_rect(tex, Rect2(5, 4, lado, lado), false, Color(1, 1, 1, 1.0 if aberto else 0.3))
-	Tablet.texto(b, Vector2(0, r.size.y - 12), Corpo.curto(chave), 14, Tablet.TINTA if aberto else Color(Tablet.TINTA, 0.45), foco, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		var tinta := Color(1, 1, 1, 1.0 if aberto else 0.4)
+		if achado and not aberto:
+			tinta = Color(0.16, 0.15, 0.14, 0.78)
+		c.draw_texture_rect(tex, q, false, tinta)
+	var r := q.size.x * 0.24
+	if achado:
+		var ct := q.get_center() if not aberto else q.position + Vector2(r * 0.6, r * 0.6)
+		var rr := r if not aberto else r * 0.6
+		c.draw_circle(ct, rr, Color(0.2, 0.55, 0.6, 0.94))
+		Icones.desenhar(c, String(Corpo.ACHADOS[chave]["icone"]), ct, rr / 26.0, Color(0.97, 0.95, 0.88), 1.8)
+	elif not aberto:
+		c.draw_circle(q.get_center(), r, Color(0.85, 0.82, 0.75, 0.94))
+		Icones.desenhar(c, "cadeado", q.get_center(), r / 28.0, Tablet.TINTA, 1.8)
+
+
+## Uma linha da aba Corpo: a figura da parte e o nome pequeno, as setas, a miniatura da peça e o nome do conjunto;
+## o visto na peça que está vestida; na linha em foco, um pontinho por peça (quanto ainda falta abrir).
+func _pintar_linha(b: Control, r: Rect2, foco: bool, sobre: bool, linha: String) -> void:
+	var chave := String(_montagem.get("tronco" if linha == "inteiro" else linha, ""))
+	var piscando := _piscar > 0.0 and linha != "inteiro" and not Corpo.aberto(chave) and fmod(_piscar, 0.3) > 0.15
+	var borda := Tablet.RUBI if piscando else (Tablet.LARANJA if foco else Color(0, 0, 0, 0))
+	var fundo := Color(1.0, 0.72, 0.3, 0.26) if foco else Color(Tablet.TINTA, 0.05 + (0.04 if sobre else 0.0))
+	Tablet.caixa(b, r, fundo, 14, borda, 3 if foco or piscando else 0)
+	_silhueta(b, Vector2(36, 36), linha)
+	Tablet.texto(b, Vector2(0, 76), "Inteiro" if linha == "inteiro" else String(Corpo.NOMES_PARTE[linha]), 12, Color(Tablet.TINTA, 0.75), foco, HORIZONTAL_ALIGNMENT_CENTER, 72)
+	var tinta_seta := Tablet.LARANJA if foco else Color(Tablet.TINTA, 0.3)
+	_seta(b, Vector2(90, 36), -1.0, tinta_seta)
+	_seta(b, Vector2(r.size.x - 20, 36), 1.0, tinta_seta)
+	var mini := Rect2(106, 8, 58, 58)
+	Tablet.caixa(b, mini, Color(Tablet.TINTA, 0.07), 10)
+	if linha == "inteiro":
+		var so := _um_so()
+		if so != "#":
+			var ret := Corpo.retrato(so)
+			if ret:
+				var tinta := Color(1, 1, 1, 1.0 if Corpo.aberto(so) else 0.4)
+				if Corpo.de_achado(so) and not Corpo.aberto(so):
+					tinta = Color(0.16, 0.15, 0.14, 0.78)
+				b.draw_texture_rect(ret, mini.grow(-2), false, tinta)
+		else:
+			Icones.desenhar(b, "corpo", mini.get_center(), 1.25, Tablet.TINTA, 2.2)
+		if Corpo.novos().has(so):
+			_estrela(b, mini.end - Vector2(4, 54), 10.0, Tablet.LARANJA_V)
+		elif not Corpo.novos().is_empty():
+			b.draw_circle(Vector2(r.size.x - 10, 10), 7.0, Color(1, 1, 1, 0.95))
+			b.draw_circle(Vector2(r.size.x - 10, 10), 5.0, Tablet.LARANJA_V)
+		Tablet.texto(b, Vector2(176, 34), Corpo.curto(so) if so != "#" else "Misturado", 19, Tablet.TINTA, foco)
+		Tablet.texto(b, Vector2(176, 56), "troca as seis de uma vez", 13, Color(Tablet.TINTA, 0.6))
+		return
+	var aberto := Corpo.aberto(chave)
+	_peca_no_quadro(b, mini.grow(-3), chave, linha)
+	if Corpo.novos().has(chave):
+		_estrela(b, mini.end - Vector2(4, 54), 10.0, Tablet.LARANJA_V)
+	var nome := Corpo.curto(chave)
+	Tablet.texto(b, Vector2(176, 34), nome, 19 if nome.length() <= 10 else 16, Tablet.TINTA if aberto else Color(Tablet.TINTA, 0.5), foco)
 	if not aberto:
-		b.draw_circle(Vector2(r.size.x * 0.5, lado * 0.5 + 4), 17, Color(0.85, 0.82, 0.75, 0.92))
-		Icones.desenhar(b, "cadeado", Vector2(r.size.x * 0.5, lado * 0.5 + 4), 0.62, Tablet.TINTA, 1.8)
-		Tablet.texto(b, Vector2(0, lado * 0.5 + 40), "nível %d" % Corpo.nivel(chave), 13, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
-	elif Corpo.vestido.values().has(chave):
-		Tablet.visto(b, Vector2(r.size.x - 16, 16), 9)
+		if Corpo.de_achado(chave):
+			Tablet.texto(b, Vector2(176, 56), String(Corpo.ACHADOS[chave]["lugar"]), 13, Color(0.15, 0.45, 0.5), true)
+		else:
+			Tablet.texto(b, Vector2(176, 56), "nível %d" % Corpo.nivel(chave), 14, Tablet.RUBI, true)
+	elif chave == String(Corpo.vestido.get(linha, "")):
+		Tablet.visto(b, Vector2(r.size.x - 48, 28), 9)
+	if foco:
+		_pontinhos(b, r, chave)
+
+
+## Um pontinho por peça: cheio aberto, vazio fechado, verde-água de robô achado; o grande e laranja é a da vez.
+func _pontinhos(c: CanvasItem, r: Rect2, chave: String) -> void:
+	var ordem := Corpo.ordem()
+	var x0 := 108.0
+	var passo := (r.size.x - 40.0 - x0) / float(ordem.size() - 1)
+	for i in ordem.size():
+		var k: String = ordem[i]
+		var p := Vector2(x0 + i * passo, 76)
+		var cor := Color(0.2, 0.55, 0.6) if Corpo.de_achado(k) else Tablet.TINTA
+		if k == chave:
+			c.draw_circle(p, 6.5, Tablet.LARANJA_V)
+		elif Corpo.novos().has(k):
+			_estrela(c, p, 6.5, Tablet.LARANJA_V)
+		elif Corpo.aberto(k):
+			c.draw_circle(p, 3.6, Color(cor, 0.8))
+		else:
+			c.draw_arc(p, 3.6, 0, TAU, 16, Color(cor, 0.55), 1.4, true)
 
 
 # ------------------------------------------------------------------ o tablet inteiro
@@ -637,7 +838,36 @@ func _pintar(c: Control, telas: Array) -> void:
 			_dir_rastro(c, R)
 		4:
 			_dir_corpo(c, R)
-	Tablet.rodape(c, R, [["o", "sair"], ["l1", "{@r1} trocar de aba"]])
+	if aba == 4:
+		_rodape_corpo(c, R)
+	else:
+		Tablet.rodape(c, R, [["o", "sair"], ["l1", "{@r1} trocar de aba"]])
+
+
+## O rodapé da aba Corpo: sair, trocar de aba e o △ com a figura do que ele faz (ver tudo ou de perto).
+func _rodape_corpo(c: Control, R: Rect2) -> void:
+	var yy := R.end.y - 34.0
+	var x := R.position.x + 24.0
+	for it: Array in [["o", "sair"], ["l1", "{@r1} aba"]]:
+		Tablet.botao(c, it[0], Vector2(x + 12, yy), 24)
+		x += 42.0 + Tablet.com_botoes(c, Vector2(x + 30, yy + 6), it[1], 15, Color(Tablet.TINTA, 0.7)) + 18.0
+	if _linha == "inteiro":
+		return
+	Tablet.botao(c, "tri", Vector2(x + 12, yy), 24)
+	var fig := Vector2(x + 42, yy)
+	if _perto:
+		# o robô entre quatro cantos de enquadrar: ver tudo
+		Icones.desenhar(c, "corpo", fig, 0.62, Tablet.TINTA, 1.6)
+		for k in 4:
+			var sx := -1.0 if k % 2 == 0 else 1.0
+			var sy := -1.0 if k < 2 else 1.0
+			var p := fig + Vector2(sx * 12, sy * 12)
+			c.draw_polyline(PackedVector2Array([p + Vector2(0, -sy * 5), p, p + Vector2(-sx * 5, 0)]), Tablet.TINTA, 1.6, true)
+	else:
+		# a lupa: de perto
+		c.draw_arc(fig + Vector2(-2, -2), 7, 0, TAU, 20, Tablet.TINTA, 1.8, true)
+		c.draw_line(fig + Vector2(3, 3), fig + Vector2(9, 9), Tablet.TINTA, 2.4, true)
+	Tablet.texto(c, Vector2(x + 60, yy + 6), "ver tudo" if _perto else "de perto", 15, Color(Tablet.TINTA, 0.7))
 
 
 func _esq_pecas(c: Control, L: Rect2) -> void:
@@ -852,11 +1082,12 @@ func _dir_rastro(c: Control, R: Rect2) -> void:
 		return
 	var sel := _escolhida.substr(7)
 	var ganha := sel == "" or int(Rotas.feitas.get(sel, 0)) >= 1
-	var nome := "Sem rastro"
+	var nome := "De fábrica"
 	if sel != "":
-		nome = ("Rastro " + String(Rotas.NOMES_COR[sel]).split(" ")[0]) if ganha else "Rastro não ganho"
+		var cn := String(Rotas.NOMES_COR[sel])
+		nome = (cn.left(1).to_upper() + cn.substr(1)) if ganha else "Cor não ganha"
 	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), nome, 30, Tablet.TINTA, true)
-	# o céu de noite com as duas fitas de luz
+	# o céu de noite com o robô de costas subindo, o fogo dos pés e das costas na cor
 	var ceu := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 240)
 	Tablet.caixa(c, ceu, Color(0.07, 0.1, 0.22), 14)
 	for k in 8:
@@ -867,15 +1098,10 @@ func _dir_rastro(c: Control, R: Rect2) -> void:
 		c.draw_circle(Vector2(rng.randf_range(ceu.position.x + 10, ceu.end.x - 10), rng.randf_range(ceu.position.y + 10, ceu.end.y - 40)), rng.randf_range(0.6, 1.6), Color(1, 1, 1, rng.randf_range(0.3, 0.8)))
 	c.draw_colored_polygon(PackedVector2Array([Vector2(ceu.position.x, ceu.end.y), Vector2(ceu.position.x, ceu.end.y - 30), Vector2(ceu.position.x + 90, ceu.end.y - 52),
 		Vector2(ceu.position.x + 180, ceu.end.y - 34), Vector2(ceu.position.x + 280, ceu.end.y - 60), Vector2(ceu.end.x, ceu.end.y - 38), Vector2(ceu.end.x, ceu.end.y)]), Color(0.04, 0.06, 0.12))
-	if sel != "" and ganha:
-		var cor: Color = Rotas.CORES[sel]
-		var cabeca := Vector2(ceu.end.x - 80, ceu.position.y + 70)
-		Tablet.fita(c, Vector2(ceu.position.x + 20, ceu.position.y + 170), cabeca + Vector2(-6, 4), 22, cor, 0.0)
-		Tablet.fita(c, Vector2(ceu.position.x + 30, ceu.position.y + 188), cabeca + Vector2(6, 10), 22, cor, 0.5)
-		Tablet.brilho(c, cabeca + Vector2(0, 7), 6, cor, 2.0)
-		c.draw_circle(cabeca + Vector2(-6, 4), 3.5, Color.WHITE)
-		c.draw_circle(cabeca + Vector2(6, 10), 3.5, Color.WHITE)
-	elif not ganha:
+	if ganha:
+		var cor: Color = Rotas.CORES.get(sel, ArmaduraVisual.COR_CHAMA)
+		_robo_subindo(c, Vector2(ceu.get_center().x, ceu.position.y + 24), cor)
+	else:
 		Tablet.texto(c, ceu.position + Vector2(0, 140), "?", 80, Color(1, 1, 1, 0.3), true, HORIZONTAL_ALIGNMENT_CENTER, ceu.size.x)
 	Tablet.cantos(c, ceu, 14, Tablet.TELA)
 	if sel != "":
@@ -884,68 +1110,151 @@ func _dir_rastro(c: Control, R: Rect2) -> void:
 		Icones.desenhar(c, "aro", Vector2(R.position.x + 62, yi + 40), 0.8, Tablet.TINTA, 2.0)
 		Tablet.texto(c, Vector2(R.position.x + 96, yi + 34), "ganho na rota" if ganha else "faça a rota sem pousar", 15, Color(Tablet.TINTA, 0.6))
 		Tablet.texto(c, Vector2(R.position.x + 96, yi + 58), Rotas.titulo(sel), 18, Tablet.TINTA, true)
-	Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 500), "Voando depressa, os jatos dos pés deixam duas fitas de luz no ar.", R.size.x - 52, 17, Color(Tablet.TINTA, 0.75), 3)
+	var texto := "O fogo laranja que veio de fábrica, nos jatos dos pés e das costas." if sel == "" else "O fogo dos jatos dos pés e das costas acende nesta cor."
+	Tablet.paragrafo(c, Vector2(R.position.x + 26, R.position.y + 500), texto, R.size.x - 52, 17, Color(Tablet.TINTA, 0.75), 3)
 	if Rotas.rastro == sel and _aviso_t <= 0.0:
 		Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Em uso")
 	else:
 		_segurar(c, R, ganha and Rotas.rastro != sel, "segure para usar" if ganha else "ainda não ganho")
 
 
+## O robozinho de costas na subida, de traço simples: os jatos dos pés e das costas acesos na cor.
+func _robo_subindo(c: CanvasItem, topo: Vector2, cor: Color) -> void:
+	var x := topo.x
+	var y := topo.y
+	var corpo := Color(0.86, 0.9, 0.95)
+	var sombra := Color(0.55, 0.62, 0.72)
+	var escuro := Color(0.3, 0.35, 0.43)
+	Tablet.caixa(c, Rect2(x - 38, y + 44, 11, 38), sombra, 5)  # braços
+	Tablet.caixa(c, Rect2(x + 27, y + 44, 11, 38), sombra, 5)
+	Tablet.caixa(c, Rect2(x - 20, y + 90, 16, 40), sombra, 5)  # pernas
+	Tablet.caixa(c, Rect2(x + 4, y + 90, 16, 40), sombra, 5)
+	Tablet.caixa(c, Rect2(x - 23, y + 126, 21, 11), escuro, 4)  # pés
+	Tablet.caixa(c, Rect2(x + 2, y + 126, 21, 11), escuro, 4)
+	Tablet.caixa(c, Rect2(x - 26, y + 38, 52, 52), corpo, 10)  # tronco
+	Tablet.caixa(c, Rect2(x - 22, y, 44, 36), corpo, 12)  # cabeça
+	Tablet.caixa(c, Rect2(x - 19, y + 46, 13, 24), escuro, 4)  # bocais das costas
+	Tablet.caixa(c, Rect2(x + 6, y + 46, 13, 24), escuro, 4)
+	for bx in [-12.5, 12.5]:
+		_fogo(c, Vector2(x + bx, y + 70), 11.0, 30.0, cor)
+		_fogo(c, Vector2(x + bx, y + 137), 17.0, 62.0, cor)
+
+
+func _fogo(c: CanvasItem, base: Vector2, larg: float, comp: float, cor: Color) -> void:
+	Tablet.brilho(c, base + Vector2(0, comp * 0.3), larg * 0.9, cor, 1.3)
+	c.draw_colored_polygon(PackedVector2Array([base + Vector2(-larg * 0.5, 0), base + Vector2(larg * 0.5, 0), base + Vector2(0, comp)]), Color(cor, 0.95))
+	c.draw_colored_polygon(PackedVector2Array([base + Vector2(-larg * 0.22, 0), base + Vector2(larg * 0.22, 0), base + Vector2(0, comp * 0.45)]), Color(1, 1, 1, 0.85))
+
+
 ## O conjunto em foco: o retrato grande, as quatro partes (as que mudam em destaque) e o botão de vestir.
+## Onde fica cada peça na planta da direita (coordenadas da casca).
+func _quadro_planta(parte: String) -> Rect2:
+	var R := Tablet.DIR
+	var q := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 386)
+	var cx := q.get_center().x
+	var t := 112.0
+	var y1 := q.position.y + 14.0
+	var y2 := y1 + t + 12.0
+	match parte:
+		"cabeca":
+			return Rect2(cx - t * 0.5, y1, t, t)
+		"tronco":
+			return Rect2(cx - t * 0.5, y2, t, t)
+		"bracoD":
+			return Rect2(cx - t * 1.5 - 12.0, y2, t, t)
+		"bracoE":
+			return Rect2(cx + t * 0.5 + 12.0, y2, t, t)
+		"pernaD":
+			return Rect2(cx - t - 6.0, y2 + t + 12.0, t, t)
+	return Rect2(cx + 6.0, y2 + t + 12.0, t, t)
+
+
+## A planta da montagem: as seis peças no formato do corpo (a da linha em foco com a borda laranja, as que mudam
+## com o brilhinho, as fechadas com o cadeado), quantas mudam e o vestir, um só para tudo.
 func _dir_corpo(c: Control, R: Rect2) -> void:
-	var aberto := Corpo.aberto(_corpo_sel)
-	var pedido := _pedido_corpo()
-	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), Corpo.nome(_corpo_sel), 30, Tablet.TINTA, true)
-	var quadro := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 250)
-	Tablet.caixa(c, quadro, Color(Tablet.TINTA, 0.07), 16)
-	var tex := Corpo.retrato(_corpo_sel)
-	if tex:
-		var lado := quadro.size.y - 10.0
-		c.draw_texture_rect(tex, Rect2(quadro.get_center() - Vector2(lado, lado) * 0.5, Vector2(lado, lado)), false, Color(1, 1, 1, 1.0 if aberto else 0.35))
-	if not aberto:
-		var ct := quadro.get_center()
-		c.draw_circle(ct, 30, Color(0.85, 0.82, 0.75, 0.95))
-		Icones.desenhar(c, "cadeado", ct, 1.1, Tablet.TINTA, 2.4)
-		Tablet.texto(c, Vector2(quadro.position.x, ct.y + 62), "abre no nível %d" % Corpo.nivel(_corpo_sel), 20, Tablet.TINTA, true, HORIZONTAL_ALIGNMENT_CENTER, quadro.size.x)
-	# as quatro partes: a figura, o nome e de que conjunto ela fica
-	var yp := R.position.y + 380.0
-	for i in Corpo.PARTES.size():
-		var parte: String = Corpo.PARTES[i]
-		var muda := String(pedido[parte]) != String(Corpo.vestido[parte])
-		var y := yp + i * 52.0
-		Tablet.caixa(c, Rect2(R.position.x + 22, y, R.size.x - 44, 44), Color(Tablet.LARANJA, 0.2) if muda else Color(Tablet.TINTA, 0.05), 14)
-		Icones.desenhar(c, parte, Vector2(R.position.x + 50, y + 22), 0.7, Tablet.TINTA, 2.0)
-		Tablet.texto(c, Vector2(R.position.x + 76, y + 29), String(Corpo.NOMES_PARTE[parte]), 16, Color(Tablet.TINTA, 0.7))
-		Tablet.texto(c, Vector2(R.position.x + 186, y + 29), Corpo.curto(String(pedido[parte])), 17, Tablet.TINTA, muda)
-		if muda:
-			Tablet.brilhinho(c, Vector2(R.end.x - 44, y + 22), 8, Tablet.LARANJA)
-	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 612), "só muda o jeito: anda, voa e luta igual", 15, Color(Tablet.TINTA, 0.6))
-	if pedido == Corpo.vestido and _aviso_t <= 0.0 and fase != Fase.INSTALANDO:
-		Tablet.feito(c, Vector2(R.position.x + 70, R.position.y + 680), "Em uso")
-	else:
-		_segurar(c, R, _pode("corpo_" + _corpo_sel), "segure para vestir" if aberto else "ainda fechado")
-
-
-## O corpo que o cartão em foco pede: o conjunto inteiro, ou só a parte escolhida e o resto como está.
-func _pedido_corpo() -> Dictionary:
-	var pedido := Corpo.vestido.duplicate()
+	var so := _um_so()
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 86), Corpo.nome(so) if so != "#" else "Misturado", 30, Tablet.TINTA, true)
+	var q := Rect2(R.position.x + 22, R.position.y + 104, R.size.x - 44, 386)
+	Tablet.caixa(c, q, Color(Tablet.TINTA, 0.07), 16)
+	var mudam := 0
+	var fechadas := 0
 	for parte: String in Corpo.PARTES:
-		if _parte == "tudo" or _parte == parte:
-			pedido[parte] = _corpo_sel
+		var chave := String(_montagem.get(parte, ""))
+		var muda := chave != String(Corpo.vestido.get(parte, ""))
+		if muda:
+			mudam += 1
+		if not Corpo.aberto(chave):
+			fechadas += 1
+		var r := _quadro_planta(parte)
+		Tablet.caixa(c, r, Color(Tablet.LARANJA, 0.2) if muda else Color(Tablet.TINTA, 0.06), 14, Tablet.LARANJA if _linha == parte else Color(0, 0, 0, 0), 3)
+		_peca_no_quadro(c, r.grow(-6), chave, parte)
+		if muda and Corpo.aberto(chave):
+			Tablet.brilhinho(c, r.position + Vector2(r.size.x - 13, 13), 8, Tablet.LARANJA)
+	var yl := q.end.y + 34.0
+	var x := R.position.x + 38.0
+	if mudam > 0:
+		Tablet.brilhinho(c, Vector2(x, yl - 6), 9, Tablet.LARANJA)
+		Tablet.texto(c, Vector2(x + 16, yl), "%d muda%s" % [mudam, "" if mudam == 1 else "m"], 17, Tablet.TINTA, true)
+		x += 150.0
+	if fechadas > 0:
+		c.draw_circle(Vector2(x, yl - 6), 12, Color(0.85, 0.82, 0.75, 0.94))
+		Icones.desenhar(c, "cadeado", Vector2(x, yl - 6), 0.42, Tablet.TINTA, 1.6)
+		Tablet.texto(c, Vector2(x + 18, yl), "%d fechada%s" % [fechadas, "" if fechadas == 1 else "s"], 17, Tablet.TINTA, true)
+	Tablet.texto(c, Vector2(R.position.x + 26, R.position.y + 612), "só muda o jeito: anda, voa e luta igual", 15, Color(Tablet.TINTA, 0.6))
+	var centro := Vector2(R.position.x + 70, R.position.y + 680)
+	var fechada := _fechada()
+	if _montagem == Corpo.vestido and _aviso_t <= 0.0 and fase != Fase.INSTALANDO:
+		Tablet.feito(c, centro, "Em uso")
+	elif fechada != "" and _aviso_t <= 0.0 and fase != Fase.INSTALANDO:
+		if Corpo.de_achado(fechada):
+			Tablet.segurar(c, centro, false, "acorde o robô")
+			Tablet.texto(c, Vector2(centro.x + 52, centro.y + 30), String(Corpo.ACHADOS[fechada]["lugar"]), 15, Color(Tablet.TINTA, 0.5), true)
+		else:
+			Tablet.segurar(c, centro, false, "abre no nível %d" % Corpo.nivel(fechada))
+	else:
+		_segurar(c, R, _pode("linha_" + _linha), "segure para vestir")
+
+
+## O corpo que a montagem pede no robô: as peças de robô achado ainda fechadas ficam como estão (surpresa).
+func _pedido_corpo() -> Dictionary:
+	var pedido := _montagem.duplicate() if not _montagem.is_empty() else Corpo.vestido.duplicate()
+	for parte: String in Corpo.PARTES:
+		var k := String(pedido.get(parte, ""))
+		if Corpo.de_achado(k) and not Corpo.aberto(k):
+			pedido[parte] = Corpo.vestido.get(parte, "")
 	return pedido
 
 
-## O robô mostra o corpo pedido (prévia); os de rabo viram de lado para ele aparecer.
+## O robô mostra a montagem (prévia), de frente como em todos (2026-11-23); nas linhas do lado E ele vira um pouco
+## para o outro lado, para aquele lado aparecer.
 func _previa_corpo() -> void:
 	var pedido := _pedido_corpo()
 	if armadura.visual.corpo != pedido:
 		armadura.visual.vestir_corpo(pedido)
 	var e := _eixo()
-	var com_rabo := Corpo.COM_RABO.has(_corpo_sel) and _parte in ["tudo", "tronco"]
-	armadura.visual.yaw_forcado = atan2(-e.x, -e.z) + (1.35 if com_rabo else -0.35)
+	armadura.visual.yaw_forcado = atan2(-e.x, -e.z) + (0.35 if _linha.ends_with("E") else -0.35)
 	_lista.queue_redraw()
 	for b in _lista.get_children():
 		(b as Control).queue_redraw()
+
+
+## Na aba Jatos o robô fica de costas, sobe um pouco na pose da subida (a de segurar o X) e acende os jatos dos pés e
+## das costas na cor em foco (doc §147). A cor ainda não ganha fica escondida ("?"): os jatos ficam na de fábrica.
+func _vitrine_rastro(id: String) -> void:
+	_virar("bocais")
+	armadura.visual.jatos_vitrine = 1.2  # o fogo da decolagem
+	armadura.visual.cor_vitrine = id if int(Rotas.feitas.get(id, 0)) >= 1 else ""
+	if _berco():
+		_berco().pairar(true)
+
+
+## Fora da aba Jatos o robô volta ao estrado e os jatos apagam.
+func _rastro_de_volta() -> void:
+	if armadura and armadura.visual:
+		armadura.visual.jatos_vitrine = 0.0
+		armadura.visual.cor_vitrine = ""
+	if _berco():
+		_berco().pairar(false)
 
 
 ## Fora da aba Corpo o robô volta ao corpo que está vestido de verdade.
@@ -958,19 +1267,19 @@ func _corpo_de_volta() -> void:
 func _escolher(nome: String) -> void:
 	_escolhida = nome
 	_segura = 0.0
-	if nome.begins_with("parte_"):
-		_parte = nome.substr(6)
-		_previa_corpo()
-		return
-	if nome.begins_with("corpo_"):
-		_corpo_sel = nome.substr(6)
+	if nome.begins_with("linha_"):
+		var nova := nome.substr(6)
+		if nova != _linha:
+			_perto = true  # outra parte: a câmera volta para perto (o pedido é ver a peça que está sendo trocada)
+		_linha = nova
 		_previa_corpo()
 		return
 	_corpo_de_volta()
 	if nome.begins_with("rastro_"):
 		armadura.visual.vestir_melhorias()
-		_virar("bocais")
+		_vitrine_rastro(nome.substr(7))
 		return
+	_rastro_de_volta()
 	if DE_FABRICA.has(nome):
 		armadura.visual.vestir_melhorias()
 		_virar("antena")
@@ -986,6 +1295,22 @@ func _escolher(nome: String) -> void:
 	_virar(nome)
 
 
+## Um conjunto novo em foco na montagem por `VER` segundos deixa de ser novo (a estrelinha e os pontinhos somem).
+func _ver_novo(delta: float) -> void:
+	var k := _um_so() if _linha == "inteiro" else String(_montagem.get(_linha, ""))
+	if not Corpo.novos().has(k):
+		_visto_t = 0.0
+		return
+	_visto_t += delta
+	if _visto_t < VER:
+		return
+	_visto_t = 0.0
+	Corpo.ver(k)
+	_ponto_corpo()
+	for b in _lista.get_children():
+		(b as Control).queue_redraw()
+
+
 func _virar(nome: String) -> void:
 	var e := _eixo()
 	var frente := atan2(-e.x, -e.z)  # de frente para a boca
@@ -995,9 +1320,15 @@ func _virar(nome: String) -> void:
 ## Segurar X (ou o botão redondo, no mouse) enche o anel; cheio, faz.
 func _process(delta: float) -> void:
 	_aviso_t = maxf(0.0, _aviso_t - delta)
+	_piscar = maxf(0.0, _piscar - delta)
 	if fase != Fase.ABERTA or not _tela.visible:
 		_segura = 0.0
 		return
+	if aba == 4 and _escolhida.begins_with("linha_"):
+		_repetir_seta(delta)
+		_ver_novo(delta)
+		if Input.is_action_just_pressed("ui_accept") and _fechada() != "":
+			_piscar = 0.9  # a linha da peça fechada pisca
 	var segurando := Input.is_action_pressed("ui_accept") or _mouse_segura
 	if _soltar:
 		_segura = 0.0
@@ -1038,6 +1369,7 @@ func entrar() -> void:
 	_cam.global_position = t * Vector3(BaseVale.MEIO_CIL + 0.7, -0.75, 0.75)
 	_cam.look_at(_para + Vector3(0, 0.66, 0) - t.basis.z.normalized() * 0.85)
 	_cam.make_current()
+	_cam_longe = _cam.global_transform
 	if sons:
 		sons._toque("religar", -8.0)
 
@@ -1059,15 +1391,21 @@ func instalar(nome: String) -> void:
 		if sons:
 			sons._toque("religar", -6.0)
 		return
-	if nome.begins_with("corpo_") or nome.begins_with("parte_"):
-		if not Corpo.aberto(_corpo_sel):
-			_avisar("abre no nível %d" % Corpo.nivel(_corpo_sel), Tablet.RUBI)
+	if nome.begins_with("linha_"):
+		var fechada := _fechada()
+		if fechada != "":
+			_piscar = 0.9
+			if Corpo.de_achado(fechada):
+				_avisar("acorde o robô %s" % String(Corpo.ACHADOS[fechada]["lugar"]), Tablet.RUBI)
+			else:
+				_avisar("abre no nível %d" % Corpo.nivel(fechada), Tablet.RUBI)
 			return
-		if _pedido_corpo() == Corpo.vestido:
+		if _montagem == Corpo.vestido:
 			return
 		fase = Fase.INSTALANDO
 		_instalando = "corpo"
-		_corpo_pedido = _pedido_corpo()
+		_corpo_pedido = _montagem.duplicate()
+		_perto = false  # vestindo, a câmera afasta para mostrar o robô inteiro (até a próxima troca de linha)
 		_t = 0.0
 		_fazendo = "Trocando…"
 		if sons:
@@ -1113,6 +1451,7 @@ func sair() -> void:
 	fase = Fase.SAINDO
 	_t = 0.0
 	_tela.visible = false
+	_rastro_de_volta()
 	if _berco():
 		_berco().soltar(armadura.visual)
 	armadura.visual.previa = false
@@ -1137,6 +1476,9 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("granada"):
 		get_viewport().set_input_as_handled()
 		_mudar_aba(1)
+	elif event.is_action_pressed("agir") and aba == 4 and _linha != "inteiro":
+		get_viewport().set_input_as_handled()
+		_perto = not _perto  # △: de perto da parte ou o robô inteiro
 
 
 func _physics_process(delta: float) -> void:
@@ -1182,12 +1524,14 @@ func _physics_process(delta: float) -> void:
 				_abrir()
 		Fase.ABERTA:
 			armadura.velocity = Vector3.ZERO
+			_mover_camera(delta)
 			_desce = minf(1.0, _desce + delta * 2.0)
 			_por_bracos(_desce, 0.0)
 			var ic := _berco()
 			if ic:
 				ic.seguir()  # o robô vira para mostrar a peça: presilhas, prato e cabos vão junto
 		Fase.INSTALANDO:
+			_mover_camera(delta)
 			var k_i := sin(clampf(_t / T_INSTALAR, 0.0, 1.0) * PI)
 			_por_bracos(1.0, k_i)
 			var ic := _berco()
@@ -1242,6 +1586,7 @@ func _physics_process(delta: float) -> void:
 				_escolher(nome)
 				_avisar("Instalado!")
 		Fase.SAINDO:
+			_mover_camera(delta)
 			var f := clampf(_t / T_SAIR, 0.0, 1.0)
 			_desce = maxf(0.0, _desce - delta * 2.4)
 			_por_bracos(_desce, 0.0)
@@ -1252,14 +1597,61 @@ func _physics_process(delta: float) -> void:
 				_fechar()
 
 
+## A câmera da oficina: na aba Corpo, perto da parte em foco (na faixa livre à esquerda do tablet); senão, a de
+## sempre. Desliza até lá (uns 0,35 s).
+func _mover_camera(delta: float) -> void:
+	var alvo := _cam_longe
+	if fase == Fase.ABERTA and aba == 4 and _perto and _linha != "inteiro" and CAM_PERTO.has(_linha):
+		alvo = _camera_perto(_linha)
+	_cam.global_transform = _cam.global_transform.interpolate_with(alvo, 1.0 - exp(-9.0 * delta))
+
+
+func _junta(nome: String) -> Vector3:
+	var n := armadura.visual.j.get(nome) as Node3D
+	if n == null:
+		n = armadura.visual.modelo.find_child(nome, true, false) as Node3D
+	return n.global_position if n else armadura.global_position + Vector3(0, 0.6, 0)
+
+
+## Onde a câmera fica para mostrar a parte: na frente dela, do lado da câmera de sempre, com a parte no meio da
+## faixa da tela que o tablet deixa livre.
+func _camera_perto(parte: String) -> Transform3D:
+	var alvo: Vector3
+	var l := parte.right(1)
+	match parte:
+		"cabeca":
+			alvo = _junta("cabeca") + Vector3(0, 0.16, 0)
+		"tronco":
+			alvo = _junta("tronco") + Vector3(0, 0.08, 0)
+		"bracoD", "bracoE":
+			alvo = (_junta("ombro" + l) + _junta("punho" + l)) * 0.5
+		_:
+			alvo = (_junta("quadril" + l) + _junta("tornozelo" + l)) * 0.5
+	var dist: float = CAM_PERTO[parte]
+	var de := _cam_longe.origin - alvo
+	de.y *= 0.4
+	de = de.normalized()
+	var pos := alvo + de * dist + Vector3(0, 0.08, 0)
+	var frente := (alvo - pos).normalized()
+	var direita := frente.cross(Vector3.UP).normalized()
+	var tela := get_viewport().get_visible_rect().size
+	var tan_h := tan(deg_to_rad(_cam.fov * 0.5)) * tela.x / maxf(1.0, tela.y)
+	var livre := 1.0 - (Tablet.TAM.x + 8.0) / maxf(1.0, tela.x)  # a fração da tela à esquerda do tablet
+	var olhar := alvo + direita * ((1.0 - livre) * 0.88 * dist * tan_h)
+	return Transform3D(Basis.looking_at(olhar - pos, Vector3.UP), pos)
+
+
 func _abrir() -> void:
 	fase = Fase.ABERTA
 	if _berco():
 		_berco().prender(armadura.visual)
 	_escolhida = ""
 	aba = 0
-	_corpo_sel = String(Corpo.vestido["tronco"])  # a aba Corpo abre no conjunto que está no peito
-	_parte = "tudo"
+	_montagem = Corpo.vestido.duplicate()  # a aba Corpo começa no corpo vestido, na linha da cabeça
+	_linha = "cabeca"
+	_novo_mostrado = false
+	_visto_t = 0.0
+	_perto = true
 	_tela.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refazer_lista()
@@ -1267,6 +1659,7 @@ func _abrir() -> void:
 
 func _fechar() -> void:
 	fase = Fase.FORA
+	_rastro_de_volta()
 	if _berco():
 		_berco().soltar(armadura.visual)
 	armadura.velocity = Vector3.ZERO

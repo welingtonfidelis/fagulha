@@ -45,6 +45,9 @@ var _bocais: Array[Node3D] = []
 var _costas_antes := Vector3.INF
 var _mat_disco: StandardMaterial3D
 var _prato: Node3D  # as placas dos pés, que giram com o robô
+var _aberto := 0.0  # o último `abrir` (as peças afastadas também erguem o corpo)
+var _paira := 0.0  # 0 no estrado, 1 no ar (a aba Jatos, doc §147)
+var _paira_alvo := 0.0
 
 
 func _exit_tree() -> void:
@@ -655,6 +658,15 @@ const ABRE := {
 	"costas": [Vector3(0, 0, -0.12), 0.11],
 }
 const SOBE := 0.095  # o tanto que as pernas descem, somado
+const PAIRA := 0.34  # o tanto que o robô sobe do estrado na aba Jatos (na medida do modelo, como `SOBE`)
+## A pose de quem está preso no berço: braços um pouco abertos.
+const POSE_BERCO := {"ombroE": Vector3(0, 0, 16.0), "ombroD": Vector3(0, 0, -16.0), "cotoveloE": Vector3(-12.0, 0, 0),
+	"cotoveloD": Vector3(-12.0, 0, 0), "quadrilE": Vector3(0, 0, 3.0), "quadrilD": Vector3(0, 0, -3.0), "tronco": Vector3.ZERO,
+	"cabeca": Vector3(-4.0, 0, 0)}
+## A pose da subida da decolagem, a de segurar o X (ArmaduraVisual, Estado.DECOLAGEM).
+const POSE_SUBIDA := {"quadrilE": Vector3(4.0, 0, 3.0), "quadrilD": Vector3(4.0, 0, -3.0), "joelhoE": Vector3(10.0, 0, 0),
+	"joelhoD": Vector3(10.0, 0, 0), "ombroE": Vector3(25.0, 0, 12.0), "ombroD": Vector3(25.0, 0, -12.0),
+	"cotoveloE": Vector3(-15.0, 0, 0), "cotoveloD": Vector3(-15.0, 0, 0)}
 
 
 ## Prende o robô no berço (a Oficina chama ao abrir a tela): a pose de manequim, os anéis de luz nos encaixes,
@@ -663,9 +675,9 @@ const SOBE := 0.095  # o tanto que as pernas descem, somado
 func prender(v: ArmaduraVisual) -> void:
 	soltar(v)
 	_preso = v
-	v.sobrepor = {"ombroE": Vector3(0, 0, 16.0), "ombroD": Vector3(0, 0, -16.0), "cotoveloE": Vector3(-12.0, 0, 0),
-		"cotoveloD": Vector3(-12.0, 0, 0), "quadrilE": Vector3(0, 0, 3.0), "quadrilD": Vector3(0, 0, -3.0), "tronco": Vector3.ZERO,
-		"cabeca": Vector3(-4.0, 0, 0)}
+	v.sobrepor = POSE_BERCO.duplicate()
+	_paira = 0.0
+	_paira_alvo = 0.0
 	if v.modelo:
 		v.modelo.set_meta("pos_berco", v.modelo.position)
 	_mat_disco = _luz(AGUA, 1.0).duplicate()
@@ -722,8 +734,8 @@ func abrir(f: float, brilho := 1.0) -> void:
 			# o anel de luz no meio da folga, de frente para o lado em que a peça se afasta
 			(_discos[k] as Node3D).transform = Transform3D(_apontar(ABRE[k][0]), -desl * 0.5)
 	_mat_disco.emission_energy_multiplier = 0.35 + 0.45 * brilho
-	if v.modelo and v.modelo.has_meta("pos_berco"):
-		v.modelo.position = (v.modelo.get_meta("pos_berco") as Vector3) + Vector3(0, SOBE * f * v.modelo.scale.y, 0)
+	_aberto = f
+	_erguer()
 	por_aro(f)
 	por_tela(f)
 	if f <= 0.0:
@@ -753,11 +765,44 @@ func abrir(f: float, brilho := 1.0) -> void:
 	_solda.light_energy = 0.5 * f * (0.6 + 0.4 * sin(t * 31.0))
 
 
+## O corpo sobe do estrado: um pouco com as peças afastadas, e `PAIRA` quando paira.
+func _erguer() -> void:
+	var v := _preso
+	if not is_instance_valid(v) or v.modelo == null or not v.modelo.has_meta("pos_berco"):
+		return
+	var sobe := SOBE * _aberto + PAIRA * smoothstep(0.0, 1.0, _paira)
+	v.modelo.position = (v.modelo.get_meta("pos_berco") as Vector3) + Vector3(0, sobe * v.modelo.scale.y, 0)
+
+
+## Na aba Jatos o robô sobe um pouco do estrado na pose da subida, com os jatos acesos na cor em foco (doc §147).
+## As presilhas vão presas aos tornozelos e os cabos às costas, como sempre.
+func pairar(sim: bool) -> void:
+	if not is_instance_valid(_preso):
+		return
+	_paira_alvo = 1.0 if sim else 0.0
+	for k in POSE_SUBIDA:
+		if sim:
+			_preso.sobrepor[k] = POSE_SUBIDA[k]
+		elif POSE_BERCO.has(k):
+			_preso.sobrepor[k] = POSE_BERCO[k]
+		else:
+			_preso.sobrepor.erase(k)
+
+
+## No ar (0 a 1): os testes e as fotos olham.
+func no_ar() -> float:
+	return _paira
+
+
 ## As presilhas, o prato e os cabos acompanham o robô (ele vira para mostrar uma peça e a pose muda devagar).
 func seguir() -> void:
 	if not is_instance_valid(_preso):
 		return
 	var v := _preso
+	var dt := get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
+	if _paira != _paira_alvo:
+		_paira = move_toward(_paira, _paira_alvo, dt / 0.7)  # sobe e desce em 0,7 s
+		_erguer()
 	var esc := v.modelo.global_basis.get_scale().x if v.modelo else 1.0
 	for anel: Node3D in _presilhas:
 		var t := v.j.get("tornozelo" + String(anel.get_meta("lado"))) as Node3D
@@ -801,6 +846,9 @@ func soltar(v: ArmaduraVisual = null) -> void:
 	_bocais.clear()
 	_discos.clear()
 	_preso = null
+	_paira = 0.0
+	_paira_alvo = 0.0
+	_aberto = 0.0
 	por_aro(0.0)
 	por_tela(0.0)
 	por_bracos([])

@@ -16,6 +16,7 @@ var perigo := false
 var ativa := false
 var pintor: Callable
 var alfa_desligado := 0.45
+var ponto := false  # o pontinho laranja no canto de cima (tem coisa nova ali)
 
 
 func _init() -> void:
@@ -55,3 +56,7 @@ func _draw() -> void:
 		_:
 			if pintor.is_valid():
 				pintor.call(self, r, foco, sobre)
+	if ponto:
+		var p := Vector2(r.end.x - 9.0, r.position.y + 9.0)
+		draw_circle(p, 7.0, Color(1, 1, 1, 0.95))
+		draw_circle(p, 5.0, Tablet.LARANJA_V)

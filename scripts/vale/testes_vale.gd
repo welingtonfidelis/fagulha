@@ -2631,14 +2631,15 @@ func _ponto_37() -> void:
 
 
 ## O robô anterior e o apreciar a vista: sentado no Observatório até ser acordado; a lembrança dele não conta
-## entre as dez; depois fica num cilindro da base e a troca muda só o modelo. E a seta para a esquerda, parado,
-## tira a câmera de trás do robô e limpa a tela, até o jogador andar.
+## entre as dez; depois mora na base (§144): o jeito dele abre na aba Corpo, ninguém troca de robô, ele acena
+## quando o robô chega e de noite sobe no telhado (de dia desce). E a seta para a esquerda, parado, tira a
+## câmera de trás do robô e limpa a tela, até o jogador andar.
 func _ponto_38() -> void:
 	_soltar_tudo()
 	a.recomecar()
 	await _esperar(0.5)
 	var r: RoboAntigo = m.robo_antigo
-	var la: bool = r != null and not r.achado and r.estatua != null and r.guardado_no == null
+	var la: bool = r != null and not r.achado and r.estatua != null and r.amigos[0] == null and not bool(Corpo.resgatados.get("antigo", false))
 	var perto_obs: bool = la and Vector2(r.estatua.global_position.x, r.estatua.global_position.z).distance_to(MarcosOeste.OBSERVATORIO) < 60.0
 	var lidas0: int = m.memorias.lidas.size()
 	a.teleportar(r.estatua.global_position + Vector3(1.3, 0.4, 0.9), Armadura.Estado.CHAO)
@@ -2649,26 +2650,47 @@ func _ponto_38() -> void:
 	var lembranca: bool = m.memorias.aberta == "robo_antigo" and get_tree().paused and m.memorias.lidas.size() == lidas0
 	m.memorias.fechar()
 	await _esperar(0.3)
-	var guardado: bool = r.achado and r.estatua == null and r.guardado_no != null
-	var cil: Node3D = r.cilindros.cilindros[RoboAntigo.VAGA]
+	var amigo: AmigoRobo = r.amigos[0]
+	var na_base: bool = r.achado and r.estatua == null and amigo != null and Corpo.resgatados.get("antigo", false) \
+		and amigo.global_position.distance_to(BaseVale.t_base.origin) < 25.0
+	# perto dos cilindros não há mais troca, e o robô segue o mesmo
+	var cil: Node3D = null
+	for n in m.find_children("*", "", true, false):
+		if n is CilindrosBase:
+			cil = (n as CilindrosBase).cilindros[0]
+			break
 	a.teleportar(cil.global_position + cil.global_basis.z * 1.5 + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
 	await _esperar(0.6)
-	var convite_troca: bool = m.hud.dica == "{agir}  trocar de robô"
-	r.trocar()
-	await _esperar(0.4)
-	var antigo: bool = ArmaduraVisual.MODELO.ends_with("robo_v1.glb") and a.visual != null and a.visual.chamas_pequenas.size() == 2 and a.visual.boca_da_arma(false) == null
-	Input.action_press("frente")
+	var sem_troca: bool = m.hud.dica != "{agir}  trocar de robô" and ArmaduraVisual.MODELO.ends_with("robo_v2.glb")
+	# o aceno: vai longe e volta para perto dele
+	var acenos0 := amigo.acenos
+	var longe := amigo.global_position + Vector3(40, 0, 0)
+	a.teleportar(Vector3(longe.x, m.ilha.altura(longe.x, longe.z) + 0.4, longe.z), Armadura.Estado.CHAO)
+	await _esperar(0.3)
+	var perto := amigo.global_position + Vector3(4, 0, 3)
+	a.teleportar(Vector3(perto.x, m.ilha.altura(perto.x, perto.z) + 0.4, perto.z), Armadura.Estado.CHAO)
 	await _esperar(0.5)
-	Input.action_release("frente")
-	var anda: bool = _hv() > 1.0
-	await _esperar(0.5)
-	r.trocar()
-	await _esperar(0.4)
-	var novo: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb") and a.visual.boca_da_arma(false) != null and r.trocas == 2
+	var acenou: bool = amigo.acenos == acenos0 + 1
+	# de noite ele sobe no telhado; de dia desce
+	var hora0: float = m.ciclo.hora
+	var parado0: bool = m.ciclo.parado
+	m.ciclo.parado = true
+	m.ciclo.hora = 22.0
+	amigo._pos = (amigo.lugares["telhado_chao"] as Array)[0]
+	amigo._parar("campo")
+	amigo._t = 0.0
+	amigo._aceno = 0.0  # o aceno de cima ainda duraria 2 s, e acenando ele não anda
+	await _esperar(3.0)
+	var telhado: bool = amigo.estado == "telhado" and amigo.global_position.y > BaseVale.t_base.origin.y + 4.5
+	m.ciclo.hora = 10.0
+	await _esperar(2.5)
+	var desceu: bool = amigo.estado != "telhado" and amigo.global_position.y < BaseVale.t_base.origin.y + 1.0
+	m.ciclo.hora = hora0
+	m.ciclo.parado = parado0
 	m.hud.dica = ""
-	_ok(la and perto_obs and convite and lembranca and guardado and convite_troca and antigo and anda and novo,
-		"robô anterior: sentado no Observatório (%s, %s), convite (%s), a lembrança abre e não conta entre as dez (%s), vai para o cilindro (%s), convite de troca (%s), trocado é o modelo antigo com os jatos das mãos (%s) e anda (%s); destrocado volta o novo (%s)"
-			% [la, perto_obs, convite, lembranca, guardado, convite_troca, antigo, anda, novo])
+	_ok(la and perto_obs and convite and lembranca and na_base and sem_troca and acenou and telhado and desceu,
+		"robô anterior: sentado no Observatório (%s, %s), convite (%s), a lembrança abre e não conta entre as dez (%s), vai morar na base e o jeito dele abre (%s), sem troca de robô (%s), acena (%s), de noite no telhado (%s) e de dia desce (%s)"
+			% [la, perto_obs, convite, lembranca, na_base, sem_troca, acenou, telhado, desceu])
 	# apreciar a vista
 	a.recomecar()
 	await _esperar(0.8)
@@ -2868,17 +2890,22 @@ func _ponto_41() -> void:
 	m.memorias.fechar()
 	a.recomecar()
 	await _esperar(0.5)
-	r2.usar(2)
-	await _esperar(0.4)
-	var em_uso: bool = ArmaduraVisual.MODELO.ends_with("robo_v3.glb") and ArmaduraVisual.corpo_novo() and r2.guardados[1] == null and r2.guardados[2] != null
-	r2.usar(0)
-	await _esperar(0.4)
-	var volta: bool = ArmaduraVisual.MODELO.ends_with("robo_v2.glb") and r2.guardados[1] != null and r2.guardados[2] == null
+	# ele vai morar na lagoa da clareira, sentado no raso da prainha; o jeito dele abre e veste o robô
+	var mer: AmigoRobo = r2.amigos[1]
+	var lagoa := Vector2(Clareira.LAGOA.x, Clareira.LAGOA.y)
+	var na_lagoa: bool = mer != null and Corpo.resgatados.get("mergulhador", false) and mer.roda.size() >= 8 \
+		and Vector2(mer.global_position.x, mer.global_position.z).distance_to(lagoa) < Clareira.LAGOA.z
+	for parte: String in Corpo.PARTES:
+		Corpo.vestido[parte] = "mergulhador"
+	a.visual.vestir_corpo(Corpo.vestido)
+	var vestido: bool = a.visual._enxertos.size() > 20 and ArmaduraVisual.MODELO.ends_with("robo_v2.glb")
+	Corpo.zerar()
+	a.visual.vestir_corpo(Corpo.vestido)
 	Melhorias.tudo = tudo0
 	m.hud.dica = ""
-	_ok(float(perto[false]) > 10.0 and float(perto[true]) < RoboAntigo.PERTO and convite and lembranca and em_uso and volta,
-		"mergulhador: sem as barbatanas a correnteza segura o robô a %.1f m dele; com elas, chega a %.1f m; convite (%s), lembrança (%s), em uso com o cilindro dele vazio e o novo guardado (%s), e destroca (%s)"
-			% [float(perto[false]), float(perto[true]), convite, lembranca, em_uso, volta])
+	_ok(float(perto[false]) > 10.0 and float(perto[true]) < RoboAntigo.PERTO and convite and lembranca and na_lagoa and vestido,
+		"mergulhador: sem as barbatanas a correnteza segura o robô a %.1f m dele; com elas, chega a %.1f m; convite (%s), lembrança (%s), vai morar na lagoa da clareira (%s) e o conjunto dele veste o robô (%s)"
+			% [float(perto[false]), float(perto[true]), convite, lembranca, na_lagoa, vestido])
 
 
 ## O ninho da ave e o mastro do Relé: a maresia apaga os jatos (sem asas o robô cai no mar; com elas plana e
@@ -3277,9 +3304,18 @@ func _ponto_45() -> void:
 			% [VigiaArvore.arvores, cacou, avisou, recuou, afastou, procurou, foi_olhar, voltou])
 
 
-## 46. O corpo em peças (doc §143): vestir troca as peças de fábrica pelas do conjunto; o rabo balança parado e
-## estica correndo; na aba Corpo da oficina o cartão em foco aparece no robô, segurar veste (inteiro ou uma parte
-## só), o conjunto fechado por nível não veste e, saindo, o robô fica com o corpo vestido.
+## 46. O corpo em peças (doc §143 e §146): vestir troca as peças de fábrica pelas do conjunto; o rabo balança
+## parado e estica correndo; na aba Corpo da oficina as setas de cada linha trocam a peça e ela já aparece no robô,
+## segurar veste a montagem (a linha Inteiro troca as seis; um braço muda sem o outro), a peça fechada por nível
+## não veste, a câmera chega perto da parte em foco e o △ afasta; saindo, o robô fica com o corpo vestido.
+## Na aba Corpo, as setas da linha até a peça `chave` (no máximo uma volta).
+func _por_peca(of: Oficina, linha: String, chave: String) -> void:
+	for i in Corpo.ordem().size():
+		if String(of._montagem.get("tronco" if linha == "inteiro" else linha, "")) == chave:
+			return
+		of._trocar_peca(linha, 1)
+
+
 func _ponto_46() -> void:
 	print("corpo em peças: troca, rabo e aba da oficina")
 	_soltar_tudo()
@@ -3326,30 +3362,43 @@ func _ponto_46() -> void:
 	var aberta: bool = of.fase == Oficina.Fase.ABERTA
 	of._mudar_aba(4 - of.aba)
 	await _esperar(0.2)
-	of._escolher("parte_tudo")
-	of._escolher("corpo_urso")
-	var previa: bool = v.corpo["tronco"] == "urso" and Corpo.vestido["tronco"] == ""
-	of.instalar("corpo_urso")
+	# a linha Inteiro: as setas até o Urso, as seis juntas
+	of._escolher("linha_inteiro")
+	_por_peca(of, "inteiro", "urso")
+	var previa: bool = v.corpo["tronco"] == "urso" and v.corpo["pernaE"] == "urso" and Corpo.vestido["tronco"] == ""
+	of.instalar("linha_inteiro")
 	await _esperar(2.3)
-	var vestiu: bool = Corpo.vestido.values().count("urso") == 4 and v.corpo == Corpo.vestido
-	of._escolher("parte_cabeca")
-	of._escolher("corpo_gato")
-	of.instalar("corpo_gato")
+	var vestiu: bool = Corpo.vestido.values().count("urso") == 6 and v.corpo == Corpo.vestido
+	# só a cabeça de Gato, depois só o braço D de Cachorro (o E fica de Urso)
+	of._escolher("linha_cabeca")
+	_por_peca(of, "cabeca", "gato")
+	of.instalar("linha_cabeca")
 	await _esperar(2.3)
 	var so_cabeca: bool = Corpo.vestido["cabeca"] == "gato" and Corpo.vestido["tronco"] == "urso"
+	of._escolher("linha_bracoD")
+	_por_peca(of, "bracoD", "cachorro")
+	await _esperar(0.8)
+	# a câmera perto do braço D; o △ afasta para a câmera de sempre
+	var cam_perto: bool = of._cam.global_position.distance_to(of._junta("ombroD")) < 2.6
+	of._perto = false
+	await _esperar(0.8)
+	var cam_longe: bool = of._cam.global_position.distance_to(of._cam_longe.origin) < 0.1
+	of.instalar("linha_bracoD")
+	await _esperar(2.3)
+	var so_um_braco: bool = Corpo.vestido["bracoD"] == "cachorro" and Corpo.vestido["bracoE"] == "urso" and v.corpo == Corpo.vestido
 	Corpo.tudo = false
-	of._escolher("parte_tudo")
-	of._escolher("corpo_cavaleiro")
-	of.instalar("corpo_cavaleiro")
+	of._escolher("linha_pernaD")
+	_por_peca(of, "pernaD", "cavaleiro")
+	of.instalar("linha_pernaD")
 	await _esperar(0.3)
-	var fechado: bool = Arsenal.nivel() >= Corpo.nivel("cavaleiro") or (of.fase == Oficina.Fase.ABERTA and Corpo.vestido["tronco"] == "urso")
+	var fechado: bool = Arsenal.nivel() >= Corpo.nivel("cavaleiro") or (of.fase == Oficina.Fase.ABERTA and Corpo.vestido["pernaD"] == "urso")
 	Corpo.tudo = true
 	of.sair()
 	await _esperar(1.8)
 	var voltou: bool = of.fase == Oficina.Fase.FORA and v.corpo == Corpo.vestido and not a.travado
-	_ok(aberta and previa and vestiu and so_cabeca and fechado and voltou,
-		"aba Corpo: prévia no robô (%s), vestiu o Urso inteiro (%s) e depois só a cabeça de Gato (%s); fechado por nível não veste (%s); saindo fica o vestido (%s)"
-			% [previa, vestiu, so_cabeca, fechado, voltou])
+	_ok(aberta and previa and vestiu and so_cabeca and so_um_braco and cam_perto and cam_longe and fechado and voltou,
+		"aba Corpo: prévia no robô (%s), vestiu o Urso inteiro (%s), depois só a cabeça de Gato (%s) e só o braço D de Cachorro (%s); câmera perto da parte (%s) e longe com o △ (%s); fechado por nível não veste (%s); saindo fica o vestido (%s)"
+			% [previa, vestiu, so_cabeca, so_um_braco, cam_perto, cam_longe, fechado, voltou])
 	Corpo.zerar()
 	v.vestir_corpo(Corpo.vestido)
 	a.recomecar()

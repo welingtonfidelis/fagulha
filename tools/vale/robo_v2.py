@@ -220,11 +220,22 @@ cil("pescoco", (0, 0, 0.705), 0.045, 0.045, 0.04, JUNTA, tronco, segs=10)
 caixa("mochila", (0, 0.125, 0.585), (0.19, 0.08, 0.17), BRANCA, costas, base=(0.8, 0.9), bevel=0.025)
 caixa("mochila_azul", (0, 0.168, 0.615), (0.11, 0.012, 0.07), AZUL, costas, bevel=0.006)
 caixa("radiador", (0, 0.176, 0.615), (0.07, 0.006, 0.04), CALOR, costas, bevel=0)
+ESTAB_FORA = 25  # graus: os jatos das costas (bocal e chama) abrem para fora, cada um para o seu lado (2026-11-23)
+ESTAB = 0.78  # a caixa do jato menor que a antiga, dentro do contorno da mochila sem sobrar borda (2026-11-23)
 for s, lado in ((1, "E"), (-1, "D")):
-    caixa("estabilizador", (s * 0.07, 0.165, 0.53), (0.055, 0.055, 0.10), BRANCA, costas, base=(1.15, 1.15), rot=(-18, 0, 0), bevel=0.012)
-    cil("bocal_estab", (s * 0.07, 0.183, 0.476), 0.026, 0.02, 0.02, BOCAL, costas, rot=(-18, 0, 0), segs=8, bevel=0)
-    cil("brasa_estab", (s * 0.07, 0.186, 0.466), 0.017, 0.017, 0.004, CALOR, costas, rot=(-18, 0, 0), segs=8, bevel=0)
-    CHAMAS.append(cil("chama_estab", (s * 0.07, 0.204, 0.41), 0.016, 0.0, 0.11, CHAMA, costas, rot=(162, 0, 0), bevel=0, segs=10))
+    # a caixa fica em pé na base da mochila; o bocal sai da ponta dela, no mesmo eixo, e só ele e a chama abrem para
+    # fora. A chama nasce na boca do bocal (antes o bocal ficava uns 3 cm atrás da ponta e a chama mais 4)
+    comp = 0.10 * ESTAB
+    centro = Vector((s * 0.052, 0.17, 0.54))
+    eixo = Matrix.Rotation(R(-18), 3, "X") @ Vector((0, 0, -1))  # o eixo da caixa, para baixo
+    desce = Matrix.Rotation(R(-s * ESTAB_FORA), 3, "Y") @ eixo  # para onde a boca aponta
+    caixa("estabilizador", tuple(centro), (0.055 * ESTAB, 0.055 * ESTAB, comp), BRANCA, costas, base=(1.15, 1.15), rot=(-18, 0, 0), bevel=0.012 * ESTAB)
+    ponta = centro + eixo * comp * 0.5
+    giro_b = (-18, -s * ESTAB_FORA, 0)
+    bocal_c = ponta + desce * 0.01 * ESTAB
+    cil("bocal_estab", tuple(bocal_c), 0.026 * ESTAB, 0.02 * ESTAB, 0.02 * ESTAB, BOCAL, costas, rot=giro_b, segs=8, bevel=0)
+    cil("brasa_estab", tuple(bocal_c + desce * 0.0105 * ESTAB), 0.017 * ESTAB, 0.017 * ESTAB, 0.004, CALOR, costas, rot=giro_b, segs=8, bevel=0)
+    CHAMAS.append(cil("chama_estab", tuple(bocal_c + desce * (0.012 * ESTAB + 0.055)), 0.016 * ESTAB, 0.0, 0.11, CHAMA, costas, rot=(162, -s * ESTAB_FORA, 0), bevel=0, segs=10))
     caixa("aba", (s * 0.108, 0.176, 0.585), (0.05, 0.012, 0.14), AZUL, J["aleta" + lado], base=(0.6, 1), bevel=0.005)
     caixa("ombro_laranja", (s * 0.15, 0, 0.652), (0.05, 0.10, 0.03), LARANJA, tronco, bevel=0.008)
 # cabeça: capacete de placas, aberto na frente para o visor escuro com o rosto de tela

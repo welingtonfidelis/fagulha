@@ -9,13 +9,13 @@ extends CanvasLayer
 
 const TROCA := 300.0  # s com o cartão verde antes de trocar
 const TIPOS := {
-	"desligar": {"icone": "maquina", "cor": Color(1.0, 0.42, 0.32), "alvo": [3, 5], "xp": 35, "sucata": 3},
-	"rota": {"icone": "aro", "cor": Color(1.0, 0.62, 0.3), "alvo": [1, 1], "xp": 30, "sucata": 2},
-	"foto": {"icone": "pata", "cor": Color(0.4, 0.75, 0.35), "alvo": [2, 3], "xp": 25, "sucata": 2},
-	"escanear": {"icone": "scanner", "cor": Color(0.2, 0.7, 0.65), "alvo": [2, 3], "xp": 25, "sucata": 2},
-	"golpe": {"icone": "impacto", "cor": Color(0.9, 0.6, 0.15), "alvo": [3, 4], "xp": 25, "sucata": 2},
-	"semente": {"icone": "semente", "cor": Color(0.35, 0.7, 0.3), "alvo": [1, 1], "xp": 30, "sucata": 2},
-	"acampamento": {"icone": "farolete", "cor": Color(0.9, 0.25, 0.2), "alvo": [1, 1], "xp": 60, "sucata": 4, "chips": 1},
+	"desligar": {"icone": "maquina", "cor": Color(1.0, 0.42, 0.32), "alvo": [3, 5], "xp": 70, "sucata": 3},
+	"rota": {"icone": "aro", "cor": Color(1.0, 0.62, 0.3), "alvo": [1, 1], "xp": 60, "sucata": 2},
+	"foto": {"icone": "pata", "cor": Color(0.4, 0.75, 0.35), "alvo": [2, 3], "xp": 50, "sucata": 2},
+	"escanear": {"icone": "scanner", "cor": Color(0.2, 0.7, 0.65), "alvo": [2, 3], "xp": 50, "sucata": 2},
+	"golpe": {"icone": "impacto", "cor": Color(0.9, 0.6, 0.15), "alvo": [3, 4], "xp": 50, "sucata": 2},
+	"semente": {"icone": "semente", "cor": Color(0.35, 0.7, 0.3), "alvo": [1, 1], "xp": 60, "sucata": 2},
+	"acampamento": {"icone": "farolete", "cor": Color(0.9, 0.25, 0.2), "alvo": [1, 1], "xp": 120, "sucata": 4, "chips": 1},
 }
 
 var quadro: QuadroAvisos
@@ -169,10 +169,10 @@ func _feito(i: int) -> void:
 		if int(d.get("chips", 0)) > 0:
 			premio += " · +1 chip"
 		hud.avisar("Pedido do drone feito!", premio)
-		if Arsenal.nivel() > nivel_antes:
-			hud.avisar.call_deferred("Nível %d" % Arsenal.nivel(), "novas fabricações e melhorias na base")
 	if armadura:
 		Som.toque3d(self, "fabricou", armadura.global_position + Vector3(0, 1, 0), -6.0)
+	if is_instance_valid(Experiencia.atual):
+		Experiencia.atual.festejar(nivel_antes)  # a aura, o som e o cartão do nível (doc §148)
 
 
 func _mostrar() -> void:

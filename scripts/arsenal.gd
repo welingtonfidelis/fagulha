@@ -4,6 +4,16 @@ extends RefCounted
 ## jogador vai fabricar armas, defesa e vida na base (etapas seguintes).
 
 static var xp := 0
+## A experiência das descobertas (doc §148): chave -> true, o que já pagou (lugares, memórias, peças, rotas...).
+static var descobertas := {}
+## O fôlego da luta (doc §148): a experiência da Fundição e das máquinas soltas rende cheio até `FOLEGO_MAX` por dia
+## de jogo; passando, rende `FOLEGO_FORA`. Enche de novo com as horas do dia (Experiencia).
+const FOLEGO_MAX := 1200.0
+const FOLEGO_FORA := 0.25
+static var folego := FOLEGO_MAX
+## Cada nível pede 500 a mais que o anterior (doc §148; antes eram 100). A versão 2 do save começa do zero.
+const PASSO_NIVEL := 500
+const XP_VERSAO := 2
 static var sucata := 0
 static var nucleos := 0
 static var chips := 0
@@ -303,29 +313,42 @@ static func golpes_pane() -> int:
 
 
 
-## O nível sai da experiência: cada nível pede 100 a mais que o anterior (100, 200, 300...).
+## A experiência que o nível `n` pede, desde o zero: cada nível pede 500 a mais que o anterior (500, 1.000,
+## 1.500...), então o nível 2 vem com 500, o 3 com 1.500 e o 12 com 33.000 (doc §148).
+static func xp_do_nivel(n: int) -> int:
+	return PASSO_NIVEL / 2 * n * (n - 1)
+
+
 static func nivel() -> int:
 	var n := 1
-	var resto := xp
-	while resto >= n * 100:
-		resto -= n * 100
+	while xp >= xp_do_nivel(n + 1):
 		n += 1
 	return n
 
 
 ## [quanto já tem neste nível, quanto o nível pede]
 static func barra() -> Vector2i:
-	var n := 1
-	var resto := xp
-	while resto >= n * 100:
-		resto -= n * 100
-		n += 1
-	return Vector2i(resto, n * 100)
+	var n := nivel()
+	return Vector2i(xp - xp_do_nivel(n), xp_do_nivel(n + 1) - xp_do_nivel(n))
+
+
+## A experiência de uma luta (a Fundição e as máquinas soltas) passa pelo fôlego: rende cheio enquanto ele dura e um
+## quarto depois. Gasta o fôlego e devolve o prêmio com a experiência que vale.
+static func pelo_folego(g: Dictionary) -> Dictionary:
+	var bruto := int(g.get("xp", 0))
+	var cheio := mini(bruto, int(folego))
+	var r := g.duplicate()
+	r["xp"] = cheio + roundi((bruto - cheio) * FOLEGO_FORA)
+	folego = maxf(0.0, folego - bruto)
+	return r
 
 
 static func carregar() -> void:
 	var d: Dictionary = Guardado.progresso("arsenal")
-	xp = int(d.get("xp", 0))
+	# o save de antes da curva nova começa a experiência do zero (pedido do usuário, 2026-11-23)
+	xp = int(d.get("xp", 0)) if int(d.get("versao", 1)) >= XP_VERSAO else 0
+	descobertas = (d.get("descobertas", {}) as Dictionary).duplicate()
+	folego = float(d.get("folego", FOLEGO_MAX))
 	sucata = int(d.get("sucata", 0))
 	nucleos = int(d.get("nucleos", 0))
 	chips = int(d.get("chips", 0))
@@ -345,11 +368,14 @@ static func carregar() -> void:
 static func guardar() -> void:
 	if Guardado.ativo:
 		Guardado.por_progresso("arsenal", {"xp": xp, "sucata": sucata, "nucleos": nucleos, "chips": chips,
-			"recorde": recorde, "fabricados": fabricados, "modo": modo, "degraus": degraus})
+			"recorde": recorde, "fabricados": fabricados, "modo": modo, "degraus": degraus, "versao": XP_VERSAO,
+			"descobertas": descobertas, "folego": folego})
 
 
 static func zerar() -> void:
 	xp = 0
+	descobertas = {}
+	folego = FOLEGO_MAX
 	sucata = 0
 	nucleos = 0
 	chips = 0

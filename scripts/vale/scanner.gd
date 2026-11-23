@@ -166,6 +166,8 @@ func _ficha(o) -> Dictionary:
 	if o is DroneColega:
 		return {"nome": "Drone colega", "tipo": "máquina · amigo",
 			"linhas": ["Mora no posto da base.", "Busca o robô quando ele desliga.", "Ninguém atira nele."]}
+	if o is AmigoRobo:
+		return (o as AmigoRobo).ficha()
 	if o is Node3D and (o as Node3D).has_meta("robozinho"):
 		return {"nome": "Robozinho", "tipo": "robô · amigo",
 			"linhas": ["Mora na base e brinca no pátio.", "De vez em quando senta para jogar videogame.", "Ninguém atira neles."]}

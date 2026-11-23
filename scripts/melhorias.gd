@@ -70,6 +70,7 @@ static func achar(nome: String) -> void:
 	if not achadas.has(nome) and not instaladas.has(nome):
 		achadas.append(nome)
 		guardar()
+		Experiencia.descobrir("peca:" + nome, Experiencia.PECA)  # doc §148
 
 
 ## Instala uma peça que o robô carrega. Devolve se instalou. (A energia da base, que fazia esperar entre

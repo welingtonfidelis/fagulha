@@ -47,7 +47,7 @@ var torre: MastroRadio
 var cenas_vista: CenasVista
 var musica: MusicaPasseio
 var rotas: Rotas  # as rotas do piloto de teste (1.1, doc §136)
-var rastro: RastroJatos
+var experiencia: Experiencia  # a experiência das descobertas, o fôlego e o cartão do nível (doc §148)
 var acampamentos: Acampamentos
 var procurados: Procurados
 var quadro: QuadroAvisos
@@ -409,6 +409,7 @@ func _ready() -> void:
 			inimigos.mapa = ilha
 			inimigos.alvo = armadura
 			inimigos.pintar = pinta
+			inimigos.hud = hud
 			add_child(inimigos)
 			# a vida vista do alto (2026-11-22): peixes rente à água, pássaros no céu, os bichos de terra de longe e,
 			# perto do robô, borboletas e libélulas
@@ -474,10 +475,12 @@ func _ready() -> void:
 		rotas.mapa = ilha as Vale
 		add_child(rotas)
 		armadura.golpe_chao.connect(rotas.no_golpe)
-		rastro = RastroJatos.new()
-		rastro.name = "RastroJatos"
-		rastro.armadura = armadura
-		add_child(rastro)
+		experiencia = Experiencia.new()
+		experiencia.name = "Experiencia"
+		experiencia.armadura = armadura
+		experiencia.hud = hud
+		experiencia.locais = locais
+		add_child(experiencia)
 		acampamentos = Acampamentos.new()
 		acampamentos.name = "Acampamentos"
 		acampamentos.mapa = ilha as Vale
@@ -570,7 +573,6 @@ func _ready() -> void:
 			robo_antigo.hud = hud
 			robo_antigo.memorias = memorias
 			robo_antigo.pecas = pecas
-			robo_antigo.cilindros = cilindros
 			add_child(robo_antigo)
 	if ilha is Vale and memorias:
 		farol = FarolFinal.new()

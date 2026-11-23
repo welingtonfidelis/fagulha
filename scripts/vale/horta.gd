@@ -219,6 +219,7 @@ func _pegar(id: String) -> void:
 	_soltas.erase(id)
 	Som.toque3d(self, "caixa_pega", no.global_position + Vector3(0, 0.7, 0), -6.0)
 	EfeitosTiro.impacto_laser(self, no.global_position + Vector3(0, 0.7, 0), VERDE, 1.4)
+	Experiencia.descobrir("semente:" + id, Experiencia.SEMENTE, no.global_position)
 	no.queue_free()
 	achadas.append(id)
 	_guardar()

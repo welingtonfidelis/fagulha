@@ -28,6 +28,9 @@ var asas_f := 0.0  # 0 asas recolhidas, 1 abertas
 var escudos_vistos := 0  # quantos acertos o escudo já engoliu (para piscar a bolha uma vez por acerto)
 var yaw_forcado := NAN  # a oficina vira o robô para mostrar a peça
 var previa := false  # na oficina: asas abertas e luz acesa para ver a peça
+var jatos_vitrine := 0.0  # na aba Jatos da oficina: os jatos ficam acesos com o robô parado (doc §147)
+var cor_vitrine := ""  # e na cor em foco ("" a de fábrica)
+const COR_CHAMA := Color(1.0, 0.62, 0.3)  # o fogo de fábrica
 var _fase := 0.0
 var _torcao := 0.0  # giro do tronco em relação às pernas (mirar andando de lado)
 var _re := false  # andando de costas: a passada roda ao contrário
@@ -81,7 +84,7 @@ func preparar() -> void:
 	mat_calor.emission = Color(1.0, 0.42, 0.1)
 	mat_calor.emission_energy_multiplier = 1.0
 	mat_chama.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat_chama.albedo_color = Color(1.0, 0.62, 0.3, 0.8)
+	mat_chama.albedo_color = Color(COR_CHAMA, 0.8)
 	mat_chama.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat_chama.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mat_chama.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -769,6 +772,7 @@ func atualizar(delta: float, a) -> void:
 	if absf(_torcao) > 0.001 and _alvos.has("tronco"):
 		_alvos["tronco"] += Vector3(0.0, _torcao, 0.0)
 	chama = maxf(chama, a.impulso * 1.3)
+	chama = maxf(chama, jatos_vitrine)
 	if a.esquivando > 0.0:
 		_alvo("tronco", 12.0)
 	# propulsores das costas inclinados (bocal para baixo e para trás), como na maquete
@@ -837,7 +841,13 @@ func atualizar(delta: float, a) -> void:
 		c.visible = _chama_tamanho > 0.08
 	for c in chamas_pequenas:
 		c.visible = _chama_tamanho > 0.08 or (c == chama_tiro and a.clarao_tiro > 0.05)
-	mat_chama.albedo_color.a = clampf(_chama_tamanho * 0.55 + randf_range(-0.08, 0.08), 0.0, 1.0)
+	# a cor do fogo dos pés e das costas é o prêmio das rotas (doc §147); o das mãos fica o de fábrica
+	var cor_j := COR_CHAMA
+	if jatos_vitrine > 0.0:
+		cor_j = Rotas.CORES.get(cor_vitrine, COR_CHAMA)
+	elif a is Armadura:
+		cor_j = Rotas.CORES.get(Rotas.rastro, COR_CHAMA)
+	mat_chama.albedo_color = Color(cor_j, clampf(_chama_tamanho * 0.55 + randf_range(-0.08, 0.08), 0.0, 1.0))
 	if mat_chama_fraca:
 		mat_chama_fraca.albedo_color.a = clampf(mat_chama.albedo_color.a * 0.4 + a.impulso * 0.7, 0.0, 1.0)
 	if mat_chama_tiro:
