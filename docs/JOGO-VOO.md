@@ -4697,3 +4697,45 @@ rajada e mísseis).
 **Estado:** aprovada ("ficou muito bom"). Testes em 2026-11-23, sem janela (`--headless`; com a janela aberta o
 tempo dos quadros muda e os pontos 1, 2 e 25 do vale falham): `--teste-vale` 115/115, `--teste` 94/94 e a
 simulação 28/28. O ponto 29 agora espera só a pistola do punho no robô básico.
+
+## 150. O tiro que bate na água (2026-11-23)
+
+Pergunta do usuário: dá para pôr um efeito quando o tiro acerta a água? (dentro d'água não se atira, e tudo bem.)
+A água não tem colisão, então o raio do tiro passava pela lâmina e batia no fundo, com o efeito quase invisível.
+Das três ideias (A: igual para todos; B: cada arma com seu jeito; C: explosivos fortes) ele escolheu "B com C"; o
+rascunho com fotos foi aprovado ("Pode levar").
+
+**A conta** (`TiroAgua.cruzamento`, em `scripts/vale/tiro_agua.gd`): se o ponto final do caminho está embaixo da
+lâmina (`mapa.agua`) e o começo está fora, acha a entrada por bisseção (14 passos). Entra em quatro lugares do
+`tiro.gd`:
+- `_ponto_de_impacto`: o ponto mirado para na lâmina (o tiro reto, o míssil sem trava e o alvo da granada);
+- `_um_tiro`: o caminho da arma até o alvo também é cortado (o tiro travado que cruza a água deixa de seguir a máquina);
+- `_granada`: a granada que cruza a lâmina entra com respingo e afunda (`_granada_afundando`): desce a 1,3 m/s
+  soltando bolhas e estoura no fundo ou 0,6 s depois de entrar (`_estouro_submerso`);
+- `arco_granada`: o arco desenhado termina onde ela entra na água.
+`_impacto` e `_estouro` olham se o ponto está na lâmina (`_agua_em`) e trocam o efeito; o dano nas máquinas segue igual.
+
+**Os efeitos** (Kenney Particle Pack e bolinhas de malha, sem sombra; anéis e espuma com `render_priority` 1 para
+não sumir sob a lâmina transparente). São maiores que os de verdade, porque o jogador vê o tiro de 20 a 40 m:
+- **pistola e tiro duplo** (`laser`): brilho na cor do tiro, um jorrinho branco, gotas, borrifo baixo, vapor e dois anéis;
+- **rajada** (`rajada`): o mesmo em menor, a cada tiro; vários seguidos fazem a fileira;
+- **precisão** (`precisao`): esguicho fino de uns 5 m com névoa, coroa baixa e anel largo;
+- **canhão e míssil** (`coluna`, `forte` 0 e 1): coluna de uns 5 m (o míssil sobe mais e solta um clarão de fogo),
+  coroa de gotas, borrifo que corre baixo, espuma que fica 3 s e três anéis;
+- **granada** (`entrada`, `bolhas`, `cupula`): respingo na entrada, bolhas enquanto afunda, a lâmina incha numa
+  cúpula de uns 2,8 m que rompe e solta a coluna.
+Os peixes já fugiam de qualquer impacto (grupo "bichos").
+
+**Sons** (`tools/sons_tiro_agua.py`, síntese com as peças de `sons_agua.py`): `agua_tiro_1..3` (o plic do respingo,
+o chiado do vapor e bolhinhas; a rajada toca 5 dB mais baixo) e `agua_estouro_1..2` (baque grave, rugido da coluna e
+a chuva da água caindo; o míssil ainda toca a explosão baixinho).
+
+**Fotos:** `tools/fotos_tiro_agua.gd`, rodando com `--fixed-fps 60` (as fotos contam quadros; pelo relógio, a captura
+de cada foto pulava o tempo dos efeitos). Sem opção: cada efeito sozinho na lagoa da Clareira; `--jogo`: tiros de
+verdade de cada arma pela câmera do jogo; `--so=<arma>` roda uma só. Saem em `tools/capturas/tiro_agua/`.
+
+**Teste:** ponto 47 do vale (a conta da entrada, a pistola que para na lâmina e respinga com som, e a granada que
+afunda e estoura embaixo).
+
+**Estado:** aprovado pelas fotos do jogo ("Está bom"). Testes em 2026-11-23, sem janela: `--teste-vale` 116/116 (com o
+ponto 47), `--teste` 94/94 e a simulação 28/28.

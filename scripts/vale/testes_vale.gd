@@ -72,6 +72,7 @@ func rodar(main: Node) -> void:
 		await _ponto_44()
 		await _ponto_45()
 		await _ponto_46()
+		await _ponto_47()
 	print("")
 	if falhas == 0:
 		print("VALE OK (%d pontos)" % pontos)
@@ -3403,3 +3404,94 @@ func _ponto_46() -> void:
 	v.vestir_corpo(Corpo.vestido)
 	a.recomecar()
 	await _esperar(0.3)
+
+
+## Quadros com a câmera do jogo apontada para `alvo` (a mira volta ao ponto a cada quadro).
+func _mirar_em(alvo: Vector3, quadros: int) -> void:
+	for i in quadros:
+		var d := alvo - cam.global_position
+		cam.yaw = atan2(-d.x, -d.z)
+		cam.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+		await get_tree().physics_frame
+
+
+## 47. O tiro que bate na água (2026-11-23). A água não tem colisão: o raio do tiro passava pela lâmina e parava no
+## fundo. Agora o caminho para na lâmina e cada arma tem o seu respingo; a granada entra, afunda e estoura embaixo.
+func _ponto_47() -> void:
+	print("tiro na água: para na lâmina, respingo e granada que afunda")
+	_soltar_tudo()
+	_zerar()
+	# um ponto da lagoa da Clareira com mais de 1,5 m de fundura, e a margem seca na direção da base
+	var c := Vector2(Clareira.LAGOA.x, Clareira.LAGOA.y)
+	var lago := Vector3.INF
+	for i in 400:
+		var ang := TAU * float(i % 20) / 20.0
+		var q := c + Vector2(cos(ang), sin(ang)) * (float(i / 20) * 0.6)
+		var s := il.agua(q.x, q.y)
+		if s != -INF and s - il.altura(q.x, q.y) > 1.5:
+			lago = Vector3(q.x, s, q.y)
+			break
+	var rumo := (_spawn_xz() - Vector2(lago.x, lago.z)).normalized()
+	var margem := Vector3.INF
+	for i in 200:
+		var q := Vector2(lago.x, lago.z) + rumo * (float(i) * 0.5)
+		if il.agua(q.x, q.y) == -INF:
+			q += rumo * 2.0
+			margem = Vector3(q.x, il.altura(q.x, q.y), q.y)
+			break
+	# a conta da entrada: de cima até o fundo acha a lâmina; em terra seca e de dentro d'água, nada
+	var fundo := Vector3(lago.x, il.altura(lago.x, lago.z), lago.z)
+	var corta := TiroAgua.cruzamento(il, lago + Vector3(-6.0, 5.0, 0.0), fundo)
+	var na_lamina := corta.is_finite() and absf(corta.y - lago.y) < 0.05
+	var sp := il.spawn
+	var em_terra := not TiroAgua.cruzamento(il, sp + Vector3(0, 5.0, 0), sp + Vector3(2.0, -0.5, 0)).is_finite()
+	var de_dentro := not TiroAgua.cruzamento(il, fundo + Vector3(0, 0.3, 0), fundo + Vector3(1.0, 0.1, 0)).is_finite()
+	# a pistola mirando a lagoa: o tiro para na lâmina, conta um acerto na água e toca o respingo
+	Arsenal.modo = "pistola"
+	a.visual.vestir_melhorias()
+	a.teleportar(margem + Vector3(0, 0.3, 0), Armadura.Estado.CHAO)
+	var fins := []
+	var anota := func(_o: Vector3, f: Vector3) -> void: fins.append(f)
+	m.tiro.disparou.connect(anota)
+	var acertos0: int = m.tiro.acertos_agua
+	var lasers0 := int(TiroAgua.contagem.get("laser", 0))
+	var sons0 := 0
+	for k in 3:
+		sons0 += int(Som.contagem.get("agua_tiro_%d" % (k + 1), 0))
+	Input.action_press("mirar")
+	await _mirar_em(lago, 40)
+	Input.action_press("atirar")
+	await _mirar_em(lago, 2)
+	Input.action_release("atirar")
+	await _mirar_em(lago, 30)
+	Input.action_release("mirar")
+	m.tiro.disparou.disconnect(anota)
+	var parou := not fins.is_empty() and il.agua((fins[0] as Vector3).x, (fins[0] as Vector3).z) != -INF \
+		and absf((fins[0] as Vector3).y - il.agua((fins[0] as Vector3).x, (fins[0] as Vector3).z)) < 0.1
+	var sons := 0
+	for k in 3:
+		sons += int(Som.contagem.get("agua_tiro_%d" % (k + 1), 0))
+	var respingou: bool = m.tiro.acertos_agua > acertos0 and int(TiroAgua.contagem.get("laser", 0)) > lasers0 and sons > sons0
+	# a granada no meio da lagoa: entra, afunda e estoura embaixo (cúpula), em até 4 s
+	var granadas0 := Arsenal.granadas
+	Arsenal.granadas = 3
+	var estouros0: int = m.tiro.estouros_agua
+	var cupulas0 := int(TiroAgua.contagem.get("cupula", 0))
+	var entradas0 := int(TiroAgua.contagem.get("entrada", 0))
+	Input.action_press("granada")
+	await _mirar_em(lago, 30)
+	Input.action_release("granada")
+	var estourou := false
+	for i in 240:
+		await _mirar_em(lago, 1)
+		if m.tiro.estouros_agua > estouros0:
+			estourou = true
+			break
+	var afundou := estourou and int(TiroAgua.contagem.get("cupula", 0)) > cupulas0 and int(TiroAgua.contagem.get("entrada", 0)) > entradas0
+	_ok(lago.is_finite() and margem.is_finite() and na_lamina and em_terra and de_dentro and parou and respingou and afundou,
+		"a entrada na água acha a lâmina (%s), em terra seca e de dentro d'água não (%s, %s); a pistola na lagoa para na lâmina (%s) e respinga com som (%s); a granada entra, afunda e estoura embaixo (%s)"
+			% [na_lamina, em_terra, de_dentro, parou, respingou, afundou])
+	_soltar_tudo()
+	Arsenal.granadas = granadas0
+	a.recomecar()
+	await _esperar(0.5)

@@ -50,6 +50,8 @@ var _segurando_missil := false
 var _mirando_granada := false
 var _arco_no: Node3D
 var granadas_jogadas := 0  # testes
+var acertos_agua := 0  # tiros que pararam na lâmina d'água (testes)
+var estouros_agua := 0  # explosões na água, contando a granada que estoura embaixo (testes)
 var golpes_espada := 0
 var espada_acertos := 0
 var _espada_espera := 0.0
@@ -324,6 +326,10 @@ func arco_granada() -> PackedVector3Array:
 	for i in 110:
 		vel.y -= 22.0 * passo
 		var ate := p + vel * passo
+		var na_agua := TiroAgua.cruzamento(armadura.ilha, p, ate)
+		if na_agua.is_finite():
+			pts.append(na_agua)
+			return pts
 		var bate := espaco.intersect_ray(PhysicsRayQueryParameters3D.create(p, ate, 1 | 2, [armadura.get_rid()]))
 		if not bate.is_empty():
 			pts.append(bate["position"])
@@ -535,9 +541,23 @@ func _granada(delta: float) -> void:
 		g["t"] += delta
 		var no := g["no"] as Node3D
 		var vel: Vector3 = g["vel"]
-		vel.y -= 22.0 * delta
 		var de := no.global_position
+		if g.has("agua"):
+			_granada_afundando(g, no, vel, de, delta)
+			continue
+		vel.y -= 22.0 * delta
 		var ate := de + vel * delta
+		# entrou na água: respingo e anel, e dali ela afunda devagar até estourar embaixo
+		var na_agua := TiroAgua.cruzamento(armadura.ilha, de, ate)
+		if na_agua.is_finite():
+			g["agua"] = na_agua.y
+			g["entrou"] = g["t"]
+			g["bolha"] = 0.0
+			g["vel"] = vel * 0.15
+			no.global_position = na_agua
+			TiroAgua.entrada(self, na_agua)
+			Som.toque3d(self, Som.variacao("agua_tiro", 3), na_agua, -3.0)
+			continue
 		var q := PhysicsRayQueryParameters3D.create(de, ate, 1 | 2, [armadura.get_rid()])
 		var bate := get_world_3d().direct_space_state.intersect_ray(q)
 		var perto := false
@@ -599,6 +619,27 @@ func _granada(delta: float) -> void:
 
 
 ## O arco no mundo: bolinhas ao longo do caminho e um anel onde a granada cai.
+## A granada dentro d'água: desce devagar soltando bolhas e estoura no fundo ou 0,6 s depois de entrar.
+func _granada_afundando(g: Dictionary, no: Node3D, vel: Vector3, de: Vector3, delta: float) -> void:
+	var s: float = g["agua"]
+	vel = vel.lerp(Vector3(0, -1.3, 0), minf(1.0, delta * 5.0))
+	var ate := de + vel * delta
+	var q := PhysicsRayQueryParameters3D.create(de, ate, 1 | 2, [armadura.get_rid()])
+	var bate := get_world_3d().direct_space_state.intersect_ray(q)
+	no.global_position = ate if bate.is_empty() else (bate["position"] as Vector3)
+	no.rotation += Vector3(2.0, 1.0, 1.5) * delta
+	g["vel"] = vel
+	g["bolha"] = float(g["bolha"]) + delta
+	if float(g["bolha"]) > 0.12:
+		g["bolha"] = 0.0
+		TiroAgua.bolhas(self, no.global_position, s)
+	if not bate.is_empty() or float(g["t"]) - float(g["entrou"]) >= 0.6:
+		_granadas.erase(g)
+		var p := no.global_position
+		no.queue_free()
+		_estouro_submerso(Vector3(p.x, s, p.z), float(Arsenal.granada()["dano"]), float(Arsenal.granada()["area"]))
+
+
 func _mostrar_arco() -> void:
 	if _arco_no == null:
 		_arco_no = Node3D.new()
@@ -650,12 +691,41 @@ func _esconder_arco() -> void:
 
 
 ## Um estouro: dano em área nas máquinas, clarão e faíscas.
-func _estouro(ponto: Vector3, dano: float, area: float) -> void:
+## Na água vira coluna d'água (`forte` 0 o canhão, 1 o míssil, que ainda solta fogo).
+func _estouro(ponto: Vector3, dano: float, area: float, forte := 1.0) -> void:
 	get_tree().call_group("bichos", "assustar", ponto)
 	get_tree().call_group("maquinas", "levar_tiro", ponto, dano, area)
-	EfeitosTiro.estouro(self, ponto, area)
-	Som.toque3d(self, Som.variacao("explosao", 2), ponto, 3.0, 20.0, 220.0)
+	var agua := _agua_em(ponto)
+	if agua.is_finite():
+		estouros_agua += 1
+		TiroAgua.coluna(self, agua, area, forte)
+		Som.toque3d(self, Som.variacao("agua_estouro", 2), agua, 3.0, 20.0, 220.0)
+		if forte > 0.0:
+			Som.toque3d(self, Som.variacao("explosao", 2), agua, -6.0, 20.0, 220.0)
+	else:
+		EfeitosTiro.estouro(self, ponto, area)
+		Som.toque3d(self, Som.variacao("explosao", 2), ponto, 3.0, 20.0, 220.0)
 	armadura.tremor = maxf(armadura.tremor, clampf(1.2 - armadura.global_position.distance_to(ponto) * 0.05, 0.0, 0.8))
+
+
+## A granada estoura embaixo d'água: a lâmina incha numa cúpula e depois sobe a coluna (`p` na lâmina).
+func _estouro_submerso(p: Vector3, dano: float, area: float) -> void:
+	get_tree().call_group("bichos", "assustar", p)
+	get_tree().call_group("maquinas", "levar_tiro", p, dano, area)
+	estouros_agua += 1
+	TiroAgua.cupula(self, p, area)
+	Som.toque3d(self, Som.variacao("agua_estouro", 2), p, 3.0, 20.0, 220.0)
+	armadura.tremor = maxf(armadura.tremor, clampf(1.0 - armadura.global_position.distance_to(p) * 0.05, 0.0, 0.6))
+
+
+## O ponto na lâmina d'água quando `p` está nela (ou embaixo); Vector3.INF quando não.
+func _agua_em(p: Vector3) -> Vector3:
+	if armadura == null or armadura.ilha == null or not p.is_finite():
+		return Vector3.INF
+	var s: float = armadura.ilha.agua(p.x, p.z)
+	if s == -INF or p.y > s + 0.08:
+		return Vector3.INF
+	return Vector3(p.x, s, p.z)
 
 
 func _disparar(modo: Dictionary = Arsenal.MODOS["pistola"], forca := 1.0, esquerdo := false) -> void:
@@ -692,6 +762,10 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 		impacto = meio["position"]
 		guiado = false
 		barrados += 1
+	var na_agua := TiroAgua.cruzamento(armadura.ilha, origem, impacto)
+	if na_agua.is_finite():
+		impacto = na_agua
+		guiado = false
 	disparou.emit(origem, impacto)
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 
@@ -700,7 +774,8 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	_clarao(origem, 0.08)
 	EfeitosTiro.clarao(self, origem, impacto - origem, 0.5 + 0.3 * grosso, String(modo.get("boca", "muzzle_01")), cor)
 	EfeitosTiro.risco(self, origem, impacto, cor, grosso)
-	_projetil(origem, impacto, travado if guiado else null, float(modo["dano"]) * forca, float(modo["area"]) * lerpf(0.6, 1.0, forca), float(modo["vel"]), grosso, 0.0, cor, float(modo.get("comp", 2.2)))
+	_projetil(origem, impacto, travado if guiado else null, float(modo["dano"]) * forca, float(modo["area"]) * lerpf(0.6, 1.0, forca), float(modo["vel"]), grosso, 0.0, cor, float(modo.get("comp", 2.2)),
+		String(modo.get("som", "")))
 
 
 ## Ajuda de mira: mirando (L2), a máquina ligada mais perto do centro da mira, dentro de um cone pequeno e
@@ -754,9 +829,10 @@ func _ponto_de_impacto() -> Vector3:
 	var ate := de + dir * ALCANCE
 	var q := PhysicsRayQueryParameters3D.create(de, ate, 1 | 2, [armadura.get_rid()])
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		return ate
-	return hit["position"]
+	var fim: Vector3 = ate if hit.is_empty() else hit["position"]
+	# a água não tem colisão: o raio passava pela lâmina e parava no fundo
+	var na_agua := TiroAgua.cruzamento(armadura.ilha, de, fim)
+	return na_agua if na_agua.is_finite() else fim
 
 
 ## De onde o tiro sai: a ponta do cano da luva; sem ela, o osso do punho quando o modelo tem a junta, senão um ponto acima do robô.
@@ -775,7 +851,7 @@ func _mao(esquerda := false) -> Vector3:
 
 
 func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1.0, area := 0.0, vel := VELOCIDADE, tam := 1.0, atraso := 0.0,
-		cor := Color(1.0, 0.55, 0.2), comp := 2.2) -> void:
+		cor := Color(1.0, 0.55, 0.2), comp := 2.2, tipo := "") -> void:
 	var proj := Node3D.new()
 	add_child(proj)
 	proj.global_position = origem
@@ -821,7 +897,7 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 		tw.tween_callback(func() -> void: proj.visible = true)
 	if guia == null:
 		tw.tween_property(proj, "global_position", impacto, tempo)
-		tw.tween_callback(_impacto.bind(impacto, dano, area, cor))
+		tw.tween_callback(_impacto.bind(impacto, dano, area, cor, tipo))
 	else:
 		# tiro travado: o destino acompanha a máquina até chegar
 		var destino := [impacto]
@@ -836,15 +912,28 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 			else:
 				proj.global_position = onde
 		tw.tween_method(passo, 0.0, 1.0, tempo)
-		tw.tween_callback(func() -> void: _impacto(destino[0], dano, area, cor))
+		tw.tween_callback(func() -> void: _impacto(destino[0], dano, area, cor, tipo))
 	tw.tween_callback(proj.queue_free)
 
 
-func _impacto(ponto: Vector3, dano := 1.0, area := 0.0, cor := Color(1.0, 0.55, 0.2)) -> void:
+## `tipo` é o som da arma ("laser_rajada", "canhao_tiro"...): na água, cada arma tem o seu respingo.
+func _impacto(ponto: Vector3, dano := 1.0, area := 0.0, cor := Color(1.0, 0.55, 0.2), tipo := "") -> void:
 	if area > 0.0:
-		_estouro(ponto, dano, area)
+		_estouro(ponto, dano, area, 0.0 if tipo == "canhao_tiro" else 1.0)
 		return
 	get_tree().call_group("bichos", "assustar", ponto)
+	var agua := _agua_em(ponto)
+	if agua.is_finite():
+		acertos_agua += 1
+		match tipo:
+			"laser_rajada":
+				TiroAgua.rajada(self, agua, cor)
+			"laser_precisao":
+				TiroAgua.precisao(self, agua, cor)
+			_:
+				TiroAgua.laser(self, agua, cor)
+		Som.toque3d(self, Som.variacao("agua_tiro", 3), agua, -7.0 if tipo == "laser_rajada" else -2.0, 10.0, 120.0)
+		return
 	get_tree().call_group("maquinas", "levar_tiro", ponto, dano, 0.0)
 	EfeitosTiro.impacto_laser(self, ponto, cor, 0.7 + 0.3 * dano)
 	_clarao_impacto(ponto)
