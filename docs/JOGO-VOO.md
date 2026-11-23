@@ -4739,3 +4739,52 @@ afunda e estoura embaixo).
 
 **Estado:** aprovado pelas fotos do jogo ("Está bom"). Testes em 2026-11-23, sem janela: `--teste-vale` 116/116 (com o
 ponto 47), `--teste` 94/94 e a simulação 28/28.
+
+## 151. A água que não passava para o riacho da base (2026-11-23)
+
+Visto pelo usuário em (-82, 19, -62): entre o fim do rio do norte e o riacho que passa pela base, a água parava
+num degrau de terra. O fim da linha do rio de baixo (`Curso` "baixo") entra no riacho da Clareira, que tem lâmina
+própria. Depois do fim da linha, `Vale._cavar_rio` ainda levantava a margem de "terreno baixo" (o dique que segura
+o rio onde o chão é mais baixo que a água) por cima do leito do riacho. O resultado era um dique 0,5 m acima da
+água, e ela não passava de (-88, -65) a (-75, -57).
+
+**A correção:** depois do fim da linha (`r.y >= c.total()`), o rio só baixa o chão (`novo = minf(novo, h)`). Ali
+quem manda é o riacho. O resto do rio não muda.
+
+**Fotos:** `tools/capturas/riacho/` (`antes_*`, `depois_*` e a folha `antes_depois.png`).
+
+**Estado:** aprovada ("Está bom"), com os testes da seção 152.
+
+## 152. Os robozinhos fora dos espinhos e o cristal na lagoa (2026-11-23)
+
+O usuário gostou do lugar dos robozinhos na câmara do fundo do Sumidouro, perto de (-347, 112, -614). Pediu que
+fossem um pouco mais para o fundo, fora dos espinhos de pedra, e que a pedra brilhante fosse para a beira da água.
+
+- **Os espinhos** são as estalagmites de `RochaMalha.pingentes`, que nascem por toda a câmara. No meio dela, onde
+  os robôs dormiam, duas nasciam bem em cima deles.
+- **O lugar novo** é `Sumidouro.canto_dos_robos()`: 3,5 m mais para dentro (no sentido da passagem do salão para
+  a câmara) e 5,5 m de lado. Ali há uma clareira lisa sem estalagmite a menos de 3,5 m. Fica em
+  (-351, 112, -619). `MiniRobos._canto_do_salao` tenta esse ponto primeiro. Se não couber, volta para o meio da
+  câmara e depois para os cantos do salão. As estalagmites não mudaram.
+- **A pedra brilhante** era o cristal âmbar pequeno da câmara (`COR_2`, porte 0,4). Agora fica a 4,8 m do eixo
+  do poço, na beira da lagoa, do lado da passagem para a câmara. A lâmina tem 5,6 m, mas a água que se vê vai só
+  até uns 3,8 m (o resto passa por baixo do piso). A primeira tentativa, a 6,9 m, ficou longe da água.
+  A ordem do sorteio dos cristais é a mesma, então os outros não mudaram.
+
+**Fotos:** `tools/capturas/sumidouro_robos/` (`antes_*`, `depois_*` e a folha `antes_depois.png`).
+
+**Estado:** aprovado ("Está bom"). Testes em 2026-11-23, sem janela: `--teste-vale` 116/116 (o ponto dos
+robozinhos acha os cinco no lugar novo), `--teste` 94/94 e a simulação 28/28.
+
+## 153. Os avisos ao fechar o jogo (2026-11-23)
+
+O usuário viu três erros no terminal ao fechar o jogo. Não têm a ver com fechar pela janela: saem em toda saída,
+inclusive nos testes.
+- **"Capture not registered: 'beehave'"** foi consertado no addon (`addons/beehave/debug/global_debugger.gd`). Agora
+  ele só registra o canal do depurador com o editor ligado (`EngineDebugger.is_active()`) e desfaz o registro em
+  `_exit_tree`. **Se o beehave for atualizado, refazer.**
+- **"4 shaders of type ParticlesShaderRD were never freed"** e o RID do `MaterialStorage::Shader` ficaram como
+  estão (o usuário disse "Pode deixar"). São 4 shaders de `ParticleProcessMaterial`: um de esfera, um de anel e
+  dois de caixa. Eles sobram até quando as 72 partículas perdem o material e o mundo é apagado antes de fechar.
+  Uma partícula sozinha e uma cópia das do gêiser, num projeto vazio, não deixam sobra. Inofensivo: o sistema
+  libera a memória.

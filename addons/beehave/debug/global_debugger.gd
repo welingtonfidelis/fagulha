@@ -7,7 +7,15 @@ var _editor_visible: bool = false # Track editor visibility
 
 
 func _enter_tree() -> void:
-	EngineDebugger.register_message_capture("beehave", _on_debug_message)
+	# Fagulha (2026-11-23): só com o depurador do editor ligado, e desfeito na saída. Sem isso, ao fechar o jogo o
+	# Godot desfazia o registro depois de já ter limpado os seus e escrevia "Capture not registered: 'beehave'".
+	if EngineDebugger.is_active():
+		EngineDebugger.register_message_capture("beehave", _on_debug_message)
+
+
+func _exit_tree() -> void:
+	if EngineDebugger.has_capture("beehave"):
+		EngineDebugger.unregister_message_capture("beehave")
 
 
 func _on_debug_message(message: String, data: Array) -> bool:

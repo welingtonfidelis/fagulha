@@ -182,6 +182,15 @@ static func _camara_xz() -> Vector2:
 	return centro - dir * 26.0 + perp * 30.0
 
 
+## Onde dormem os robozinhos (MiniRobos): na câmara do fundo, mais para dentro que o meio (longe da passagem
+## do salão) e um pouco de lado, numa clareira sem estalagmite (nenhuma a menos de 3,5 m). No meio da câmara
+## ficavam entre os espinhos de pedra, com dois nascendo em cima deles (pedido do usuário, 2026-11-23).
+static func canto_dos_robos() -> Vector2:
+	var perp := Vector2(-dir.y, dir.x)
+	var fundo := (_camara_xz() - (centro - dir * 10.0 + perp * 12.0)).normalized()  # da passagem para dentro
+	return _camara_xz() + fundo * 3.5 + Vector2(-fundo.y, fundo.x) * 5.5
+
+
 # ---------------------------------------------------------------- a forma
 
 static func _v3(xz: Vector2, y: float) -> Vector3:
@@ -275,7 +284,11 @@ static func _enfeites(v: Vale) -> void:
 	var lugares: Array = [
 		[centro + dir * 30.0 + perp * 12.0, piso + 3.0, COR], [centro + dir * 30.0 - perp * 13.0, piso + 3.0, COR],
 		[centro - dir * 12.0 - perp * 14.0, piso + 3.0, COR], [centro + dir * 4.0 + perp * 17.0, piso + 3.0, COR],
-		[_camara_xz() + dir * 5.0, piso + 4.5, COR_2, 0.4],  # na câmara do fundo, um só e pequeno: eram dois grandes num lugar apertado, e clareavam tudo
+		# o pequeno âmbar, na beira da lagoa do meio, do lado da passagem para a câmara (ficava na câmara do fundo,
+		# junto dos robozinhos; pedido do usuário, 2026-11-23). A água que se vê vai só até uns 3,8 m do meio (a
+		# lâmina passa por baixo do piso), então 4,8 m deixa as pontas a um passo dela. Antes eram dois grandes
+		# na câmara, e clareavam tudo
+		[centro + (perp * 12.0 - dir * 10.0).normalized() * 4.8, piso + 3.0, COR_2, 0.4],
 		[centro.lerp(saida, 0.55) + perp * 3.5, lerpf(piso, saida_h, 0.5) + 2.5, COR],
 		[centro + dir * ANEL_RAIO, ya + 2.0, COR_2], [centro - dir * ANEL_RAIO * 0.7 + perp * ANEL_RAIO * 0.7, ya + 2.0, COR_2],
 		[centro - dir * ANEL_RAIO * 0.7 - perp * ANEL_RAIO * 0.7, ya + 2.0, COR_2]]

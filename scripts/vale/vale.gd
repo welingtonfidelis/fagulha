@@ -453,6 +453,11 @@ func _cavar_rio(x: float, z: float, h: float) -> float:
 		if h < n + 0.55:
 			margem = n + 0.55 + (h - n - 0.55) * smoothstep(12.0, 40.0, r.x)  # terreno baixo: dique que some aos poucos
 		var novo := lerpf(leito, margem, smoothstep(RIO_LEITO, 10.0, r.x))
+		# depois do fim da linha a água segue por outra lâmina (o rio do norte entra no riacho da clareira): ali
+		# o chão só baixa. A margem de "terreno baixo" levantava o leito do riacho num dique 0,5 m acima da água,
+		# e a água não passava de (-88, -65) a (-75, -57) (visto pelo usuário em 2026-11-23)
+		if r.y >= c.total() - 0.01:
+			novo = minf(novo, h)
 		# na foz o leito se desfaz no fundo do mar (senão as margens seguiam mar adentro como dois diques)
 		h = lerpf(novo, h, smoothstep(c.cava_ate - 40.0, c.cava_ate + 6.0, r.y))
 	# a bacia da nascente, no alto do paredão

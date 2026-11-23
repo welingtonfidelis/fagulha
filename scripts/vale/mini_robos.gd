@@ -179,10 +179,12 @@ func _canto_do_salao() -> Vector3:
 	var esp := get_world_3d().direct_space_state
 	var perp := Vector2(-Sumidouro.dir.y, Sumidouro.dir.x)
 	var longe: Vector3 = memorias.onde.get("sumidouro", Vector3.INF) if memorias else Vector3.INF
-	# primeiro na câmara do fundo, ao lado do salão (longe da memória do salão, pedido de 2026-11-21); se não
-	# couber, num canto do salão
+	# primeiro na clareira do fundo da câmara, ao lado do salão (longe da memória do salão, pedido de 2026-11-21;
+	# fora dos espinhos de pedra, 2026-11-23); se não couber, no meio da câmara ou num canto do salão
 	var camara := Sumidouro._camara_xz()
 	var lugares: Array[Vector2] = []
+	for t: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0), Vector2(0, -1)]:
+		lugares.append(Sumidouro.canto_dos_robos() + t)
 	for t: Vector2 in [Vector2(0, 0), Vector2(-4, 3), Vector2(4, -3), Vector2(-3, -4), Vector2(3, 4)]:
 		lugares.append(camara + t)
 	for t: Vector2 in [Vector2(-14, 9), Vector2(-14, -9), Vector2(-10, -6), Vector2(-10, 6), Vector2(-18, 0)]:
