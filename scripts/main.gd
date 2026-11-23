@@ -23,6 +23,10 @@ var scanner: Scanner
 var pausa: Pausa
 var vida: VidaVale
 var inimigos: InimigosVale
+var aves_ceu: AvesCeu
+var peixes_raso: PeixesRaso
+var vida_longe: VidaLonge
+var insetos: Insetos
 var som_lugar: SomAmbiente
 var sons: Sons
 var vibra: Vibra
@@ -403,6 +407,28 @@ func _ready() -> void:
 			inimigos.alvo = armadura
 			inimigos.pintar = pinta
 			add_child(inimigos)
+			# a vida vista do alto (2026-11-22): peixes rente à água, pássaros no céu, os bichos de terra de longe e,
+			# perto do robô, borboletas e libélulas
+			peixes_raso = PeixesRaso.new()
+			peixes_raso.name = "PeixesRaso"
+			peixes_raso.mapa = ilha
+			peixes_raso.alvo = armadura
+			add_child(peixes_raso)
+			peixes_raso.saltou.connect(func(pos: Vector3) -> void: agua_fx._anel(pos, 0.15, 1.3, 0.7, 0.75))
+			aves_ceu = AvesCeu.new()
+			aves_ceu.name = "AvesCeu"
+			aves_ceu.mapa = ilha
+			aves_ceu.pontos_mar = peixes_raso.pontos_mar()
+			add_child(aves_ceu)
+			vida_longe = VidaLonge.new()
+			vida_longe.name = "VidaLonge"
+			vida_longe.vida = vida
+			add_child(vida_longe)
+			insetos = Insetos.new()
+			insetos.name = "Insetos"
+			insetos.mapa = ilha
+			insetos.alvo = armadura
+			add_child(insetos)
 	# nas fotos as dicas ficam de fora, a não ser que se peça (`--dicas`)
 	if ilha is Vale and (not ("--vale-captura" in args) or "--dicas" in args):
 		var dicas := Dicas.new()

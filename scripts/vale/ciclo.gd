@@ -33,6 +33,7 @@ var _prox_chuva := 0.0
 var _fim_chuva := 0.0
 var _t := 0.0
 var _gotas: GPUParticles3D
+var _telhados: GPUParticlesCollisionHeightField3D  # o relevo visto de cima: a gota some no que estiver por cima
 var _cam_ant := Vector3.INF
 var _cam_vel := Vector3.ZERO
 var _rng := RandomNumberGenerator.new()
@@ -124,6 +125,14 @@ func _process(delta: float) -> void:
 		var coberto: bool = Cavernas.no_subsolo(cp) or (mapa != null and mapa.agua(cp.x, cp.z) > cp.y)
 		_gotas.emitting = chuva > 0.05 and not coberto
 		_gotas.visible = not coberto
+		_telhados.visible = _gotas.visible and chuva > 0.01
+		# o mapa segue a câmera só no chão (x, z); a altura vai daqui, senão o alto do cilindro e os telhados
+		# ficavam acima do mapa, cortados, e a gota caía até o piso lá dentro
+		var tp := _telhados.global_position
+		var vc := get_viewport().get_camera_3d()  # a que está mostrando (a da oficina, a das cenas)
+		var ty := snappedf((vc.global_position.y if vc else cp.y) + 4.0, 2.0)
+		if absf(tp.y - ty) > 0.5:
+			_telhados.global_position = Vector3(tp.x, ty, tp.z)
 		escuro = move_toward(escuro, Cavernas.escuridao(cp), delta * 1.2)
 		gruta_gelo = move_toward(gruta_gelo, 1.0 if BocaDegelo.no_vazio(cp) else 0.0, delta * 1.2)
 		_gotas.amount_ratio = clampf(chuva, 0.05, 1.0)
@@ -267,6 +276,8 @@ func _criar_gotas() -> void:
 	gota.size = Vector2(0.018, 0.6)
 	gota.material = mat
 	var pp := ParticleProcessMaterial.new()
+	# a gota some no primeiro telhado, casco, copa ou água por cima (dentro da base e do cilindro não chovia)
+	pp.collision_mode = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
 	pp.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pp.emission_box_extents = Vector3(20, 3.0, 20)
 	pp.direction = Vector3(0.12, -1, 0.05)
@@ -283,4 +294,15 @@ func _criar_gotas() -> void:
 	_gotas.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_gotas.emitting = false
 	_gotas.top_level = true
+	_gotas.collision_base_size = 0.02
+	_gotas.layers = 1 << 19  # fora do mapa de alturas (a gota não pode bater na própria chuva)
 	add_child(_gotas)
+	_telhados = GPUParticlesCollisionHeightField3D.new()
+	_telhados.size = Vector3(48.0, 48.0, 48.0)
+	_telhados.resolution = GPUParticlesCollisionHeightField3D.RESOLUTION_512
+	_telhados.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+	_telhados.follow_camera_enabled = true
+	_telhados.heightfield_mask = 0xFFFFF & ~(1 << 19)
+	_telhados.top_level = true
+	_telhados.visible = false
+	add_child(_telhados)

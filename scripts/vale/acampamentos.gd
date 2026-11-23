@@ -87,6 +87,14 @@ const CORES := {
 	"lona_azul": [Color(0.16, 0.3, 0.52), 0.0, 0.35],
 	"lona_verde": [Color(0.3, 0.42, 0.18), 0.0, 0.35],
 	"lona_creme": [Color(0.7, 0.62, 0.46), 0.0, 0.4],
+	# os restos de gente da planície (Planicie): velhos de verdade, com musgo (o quarto número)
+	"velho_ferro": [Color(0.36, 0.35, 0.33), 0.75, 0.1, 0.15],
+	"velho_amarelo": [Color(0.66, 0.52, 0.16), 0.6, 0.25, 0.2],
+	"velho_vermelho": [Color(0.52, 0.18, 0.11), 0.62, 0.3, 0.2],
+	"velho_conteiner": [Color(0.22, 0.38, 0.37), 0.6, 0.25, 0.3],
+	"velho_concreto": [Color(0.5, 0.49, 0.45), 0.05, 0.6, 0.5],
+	"pneu": [Color(0.075, 0.072, 0.07), 0.0, 0.4, 0.15],
+	"isolador": [Color(0.56, 0.5, 0.42), 0.05, 0.5, 0.1],
 }
 const CHAPAS := ["chapa_verde", "chapa_ocre", "chapa_vermelha", "chapa_cinza", "chapa_azul", "chapa_cinza"]
 const ENGRENAGENS := ["cog-a", "cog-b", "cog-c", "cog-d", "cog-e"]
@@ -935,6 +943,7 @@ static func _shader_terra() -> Shader:
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 uniform vec3 centro;
 uniform float raio = 15.0;
+uniform float oleo = 1.0;  // as manchas de óleo (0 na terra nua do campo)
 varying vec3 wpos;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -951,8 +960,8 @@ void fragment() {
 	vec3 terra = mix(vec3(0.13, 0.095, 0.065), vec3(0.21, 0.155, 0.1), smoothstep(0.3, 0.75, n2));
 	terra *= 0.9 + (n3 - 0.5) * 0.25;
 	// manchas de óleo e marcas de pé pesado, mais perto do meio
-	float oleo = smoothstep(0.74, 0.84, texture(ruido, wpos.xz * 0.13 + vec2(0.91, 0.37)).r + (1.0 - t) * 0.08);
-	terra = mix(terra, vec3(0.075, 0.075, 0.08), oleo * 0.45);
+	float mancha = smoothstep(0.74, 0.84, texture(ruido, wpos.xz * 0.13 + vec2(0.91, 0.37)).r + (1.0 - t) * 0.08);
+	terra = mix(terra, vec3(0.075, 0.075, 0.08), mancha * 0.45 * oleo);
 	vec3 capim = cor_capim(ruido, wpos.xz);
 	float beira = smoothstep(0.5, 0.98, t + (n1 - 0.5) * 0.25);
 	ALBEDO = mix(terra, capim, beira * 0.75);
@@ -985,7 +994,7 @@ static func _mat(nome: String, ruido: Texture2D) -> ShaderMaterial:
 		m.set_shader_parameter("tinta", c[0])
 		m.set_shader_parameter("ferrugem", c[1])
 		m.set_shader_parameter("sujeira", c[2])
-	m.set_shader_parameter("musgo", 0.0)
+	m.set_shader_parameter("musgo", float(CORES[nome][3]) if nome != "aviso" and (CORES[nome] as Array).size() > 3 else 0.0)
 	_mats[nome] = m
 	return m
 

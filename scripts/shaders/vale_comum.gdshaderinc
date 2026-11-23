@@ -14,6 +14,7 @@ global uniform float troca_fator;
 global uniform float estilo_novo;
 // Onde o robô pisa (xyz) e quanto ele amassa o capim (w: 1 no chão, 0 no alto). EfeitosMato atualiza.
 global uniform vec4 robo_capim;
+global uniform vec4 palha;  // manchas de palha no capim: centro (x, z), raio e força (a planície do ferro-velho)
 
 vec2 presenca(vec4 dado, vec3 origem, vec3 cam) {
 	float d = distance(origem, cam);
@@ -55,6 +56,14 @@ vec3 cor_capim(sampler2D r, vec2 p) {
 	vec3 c = mix(vec3(0.085, 0.21, 0.065), vec3(0.17, 0.30, 0.075), smoothstep(0.3, 0.7, a));
 	c = mix(c, vec3(0.30, 0.33, 0.11), smoothstep(0.62, 0.8, b) * 0.5);  // manchas secas
 	c = mix(c, vec3(0.05, 0.15, 0.075), smoothstep(0.66, 0.82, 1.0 - a) * 0.5);  // manchas fundas
+	if (palha.w > 0.0) {
+		float dp = distance(p, palha.xy);
+		if (dp < palha.z) {
+			float np = texture(r, p * 0.0042 + vec2(0.37, 0.12)).r * 0.7 + texture(r, p * 0.017 + vec2(0.5, 0.8)).r * 0.3;
+			float mp = smoothstep(0.5, 0.64, np) * (1.0 - smoothstep(palha.z * 0.7, palha.z, dp)) * palha.w;
+			c = mix(c, mix(vec3(0.34, 0.285, 0.15), vec3(0.4, 0.34, 0.19), b), mp * 0.85);
+		}
+	}
 	// visual novo: verde-amarelado e mais vivo (a sombra azulada vem da luz ambiente)
 	c = mix(c, c * vec3(1.14, 1.12, 0.6) + vec3(0.008, 0.016, 0.0), estilo_novo);
 	return c;

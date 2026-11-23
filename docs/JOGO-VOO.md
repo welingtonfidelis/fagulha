@@ -4194,3 +4194,109 @@ passagem do ferrugem de fora para o limpo de dentro.
   juntas voltam ao lugar e não sobra anel nem presilha.
 
 **Falta:** conferir de noite e no PC.
+
+## 139. As fontes quentes refeitas (2026-11-22)
+
+Feito a partir da revisão do game designer. Antes, cada poça da bacia (área B, leste) era um disco opaco. A
+grade de 4 m do chão deixava a beira em serrote, o laranja em volta era largo e liso, e do alto cada poça
+parecia um alvo. O usuário escolheu três coisas: o Olho Azul vivo, de cartão-postal; um gêiser pequeno de vez
+em quando, além do vapor e das bolhas; e o vapor que muda com a hora só na vista (o calor não muda).
+
+**Onde fica:** `scripts/vale/fontes_quentes.gd` (`FontesQuentes`, montado pela `TerraNova`),
+`scripts/vale/geiser_fonte.gd` (`GeiserFonte`), os shaders `fonte_quente`, `fonte_crosta`, `fonte_lama`,
+`fonte_meia`, `geiser_jato` e o pedaço `fontes_chao.gdshaderinc` (no `terra_nova_chao`), e o vapor em
+`vapor_fonte.gd`.
+
+- **A beira de verdade:** para cada poça, em 64 ângulos, o ponto onde o chão (do jeito que a malha desenha, em
+  triângulos) passa da altura da água. A água vai até ali, transparente pela espessura. Uma crosta baixa de
+  sínter, com crista ondulada de mineral branco, cobre a emenda. A beira que se vê é a de verdade, alisada.
+- **Os tons:** o Olho Azul, azul leitoso, esmeralda e o turquesa dos degraus.
+- **O chão em volta:** faixas pelo calor a partir da beira e um canal de escoamento pelo lado mais baixo de
+  cada poça. Do lado da saída, a crista baixa e fica molhada.
+- **Bolhas** no Olho Azul e nas poças médias, e **duas poças de lama** cinza que estouram devagar, com um "blop"
+  só quando alguém está perto.
+- **O gêiser** fica no respiro mais perto do Olho Azul, num cone baixo de sínter. A cada 2 a 4 minutos (o
+  primeiro mais cedo), ele avisa com um gorgolejo e borrifos curtos. Depois jorra uns 7 s, até 5 a 7 m de
+  altura, e acaba num bafo de vapor que o vento leva. É só vista e som: ninguém se machuca e nada muda no jogo.
+  As partículas usam `circle_05` e `smoke_04` do Kenney Particle Pack (CC0).
+- **A "meia branca":** os pinheiros secos da bacia ganham por cima uma camada de mineral branco.
+- **O som:** borbulhar, chiado dos respiros, gêiser e lama, sintetizados por `tools/sons_fontes.py` (registrado
+  no CREDITOS.md).
+
+## 140. A planície do ferro-velho (2026-11-22)
+
+Pedido do usuário: em volta do acampamento da Planície (área B, oeste), a paisagem estava "pelada", só capim.
+Das ideias propostas, entraram as quatro primeiras. Fica em `scripts/vale/planicie.gd` (`Planicie`), montado
+pela `TerraNova`; as árvores entram na mata dela.
+
+- **Pedras:** nove afloramentos (uma pedra grande, as menores em volta e seixos no pé) e lajes soltas.
+- **Árvores:** cinco capões (grupos pequenos de árvores com moitas na beira) e quatro árvores sozinhas no campo.
+- **Restos de gente, sem estrada:**
+  - uma linha de seis torres de energia de sul para norte: de pé, uma torta, uma caída e um toco, com os
+    cabos pendurados ou no chão;
+  - a lança de um guindaste deitada no capim, em cima do contrapeso;
+  - um trator velho afundado perto de um capão;
+  - um contêiner meio enterrado e tombado, com a porta aberta.
+
+  Tudo velho, com ferrugem, tinta desbotada e musgo (as cores `velho_*` dos `Acampamentos`).
+- **O chão:**
+  - manchas de palha no capim, pelo global `palha` do shader;
+  - manchas de flores do campo (`CapimVivo.floridos`);
+  - terra nua (`CapimVivo.batidos` e uma pele de terra sem as manchas de óleo).
+- **Distâncias:** nada fica a menos de 75 m do acampamento (o pátio e a volta das máquinas) nem perto da água.
+
+## 141. Chuva sob telhados e a colisão do chão da terra nova (2026-11-22)
+
+**Chuva:** dentro da base e do cilindro, chovia. Agora as gotas somem no primeiro telhado, casco, copa ou água
+por cima. O `CicloDia` usa um `GPUParticlesCollisionHeightField3D` de 48 m que segue a câmera (só em x e z; a
+altura acompanha a câmera que está mostrando, senão o alto do cilindro ficava fora do mapa). As gotas ficam numa
+camada fora desse mapa, para não baterem na própria chuva.
+
+**Colisão:** o usuário achou o robô afundando ou flutuando nos degraus das fontes quentes (perto de -2265, 35,
+-529). O Jolt corta cada quadrado do `HeightMapShape3D` pela outra diagonal, e o chão desenhado (`_grade`) corta
+do canto (i, j) ao (i + 1, j + 1). Em chão plano não muda nada, mas nos degraus a colisão ficava até 2 m fora do
+chão. Agora cada telha de colisão da terra nova é girada 90°, com os dados remapeados, e corta igual ao desenho.
+Vale para a terra nova inteira.
+
+## 142. Mais vida na ilha: pássaros, peixes, bichos de longe e insetos (2026-11-22)
+
+Pedido do usuário: "eu sinto que a ilha é vazia de vida animal, custaria muitos fps adicionar mais animais,
+passaros e peixes?". Foram oferecidas quatro opções, e ele escolheu as quatro. Tudo em MultiMesh, com formas
+feitas por código (`FormasBicho`, em `scripts/vale/formas_bicho.gd`) e o movimento no shader: as asas, a
+cauda e a cabeça mexem pelo alfa da cor do vértice. Ligado no `main.gd` depois dos inimigos.
+
+**Pássaros no céu** (`AvesCeu`, shader `ave_ceu`). O voo é calculado no shader a partir de um tempo global,
+`tempo_bichos`, que o `AvesCeu` atualiza e reinicia a cada 2 h. O `onde(bando, i)` repete a conta no
+GDScript. A direção sai do próprio caminho e a ave inclina na curva.
+- **Andorinhas:** bandos de 10 sobre os campos (a 380 m uns dos outros) e uns poucos sobre os lagos baixos.
+- **Gaviões:** 1 ou 2 rodando alto sobre os morros, a 750 m uns dos outros.
+- **Gaivotas:** 3 a 6 no litoral, em cima dos cardumes de sardinha.
+- **Gansos:** um bando de 11 em V cruza a ilha de vez em quando, com espera de 70 a 200 s entre as travessias.
+- Somem de noite e com chuva forte.
+
+**Peixes rasos** (`PeixesRaso`, shader `bicho_lote` modo 0).
+- **Onde:** trutas nos rios, percas nos lagos e cardumes de sardinha no mar raso. Ficam fora das fontes quentes,
+  das grutas e de perto da nascente da Boca do Degelo.
+- **Quando:** só existem perto do robô: nascem a 320 m e somem a 380 m.
+- **Do alto:** nadam rasos e fazem sombra no fundo. Sobre as sardinhas fica a "água nervosa" (`agua_nervosa`),
+  anelzinhos que abrem e somem, porque do alto é isso que se vê de um cardume.
+- **Perto do robô:** fogem quando ele chega a 7 m. De vez em quando um peixe salta, com o anel da `AguaFx`.
+- **Na largada:** 60 lugares de trutas, 7 de percas e 36 cardumes, achados em uns 24 ms.
+
+**Bichos de longe** (`VidaLonge`, `bicho_lote` modo 1). A mais de 200 m do robô, nos lugares do `VidaVale` que
+estão sem bicho de verdade, aparecem figuras simples de cervo, lobo, raposa e foca, nas mesmas posições, que
+pastam abaixando a cabeça. Chegando perto, entram os bichos de verdade. São 178 figuras em 4 espécies; somem a
+mais de 1600 m da câmera.
+
+**Insetos** (`Insetos`, `bicho_lote` modos 2 e 3). Até 14 borboletas (amarelas, brancas, laranja e azuis) nos
+campos de flores e 6 libélulas sobre a água doce rasa. Nascem num raio de 30 m em volta do robô e somem a
+46 m. As borboletas voam a 1,25–1,9 m do chão (o capim chega a 1 m) e fogem do robô; as libélulas dão
+arrancadas curtas. Só de dia e sem chuva. Depois das primeiras fotos, as asas das borboletas ficaram mais
+claras, com um brilho leve, e 40% maiores.
+
+**Custo medido** (no campo da base e na costa, ligando e desligando os quatro): de 6 a 13 chamadas de desenho a
+mais, sem diferença de tempo maior que a variação normal.
+
+**Falta:** sons dos bichos novos (o grasnado dos gansos, por exemplo); conferir de noite e no PC.
+
+**Estado das §139 a §142:** baterias OK em 2026-11-22 (vale 113, voo 94, simulação 28), build no PC no mesmo dia.

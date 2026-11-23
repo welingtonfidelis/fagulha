@@ -38,6 +38,10 @@ Os sons de debaixo d'água (o ronco contínuo `agua_fundo_loop.wav`, as bolhas `
 splash da entrada `mergulho.wav`) são do próprio projeto, feitos por síntese em `tools/sons_agua.py` (2026-11-22),
 sem gravação de terceiros.
 
+Os sons das fontes quentes (o borbulhar `fonte_borbulha_loop.wav`, o chiado dos respiros `respiro_loop.wav`, o
+gêiser `geiser.wav` e o "blop" da lama `lama_1` a `lama_3.wav`) também são do próprio projeto, sintetizados por
+`tools/sons_fontes.py` (2026-11-22).
+
 ## Modelos
 
 Parte das árvores, as plantas de chão, as flores, os cogumelos, as moitas e as pedras soltas vêm de dois pacotes de

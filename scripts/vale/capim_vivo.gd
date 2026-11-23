@@ -24,6 +24,8 @@ const PALETA: Array[Color] = [Color(0.93, 0.30, 0.52), Color(0.98, 0.78, 0.12), 
 ## Lugares de chão batido, (x, z, raio): quem anota são os acampamentos de máquinas, no começo, antes de o
 ## capim nascer por perto (as tarefas só leem).
 static var batidos: Array[Vector3] = []
+## Manchas de flores do campo fora da cobertura de flores, (x, z, raio): a planície do ferro-velho (Planicie).
+static var floridos: Array[Vector3] = []
 
 var mapa: Vale
 var alvo: Node3D
@@ -314,6 +316,13 @@ func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float
 	return h
 
 
+static func _florido(px: float, pz: float) -> bool:
+	for f: Vector3 in floridos:
+		if Vector2(px - f.x, pz - f.y).length() < f.z:
+			return true
+	return false
+
+
 func _chance(c: int) -> float:
 	match c:
 		0, 3:
@@ -386,7 +395,7 @@ func _calcular(chave: Vector2i) -> Dictionary:
 			var px := clampf(x0 + (i + 0.5) * passo_f + rf.randf_range(-0.4, 0.4), x0, x0 + BLOCO - 0.001)
 			var pz := clampf(z0 + (j + 0.5) * passo_f + rf.randf_range(-0.4, 0.4), z0, z0 + BLOCO - 0.001)
 			var k := clampi(roundi((pz - z0) / AMOSTRA), 0, n - 1) * n + clampi(roundi((px - x0) / AMOSTRA), 0, n - 1)
-			if ncob[k] != 3:
+			if ncob[k] != 3 and not _florido(px, pz):
 				continue
 			var h := _chao(px, pz, nny[k], rf)
 			if h == -INF:

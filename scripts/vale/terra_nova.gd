@@ -215,6 +215,7 @@ func montar(v: Vale) -> void:
 	_colisao()
 	_aguas(v)
 	_fontes(v)
+	Planicie.montar(self, v)
 	_praia(v)
 	Vilarejo.montar(v)
 
@@ -346,7 +347,7 @@ func _colisao() -> void:
 						var x := X0 + gx * PASSO
 						var z := Z0 + gz * PASSO
 						hv = -40.0 if (absf(x) < META_VELHA - 2.0 and absf(z) < META_VELHA - 2.0) else h[gz * NX + gx]
-					dados[j * lado + i] = hv
+					dados[i * lado + (TELHA - j)] = hv  # girada (ver abaixo)
 					mx = maxf(mx, hv)
 			if mx < FUNDO + 0.6:
 				continue
@@ -356,6 +357,10 @@ func _colisao() -> void:
 			forma.map_data = dados
 			var cs := CollisionShape3D.new()
 			cs.shape = forma
+			# o Jolt corta cada quadrado da grade pela outra diagonal (do canto (i + 1, j) ao (i, j + 1)); o chão
+			# desenhado (_grade) corta do (i, j) ao (i + 1, j + 1). Em chão plano não muda nada, mas nos degraus das
+			# fontes quentes a colisão ficava até 2 m fora do chão. Girada 90° a telha corta igual ao desenho.
+			cs.rotation = Vector3(0.0, PI * 0.5, 0.0)
 			cs.scale = Vector3(PASSO, 1.0, PASSO)
 			cs.position = Vector3(X0 + (tx * TELHA + TELHA * 0.5) * PASSO, 0.0, Z0 + (tz * TELHA + TELHA * 0.5) * PASSO)
 			corpo.add_child(cs)
@@ -670,6 +675,7 @@ func plantar(v: Vale) -> void:
 		var o: Vector3 = (item[1] as Transform3D).origin
 		return not BocaDegelo.dentro(o.x, o.z, 4.0))
 	fila.append_array(_secas())
+	fila.append_array(Planicie.arvores(self))
 	fila.append_array(Vilarejo.arvores(v))
 	arvores = fila.size()
 	var primeiro := v.arv_pos.size()
@@ -704,42 +710,29 @@ func plantar(v: Vale) -> void:
 
 # ---------------------------------------------------------------- as fontes quentes da área B
 
-## A água das fontes quentes (a cor de cada poça vem do shader fonte_quente), o vapor de cada uma e dos
-## respiros (`VaporFonte`). O relevo, a beira de mineral e o brejo em volta vêm prontos do gerador.
+## As fontes quentes (FontesQuentes: a água até a beira de verdade, a crosta de sínter, as faixas e os canais
+## no chão, as poças de lama, o gêiser e o som) e o vapor de cada poça e dos respiros (`VaporFonte`); o Olho
+## Azul ganha ainda a coluna alta. O relevo e a bacia vêm prontos do gerador.
 func _fontes(v: Vale) -> void:
 	if fontes.is_empty():
 		return
-	var shader: Shader = load("res://scripts/shaders/fonte_quente.gdshader")
+	var fq := FontesQuentes.montar(self, v)
 	for k in fontes.size():
 		var f: Array = fontes[k]
 		var c: Vector2 = f[0]
-		var r: float = f[1]
-		var nivel: float = f[2]
-		var cil := CylinderMesh.new()
-		cil.top_radius = r + FONTE_SOBRA
-		cil.bottom_radius = cil.top_radius
-		cil.height = 0.02
-		cil.radial_segments = 48 if r > 8.0 else 24
-		cil.rings = 1
-		cil.cap_bottom = false
-		var mat := ShaderMaterial.new()
-		mat.shader = shader
-		mat.set_shader_parameter("centro", c)
-		mat.set_shader_parameter("raio", r)
-		mat.set_shader_parameter("ruido", v._tex)
-		var disco := MeshInstance3D.new()
-		disco.name = "FonteQuente"
-		disco.mesh = cil
-		disco.material_override = mat
-		disco.position = Vector3(c.x, nivel - 0.01, c.y)
-		disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(disco)
 		var vapor := VaporFonte.new()
-		vapor.raio = r
+		vapor.raio = f[1]
 		vapor.forca = f[3]
 		vapor.semente = 500 + k
-		vapor.position = Vector3(c.x, nivel, c.y)
+		vapor.position = Vector3(c.x, f[2], c.y)
 		add_child(vapor)
+		if k == 0:
+			var coluna := VaporFonte.new()
+			coluna.raio = f[1]
+			coluna.coluna = true
+			coluna.semente = 600
+			coluna.position = vapor.position
+			add_child(coluna)
 	for k in respiros.size():
 		var p: Vector2 = respiros[k]
 		var vapor := VaporFonte.new()
@@ -747,6 +740,10 @@ func _fontes(v: Vale) -> void:
 		vapor.forca = 1.0
 		vapor.semente = 700 + k
 		vapor.position = Vector3(p.x, altura(p.x, p.y) + 0.2, p.y)
+		if fq.geiser and p.is_equal_approx(fq.geiser_em):
+			# o respiro do gêiser solta o vapor pela boca do cone
+			vapor.raio = 0.45
+			vapor.position = fq.geiser.position + Vector3.UP * (GeiserFonte.ALTO - 0.1)
 		add_child(vapor)
 
 

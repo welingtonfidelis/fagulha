@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode cull_back;
 #include "res://scripts/shaders/vale_comum.gdshaderinc"
 #include "res://scripts/shaders/terra_nova_cor.gdshaderinc"
+#include "res://scripts/shaders/fontes_chao.gdshaderinc"
 
 // Chão da terra nova (TerraNova): o mesmo chão do vale (vale_chao), mas o relevo vem de uma textura de alturas
 // e cada bloco é uma grade plana que o vértice levanta. Assim os blocos de perto e de longe (com menos pontos)
@@ -48,7 +49,9 @@ void vertex() {
 	tinta = ti;
 	extra = ex;
 	pedra_f = pf;
-	fonte = fo;
+	// com as fontes novas (fontes_chao), a esteira laranja larga do gerador vira sínter: o laranja vem das faixas
+	// de cada poça
+	fonte = fq_n > 0 ? vec3(fo.r + fo.g, 0.0, fo.b) : fo;
 }
 
 void fragment() {
@@ -56,11 +59,19 @@ void fragment() {
 	face *= sign(face.y + 1e-4);
 	float neve;
 	vec3 c = tn_cor(ruido, wpos, wnrm, face, tinta, extra, pedra_f, fonte, CAMERA_POSITION_WORLD, TIME, neve);
+	float molhado;
+	c = fq_cor(ruido, wpos, c, molhado);
 	ALBEDO = c;
-	ROUGHNESS = mix(0.95, 0.7, neve);
-	SPECULAR = mix(0.1, 0.25, neve);
+	ROUGHNESS = mix(mix(0.95, 0.7, neve), 0.4, molhado);
+	SPECULAR = mix(mix(0.1, 0.25, neve), 0.3, molhado);
 }
 
 void light() {
 	DIFFUSE_LIGHT += luz_faixas(NORMAL, LIGHT, LIGHT_COLOR, ATTENUATION);
+	// o brilho do chão molhado perto das fontes (só onde está liso; no resto do chão, nada muda)
+	float liso = smoothstep(0.65, 0.4, ROUGHNESS) * 0.35;
+	if (liso > 0.0) {
+		vec3 h = normalize(LIGHT + VIEW);
+		SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * pow(max(dot(NORMAL, h), 0.0), 60.0) * SPECULAR_AMOUNT * liso * 0.8;
+	}
 }
