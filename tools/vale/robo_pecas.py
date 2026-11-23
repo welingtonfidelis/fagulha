@@ -151,27 +151,21 @@ def pelve(placa=None):
 
 
 def cano(s, lado, base=None):
-    lu = J["luva" + lado]
-    caixa("cano_base", (s * 0.262, -0.086, 0.435), (0.062, 0.034, 0.10), base or JUNTA, lu, topo=(0.8, 1), bevel=0.008)
-    cil("cano", (s * 0.262, -0.092, 0.365), 0.022, 0.022, 0.06, BOCAL, lu, segs=8, bevel=0.003)
-    cil("luz_arma", (s * 0.262, -0.092, 0.3335), 0.014, 0.014, 0.004, OLHOS, lu, segs=8, bevel=0)
+    pass  # sem cano por cima da luva: as armas saem do punho no jogo (robo_armas.py, 2026-11-23)
 
 
-def rotativo(s, lado, mat):
-    """Três canos finos em volta da boca da luva (o tiro continua saindo do meio)."""
-    lu = J["luva" + lado]
-    cx, cy = s * 0.262, -0.092
-    cil("cano_base", (cx, cy + 0.004, 0.43), 0.036, 0.036, 0.09, mat, lu, segs=12, bevel=0.006)
-    cil("cano_aro", (cx, cy, 0.383), 0.038, 0.038, 0.012, JUNTA, lu, segs=12, bevel=0.003)
-    for k in range(3):
-        a = k * 2 * math.pi / 3 + math.pi / 2
-        x, y = cx + math.cos(a) * 0.019, cy + math.sin(a) * 0.019
-        cil("cano", (x, y, 0.357), 0.01, 0.01, 0.05, BOCAL, lu, segs=8, bevel=0.002)
-        cil("luz_arma", (x, y, 0.3315), 0.006, 0.006, 0.003, OLHOS, lu, segs=8, bevel=0)
+def mao(s, lado, estilo="padrao", mat=None, unha=None, dz=0.0):
+    """A mão: palma no punho, três dedos na junta dedos (o jogo fecha) e o polegar. `dz` sobe a mão inteira (para
+    encostar num antebraço que termina mais alto), sem mexer nas juntas."""
+    antes = set(scene.objects)
+    _mao(s, lado, estilo, mat, unha)
+    if dz:
+        for ob in set(scene.objects) - antes:
+            if ob.type == "MESH":
+                ob.data.transform(Matrix.Translation((0, 0, dz)))
 
 
-def mao(s, lado, estilo="padrao", mat=None, unha=None):
-    """A mão: palma no punho, três dedos na junta dedos (o jogo fecha) e o polegar."""
+def _mao(s, lado, estilo, mat, unha):
     pu, de = J["punho" + lado], J["dedos" + lado]
     x = s * 0.265
     mat = mat or JUNTA
@@ -319,7 +313,7 @@ class Besouro:
         cil("antebraco", (s * 0.262, -0.005, 0.43), 0.066, 0.06, 0.17, BRANCA, lu, segs=16, bevel=0.012)
         for z in (0.5, 0.37):
             cil("faixa_luva", (s * 0.262, -0.005, z), 0.07, 0.07, 0.018, O, lu, segs=16, bevel=0.003)
-        rotativo(s, lado, V)
+        cano(s, lado, V)
         mao(s, lado)
 
     @staticmethod
@@ -388,7 +382,8 @@ class Gato:
         for z in (0.47, 0.425):
             caixa("listra_luva", (s * 0.262, -0.005, z), (0.096, 0.106, 0.014), G, lu, bevel=0.004)
         cano(s, lado, G)
-        mao(s, lado, "pata", mat=C, unha=G)
+        # o antebraço do gato termina 2 cm acima do de fábrica: a pata sobe para encostar nele (pedido do usuário)
+        mao(s, lado, "pata", mat=C, unha=G, dz=0.013)
 
     @staticmethod
     def perna(s, lado):
@@ -535,12 +530,7 @@ class Cachorro:
         cil("braco", (s * 0.228, 0, 0.57), 0.028, 0.028, 0.10, JUNTA, om, rot=(0, s * -20, 0), segs=8)
         casca("antebraco", (s * 0.262, -0.005, 0.44), (0.11, 0.12, 0.15), BRANCA, lu, base=(1.15, 1.15), topo=(0.9, 0.9), bevel=0.03)
         caixa("faixa_luva", (s * 0.262, -0.005, 0.505), (0.1, 0.11, 0.02), Y, lu, bevel=0.005)
-        # a bazuca: um tubo grosso sobre o antebraço, a boca no mesmo lugar do cano
-        x = s * 0.262
-        cil("cano_base", (x, -0.094, 0.445), 0.036, 0.036, 0.13, A, lu, segs=14, bevel=0.006)
-        cil("cano_anel", (x, -0.094, 0.47), 0.039, 0.039, 0.014, Y, lu, segs=14, bevel=0.003)
-        cil("cano", (x, -0.093, 0.36), 0.031, 0.026, 0.05, BOCAL, lu, segs=12, bevel=0.003)
-        cil("luz_arma", (x, -0.092, 0.3335), 0.017, 0.017, 0.004, OLHOS, lu, segs=10, bevel=0)
+        # sem a bazuca de antes por cima do antebraço: as armas saem do punho (2026-11-23)
         mao(s, lado, "punho")
 
     @staticmethod
@@ -611,9 +601,7 @@ class Caldeira:
         cil("antebraco", (s * 0.262, -0.005, 0.43), 0.068, 0.062, 0.17, V, lu, segs=18, bevel=0.012)
         for z in (0.505, 0.36):
             cil("cinta_luva", (s * 0.262, -0.005, z), 0.072, 0.072, 0.016, L, lu, segs=18, bevel=0.003)
-        caixa("cano_base", (s * 0.262, -0.086, 0.435), (0.056, 0.034, 0.10), JUNTA, lu, topo=(0.8, 1), bevel=0.008)
-        cil("cano", (s * 0.262, -0.092, 0.37), 0.03, 0.016, 0.07, L, lu, segs=14, bevel=0.003)
-        cil("luz_arma", (s * 0.262, -0.092, 0.3355), 0.02, 0.02, 0.004, OLHOS, lu, segs=12, bevel=0)
+        # sem o cano de latão de antes por cima do antebraço: as armas saem do punho (2026-11-23)
         mao(s, lado, "punho")
 
     @staticmethod

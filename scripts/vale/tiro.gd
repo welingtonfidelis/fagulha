@@ -224,7 +224,7 @@ func _travar_misseis(delta: float, modo: Dictionary) -> void:
 	var segura := Input.is_action_pressed("atirar") and not RodaArmas.aberta and _pode_atirar()
 	if segura:
 		_segurando_missil = true
-		armadura.atirando = 0.6
+		armadura.lancando = 0.6  # o lança-mísseis é no ombro: o braço não ergue
 		_trava_t -= delta
 		var limite := mini(Arsenal.alvos_misseis(), Arsenal.misseis)
 		if _trava_t <= 0.0 and travas.size() < limite:
@@ -594,7 +594,7 @@ func _granada(delta: float) -> void:
 	no.global_position = _ombro(1.0)
 	_granadas.append({"no": no, "vel": _lance_granada(), "t": 0.0, "quiques": 0})
 	Som.toque3d(self, "granada_sai", armadura.global_position, -2.0)
-	armadura.atirando = 0.4
+	armadura.lancando = 0.4  # o lança-granadas é no ombro: o braço não ergue
 	EfeitosTiro.clarao(self, no.global_position, Vector3.UP, 0.5)
 
 

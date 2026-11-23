@@ -24,6 +24,8 @@ var mat_chama_tiro: StandardMaterial3D
 var chama_tiro: Node3D
 var abertura_aletas := 0.0
 var pecas := {}  # melhorias vestidas: nome -> nós (MelhoriasVisual)
+var armas_punho := {}  # lado -> a arma que sai do punho e as partes dela (MelhoriasVisual._arma_punho)
+var arma_vitrine := -1.0  # fotos: fixa quanto a arma saiu do punho (0 a mão, 1 a arma); -1 segue o jogo
 var asas_f := 0.0  # 0 asas recolhidas, 1 abertas
 var escudos_vistos := 0  # quantos acertos o escudo já engoliu (para piscar a bolha uma vez por acerto)
 var yaw_forcado := NAN  # a oficina vira o robô para mostrar a peça
@@ -141,6 +143,9 @@ func vestir_melhorias(extra: Array = []) -> void:
 	for nome in extra:
 		if not lista.has(nome):
 			lista.append(nome)
+	# sem outra arma, é a pistola que sai do punho direito
+	if not lista.any(func(n): return String(n).begins_with("arma_")):
+		lista.append("arma_pistola")
 	pecas = MelhoriasVisual.vestir(self, lista)
 	if pecas.has("asas"):
 		MelhoriasVisual.por_asas(pecas["asas"], 0.0)
@@ -472,7 +477,7 @@ func atualizar(delta: float, a) -> void:
 	var roll_alvo := 0.0
 	var torcao_alvo := 0.0
 	_re = re_forcado
-	if (a.estado == Armadura.Estado.PAIRAR or a.mirando_agora() or (maxf(a.atirando, a.atirando_e) > 0.0 and not a.em_voo())) and a.camera:
+	if (a.estado == Armadura.Estado.PAIRAR or a.mirando_agora() or (maxf(maxf(a.atirando, a.atirando_e), a.lancando) > 0.0 and not a.em_voo())) and a.camera:
 		yaw_alvo = a.camera.yaw
 		if a.estado == Armadura.Estado.CHAO and hv > 0.5:
 			# andando e mirando: as pernas viram para onde ele anda e o tronco torce para a mira;
@@ -728,11 +733,14 @@ func atualizar(delta: float, a) -> void:
 	if not no_chao_baixo:
 		_levanta = 0.0
 	# mirando: o braço direito aponta para onde a câmera olha (sem arma ainda)
-	if (a.mirando_agora() or (a.atirando > 0.0 and a.atirando > a.atirando_e - 10.0 and not a.em_voo() and not a.em_pane)) and a.camera and not (a.atirando <= 0.0 and a.atirando_e > 0.0):
+	if (_mira_braco(a) or (a.atirando > 0.0 and a.atirando > a.atirando_e - 10.0 and not a.em_voo() and not a.em_pane)) and a.camera and not (a.atirando <= 0.0 and a.atirando_e > 0.0):
 		var p: float = rad_to_deg(a.camera.pitch)
 		_alvo("ombroD", -88.0 - p, 0.0, -4.0)
 		_alvo("cotoveloD", -4.0)
 		_alvo("cabeca", -p * 0.5)
+	elif (a.mirando_agora() or a.lancando > 0.0) and a.camera and not a.em_pane:
+		# granada e míssil saem dos lançadores dos ombros: o braço fica parado e só a cabeça acompanha a mira
+		_alvo("cabeca", -rad_to_deg(a.camera.pitch) * 0.5)
 	# o braço esquerdo aponta do mesmo jeito quando é ele que atira (tiro duplo, no L2)
 	if a.atirando_e > 0.0 and not a.em_voo() and not a.em_pane and a.camera:
 		var pe := rad_to_deg(a.camera.pitch)
@@ -795,6 +803,7 @@ func atualizar(delta: float, a) -> void:
 			var alvo: Vector3 = _alvos.get(k, Vector3.ZERO)
 			no.rotation = no.rotation.lerp(alvo, t)
 		_torcer_luvas(delta, a)
+		_armas_do_punho(delta, a)
 		_olhos(delta, a)
 		_animar_rabo(delta, a)
 		(j["raiz"] as Node3D).position.y = lerpf((j["raiz"] as Node3D).position.y, _raiz_y + bob, t)
@@ -892,7 +901,7 @@ func _olhos(delta: float, a) -> void:
 		olhar = "pane"
 	elif a.superaquecido:
 		olhar = "tonto"
-	elif a.mirando_agora() or a.atirando > 0.0 or a.espada_t > 0.0:
+	elif a.mirando_agora() or a.atirando > 0.0 or a.lancando > 0.0 or a.espada_t > 0.0:
 		olhar = "foco"
 	if expressao_forcada != "":
 		olhar = expressao_forcada
@@ -940,7 +949,7 @@ func _torcer_luvas(delta: float, a) -> void:
 		_luvas[lado] = no
 		if no == null:
 			continue
-		var reta: bool = (a.atirando > 0.0 or a.mirando_agora() or a.espada_t > 0.0) if lado == "D" else a.atirando_e > 0.0
+		var reta: bool = (a.atirando > 0.0 or _mira_braco(a) or a.espada_t > 0.0) if lado == "D" else a.atirando_e > 0.0
 		_luva_k[lado] = move_toward(float(_luva_k[lado]), 0.0 if (reta and not a.em_pane) else 1.0, delta * 7.0)
 		var k := smoothstep(0.0, 1.0, float(_luva_k[lado]))
 		no.rotation = Vector3(0.0, (PI * 0.5 if lado == "E" else -PI * 0.5) * k, 0.0)
@@ -951,14 +960,61 @@ func _torcer_luvas(delta: float, a) -> void:
 			(_dedos[lado] as Node3D).rotation = Vector3(deg_to_rad(100.0) * (1.0 - k), 0.0, 0.0)
 
 
+## Mirando com o braço direito: no modo de mísseis a mira é a do lançador do ombro, e o braço fica parado.
+func _mira_braco(a) -> bool:
+	return a.mirando_agora() and not (a is Armadura and Arsenal.modo == "misseis")
+
+
 var _luvas := {}
 var _dedos := {}
 var _bocas := {}
+var _arma_k := {"E": 0.0, "D": 0.0}  # 0 a mão para fora, 1 a arma para fora
+var _punho0 := {}  # lado -> [posição, escala] do punho em descanso
 
 
-## A ponta do cano da luva (o robô novo), de onde o tiro sai; sem ela, `null`.
+## A mão entra no antebraço e a arma sai do punho no lugar dela (2026-11-23, rascunho 7 aprovado): na primeira
+## metade a mão fechada sobe para dentro da luva e encolhe, e a boca escura do punho aparece; na segunda a arma
+## desliza para fora (as aletas da precisão abrem no fim). O braço direito arma ao mirar ou atirar, o esquerdo
+## só no tiro duplo; com a lâmina ou em pane, a mão fica.
+func _armas_do_punho(delta: float, a) -> void:
+	for lado: String in ["E", "D"]:
+		var pu = j.get("punho" + lado)
+		if not (pu is Node3D):
+			continue
+		var punho := pu as Node3D
+		if not _punho0.has(lado):
+			_punho0[lado] = [punho.position, punho.scale]
+		var dados: Dictionary = armas_punho.get(lado, {})
+		var tem: bool = not dados.is_empty() and is_instance_valid(dados["arma"])
+		var armado: bool = (a.atirando > 0.0 or _mira_braco(a)) and a.espada_t <= 0.0 if lado == "D" else a.atirando_e > 0.0
+		armado = armado and tem and not a.em_pane
+		_arma_k[lado] = move_toward(float(_arma_k[lado]), 1.0 if armado else 0.0, delta * 6.0)
+		var k := float(_arma_k[lado]) if arma_vitrine < 0.0 or not tem else arma_vitrine
+		var m := smoothstep(0.0, 1.0, clampf(k * 2.0, 0.0, 1.0))
+		var w := smoothstep(0.0, 1.0, clampf(k * 2.0 - 1.0, 0.0, 1.0))
+		punho.position = (_punho0[lado][0] as Vector3) + Vector3(0.0, 0.05 * m, 0.0)
+		punho.scale = (_punho0[lado][1] as Vector3) * (1.0 - 0.3 * m)
+		punho.visible = m < 0.99
+		if not tem:
+			continue
+		var arma := dados["arma"] as Node3D
+		arma.visible = w > 0.01
+		arma.position = (dados["pos"] as Vector3) + Vector3(0.0, (1.0 - w) * 0.06, 0.0)
+		var lw := lerpf(0.6, 1.0, w)
+		arma.scale = Vector3(lw, maxf(w, 0.02), lw)
+		(dados["vao"] as Node3D).visible = m > 0.02
+		if dados["giro"] is Node3D and a.atirando > 0.0 and w > 0.5:
+			(dados["giro"] as Node3D).rotation.y += delta * 22.0  # os seis canos da rajada giram no tiro
+		if dados["aletas"] is Node3D:
+			(dados["aletas"] as Node3D).scale = Vector3.ONE * lerpf(0.3, 1.0, smoothstep(0.7, 1.0, w))
+
+
+## De onde o tiro sai: a ponta da arma do punho; no robô sem ela, a junta `boca` da luva; sem as duas, `null`.
 func boca_da_arma(esquerda: bool) -> Node3D:
 	var lado := "E" if esquerda else "D"
+	var dados: Dictionary = armas_punho.get(lado, {})
+	if not dados.is_empty() and is_instance_valid(dados["boca"]):
+		return dados["boca"] as Node3D
 	if not _bocas.has(lado):
 		_bocas[lado] = modelo.find_child("boca" + lado, true, false)
 	return _bocas[lado] as Node3D
@@ -987,7 +1043,7 @@ func _lamina(acesa: bool) -> void:
 		# no descanso a mão pende para baixo do punho: a lâmina segue o braço (o -Y da junta), passando da
 		# mão. As medidas são em metros do mundo, desfeita a escala do modelo
 		var h := ALTURA_ALVO * Armadura.porte
-		var esc := maxf(0.001, punho.global_basis.get_scale().y)
+		var esc := maxf(0.001, punho.global_basis.get_scale().y / maxf(0.001, punho.scale.y))  # sem a mão encolhida
 		_lamina_no.transform = Transform3D(Basis.from_scale(Vector3.ONE / esc), Vector3(0, -(0.07 * h + 0.42) * escala_lamina / esc, 0))
 		var luz := OmniLight3D.new()
 		luz.light_color = cor_lamina
@@ -1129,9 +1185,52 @@ func vestir_corpo(pedido: Dictionary) -> void:
 					_enxertos.append(r0)
 					_achar_rabo(r0 as Node3D)
 		copia.free()
+	_pintar_mochila()
 	# o tronco de fábrica de volta traz o radiador e as grades: as melhorias decidem de novo o que aparece
 	if has_meta("descanso"):
 		vestir_melhorias()
+
+
+var cor_detalhe = null  # Color com o tronco de um conjunto (Corpo.COR), null com o de fábrica
+
+
+## Os detalhes azuis da mochila e das abas das costas (o material `detalhe`) vão na cor do tronco vestido; com o
+## tronco de fábrica, voltam ao azul.
+func _pintar_mochila() -> void:
+	cor_detalhe = null
+	var nome_cor := String(Corpo.COR.get(String(corpo.get("tronco", "")), ""))
+	if nome_cor != "":
+		for n in _enxertos:
+			if not (n is MeshInstance3D) or cor_detalhe != null:
+				continue
+			var mi := n as MeshInstance3D
+			for s in mi.mesh.get_surface_count():
+				var m := mi.mesh.surface_get_material(s)
+				if m is StandardMaterial3D and m.resource_name == nome_cor:
+					cor_detalhe = (m as StandardMaterial3D).albedo_color
+					break
+	var costas = j.get("costas")
+	if not (costas is Node3D):
+		return
+	for n in (costas as Node3D).find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(s)
+			if not (m is StandardMaterial3D) or m.resource_name != "detalhe":
+				continue
+			var cor: Color = cor_detalhe if cor_detalhe != null else (m as StandardMaterial3D).albedo_color
+			if toon:
+				var mt := ShaderMaterial.new()
+				mt.shader = load("res://scripts/shaders/vale_solido.gdshader")
+				mt.set_shader_parameter("cor", cor)
+				mt.set_shader_parameter("brilho_borda", 0.18)
+				mi.set_surface_override_material(s, mt)
+			else:
+				var sm := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+				sm.albedo_color = cor
+				mi.set_surface_override_material(s, sm)
 
 
 ## A peça tirada do arquivo do conjunto deixa de pertencer a ele (senão o Godot reclama ao mudar de pai).

@@ -1546,7 +1546,7 @@ func _ponto_29() -> void:
 	await _esperar(0.2)
 	_ok(Melhorias.calor_voo() > Ajustes.CALOR_VOO * 2.5 and not Melhorias.nado_rapido() and Melhorias.esfria_chao() < Ajustes.ESFRIA_CHAO,
 		"o básico esquenta em ~%d s de voo, sem nado rápido" % int(100.0 / Melhorias.calor_voo()))
-	_ok(a.visual.pecas.is_empty() and pm._nos.size() == Melhorias.NOMES.size(), "básico sem peças no corpo; %d peças na ilha" % pm._nos.size())
+	_ok(a.visual.pecas.keys() == ["arma_pistola"] and pm._nos.size() == Melhorias.NOMES.size(), "básico sem peças no corpo (só a pistola do punho); %d peças na ilha" % pm._nos.size())
 	var seco := true
 	for nome: String in pm.onde:
 		var p: Vector3 = pm.onde[nome]
@@ -1706,7 +1706,7 @@ func _ponto_31() -> void:
 		xs.append(mc0.global_position.x)
 	var abertura: float = (xs.max() - xs.min()) if xs.size() > 1 else 0.0
 	_ok(abertura > 6.0, "os robôs não saem em fila reta: 7,5 s depois da porta já abriram %.0f m" % abertura)
-	Arsenal.xp = 95  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
+	Arsenal.xp = Arsenal.xp_do_nivel(2) - 5  # a um passo do nível 2: vencer a onda sobe de nível, com a aura
 	var xp0 := Arsenal.xp
 	var auras0 := int(EfeitosTiro.contagem.get("aura", 0))
 	for mc in f.vivos.duplicate():
@@ -1785,7 +1785,7 @@ func _ponto_31() -> void:
 	# fabricáveis: sem a mira assistida a mira não trava; com materiais e nível, a oficina fabrica
 	Arsenal.tudo = false
 	_ok(not Arsenal.tem("mira") and Arsenal.falta("mira") != "" and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES, "a mira assistida é fabricável: sem ela não trava, e sem materiais não fabrica")
-	Arsenal.xp = 1000
+	Arsenal.xp = Arsenal.xp_do_nivel(4)  # a vida extra pede o nível 4
 	Arsenal.sucata = 100
 	Arsenal.nucleos = 9
 	var fez: bool = Arsenal.fabricar("mira") and Arsenal.fabricar("escudo") and Arsenal.fabricar("vida")
@@ -1798,7 +1798,7 @@ func _ponto_31() -> void:
 	a.levar_golpe(Vector3.FORWARD, 1.0)
 	var quebrou_1: bool = a.escudo_t > 0.0 and a.avaria == 0
 	# os dois degraus pedem nível 6 e 8 e levam o escudo a 2 e a 3 acertos, o máximo
-	Arsenal.xp = 3000
+	Arsenal.xp = Arsenal.xp_do_nivel(8)
 	Arsenal.sucata += 80
 	Arsenal.nucleos += 3
 	Arsenal.chips += 1

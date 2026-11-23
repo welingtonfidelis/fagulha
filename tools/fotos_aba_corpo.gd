@@ -68,7 +68,7 @@ func _rodar() -> void:
 	Corpo.tudo = false
 	Corpo.zerar()
 	a.visual.vestir_corpo(Corpo.vestido)
-	Arsenal.xp = 380  # nível 3: abertos até o Besouro e o Marinheiro
+	Arsenal.xp = Arsenal.xp_do_nivel(3) + 400  # nível 3: abertos até o Besouro e o Marinheiro
 	Corpo.resgatados["antigo"] = true  # o antigo acordado; o mergulhador ainda na Represa
 	await _esp(20)
 	of = m.oficina

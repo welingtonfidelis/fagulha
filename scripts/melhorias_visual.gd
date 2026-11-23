@@ -34,6 +34,9 @@ static func _ler_cores(v: ArmaduraVisual) -> void:
 				"placa_escura": ESCURO = m.albedo_color
 				"placa_clara": CLARO = m.albedo_color
 				"detalhe": VERDE = m.albedo_color
+	# com o tronco de um conjunto, as peças vão na cor dele (como os detalhes da mochila)
+	if v.cor_detalhe != null:
+		VERDE = v.cor_detalhe
 
 
 ## Peça pintada no estilo do vale (luz em faixas); com `luz`, peça acesa.
@@ -148,6 +151,7 @@ static func limpar(v: ArmaduraVisual) -> void:
 			if is_instance_valid(no):
 				(no as Node).queue_free()
 		v.set_meta("ancoras", [])
+	v.armas_punho.clear()  # as armas iam nas âncoras
 	for lado in ["E", "D"]:
 		_cano_da_luva(v, lado, true)
 	for n in v.modelo.find_children("brasa_pe*", "MeshInstance3D", true, false):
@@ -452,6 +456,126 @@ static func _scanner(v: ArmaduraVisual) -> Array:
 	return [g, corpo, lente]
 
 
+## O espaço do gerador preso na luva: um nó irmão das malhas da luva, com o mesmo lugar delas (as malhas do glb têm
+## a origem no zero do Blender), então as medidas do robo_v2.py valem direto, e a arma gira com a luva. Serve
+## qualquer malha presa direto na junta (o antebraço do robô ou o do conjunto vestido), nunca uma da mão.
+static func _espaco_luva(v: ArmaduraVisual, lado: String) -> Node3D:
+	var luva = v.j.get("luva" + lado)
+	if not (luva is Node3D):
+		return null
+	for n in (luva as Node3D).find_children("*", "MeshInstance3D", true, false):
+		if n.get_parent() != luva:
+			continue
+		var g := Node3D.new()
+		(luva as Node3D).add_child(g)
+		g.transform = (n as Node3D).transform
+		if not v.has_meta("ancoras"):
+			preparar(v)
+		(v.get_meta("ancoras") as Array).append(g)  # `limpar` tira junto
+		return g
+	return null
+
+
+## O mastro da antena na cabeça vestida (a malha `antena` à vista), ou null.
+static func _mastro(v: ArmaduraVisual) -> MeshInstance3D:
+	var cab = v.j.get("cabeca")
+	if not (cab is Node3D):
+		return null
+	for n in (cab as Node3D).find_children("antena*", "MeshInstance3D", true, false):
+		if (n as MeshInstance3D).visible and (n as MeshInstance3D).mesh != null:
+			return n as MeshInstance3D
+	return null
+
+
+const ARMAS_PUNHO := "res://assets/vale/armas.glb"
+static var _cena_armas: PackedScene
+## Onde termina o antebraço de cada conjunto no eixo do punho (z do gerador; o de fábrica, 0,345), medido por
+## tools/vale/medir_punhos.py: a boca do punho e a arma andam até a ponta de cada luva.
+const PUNHO_Z := 0.345
+const PUNHO_FIM := {"besouro": 0.3450, "gato": 0.3663, "urso": 0.3359, "cachorro": 0.3661, "caldeira": 0.3450,
+	"majestade": 0.3450, "lucano": 0.3560, "cavaleiro": 0.3450, "enfermeira": 0.3356, "samurai": 0.3561,
+	"marinheiro": 0.3560, "sabre": 0.3459, "solar": 0.3560, "mergulhador": 0.3450, "antigo": 0.3580}
+const VAO_COR := Color(0.06, 0.065, 0.075)
+
+
+## Uma arma do punho (robo_armas.py, 2026-11-23): fica escondida dentro do antebraço e sai pela boca do punho,
+## no lugar da mão, quando o robô mira ou atira (a animação é a `ArmaduraVisual._armas_do_punho`).
+static func _arma_punho(v: ArmaduraVisual, arma: String, lado: String) -> Node3D:
+	var velha: Dictionary = v.armas_punho.get(lado, {})
+	if not velha.is_empty() and is_instance_valid(velha["espaco"]):
+		(velha["espaco"] as Node).queue_free()  # uma arma por braço: a última pedida fica
+	v.armas_punho.erase(lado)
+	var g := _espaco_luva(v, lado)
+	if g == null:
+		return null
+	if _cena_armas == null:
+		_cena_armas = load(ARMAS_PUNHO) as PackedScene
+	var cena := _cena_armas.instantiate()
+	var raiz := cena.find_child("arma_%s_%s" % [arma, lado], true, false) as Node3D
+	var vao := cena.find_child("vao_" + lado, true, false) as Node3D
+	if raiz == null or vao == null:
+		cena.free()
+		return null
+	for n: Node3D in [raiz, vao]:
+		ArmaduraVisual._sem_dono(n)
+		n.get_parent().remove_child(n)
+		g.add_child(n)
+		v._trocar_materiais(n)
+		n.visible = false
+	cena.free()
+	# rentes à ponta da luva vestida: a placa fica logo por fora da ponta, e a arma anda junto
+	var dz: float = float(PUNHO_FIM.get(String(v.corpo.get("braco" + lado, "")), PUNHO_Z)) - PUNHO_Z
+	raiz.position.y += dz
+	vao.position.y += dz
+	# a boca escura não recebe sombra nem luz (a sombra da borda da luva fazia um xadrez nela)
+	var escuro := StandardMaterial3D.new()
+	escuro.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	escuro.albedo_color = VAO_COR
+	for m in vao.find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).material_override = escuro
+		(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	v.armas_punho[lado] = {
+		"espaco": g, "arma": raiz, "vao": vao, "nome": arma, "pos": raiz.position,
+		"boca": raiz.find_child("boca_arma*", true, false), "giro": raiz.find_child("giro*", true, false),
+		"aletas": raiz.find_child("aletas*", true, false),
+	}
+	return raiz
+
+
+## As armas no robô anterior (sem luva): os canos de antes, medidos nele.
+static func _arma_sem_luva(v: ArmaduraVisual, nome: String) -> Array:
+	var nos: Array = []
+	for s in ([1.0, -1.0] if nome == "arma_duplo" else [1.0]):
+		var lado_arma := "D" if s > 0.0 else "E"
+		var novo: bool = v.j.get("luva" + lado_arma) is Node3D
+		# no robô novo a arma encaixa por cima da base do cano da luva, um pouco mais à frente
+		var g := _grupo(_ancora_braco(v, lado_arma), Vector3(s * 0.204, 0.37 if novo else 0.39, -0.094 if novo else -0.062))
+		_cano_da_luva(v, lado_arma, false)
+		match nome:
+			"arma_rajada":
+				_caixa(g, Vector3(0.05, 0.06, 0.03), Vector3(0, 0.03, 0.006), _mat(ESCURO))
+				for i in 3:
+					_cil(g, 0.0085, 0.0085, 0.12, Vector3((i - 1) * 0.017, -0.05, -0.004 if i == 1 else 0.004), _mat(ACO))
+				_cil(g, 0.03, 0.03, 0.008, Vector3(0, -0.07, 0.0), _mat(VERDE))
+			"arma_canhao":
+				_cil(g, 0.03, 0.036, 0.11, Vector3(0, -0.01, 0), _mat(ESCURO))
+				_cil(g, 0.04, 0.04, 0.022, Vector3(0, -0.075, 0), _mat(CLARO))
+				_cil(g, 0.028, 0.028, 0.006, Vector3(0, -0.088, 0), _mat(PESSEGO, 2.4))
+				_cil(g, 0.038, 0.038, 0.01, Vector3(0, 0.04, 0), _mat(VERDE))
+			"arma_precisao":
+				_cil(g, 0.011, 0.011, 0.24, Vector3(0, -0.07, 0), _mat(ACO))
+				_cil(g, 0.016, 0.016, 0.03, Vector3(0, -0.185, 0), _mat(ESCURO))
+				_caixa(g, Vector3(0.03, 0.07, 0.026), Vector3(0, 0.03, 0.004), _mat(ESCURO))
+				_cil(g, 0.014, 0.014, 0.07, Vector3(0, 0.0, -0.03), _mat(CLARO))
+				_cil(g, 0.012, 0.012, 0.004, Vector3(0, -0.037, -0.03), _mat(Color(0.35, 0.9, 1.0), 2.4))
+			"arma_duplo":
+				_cil(g, 0.02, 0.022, 0.1, Vector3(0, -0.03, 0), _mat(ESCURO))
+				_cil(g, 0.026, 0.026, 0.012, Vector3(0, -0.082, 0), _mat(VERDE))
+				_cil(g, 0.015, 0.015, 0.005, Vector3(0, -0.09, 0), _mat(PESSEGO, 2.2))
+		nos.append(g)
+	return nos
+
+
 ## Versão minimalista: cada melhoria é um detalhe pequeno, rente ao corpo, que não muda a silhueta.
 static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 	var nos := []
@@ -522,11 +646,26 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 				_cil(g, 0.015, 0.015, 0.012, Vector3(0, -0.062, 0), _mat(VERDE))
 				nos.append(g)
 		"antena":
-			# um anel e uma ponta de luz maior no mastro que ele já tem
-			var g := _grupo(_ancora(v, "cabeca"), Vector3(-0.08, 0.905, 0.064))
-			_cil(g, 0.012, 0.012, 0.005, Vector3(0, 0.07, 0), _mat(VERDE))
-			_cil(g, 0.009, 0.009, 0.005, Vector3(0, 0.086, 0), _mat(VERDE))
-			nos.append(_bola(g, 0.013, Vector3(0, 0.118, 0), _mat(Color(0.3, 1.0, 0.8), 3.0)))
+			# um anel e uma ponta de luz maior no mastro que a cabeça já tem (a de fábrica e a do Antigo); a cabeça
+			# sem mastro leva a peça inteira no lugar medido no robô anterior
+			var mastro := _mastro(v)
+			if mastro != null:
+				# no espaço da malha do mastro (o do modelo): a ponta é o alto da caixa dela
+				var g := Node3D.new()
+				mastro.get_parent().add_child(g)
+				g.transform = mastro.transform
+				(v.get_meta("ancoras") as Array).append(g)
+				var cx := mastro.get_aabb()
+				var topo := cx.position + Vector3(cx.size.x * 0.5, cx.size.y, cx.size.z * 0.5)
+				_cil(g, 0.011, 0.011, 0.006, topo - Vector3(0, 0.05, 0), _mat(VERDE))
+				_cil(g, 0.009, 0.009, 0.006, topo - Vector3(0, 0.036, 0), _mat(VERDE))
+				nos.append(_bola(g, 0.015, topo + Vector3(0, 0.01, 0), _mat(Color(0.3, 1.0, 0.8), 3.0)))
+				nos.append(g)
+			else:
+				var g := _grupo(_ancora(v, "cabeca"), Vector3(-0.08, 0.905, 0.064))
+				_cil(g, 0.012, 0.012, 0.005, Vector3(0, 0.07, 0), _mat(VERDE))
+				_cil(g, 0.009, 0.009, 0.005, Vector3(0, 0.086, 0), _mat(VERDE))
+				nos.append(_bola(g, 0.013, Vector3(0, 0.118, 0), _mat(Color(0.3, 1.0, 0.8), 3.0)))
 		"farol":
 			# a luz do peito: um aro com grade sobre o núcleo; aceso, o núcleo vira farol
 			var g := _grupo(_ancora(v, "tronco"), Vector3(0, 0.561, -0.11), Vector3(90, 0, 0))
@@ -550,36 +689,17 @@ static func _minimo(v: ArmaduraVisual, nome: String) -> Array:
 			var g := _grupo(_ancora(v, "tronco"), Vector3(0, 0.446, 0.08))
 			for i in 3:
 				nos.append(_caixa(g, Vector3(0.022, 0.016, 0.006), Vector3((i - 1) * 0.034, 0, 0), _mat(Color(0.3, 0.9, 1.0), 2.4)))
-		"arma_rajada", "arma_canhao", "arma_precisao", "arma_duplo":
-			# a ponta do braço muda com a arma: os canos vão ao longo do antebraço e passam da mão
-			for s in ([1.0, -1.0] if nome == "arma_duplo" else [1.0]):
-				var lado_arma := "D" if s > 0.0 else "E"
-				var novo: bool = v.j.get("luva" + lado_arma) is Node3D
-				# no robô novo a arma encaixa por cima da base do cano da luva, um pouco mais à frente
-				var g := _grupo(_ancora_braco(v, lado_arma), Vector3(s * 0.204, 0.37 if novo else 0.39, -0.094 if novo else -0.062))
-				_cano_da_luva(v, lado_arma, false)
-				match nome:
-					"arma_rajada":
-						_caixa(g, Vector3(0.05, 0.06, 0.03), Vector3(0, 0.03, 0.006), _mat(ESCURO))
-						for i in 3:
-							_cil(g, 0.0085, 0.0085, 0.12, Vector3((i - 1) * 0.017, -0.05, -0.004 if i == 1 else 0.004), _mat(ACO))
-						_cil(g, 0.03, 0.03, 0.008, Vector3(0, -0.07, 0.0), _mat(VERDE))
-					"arma_canhao":
-						_cil(g, 0.03, 0.036, 0.11, Vector3(0, -0.01, 0), _mat(ESCURO))
-						_cil(g, 0.04, 0.04, 0.022, Vector3(0, -0.075, 0), _mat(CLARO))
-						_cil(g, 0.028, 0.028, 0.006, Vector3(0, -0.088, 0), _mat(PESSEGO, 2.4))
-						_cil(g, 0.038, 0.038, 0.01, Vector3(0, 0.04, 0), _mat(VERDE))
-					"arma_precisao":
-						_cil(g, 0.011, 0.011, 0.24, Vector3(0, -0.07, 0), _mat(ACO))
-						_cil(g, 0.016, 0.016, 0.03, Vector3(0, -0.185, 0), _mat(ESCURO))
-						_caixa(g, Vector3(0.03, 0.07, 0.026), Vector3(0, 0.03, 0.004), _mat(ESCURO))
-						_cil(g, 0.014, 0.014, 0.07, Vector3(0, 0.0, -0.03), _mat(CLARO))
-						_cil(g, 0.012, 0.012, 0.004, Vector3(0, -0.037, -0.03), _mat(Color(0.35, 0.9, 1.0), 2.4))
-					"arma_duplo":
-						_cil(g, 0.02, 0.022, 0.1, Vector3(0, -0.03, 0), _mat(ESCURO))
-						_cil(g, 0.026, 0.026, 0.012, Vector3(0, -0.082, 0), _mat(VERDE))
-						_cil(g, 0.015, 0.015, 0.005, Vector3(0, -0.09, 0), _mat(PESSEGO, 2.2))
-				nos.append(g)
+		"arma_pistola", "arma_rajada", "arma_canhao", "arma_precisao", "arma_duplo":
+			# a arma sai do punho no lugar da mão quando o robô mira ou atira (2026-11-23, rascunho 7 aprovado); o tiro
+			# duplo é a mesma pistola, uma em cada braço
+			var arma := nome.substr(5)
+			for lado_arma in (["D", "E"] if arma == "duplo" else ["D"]):
+				var no := _arma_punho(v, "pistola" if arma == "duplo" else arma, lado_arma)
+				if no == null:
+					if arma != "pistola":
+						nos.append_array(_arma_sem_luva(v, nome))  # o robô anterior, sem luva
+					break
+				nos.append(no)
 		"lanca_misseis", "lanca_granadas":
 			# os dois lançadores ficam para fora dos ombros, na ponta de uma barra que sai das costas, e apontam
 			# na mesma direção (para cima e um pouco para a frente): o que sai deles passa longe da cabeça

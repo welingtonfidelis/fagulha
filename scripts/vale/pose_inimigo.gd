@@ -25,6 +25,7 @@ var postura := 0
 var erguendo := 0.0
 var atirando := 0.0
 var atirando_e := 0.0
+var lancando := 0.0
 var espada_t := 0.0
 var espada_lado := 1.0
 var esquivando := 0.0

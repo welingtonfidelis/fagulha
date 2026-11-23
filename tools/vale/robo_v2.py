@@ -193,6 +193,17 @@ JUNTA = mat_pbr("placa_escura", (0.035, 0.04, 0.045), 0.1, 0.6)
 VIDRO = mat_pbr("vidro", (0.008, 0.012, 0.02), 0.0, 0.12)
 OLHOS = mat_luz("olhos", _PAL[3] if INIM else (0.35, 0.9, 1.0), 2.6 if INIM else 2.2)
 LAMINA = mat_luz("lamina", (1.0, 0.22, 0.08) if INIM else (0.1, 0.8, 1.0), 3.0)
+BOCA_ARMA = mat_luz("boca_arma", (1.0, 0.7, 0.08), 2.0)  # a boca amarela dos canos (2026-11-23)
+
+
+def cano_luva(s, lado, base=None):
+    """A pistola da luva (2026-11-23, do desenho do usuário): um cano de seção quase quadrada em cima do antebraço,
+    no cinza das juntas, com a boca amarela passando um pouco do punho; o calço por baixo leva a cor do conjunto.
+    Com outra arma encaixada, o jogo esconde o cano, o calço e a boca (tudo o que começa com "cano" e "luz_arma")."""
+    lu = J["luva" + lado]
+    caixa("cano_calco", (s * 0.262, -0.081, 0.3775), (0.0315, 0.036, 0.051), base or JUNTA, lu, bevel=0.004)
+    caixa("cano", (s * 0.262, -0.099, 0.3665), (0.045, 0.042, 0.089), JUNTA, lu, bevel=0.006)
+    cil("luz_arma", (s * 0.262, -0.099, 0.3208), 0.0155, 0.0155, 0.004, BOCA_ARMA, lu, segs=12, bevel=0)
 
 
 def esfera(nome, centro, raios, mat, pai, u=28, v=16):
@@ -220,22 +231,25 @@ cil("pescoco", (0, 0, 0.705), 0.045, 0.045, 0.04, JUNTA, tronco, segs=10)
 caixa("mochila", (0, 0.125, 0.585), (0.19, 0.08, 0.17), BRANCA, costas, base=(0.8, 0.9), bevel=0.025)
 caixa("mochila_azul", (0, 0.168, 0.615), (0.11, 0.012, 0.07), AZUL, costas, bevel=0.006)
 caixa("radiador", (0, 0.176, 0.615), (0.07, 0.006, 0.04), CALOR, costas, bevel=0)
-ESTAB_FORA = 25  # graus: os jatos das costas (bocal e chama) abrem para fora, cada um para o seu lado (2026-11-23)
-ESTAB = 0.78  # a caixa do jato menor que a antiga, dentro do contorno da mochila sem sobrar borda (2026-11-23)
+# os jatos das costas nos cantos de baixo da mochila (2026-11-23, do desenho do usuário): cada bocal sai do canto,
+# aberto para fora e um pouco para trás, com um aro laranja na base; a chama sai da boca, no mesmo eixo
+ESTAB_FORA, ESTAB_TRAS = 32, 25  # graus
 for s, lado in ((1, "E"), (-1, "D")):
-    # a caixa fica em pé na base da mochila; o bocal sai da ponta dela, no mesmo eixo, e só ele e a chama abrem para
-    # fora. A chama nasce na boca do bocal (antes o bocal ficava uns 3 cm atrás da ponta e a chama mais 4)
-    comp = 0.10 * ESTAB
-    centro = Vector((s * 0.052, 0.17, 0.54))
-    eixo = Matrix.Rotation(R(-18), 3, "X") @ Vector((0, 0, -1))  # o eixo da caixa, para baixo
-    desce = Matrix.Rotation(R(-s * ESTAB_FORA), 3, "Y") @ eixo  # para onde a boca aponta
-    caixa("estabilizador", tuple(centro), (0.055 * ESTAB, 0.055 * ESTAB, comp), BRANCA, costas, base=(1.15, 1.15), rot=(-18, 0, 0), bevel=0.012 * ESTAB)
-    ponta = centro + eixo * comp * 0.5
-    giro_b = (-18, -s * ESTAB_FORA, 0)
-    bocal_c = ponta + desce * 0.01 * ESTAB
-    cil("bocal_estab", tuple(bocal_c), 0.026 * ESTAB, 0.02 * ESTAB, 0.02 * ESTAB, BOCAL, costas, rot=giro_b, segs=8, bevel=0)
-    cil("brasa_estab", tuple(bocal_c + desce * 0.0105 * ESTAB), 0.017 * ESTAB, 0.017 * ESTAB, 0.004, CALOR, costas, rot=giro_b, segs=8, bevel=0)
-    CHAMAS.append(cil("chama_estab", tuple(bocal_c + desce * (0.012 * ESTAB + 0.055)), 0.016 * ESTAB, 0.0, 0.11, CHAMA, costas, rot=(162, -s * ESTAB_FORA, 0), bevel=0, segs=10))
+    _d = Vector((s * math.tan(R(ESTAB_FORA)), math.tan(R(ESTAB_TRAS)), -1.0)).normalized()
+    _q = _d.to_track_quat("Z", "Y").to_matrix().to_4x4()
+    _b = Vector((s * 0.068, 0.147, 0.508))
+
+    def _cone(nome, c, r1, r2, comp, mat, bev=0.003):
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=14, radius1=r1, radius2=r2, depth=comp,
+                              matrix=Matrix.Translation(c) @ _q)
+        return malha(nome, bm, mat, costas, bev, 1)
+
+    _cone("junta_estab", _b, 0.017, 0.017, 0.022, JUNTA)
+    _cone("aro_estab", _b + _d * 0.012, 0.02, 0.02, 0.007, LARANJA)
+    _cone("bocal_estab", _b + _d * 0.028, 0.015, 0.021, 0.026, BOCAL)
+    _cone("brasa_estab", _b + _d * 0.0405, 0.017, 0.017, 0.002, CALOR, 0)
+    CHAMAS.append(_cone("chama_estab", _b + _d * (0.042 + 0.06), 0.016, 0.0, 0.12, CHAMA, 0))
     caixa("aba", (s * 0.108, 0.176, 0.585), (0.05, 0.012, 0.14), AZUL, J["aleta" + lado], base=(0.6, 1), bevel=0.005)
     caixa("ombro_laranja", (s * 0.15, 0, 0.652), (0.05, 0.10, 0.03), LARANJA, tronco, bevel=0.008)
 # cabeça: capacete de placas, aberto na frente para o visor escuro com o rosto de tela
@@ -306,11 +320,10 @@ for s, lado in ((1, "E"), (-1, "D")):
     luva.append(caixa("antebraco", (s * 0.262, -0.005, 0.43), (0.12, 0.135, 0.17), BRANCA, co, base=(1.22, 1.2), topo=(0.85, 0.85), bevel=0.028, segs=2))
     luva.append(caixa("faixa_luva", (s * 0.258, -0.005, 0.512), (0.085, 0.10, 0.018), LARANJA, co, bevel=0.005))
     luva.append(caixa("bracelete", (s * 0.338, -0.005, 0.41), (0.016, 0.095, 0.11), AZUL, co, base=(1, 0.7), bevel=0.005))
-    # o cano da luva: um bloco sobre as costas do antebraço com a boca virada para a mão (com o braço
-    # erguido para mirar, fica por cima do punho fechado, apontando para a frente)
-    caixa("cano_base", (s * 0.262, -0.086, 0.435), (0.062, 0.034, 0.10), JUNTA, co, topo=(0.8, 1), bevel=0.008)
-    cil("cano", (s * 0.262, -0.092, 0.365), 0.022, 0.022, 0.06, BOCAL, co, segs=8, bevel=0.003)
-    cil("luz_arma", (s * 0.262, -0.092, 0.3335), 0.014, 0.014, 0.004, OLHOS, co, segs=8, bevel=0)
+    # o robô do jogador não tem cano em cima da luva: ao mirar, a mão entra e a arma sai do punho (robo_armas.py,
+    # 2026-11-23); os outros modelos (mergulhador e inimigos) seguem com a pistola por cima do antebraço
+    if VAR:
+        cano_luva(s, lado)
     luva.append(caixa("mao", (s * 0.265, -0.012, 0.318), (0.10, 0.11, 0.055), JUNTA, pu, bevel=0.018))
     for dx in (-0.032, 0.0, 0.032):
         luva.append(caixa("dedo", (s * 0.265 + dx, -0.03, 0.268), (0.026, 0.05, 0.06), JUNTA, J["dedos" + lado], base=(0.8, 0.7), bevel=0.008))
@@ -398,7 +411,7 @@ def _emissor(lados):  # a base da lâmina de luz (a lâmina é do jogo)
 
 if INIM:
     # eles não voam: saem os jatos das costas, as abas e as chamas
-    _tirar("estabilizador", "bocal_estab", "brasa_estab", "chama_estab", "aba", "radiador", "mochila_azul", "chama_pe", "brasa_pe",
+    _tirar("junta_estab", "aro_estab", "bocal_estab", "brasa_estab", "chama_estab", "aba", "radiador", "mochila_azul", "chama_pe", "brasa_pe",
            "antena", "ponta_antena", "aro_laranja")
     CHAMAS.clear()
     if VAR not in ("espadachim", "guardiao"):

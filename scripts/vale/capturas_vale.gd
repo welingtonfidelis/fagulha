@@ -587,7 +587,7 @@ func rodar(main: Node) -> void:
 		a.recomecar()
 		Melhorias.tudo = false
 		Arsenal.tudo = false
-		Arsenal.xp = 420
+		Arsenal.xp = Arsenal.xp_do_nivel(3) + 600
 		Arsenal.sucata = 34
 		Arsenal.nucleos = 2
 		Arsenal.fabricados = ["rajada", "canhao", "precisao", "mira"]

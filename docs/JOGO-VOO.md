@@ -4569,7 +4569,7 @@ Ficam em `tools/capturas/rastro/aba/`.
 - antes e depois em `tools/capturas/rastro/costas_antes_depois.jpg`.
 
 **Estado:** a cor dos jatos foi aprovada em 2026-11-23 ("ficou bom a mudança dos jatos"). Os jatos das costas
-inclinados e menores esperam a aprovação pelas fotos. Os testes ainda não rodaram.
+inclinados foram trocados pelos dos cantos da mochila (§149), aprovados no rascunho. Testes: ver §149.
 
 ## 148. A experiência: descobertas, fôlego da luta e um conjunto por nível (2026-11-23)
 
@@ -4645,4 +4645,55 @@ forjas e o resumo. Ficam em `tools/capturas/experiencia/`.
 **Falta depois do "está bom":** acertar os testes que contam com a curva velha (`testes_vale`, `capturas_vale` e
 `tools/fotos_aba_corpo.gd`, que usa 380 de experiência) e rodar as baterias.
 
-**Estado:** esperando a aprovação pelas fotos. Os testes ainda não rodaram.
+**Estado:** aprovada junto com a §149. Os testes que usavam a curva velha (o nível da Fundição, a fabricação da mira,
+do escudo e da vida extra, e as fotos `capturas_vale` e `fotos_aba_corpo`) passaram a usar `Arsenal.xp_do_nivel`. Testes: ver §149.
+
+## 149. As armas saem do punho, jatos nos cantos da mochila e acertos do corpo (2026-11-23)
+
+Pedidos do usuário a partir de rascunhos no Blender: ele achou as armas de antes (canos por cima do antebraço) pesadas e
+mandou uma folha de arte com a ideia de a mão entrar no braço e a arma sair no lugar. Rascunhos 2 a 7 em
+`tools/capturas/rascunho_armas2..7/`; o 7 foi aprovado ("Está bom"). Regra que saiu daqui: ajuste visual em discussão
+vira rascunho novo antes de ir ao jogo.
+
+**As armas do punho** (`tools/vale/robo_armas.py` → `assets/vale/armas.glb`):
+- ao mirar ou atirar, a mão fecha, sobe para dentro da luva e encolhe; a boca escura do punho aparece; depois a arma
+  desliza para fora (`ArmaduraVisual._armas_do_punho`, `_arma_k` a 6/s: a primeira metade é a mão, a segunda a arma);
+- **pistola** (a de sempre, sem outra arma equipada): corpo cinza, um cano, boca de latão e mira laranja;
+- **tiro duplo**: a mesma pistola, uma em cada braço (o esquerdo arma no L2);
+- **rajada**: cubo, anel laranja, seis canos que giram enquanto atira (o nó `giro`) e outro anel;
+- **precisão**: base, dois trilhos com faixa azul, luz amarela entre eles e quatro aletas em X de ponta laranja que
+  abrem no fim da saída (o nó `aletas`);
+- **canhão**: cano octogonal, boca larga, furo escuro e placas azuis dos lados;
+- cada arma é um nó `arma_<nome>_<lado>` no meio da boca do punho, no espaço do modelo; `MelhoriasVisual._arma_punho`
+  prende na luva (`_espaco_luva`, irmão de uma malha presa direto na junta) e registra em `ArmaduraVisual.armas_punho`;
+- **o tiro sai da ponta** de cada arma (`boca_arma`, por `boca_da_arma`); no primeiro tiro sem mirar a arma ainda
+  está saindo (0,17 s) e o tiro sai perto do punho;
+- **nos conjuntos** a ponta do antebraço fica em alturas diferentes: `tools/vale/medir_punhos.py` mede cada uma no
+  Blender (`PUNHO_FIM` em `melhorias_visual.gd`) e a boca e a arma vão até ela; a boca escura não recebe sombra (a
+  sombra da borda da luva fazia um xadrez nela);
+- o robô do jogador e os conjuntos não têm mais cano por cima do antebraço (`cano()` em `robo_pecas.py` não faz nada);
+  o mergulhador e os inimigos (`VARIANTE`) seguem com a pistola por cima;
+- os lançadores dos ombros não mexem no braço: granada e míssil usam `Armadura.lancando` (o corpo vira para a mira e
+  só a cabeça acompanha), e no modo de mísseis mirar com L2 deixa o braço parado (`ArmaduraVisual._mira_braco`).
+
+**Os jatos das costas** saem dos cantos de baixo da mochila, abertos 32° para fora e 25° para trás (`ESTAB_FORA`,
+`ESTAB_TRAS` em `robo_v2.py`), com um aro laranja na base; aprovados no rascunho.
+
+**Acertos do corpo:**
+- o cachorro (bazuca) e a caldeira (cano de latão) perderam as armas do antebraço;
+- a pata do gato subiu 1,3 cm (`mao(..., dz=)`): o antebraço dele termina 2 cm acima do de fábrica;
+- a Antena de busca põe o anel e a luz no mastro que a cabeça já tem (`MelhoriasVisual._mastro`; a de fábrica e a do
+  Antigo); antes ela ficava no lugar do robô anterior e parecia uma segunda antena;
+- com o tronco de um conjunto, a faixa da mochila, as abas das costas e as peças das melhorias vão na cor dele
+  (`Corpo.COR`, `ArmaduraVisual._pintar_mochila`, `cor_detalhe`); a barbatana azul do braço é a melhoria Barbatanas e
+  ficou como estava, a pedido do usuário.
+
+**Fotos:** `tools/fotos_armas_jatos.gd` (`--conjuntos`, `--detalhes`, `--lancadores`, `--jatos`), em
+`tools/capturas/armas_punho/`, `detalhes_corpo/` e `lancadores/`.
+
+**Save do Mac:** a pedido do usuário, o save ganhou as seis armas fabricadas (duplo, granadas, canhão, precisão,
+rajada e mísseis).
+
+**Estado:** aprovada ("ficou muito bom"). Testes em 2026-11-23, sem janela (`--headless`; com a janela aberta o
+tempo dos quadros muda e os pontos 1, 2 e 25 do vale falham): `--teste-vale` 115/115, `--teste` 94/94 e a
+simulação 28/28. O ponto 29 agora espera só a pistola do punho no robô básico.

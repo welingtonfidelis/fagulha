@@ -41,6 +41,13 @@ const ACHADOS := {
 	"antigo": {"robo": 0, "icone": "lua", "lugar": "no Observatório"},
 	"mergulhador": {"robo": 1, "icone": "barbatanas", "lugar": "no fundo da Represa"},
 }
+## A cor de cada conjunto (o material da primeira cor de `cores()` em tools/vale/robo_pecas.py): com o tronco de um
+## conjunto, os detalhes da mochila, as abas das costas e as peças das melhorias vão nela, no lugar do azul
+## (pedido do usuário, 2026-11-23: tronco besouro, mochila e asas verdes).
+const COR := {"besouro": "detalhe_besouro", "gato": "detalhe_gato", "urso": "placa_urso", "cachorro": "detalhe_cachorro",
+	"caldeira": "placa_caldeira", "majestade": "placa_majestade", "lucano": "placa_lucano", "cavaleiro": "placa_cavaleiro",
+	"enfermeira": "placa_enfermeira", "samurai": "placa_samurai", "marinheiro": "placa_marinheiro", "sabre": "placa_sabre",
+	"solar": "placa_solar", "mergulhador": "placa_mergulhador", "antigo": "placa_antigo"}
 ## Os conjuntos com rabo (o rabo vem no tronco; o jogo balança parado e estica correndo e voando).
 const COM_RABO := ["gato", "cachorro", "sabre"]
 

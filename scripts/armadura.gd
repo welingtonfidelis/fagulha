@@ -79,6 +79,9 @@ var pouso_forca := 0.0  # 0 pouso comum, 0,5 queda com estilo leve, 1 pouso de h
 var clarao_tiro := 0.0  # brilho rápido do jato da mão direita a cada disparo
 var atirando_e := 0.0  # o mesmo para o braço esquerdo (tiro duplo)
 var atirando := 0.0  # tempo desde o último tiro (o visual aponta o braço mesmo sem mirar)
+## Tempo desde o último lançamento dos ombros (granada, míssil): o corpo vira para a mira, mas o braço fica
+## parado e a mão não dá lugar à arma do punho (os lançadores são nos ombros; pedido do usuário, 2026-11-23).
+var lancando := 0.0
 var mergulhando := false  # mergulho com impacto em andamento (o visual lê)
 var base := Vector3.INF  # onde reaparece depois do curto (o mapa define; sem base, religa onde caiu)
 var caido := false  # caiu por superaquecer: não religa nem paira até tocar o chão
@@ -528,6 +531,7 @@ func _passo(delta: float) -> void:
 	impulso = maxf(0.0, impulso - delta * 3.0)
 	atirando = maxf(0.0, atirando - delta)
 	atirando_e = maxf(0.0, atirando_e - delta)
+	lancando = maxf(0.0, lancando - delta)
 	espada_t = maxf(0.0, espada_t - delta)
 	clarao_tiro = maxf(0.0, clarao_tiro - delta * 5.0)
 	if ilha:
