@@ -23,16 +23,18 @@ const JUNTAS := {
 const ANTIGAS := {"bracos": ["bracoD", "bracoE"], "pernas": ["pernaD", "pernaE"]}
 ## Peças do robô que nenhum conjunto troca (o pescoço, a cintura e o jato dos pés).
 const FIXAS := ["pescoco", "cintura", "lamina", "brasa_pe", "chama_pe"]
-## [chave, nome, nome curto (no cartão), nível que abre]: um por nível, do 2 ao 12 (doc §148; antes eram dois por
-## nível até o 7). Nível 0 é de robô achado: abre ao acordar aquele robô (ACHADOS), não por nível.
+## [chave, nome, nome curto (no cartão), nível que abre]: um por nível, do 3 ao 15 (doc §154). O jogo começa só
+## com o Original, para o jogador usar bastante antes do primeiro (pedido do usuário, 2026-11-23; antes Gato e
+## Cachorro vinham no 1 e havia um por nível do 2 ao 12). Nível 0 é de robô achado: abre ao acordar aquele robô
+## (ACHADOS), não por nível.
 const CONJUNTOS := [
-	["gato", "Gato", "Gato", 1], ["cachorro", "Cachorro", "Cachorro", 1],
-	["urso", "Urso", "Urso", 2], ["enfermeira", "Enfermeira", "Enfermeira", 3],
-	["besouro", "Besouro", "Besouro", 4], ["marinheiro", "Marinheiro", "Marinheiro", 5],
-	["caldeira", "Caldeira", "Caldeira", 6], ["lucano", "Lucano", "Lucano", 7],
-	["majestade", "Majestade", "Majestade", 8], ["sabre", "Dente-de-sabre", "Sabre", 9],
-	["samurai", "Samurai", "Samurai", 10], ["solar", "Solar", "Solar", 11],
-	["cavaleiro", "Cavaleiro", "Cavaleiro", 12],
+	["gato", "Gato", "Gato", 3], ["cachorro", "Cachorro", "Cachorro", 4],
+	["urso", "Urso", "Urso", 5], ["enfermeira", "Enfermeira", "Enfermeira", 6],
+	["besouro", "Besouro", "Besouro", 7], ["marinheiro", "Marinheiro", "Marinheiro", 8],
+	["caldeira", "Caldeira", "Caldeira", 9], ["lucano", "Lucano", "Lucano", 10],
+	["majestade", "Majestade", "Majestade", 11], ["sabre", "Dente-de-sabre", "Sabre", 12],
+	["samurai", "Samurai", "Samurai", 13], ["solar", "Solar", "Solar", 14],
+	["cavaleiro", "Cavaleiro", "Cavaleiro", 15],
 	["antigo", "Antigo", "Antigo", 0], ["mergulhador", "Mergulhador", "Mergulhador", 0],
 ]
 ## Os conjuntos dos robôs achados (2026-11-23): o robô de cada um (o índice em RoboAntigo.ROBOS), a figura do
@@ -200,7 +202,10 @@ static func carregar() -> void:
 						g[p] = g[velha]
 		for parte: String in PARTES:
 			var chave := String(g.get(parte, ""))
-			vestido[parte] = chave if existe(chave) else ""
+			# um conjunto que o nível ainda não abre (a tabela mudou em 2026-11-23) volta ao Original; o dos robôs
+			# achados fica, porque `resgatados` ainda não carregou aqui
+			var fechado := existe(chave) and not ACHADOS.has(chave) and not aberto(chave)
+			vestido[parte] = chave if existe(chave) and not fechado else ""
 
 
 static func guardar() -> void:

@@ -12,7 +12,7 @@ const FOLEGO_MAX := 1200.0
 const FOLEGO_FORA := 0.25
 static var folego := FOLEGO_MAX
 ## Cada nível pede 500 a mais que o anterior (doc §148; antes eram 100). A versão 2 do save começa do zero.
-const PASSO_NIVEL := 500
+const PASSO_NIVEL := 400
 const XP_VERSAO := 2
 static var sucata := 0
 static var nucleos := 0
@@ -313,8 +313,9 @@ static func golpes_pane() -> int:
 
 
 
-## A experiência que o nível `n` pede, desde o zero: cada nível pede 500 a mais que o anterior (500, 1.000,
-## 1.500...), então o nível 2 vem com 500, o 3 com 1.500 e o 12 com 33.000 (doc §148).
+## A experiência que o nível `n` pede, desde o zero: cada nível pede 400 a mais que o anterior (400, 800,
+## 1.200...), então o nível 2 vem com 400, o 3 com 1.200, o 12 com 26.400 e o 15 com 42.000 (doc §148 e §154; antes o
+## passo era 500 e os conjuntos acabavam no 12).
 static func xp_do_nivel(n: int) -> int:
 	return PASSO_NIVEL / 2 * n * (n - 1)
 

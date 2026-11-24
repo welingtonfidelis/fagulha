@@ -141,6 +141,10 @@ var _pos_fis := Vector3.ZERO
 var _corte := true  # teleporte: não há de onde suavizar
 var _frear_tempo := 0.0  # quanto dura a freada antes de os jatos desligarem
 var _pairar_travado := false  # desligou o voo parado com o L2 ainda apertado: só volta a pairar apertando de novo
+## O golpe ou a esquiva tirou o robô do chão (ladeira abaixo ele fica mais tempo no ar): o L2 que já estava
+## segurado para mirar não liga o voo parado, só um aperto novo (pedido do usuário, 2026-11-23; doc §156).
+var _ar_sem_querer := false
+var _desde_golpe := 9.0
 var _solto := false  # motor desligado ou travado no voo: cai pesado até pousar ou religar
 var golpes := 0  # quantos golpes de máquina levou (testes)
 var avaria := 0  # acertos acumulados; saram com o tempo
@@ -277,6 +281,7 @@ func levar_golpe(direcao: Vector3, forca: float, dano := 1.0) -> void:
 		velocity += direcao.normalized() * forca * 0.3
 		return
 	velocity += direcao.normalized() * forca + Vector3(0, forca * 0.35, 0)
+	_desde_golpe = 0.0
 	calor = minf(100.0, calor + Ajustes.GOLPE_CALOR * dano)
 	tremor = maxf(tremor, 0.3 + 0.5 * minf(dano, 1.0))
 	golpes += 1
@@ -466,6 +471,7 @@ func _mudar(novo: int) -> void:
 		_x_seg = -1.0
 	if novo != Estado.AR:
 		_origem_chao = false  # só o pulo do chão (e o duplo logo depois) conta como saído do chão
+		_ar_sem_querer = false
 	if novo != Estado.CHAO:
 		postura = 0
 		_abaixar_seg = false
@@ -519,6 +525,7 @@ func _passo(delta: float) -> void:
 	# no tiro duplo o L2 é o gatilho do braço esquerdo: não mira
 	mirando = Input.is_action_pressed("mirar") and not (Arsenal.modo == "duplo" and Arsenal.tem_arma("duplo"))
 	_esquiva_espera = maxf(0.0, _esquiva_espera - delta)
+	_desde_golpe += delta
 	_manobra_espera = maxf(0.0, _manobra_espera - delta)
 	_fora_dagua = maxf(0.0, _fora_dagua - delta)
 	resfriado = maxf(0.0, resfriado - delta)
@@ -655,17 +662,31 @@ func analogico() -> Vector2:
 	return melhor
 
 
-## O lugar de sentar mais perto do robô (lista vazia: nenhum ao alcance).
+## O lugar de sentar vago mais perto do robô (lista vazia: nenhum ao alcance). O que tem um robozinho sentado
+## fica de fora, e o robô senta no próximo vago (no outro lado do sofá; doc §157).
 func assento_perto() -> Array:
 	var melhor: Array = []
 	var md := ASSENTO_PERTO
+	var tomado := false  # um assento ao alcance tem robozinho: o vago do lado pode estar um pouco mais longe
 	for lugar: Array in assentos:
 		var p: Vector3 = lugar[0]
 		var d := Vector2(p.x - global_position.x, p.z - global_position.z).length()
-		if d < md and absf(p.y - global_position.y) < 1.6:
+		if d < ASSENTO_PERTO and absf(p.y - global_position.y) < 1.6 and MiniRobos.lugar_ocupado(p):
+			tomado = true
+	if tomado:
+		md = ASSENTO_PERTO + 1.0
+	for lugar: Array in assentos:
+		var p: Vector3 = lugar[0]
+		var d := Vector2(p.x - global_position.x, p.z - global_position.z).length()
+		if d < md and absf(p.y - global_position.y) < 1.6 and not MiniRobos.lugar_ocupado(p):
 			md = d
 			melhor = lugar
 	return melhor
+
+
+## Onde a bacia do robô apoia, sentado num móvel (INF: não está sentado).
+func assento_atual() -> Vector3:
+	return _assento[0] if no_assento and not _assento.is_empty() else Vector3.INF
 
 
 func _sentar_em(lugar: Array) -> void:
@@ -799,7 +820,8 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		return
 	if not mirando:
 		_pairar_travado = false
-	var quer_pairar := (mirando and not _pairar_travado) or Input.is_action_just_pressed("pairar")
+	var mira_paira := mirando and not _pairar_travado and (not _ar_sem_querer or Input.is_action_just_pressed("mirar"))
+	var quer_pairar := mira_paira or Input.is_action_just_pressed("pairar")
 	if quer_pairar and not superaquecido and not caido:
 		_solto = false
 		_mudar(Estado.PAIRAR)
@@ -840,6 +862,7 @@ func _ar(delta: float, mov: Vector2, mira: Vector3) -> void:
 		_pulo_guardado = 0.14
 	elif Input.is_action_just_pressed("pular") and not superaquecido and not caido and not _duplo_usado:
 		_duplo_usado = true
+		_ar_sem_querer = false  # o pulo duplo é de propósito: mirando, paira como sempre
 		velocity.y = maxf(velocity.y, Ajustes.PULO_DUPLO * Melhorias.pulo())
 		calor = minf(100.0, calor + Ajustes.CALOR_PULO_DUPLO)
 		impulso = 1.0
@@ -1349,6 +1372,7 @@ func _depois_de_mover(antes: Vector3) -> void:
 		if _fora_chao > 0.15:
 			_pulo_vivo = false
 			_mudar(Estado.AR)
+			_ar_sem_querer = esquivando > 0.0 or _desde_golpe < 0.6  # saiu do chão pelo golpe ou pela esquiva
 
 
 # ---------------------------------------------------------------- água e calor

@@ -71,7 +71,7 @@ func _rodar() -> void:
 	a.visual.vestir_corpo(Corpo.vestido)
 	Arsenal.descobertas = {}
 	Arsenal.folego = Arsenal.FOLEGO_MAX
-	Arsenal.xp = Arsenal.xp_do_nivel(2) - 40  # nível 1, perto do 2
+	Arsenal.xp = Arsenal.xp_do_nivel(3) - 40  # nível 2, perto do 3 (o primeiro conjunto, o Gato; doc §154)
 	of = m.oficina
 	if "--so-forja" in OS.get_cmdline_user_args():
 		await _forja()
@@ -98,9 +98,9 @@ func _rodar() -> void:
 	await _foto("2_cartao_e_lugar")
 	await _esp(400)
 	await _foto("3_bussola_pontinho")
-	# dois níveis de uma vez (o 3 e o 4)
-	Arsenal.xp = Arsenal.xp_do_nivel(3) - 40
-	Experiencia.descobrir("foto:memoria", Arsenal.xp_do_nivel(4) - Arsenal.xp + 20)
+	# dois níveis de uma vez (o 4 e o 5: Cachorro e Urso)
+	Arsenal.xp = Arsenal.xp_do_nivel(4) - 40
+	Experiencia.descobrir("foto:memoria", Arsenal.xp_do_nivel(5) - Arsenal.xp + 20)
 	await _esp(110)
 	await _foto("4_cartao_dois_niveis")
 	# um robô achado: o cartão sem nível

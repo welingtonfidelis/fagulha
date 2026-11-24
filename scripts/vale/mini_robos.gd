@@ -40,9 +40,40 @@ var _rng := RandomNumberGenerator.new()
 var _mats := {}
 var _quadro_tv := 0.0
 var _portatil: PackedScene
+static var atual: MiniRobos
+const SENTADOS := ["subir", "jogar", "descer"]  # no móvel (ou pulando para ele): o lugar está tomado
+const MESMO_LUGAR := 0.35  # m: um assento do robô e um lugar de jogar mais perto que isto são o mesmo
+
+
+## Algum robozinho está sentado (ou subindo, ou descendo) no assento `p`? O robô do jogador então senta no
+## próximo vago (pedido do usuário, 2026-11-23; doc §157).
+static func lugar_ocupado(p: Vector3) -> bool:
+	if not is_instance_valid(atual):
+		return false
+	for r: Dictionary in atual._robos:
+		var i := int(r.get("lugar", -1))
+		if i < 0 or i >= BaseLar.lugares_minis.size() or not String(r["estado"]) in SENTADOS:
+			continue
+		if (BaseLar.lugares_minis[i]["assento"] as Vector3).distance_to(p) < MESMO_LUGAR:
+			return true
+	return false
+
+
+## O lugar de jogar `i` está com o robô do jogador sentado?
+func _do_jogador(i: int) -> bool:
+	if armadura == null or i < 0 or i >= BaseLar.lugares_minis.size():
+		return false
+	var a := armadura.assento_atual()
+	return a.is_finite() and a.distance_to(BaseLar.lugares_minis[i]["assento"]) < MESMO_LUGAR
+
+
+func _exit_tree() -> void:
+	if atual == self:
+		atual = null
 
 
 func _ready() -> void:
+	atual = self
 	_rng.seed = 5150
 	if Guardado.ativo:
 		achados = bool((Guardado.progresso("achados") as Dictionary).get("minis", false))
@@ -429,7 +460,7 @@ func _ir_jogar(r: Dictionary) -> bool:
 		for o: Dictionary in _robos:
 			if int(o["lugar"]) == i and String(o["estado"]) in ESTADOS_JOGO:
 				ocupado = true
-		if not ocupado:
+		if not ocupado and not _do_jogador(i):
 			livres.append(i)
 	if livres.is_empty():
 		return false
@@ -463,6 +494,14 @@ func _jogando(r: Dictionary, delta: float) -> bool:
 					r["estado"] = "voltar"
 					r["rota"] = [_ponto_do_patio()]
 					r["t"] = 30.0
+					return true
+				if est == "ir" and _do_jogador(int(r["lugar"])):
+					# o robô do jogador sentou ali enquanto ele vinha: desiste e volta ao pátio
+					r["estado"] = "voltar"
+					r["rota"] = (l["via"] as Array).duplicate()
+					(r["rota"] as Array).reverse()
+					(r["rota"] as Array).append(_ponto_do_patio())
+					r["t"] = 40.0
 					return true
 				if est == "ir":
 					r["estado"] = "subir"

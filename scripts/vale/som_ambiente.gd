@@ -40,6 +40,11 @@ const AGUA_ENTRA := 0.35  # segundos para o som virar o de debaixo d'água
 const AGUA_SAI := 0.55  # segundos para a natureza voltar
 const AGUA_FOLGA := 0.06  # m: a câmera entra a isto abaixo da lâmina e sai a isto acima (não fica piscando)
 const BUS_NATUREZA := &"Natureza"
+## Apreciando a vista (`Armadura.contemplando`, a seta para a esquerda): a natureza baixa aos poucos para a música
+## e o resto aparecerem por cima dela, e volta aos poucos ao sair (pedido do usuário, 2026-11-23; doc §155).
+const VISTA_DB := -9.0
+const VISTA_ENTRA := 3.0  # segundos para baixar tudo (a câmera leva uns 2 s para ir de lado)
+const VISTA_SAI := 2.5  # segundos para a natureza voltar
 const NOME_FILTRO := "abafa_agua"  # o passa-baixa que este nó põe no Master
 
 ## Quem ouve (o robô ou a câmera). Usado para pôr o trovão ao longe, numa direção sorteada. Sendo o robô,
@@ -58,6 +63,7 @@ var _chuva: AudioStreamPlayer
 var _fundo: AudioStreamPlayer
 var _caverna: AudioStreamPlayer
 var _na_caverna := 0.0
+var _vista := 0.0  # 0 a 1: quanto a natureza já baixou por causa da vista
 var _riacho_players: Array[AudioStreamPlayer3D] = []
 var _contagem_trovao := 0.0
 var _agua: AudioStreamPlayer  # o ronco de debaixo d'água (fora dela fica parado)
@@ -260,6 +266,16 @@ func _preparar_barramentos() -> void:
 	AudioServer.set_bus_effect_enabled(0, _idx_geral, false)
 
 
+## Põe um som do mundo (fonte, lama, gêiser) no barramento da natureza: abafa debaixo d'água e baixa apreciando a
+## vista junto com a mata. O barramento nasce com o SomAmbiente, que pode vir depois de quem chama.
+static func na_natureza(p: Node) -> void:
+	if p == null:
+		return
+	(func() -> void:
+		if is_instance_valid(p) and AudioServer.get_bus_index(BUS_NATUREZA) >= 0:
+			p.set("bus", BUS_NATUREZA)).call_deferred()
+
+
 ## Debaixo d'água: a câmera abaixo da lâmina (com folga para não piscar na superfície) ou o robô nadando
 ## (no nado a cabeça fica logo abaixo da lâmina, então ouvir de dentro é o certo mesmo com a câmera de fora).
 func _debaixo_dagua() -> bool:
@@ -294,8 +310,11 @@ func _atualizar_agua(delta: float) -> void:
 	_submerso = move_toward(_submerso, 1.0 if dentro else 0.0, delta / (AGUA_ENTRA if dentro else AGUA_SAI))
 	var s := smoothstep(0.0, 1.0, _submerso)
 
-	# a natureza: cai de volume e só o grave passa; o resto do jogo, um pouco abafado
-	AudioServer.set_bus_volume_db(_bus, ABAFA_AGUA_DB * s)
+	# a natureza: cai de volume e só o grave passa; o resto do jogo, um pouco abafado. Apreciando a vista, ela baixa
+	# também (sem filtro: só o volume)
+	var contemplando := arm != null and arm.contemplando
+	_vista = move_toward(_vista, 1.0 if contemplando else 0.0, delta / (VISTA_ENTRA if contemplando else VISTA_SAI))
+	AudioServer.set_bus_volume_db(_bus, ABAFA_AGUA_DB * s + VISTA_DB * smoothstep(0.0, 1.0, _vista))
 	var ligado := s > 0.001
 	AudioServer.set_bus_effect_enabled(_bus, 0, ligado)
 	AudioServer.set_bus_effect_enabled(0, _idx_geral, ligado)
@@ -322,6 +341,7 @@ func _atualizar_agua(delta: float) -> void:
 	debug["camera_dentro"] = _cam_dentro
 	debug["agua_db"] = _agua.volume_db
 	debug["natureza_bus_db"] = AudioServer.get_bus_volume_db(_bus)
+	debug["vista"] = _vista
 	debug["corte_natureza_hz"] = _filtro_natureza.cutoff_hz
 	debug["corte_geral_hz"] = _filtro_geral.cutoff_hz
 	debug["filtro_ligado"] = ligado

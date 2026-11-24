@@ -445,12 +445,12 @@ func _sons() -> void:
 		no.position = Vector3(c.x, float(p["agua"]) + 0.3, c.y)
 		add_child(no)
 		var r: float = p["r"]
-		Som.laco3d(no, "fonte_borbulha_loop", -6.0 if k == 0 else -10.0, 5.0 + r * 0.3, 30.0 + r * 1.5)
+		SomAmbiente.na_natureza(Som.laco3d(no, "fonte_borbulha_loop", -6.0 if k == 0 else -10.0, 5.0 + r * 0.3, 30.0 + r * 1.5))
 	for q: Vector2 in tn.respiros:
 		var no := Node3D.new()
 		no.position = Vector3(q.x, altura_malha(q.x, q.y) + 0.4, q.y)
 		add_child(no)
-		Som.laco3d(no, "respiro_loop", -12.0, 3.0, 22.0)
+		SomAmbiente.na_natureza(Som.laco3d(no, "respiro_loop", -12.0, 3.0, 22.0))
 
 
 ## As bolhas da lama estouram de vez em quando, com o "blop", só com alguém perto.
@@ -465,7 +465,7 @@ func _process(delta: float) -> void:
 		if _lama_t[i] <= 0.0:
 			_lama_t[i] = _rng.randf_range(1.2, 3.6)
 			var ang := _rng.randf() * TAU
-			Som.toque3d(self, Som.variacao("lama", 3), lamas[i] + Vector3(cos(ang), 0.05, sin(ang)) * LAMA_RAIO * 0.4, -8.0, 4.0, 30.0)
+			SomAmbiente.na_natureza(Som.toque3d(self, Som.variacao("lama", 3), lamas[i] + Vector3(cos(ang), 0.05, sin(ang)) * LAMA_RAIO * 0.4, -8.0, 4.0, 30.0))
 
 
 # ---------------------------------------------------------------- a meia branca dos pinheiros secos

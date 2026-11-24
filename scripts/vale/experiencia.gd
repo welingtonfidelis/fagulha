@@ -7,17 +7,19 @@ extends Node
 ## alto da tela, que espera o respiro quando a subida vem no meio de uma onda da Fundição.
 ## Quem cria passa `armadura`, `hud` e `locais`.
 
-const LUGAR := 120
-const MEMORIA := 240
-const LEMBRANCA := 240
-const PECA := 160
-const ROBO := 240
-const ACAO := 120
+## As descobertas valem menos desde 2026-11-23 (pedido do usuário: o nível 3 vinha rápido demais com umas poucas
+## memórias); antes eram 120, 240, 240, 160, 240, 120, 50 e 40. As rotas e a corrida pedem esforço e ficaram.
+const LUGAR := 60
+const MEMORIA := 100
+const LEMBRANCA := 100
+const PECA := 100
+const ROBO := 150
+const ACAO := 60
 const ROTA := 100
 const ROTA_DIFICIL := 100
 const CORRIDA := 160
-const SEMENTE := 50
-const ALBUM := 40
+const SEMENTE := 30
+const ALBUM := 25
 const MAQUINA := 13  # uma máquina solta lá fora (InimigosVale); a grande vale `MAQUINA_GRANDE`
 const MAQUINA_GRANDE := 48
 const LUGARES_FORA := ["Clareira"]  # onde o jogo começa: não é descoberta

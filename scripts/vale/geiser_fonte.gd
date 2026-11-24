@@ -99,7 +99,7 @@ func _mudar(f: Fase) -> void:
 			_jato.amount_ratio = 0.0
 			_borrifo.amount_ratio = 0.0
 			# o som tem o gorgolejo (3,5 s), o jorro (8 s) e o respingo final
-			Som.toque3d(self, "geiser", global_position + Vector3.UP * (ALTO + 0.5), -3.0, 10.0, 140.0)
+			SomAmbiente.na_natureza(Som.toque3d(self, "geiser", global_position + Vector3.UP * (ALTO + 0.5), -3.0, 10.0, 140.0))
 		Fase.JORRO:
 			_bafo.emitting = true
 			_bafo.amount_ratio = 0.4

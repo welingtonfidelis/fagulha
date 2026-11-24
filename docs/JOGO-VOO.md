@@ -4788,3 +4788,97 @@ inclusive nos testes.
   dois de caixa. Eles sobram até quando as 72 partículas perdem o material e o mundo é apagado antes de fechar.
   Uma partícula sozinha e uma cópia das do gêiser, num projeto vazio, não deixam sobra. Inofensivo: o sistema
   libera a memória.
+
+## 154. A experiência mais devagar e os conjuntos mais espaçados (2026-11-23)
+
+O usuário começou um jogo novo e chegou ao nível 3 depressa, com pouco esforço: umas poucas lembranças e os
+robozinhos. A essa altura já tinha quatro conjuntos além do Original (Gato e Cachorro de saída, Urso no 2 e
+Enfermeira no 3). Pediu que as lembranças valessem menos e que os conjuntos viessem mais espaçados. O primeiro
+deve chegar no nível 3 ou 4, para o jogador usar bastante o Original, enjoar um pouco e se animar com o próximo.
+
+**As descobertas** (`Experiencia`) que pedem pouco esforço caíram para menos da metade:
+
+| O quê | Antes | Agora |
+| --- | --- | --- |
+| Memória, lembrança do Faísca | 240 | 100 |
+| Robô acordado | 240 | 150 |
+| Peça da ilha | 160 | 100 |
+| Lugar com nome, ação de lugar | 120 | 60 |
+| Semente, página do álbum | 50, 40 | 30, 25 |
+
+As rotas, a corrida e as máquinas soltas pedem esforço e ficaram como estavam. O mesmo passeio que antes dava o
+nível 3 agora dá uns 45% da experiência e para no nível 2.
+
+**A curva:** o passo caiu de 500 para 400 (`Arsenal.xp_do_nivel(n) = 200·n·(n−1)`), porque agora são 15 níveis
+com conjunto em vez de 12. O nível 2 pede 400, o 3 pede 1.200, o 4 pede 2.400, o 6 pede 6.000, o 12 pede 26.400 e
+o 15 pede 42.000 (antes o último conjunto, no nível 12, pedia 33.000).
+
+**Os conjuntos** (`Corpo.CONJUNTOS`): o jogo começa só com o Original. Depois vem um por nível, do 3 ao 15:
+
+| Nível | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Conjunto | Gato | Cachorro | Urso | Enfermeira | Besouro | Marinheiro | Caldeira | Lucano | Majestade | Sabre | Samurai | Solar | Cavaleiro |
+
+- Os dois robôs achados (Antigo e Mergulhador) continuam abrindo o deles ao acordar, em qualquer nível.
+- As armas não mudaram de nível (do 1 ao 5).
+- O save não volta a experiência para zero. Quem estava vestindo um conjunto que o nível ainda não abre volta ao
+  Original ao carregar (`Corpo.carregar`).
+
+**Depois do "está bom":** `tools/fotos_aba_corpo.gd` passou para o nível 6 (do Gato à Enfermeira abertos, a
+Majestade fechada). `tools/fotos_experiencia.gd` tira o primeiro cartão no nível 3 (o Gato) e os dois níveis de uma
+vez no 4 e no 5. O ponto da aba Corpo em `testes_vale` usa `Corpo.tudo` e não precisou mudar.
+
+## 155. A natureza baixa na vista (2026-11-23)
+
+Pedido do usuário: apreciando a vista (a seta para a esquerda), a natureza baixa aos poucos para a música e o resto
+se ouvirem melhor. Ao sair, volta aos poucos.
+
+- O barramento "Natureza" (o mesmo que abafa debaixo d'água) cai até −9 dB (`SomAmbiente.VISTA_DB`).
+- Baixa em 3 s (`VISTA_ENTRA`) e volta em 2,5 s (`VISTA_SAI`), numa curva suave. Só o volume muda, sem filtro.
+- Passam por esse barramento a mata de dia e de noite, o fundo da floresta, a chuva, o trovão, o rio, o riacho, a
+  cachoeira e o eco das cavernas. Agora também as fontes quentes (borbulhar, respiros e lama) e o gêiser
+  (`SomAmbiente.na_natureza`), que também passam a abafar debaixo d'água.
+- Medido no jogo, a cada 0,5 s: entrando, 0, −0,7, −2,3, −4,5, −6,7, −8,3 e −9 dB. Saindo, −9, −8,1, −5,8, −3,2,
+  −0,9 e 0 dB.
+
+## 156. O golpe e a esquiva não ligam mais o voo parado (2026-11-23)
+
+O usuário viu, algumas vezes, o robô entrar no voo parado (flutuando) depois de levar um foguete ou de esquivar.
+Achou que era o chão desnivelado.
+
+**A causa:** no ar, mirar (L2 segurado) liga o voo parado (`Armadura._ar`). Isso é de propósito: pular e mirar
+paira. O míssil empurra o robô para cima (`forca·0,35`, 2,8 m/s) e a esquiva no chão também (3,2 m/s). Os dois
+tiram o robô do chão por mais de 0,15 s, ele passa para o estado de ar e, com o L2 ainda segurado da luta, paira na
+hora. Acontecia até no plano. Na ladeira fica mais tempo no ar. "Não é sempre" porque dependia de estar mirando.
+
+**A correção:** `_ar_sem_querer`. Ele é marcado quando o robô sai do chão com a esquiva em curso ou até 0,6 s depois
+de um golpe (`_desde_golpe`). Assim, o L2 que já estava segurado não liga o voo parado. Um aperto novo no L2 ou no
+F liga, e o pulo duplo volta ao normal. Ele é desmarcado ao mudar para qualquer estado fora do ar.
+
+**Medido no jogo** (L2 segurado; ladeira de 37° perto da Clareira):
+
+| Caso | Antes | Depois |
+| --- | --- | --- |
+| Míssil na ladeira | chão, ar, **voo parado** | chão, ar |
+| Esquiva morro abaixo | chão, ar, **voo parado** | chão, ar, pouso |
+| Míssil no plano | chão, ar, **voo parado** | chão, ar |
+| Pulo de propósito | ar, voo parado | ar, voo parado (igual) |
+
+## 157. O robô senta no lugar vago (2026-11-23)
+
+O robô ainda sentava no mesmo lugar de um robozinho que estava jogando no sofá ou na poltrona. Os assentos do robô
+(`Armadura.assentos`) e os lugares de jogar dos robozinhos (`BaseLar.lugares_minis`) são listas separadas, e
+nenhuma olhava a outra.
+
+- `MiniRobos.lugar_ocupado(p)`: um robozinho subindo, jogando ou descendo a menos de 0,35 m do assento `p`.
+- `Armadura.assento_perto` pula o assento ocupado. Se o mais perto tem robozinho, o alcance cresce 1 m
+  (`ASSENTO_PERTO` + 1), para o convite achar o outro lado do sofá.
+- Do outro lado: um robozinho não escolhe o lugar onde o robô do jogador está sentado
+  (`Armadura.assento_atual`). Se o robô sentou ali enquanto ele vinha, ele desiste e volta ao pátio.
+- Medido: com um robozinho no lado esquerdo do sofá e o robô parado na frente dele, o convite escolhe o lado
+  direito e o robô senta a 0,9 m do robozinho. O próximo robozinho que vai jogar escolhe a poltrona.
+
+**Foto:** `tools/capturas/pedidos_1123/sofa_lado_a_lado.png`.
+
+**Estado (§154–157):** aprovado ("Está bom"). Testes em 2026-11-23, sem janela: `--teste-vale` 116/116,
+`--teste` 94/94 e a simulação 28/28.
