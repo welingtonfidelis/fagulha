@@ -364,9 +364,12 @@ func _seta_da_ponta(cx: float, y: float, lado: float, cor: Color) -> void:
 ## cadeado que abre e vira o retrato de cada conjunto novo (até três, e "+N"), as figuras das armas que abriram e,
 ## embaixo, "Urso · na oficina". Sem `niveis` é o conjunto de um robô achado: o anel leva a figura do corpo.
 const CARTAO_DURA := 5.5
+const CARTAO_FIGURAS := 6  # armas e luzes novas que cabem no cartão; o resto vira "+n"
 var _cartao_niveis: Array = []
 var _cartao_conjuntos: Array = []
 var _cartao_armas: Array = []
+## As luzes novas das armas que o robô tem (doc §158): [arma, luz].
+var _cartao_luzes: Array = []
 var _cartao_t := -1.0
 
 
@@ -374,10 +377,14 @@ func cartao_nivel(niveis: Array, conjuntos: Array) -> void:
 	_cartao_niveis = niveis.duplicate()
 	_cartao_conjuntos = conjuntos.duplicate()
 	_cartao_armas.clear()
+	_cartao_luzes.clear()
 	for n: int in niveis:
 		for arma: String in Arsenal.RECEITAS:
 			if int(Arsenal.RECEITAS[arma]["nivel"]) == n:
 				_cartao_armas.append(arma)
+		for l: Array in Arsenal.luzes_do_nivel(n):
+			if Arsenal.luz_por_acender(String(l[0]), int(l[1])):
+				_cartao_luzes.append(l)
 	_cartao_t = 0.0
 
 
@@ -392,8 +399,15 @@ func _desenhar_cartao() -> void:
 	var t := _cartao_t
 	var a := clampf(minf(t / 0.3, (CARTAO_DURA - t) / 0.6), 0.0, 1.0)
 	var mostra := mini(3, _cartao_conjuntos.size())
-	var armas := mini(5, _cartao_armas.size())
-	var w := 112.0 + mostra * 78.0 + (16.0 + armas * 36.0 if armas > 0 else 0.0) + (40.0 if _cartao_conjuntos.size() > 3 else 0.0)
+	# as armas novas primeiro, depois as luzes novas; cabem seis figuras
+	var itens: Array = []
+	for arma: String in _cartao_armas:
+		itens.append([arma, 0])
+	itens.append_array(_cartao_luzes)
+	var sobra := maxi(0, itens.size() - CARTAO_FIGURAS)
+	itens = itens.slice(0, CARTAO_FIGURAS)
+	var armas := itens.size()
+	var w := 112.0 + mostra * 78.0 + (16.0 + armas * 36.0 if armas > 0 else 0.0) + (40.0 if _cartao_conjuntos.size() > 3 else 0.0) + (34.0 if sobra > 0 else 0.0)
 	w = maxf(w, 300.0)
 	var r := Rect2(size.x * 0.5 - w * 0.5, 74.0, w, 124.0)
 	Tablet.caixa(self, r, Color(0.02, 0.05, 0.08, 0.74 * a), 18, Color(1, 1, 1, 0.22 * a), 2)
@@ -420,10 +434,25 @@ func _desenhar_cartao() -> void:
 				draw_texture_rect(tex, Rect2(ct - Vector2(32, 32), Vector2(64, 64)), false, Color(1, 1, 1, f))
 	if _cartao_conjuntos.size() > 3:
 		Tablet.texto(self, Vector2(x + 3 * 78.0, r.position.y + 58.0), "+%d" % (_cartao_conjuntos.size() - 3), 20, Color(1, 1, 1, a), true)
-	# as armas que abriram, figuras pequenas à direita
-	var xa := r.end.x - 24.0 - armas * 36.0
+	# as armas que abriram (laranja) e as luzes novas (a figura da arma com a trilha de três luzes embaixo, a que
+	# abriu acesa), figuras pequenas à direita
+	var xa := r.end.x - 24.0 - armas * 36.0 - (34.0 if sobra > 0 else 0.0)
 	for i in armas:
-		Icones.desenhar(self, String(_cartao_armas[i]), Vector2(xa + i * 36.0 + 18.0, r.position.y + 50.0), 0.85, Color(1.0, 0.8, 0.55, a), 2.0)
+		var nome := String(itens[i][0])
+		var luz := int(itens[i][1])
+		var cf := Vector2(xa + i * 36.0 + 18.0, r.position.y + (50.0 if luz == 0 else 44.0))
+		var cor := Color(1.0, 0.8, 0.55, a) if luz == 0 else Color(0.92, 0.94, 1.0, 0.92 * a)
+		Icones.desenhar(self, nome, cf, 0.85, cor, 2.0)
+		if luz > 0:
+			for k in 3:
+				var p := Vector2(cf.x + (k - 1) * 9.0, r.position.y + 70.0)
+				if k + 1 == luz:
+					Tablet.brilho(self, p, 7, Color(1.0, 0.7, 0.3), 0.9 * a)
+					draw_circle(p, 3.4, Color(1.0, 0.82, 0.42, a))
+				else:
+					draw_arc(p, 2.9, 0.0, TAU, 12, Color(1, 1, 1, (0.6 if k + 1 < luz else 0.28) * a), 1.4, true)
+	if sobra > 0:
+		Tablet.texto(self, Vector2(r.end.x - 58.0, r.position.y + 58.0), "+%d" % sobra, 20, Color(1, 1, 1, a), true)
 	# o texto de apoio
 	var nomes: Array = []
 	for k: String in _cartao_conjuntos:
@@ -433,6 +462,8 @@ func _desenhar_cartao() -> void:
 		sub = ", ".join(nomes) + " · na oficina"
 	elif not _cartao_armas.is_empty():
 		sub = "fabricações novas na oficina"
+	elif not _cartao_luzes.is_empty():
+		sub = "melhorias novas na oficina"
 	if sub != "":
 		Tablet.texto(self, Vector2(r.position.x, r.end.y - 18.0), sub, 16, Color(1, 1, 1, 0.88 * a), false, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 

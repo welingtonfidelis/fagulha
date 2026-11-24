@@ -173,8 +173,30 @@ static func texto_degrau(arma: String) -> String:
 static func custo_degrau(arma: String) -> Dictionary:
 	var i := degrau(arma) + (DEGRAUS - degraus_de(arma))
 	var c: Dictionary = CUSTO_DEGRAU[mini(i, DEGRAUS - 1)].duplicate()
-	c["nivel"] = int(c["nivel"]) + (int(RECEITAS[arma]["nivel"]) if RECEITAS.has(arma) else int(BASE_DEGRAU.get(arma, 1)))
+	c["nivel"] = int(c["nivel"]) + base_degrau(arma)
 	return c
+
+
+## O nível de partida dos degraus de uma arma: o da receita ou, nas de fábrica, o de `BASE_DEGRAU`.
+static func base_degrau(arma: String) -> int:
+	return int(RECEITAS[arma]["nivel"]) if RECEITAS.has(arma) else int(BASE_DEGRAU.get(arma, 1))
+
+
+## As luzes que o nível n abre (doc §158): [arma, luz], com a luz de 1 a 3, a da trilha da oficina. No escudo são
+## a 2 e a 3 (a primeira acende ao fabricar).
+static func luzes_do_nivel(n: int) -> Array:
+	var r: Array = []
+	for arma: String in MELHORA:
+		for i in range(DEGRAUS - degraus_de(arma), DEGRAUS):
+			if base_degrau(arma) + int(CUSTO_DEGRAU[i]["nivel"]) == n:
+				r.append([arma, i + 1])
+	return r
+
+
+## A luz ainda está por acender numa arma que o robô tem (a pistola e a espada vêm de fábrica)?
+static func luz_por_acender(arma: String, luz: int) -> bool:
+	var tem := arma == "pistola" or arma == "espada" or fabricados.has(arma) or tudo
+	return tem and degrau(arma) + (DEGRAUS - degraus_de(arma)) < luz
 
 
 ## "" se dá para subir o degrau; senão, o que falta.

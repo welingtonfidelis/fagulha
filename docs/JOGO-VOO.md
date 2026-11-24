@@ -4939,9 +4939,13 @@ O que abre em cada nível (tirado do código):
 
 Ficaram para outra conversa (achados do game designer):
 - **O material sobra.** O catálogo inteiro custa 1.115 de sucata, 38 núcleos e 10 chips. Uma rodada até a onda 10
-  dá 90 de sucata, 16 núcleos e 2 chips. Para quem luta, o que segura o ritmo é o nível.
-- **A rajada** tira menos que a pistola segurando o gatilho. Ele sugeriu subir o dano por tiro de 0,34 para 0,45,
-  depois de ver o filho jogar.
+  dá 90 de sucata, 16 núcleos e 2 chips. Para quem luta, o que segura o ritmo é o nível. Com os custos novos e
+  todos os degraus, são 1.180 de sucata, 40 núcleos e 10 chips. Decisão do usuário (2026-11-24): por enquanto fica
+  assim. Se ainda sobrar material demais jogando, cada arma ganha mais degraus, talvez até o 5. Os degraus 4 e 5
+  passariam do nível 15 e dariam o que fazer depois do último conjunto.
+- **A rajada** fica como está por enquanto: o usuário acha que dano parecido com o da pistola desequilibraria,
+  porque ela atira muito rápido. Os degraus a levam a 0,46 por tiro no nível 13. Antes de mexer, olhar o filho
+  jogar com ela.
 - **O cartão de nível** (`Hud.cartao_nivel`) mostra só as receitas. Do nível 10 em diante ele mostra só o conjunto,
   embora o nível também abra degraus.
 
@@ -4952,3 +4956,24 @@ a aba Armas no nível 4.
 
 **Estado:** aprovado (o usuário pediu as granadas no fim da lista e mandou testar e enviar). Testes em 2026-11-24,
 sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação 28/28. Os três achados acima ficam para conversar.
+
+## 159. O cartão de nível mostra as luzes novas das armas (2026-11-24)
+
+Pedido do usuário: o cartão do nível mostrava só as armas novas, mas desde a §158 todo nível do 1 ao 15 também
+abre degraus. Agora o cartão mostra os dois:
+- as armas novas, em laranja, como antes;
+- depois delas, as luzes novas: a figura da arma em branco com a trilha de três luzes embaixo, e a luz que abriu
+  acesa (a mesma trilha da oficina; no escudo, a 2ª e a 3ª).
+
+Só aparece a luz de uma arma que o robô já tem (a pistola e a espada vêm de fábrica) e que ele ainda não acendeu.
+Cabem seis figuras; o resto vira "+n". Sem conjunto nem arma nova, o texto de apoio diz "melhorias novas na
+oficina".
+
+- `Arsenal.base_degrau`, `Arsenal.luzes_do_nivel(n)` e `Arsenal.luz_por_acender(arma, luz)`; `custo_degrau` usa a
+  mesma base.
+- `Hud.cartao_nivel` junta `_cartao_luzes`; `_desenhar_cartao` desenha as figuras (`CARTAO_FIGURAS` = 6).
+
+**Fotos:** `tools/capturas/arsenal_158/cartoes_com_luzes.png`, os níveis 7, 9 e 12.
+
+**Estado:** aprovado ("Está bom"). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a
+simulação 28/28.
