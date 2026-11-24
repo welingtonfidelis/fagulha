@@ -44,10 +44,12 @@ const FOLGA := 3.5  # segundos a mais em cada aro difícil
 const LONGE := 650.0  # longe assim do aro da vez, a rota se perde
 const ALVO_RAIO := 7.0  # o alvo do mergulho do mastro
 const NINHO_RAIO := 9.0
+const BUSSOLA := 600.0  # a esta distância a baliza aparece na bússola (pedido do usuário: de longe ela é pequena)
 
 static var feitas := {}  # id -> 1 (feita) ou 2 (feita na difícil)
 static var rastro := ""  # a cor dos jatos em uso ("" a de fábrica); o nome ficou do rastro de fitas, que saiu
 static var recordes: Array = []  # ids das rotas com o recorde do piloto de teste batido
+static var na_bussola: Array = []  # [posição, id] de cada baliza, para a bússola (`Hud`)
 ## A velocidade da gravação em cada rota (m/s): entre o voo normal (18) e a arrancada (28), para ganhar dela é
 ## preciso arrancar e cuidar do calor. No ninho só se plana; na represa se nada.
 const RIVAL_VEL := {"rio": 21.0, "torres": 20.0, "mastro": 20.0, "ninho": 14.0, "represa": 5.8, "fenda": 17.0, "volta": 22.5}
@@ -78,6 +80,11 @@ var _alvo_mat: StandardMaterial3D
 var _t := 0.0
 var _pouso_t := 0.0
 var _estante: Node3D
+var _trilha: MultiMeshInstance3D
+var _trilha_s := PackedFloat32Array()  # metros de cada pontinho desde o começo do trecho dele
+var _trilha_k := PackedByteArray()  # 0 no trecho até o aro da vez, 1 do aro da vez até o seguinte
+var _fantasma: MeshInstance3D
+var _fantasma_mat: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -96,9 +103,12 @@ func _ready() -> void:
 	lista["represa"] = _rota_represa()
 	lista["fenda"] = _rota_fenda()
 	lista["volta"] = _rota_volta()
+	na_bussola.clear()
 	for id: String in lista:
 		lista[id]["baliza"] = _assentar(lista[id]["baliza"])
+		_por_largada(lista[id])
 		_montar_baliza(id)
+		na_bussola.append([lista[id]["baliza"], id])
 	por_miniaturas()
 
 
@@ -178,14 +188,20 @@ func _assentar(p: Vector3) -> Vector3:
 
 func _rota_rio() -> Dictionary:
 	var aros: Array[Vector3] = []
-	# o primeiro aro fica dentro da queda d'água: quem passa já sai frio
-	var queda := Vector2(Vale.NASCENTE.x, Vale.NASCENTE.y).lerp(Vector2(Vale.POCO.x, Vale.POCO.y), 0.42)
-	aros.append(Vector3(queda.x, Vale.POCO_NIVEL + 12.0, queda.y))
+	var atras := Vector2(Vale.NASCENTE.x, Vale.NASCENTE.y) + (Vector2(Vale.NASCENTE.x, Vale.NASCENTE.y) - Vector2(Vale.POCO.x, Vale.POCO.y)).normalized() * 22.0
+	# o robô decola de pé, sobe uns 13 m e sai voando reto, sem poder descer por um instante (pedido do usuário,
+	# 2026-11-24: o aro de dentro da queda, 50 m abaixo e logo à frente, pedia subir e despencar). O primeiro aro
+	# fica em cima da nascente, na altura em que a decolagem termina; o segundo no respingo, em frente ao pé da
+	# queda: dali é um mergulho rente à água, na mesma inclinação dela, e quem passa já sai frio
+	var dq := (Vector2(Vale.POCO.x, Vale.POCO.y) - Vale.NASCENTE).normalized()
+	var alto := Vale.NASCENTE + dq * 2.0
+	aros.append(Vector3(alto.x, mapa.altura(atras.x, atras.y) + DECOLAGEM_TOPO, alto.y))
+	var respingo := Vale.NASCENTE + dq * 46.0
+	aros.append(Vector3(respingo.x, Vale.POCO_NIVEL + 6.0, respingo.y))
 	for p: Vector2 in [Vector2(-276, -430), Vector2(-260, -380), Vector2(-222, -295), Vector2(-180, -200), Vector2(-140, -136), Vector2(-100, -80)]:
 		aros.append(_livre(_no_ar(p.x, p.y, 3.5), 3.0))
 	for p: Vector2 in [Vector2(52, 30), Vector2(104, 104), Vector2(170, 215), Vector2(232, 320), Vector2(282, 430), Vector2(316, 560)]:
 		aros.append(_livre(_no_ar(p.x, p.y, 3.5), 3.0))
-	var atras := Vector2(Vale.NASCENTE.x, Vale.NASCENTE.y) + (Vector2(Vale.NASCENTE.x, Vale.NASCENTE.y) - Vector2(Vale.POCO.x, Vale.POCO.y)).normalized() * 22.0
 	return {"baliza": _chao(atras.x, atras.y), "aros": aros, "fim": "aro"}
 
 
@@ -277,7 +293,9 @@ func _rota_fenda() -> Dictionary:
 		var l := linha[i].distance_to(linha[i + 1])
 		trechos.append(l)
 		total += l
-	var d := 30.0
+	# o primeiro aro a uns 70 m da baliza: decolando de pé, o robô passa dos 13 m de altura e só desce depois de
+	# um trecho reto (a 30 m ele ficava logo abaixo de quem acabava de subir)
+	var d := 78.0
 	while d < total - 10.0:
 		var resto := d
 		var i := 0
@@ -332,6 +350,22 @@ func _rota_volta() -> Dictionary:
 
 const MAR_ALTO := 1.0
 const SALTO_VOLTA := 380.0
+const LARGADA_ALTO := 7.5  # o aro de largada, deitado em cima da baliza
+const DECOLAGEM_TOPO := 13.0  # mais ou menos onde a decolagem de pé termina (o pulo segurado e os 10 m da subida)
+
+
+## O aro de largada (pedidos do usuário, 2026-11-24): o primeiro aro da cachoeira ficava escondido lá embaixo, e
+## um aro de pé logo à frente da baliza também não servia, porque o robô decola na vertical (segurando o X), sobe
+## uns 13 m e só então sai para a frente, sem poder descer por um instante. Então a rota começa por um aro deitado
+## em cima da baliza, que a decolagem atravessa sozinha; de longe ele mostra onde a rota começa e a trilha de luz
+## sai dele para o aro seguinte. Na represa também (a lagoa fica a uns 200 m da baliza, se vai voando), e lá o aro
+## de largada tem o tamanho dos aros do ar.
+func _por_largada(r: Dictionary) -> void:
+	var aros: Array = r["aros"]
+	if aros.is_empty():
+		return
+	aros.insert(0, (r["baliza"] as Vector3) + Vector3(0, LARGADA_ALTO, 0))
+	r["largada"] = true
 
 
 # ---------------------------------------------------------------- as balizas
@@ -434,13 +468,15 @@ func _acender(id: String) -> void:
 	_avisou_rival = false
 	dificil = int(feitas.get(id, 0)) == 1
 	var r: Dictionary = lista[id]
-	var raio := RAIO_AGUA if r.get("agua", false) else RAIO_AR
 	var aros: Array = r["aros"]
 	for i in aros.size():
+		var raio := _raio(r, i)
 		var p: Vector3 = aros[i]
 		var antes: Vector3 = r["baliza"] if i == 0 else aros[i - 1]
 		var depois: Vector3 = aros[i + 1] if i + 1 < aros.size() else p + (p - antes)
 		var dir := (depois - antes).normalized()
+		if i == 0 and r.get("largada", false):
+			dir = Vector3.UP  # o aro de largada fica deitado: a decolagem passa por dentro dele
 		if dir.length() < 0.5:
 			dir = Vector3.FORWARD
 		var toro := TorusMesh.new()
@@ -462,6 +498,8 @@ func _acender(id: String) -> void:
 		_mats.append(mat)
 	if r["fim"] == "alvo":
 		_montar_alvo(r["alvo"])
+	_montar_fantasma()
+	_montar_trilha()
 	_pintar_aros()
 	var b: Dictionary = _balizas[id]
 	(b["mat"] as StandardMaterial3D).emission_energy_multiplier = 3.0
@@ -534,12 +572,130 @@ func _montar_alvo(onde: Vector3) -> void:
 	_alvo.global_position = onde + Vector3(0, 0.12, 0)
 
 
+## O raio do aro `i` da rota: os de baixo d'água são menores; o de largada é sempre do tamanho dos do ar.
+func _raio(r: Dictionary, i: int) -> float:
+	if i == 0 and r.get("largada", false):
+		return RAIO_AR
+	return RAIO_AGUA if r.get("agua", false) else RAIO_AR
+
+
+## O aro da vez também desenhado por cima de tudo, bem apagado: por trás da água da cachoeira, das árvores ou
+## debaixo d'água ele continua se vendo. Na fenda escura não (lá o aro só aparece quando a luz chega).
+func _montar_fantasma() -> void:
+	if _aros.is_empty() or (lista[atual] as Dictionary).get("escuro", false):
+		return
+	_fantasma_mat = StandardMaterial3D.new()
+	_fantasma_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_fantasma_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_fantasma_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_fantasma_mat.no_depth_test = true
+	_fantasma_mat.disable_fog = true
+	_fantasma_mat.render_priority = 1
+	_fantasma = MeshInstance3D.new()
+	_fantasma.mesh = _aros[mini(proximo, _aros.size() - 1)].mesh
+	_fantasma.material_override = _fantasma_mat
+	_fantasma.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_fantasma)
+	_por_fantasma()
+
+
+func _por_fantasma() -> void:
+	if _fantasma == null:
+		return
+	_fantasma.visible = proximo < _aros.size()
+	if _fantasma.visible:
+		_fantasma.mesh = _aros[proximo].mesh  # o de largada da represa é maior que os de baixo d'água
+		_fantasma.global_transform = _aros[proximo].global_transform
+
+
+## A trilha de luz (pedido do usuário: deixar claro onde fica o próximo aro): pontinhos de onde se vem até o aro
+## da vez, laranja e com um pulso correndo para a frente, e, mais apagados, do aro da vez até o seguinte, para se
+## ver de longe para onde a rota vira. Antes de decolar ela sai da baliza. Refeita a cada aro passado.
+const TRILHA_PASSO := 3.0
+const TRILHA_MAX := 70  # pontinhos por trecho; nos trechos longos (a volta da ilha) eles se espaçam
+
+func _montar_trilha() -> void:
+	if _trilha and is_instance_valid(_trilha):
+		_trilha.queue_free()
+	_trilha = null
+	var r: Dictionary = lista[atual]
+	var aros: Array = r["aros"]
+	var pontos: Array[Vector3] = []
+	pontos.append((r["baliza"] as Vector3) + Vector3(0, 1.6, 0) if proximo == 0 else aros[proximo - 1] as Vector3)
+	for i in range(proximo, mini(proximo + 2, aros.size())):
+		pontos.append(aros[i])
+	if pontos.size() < 3 and r["fim"] != "aro":
+		pontos.append((r["alvo"] as Vector3) + Vector3(0, 1.0, 0))
+	var pos: Array[Vector3] = []
+	_trilha_s = PackedFloat32Array()
+	_trilha_k = PackedByteArray()
+	for k in pontos.size() - 1:
+		var a: Vector3 = pontos[k]
+		var b: Vector3 = pontos[k + 1]
+		var l := a.distance_to(b)
+		var passo := maxf(TRILHA_PASSO, l / TRILHA_MAX)
+		var n := floori(l / passo)
+		for j in range(1, n):
+			var s := j * passo
+			if l - s < 1.5:
+				break
+			pos.append(a.lerp(b, s / l))
+			_trilha_s.append(s)
+			_trilha_k.append(k)
+	if pos.is_empty():
+		return
+	var bola := SphereMesh.new()
+	bola.radius = 0.32
+	bola.height = 0.64
+	bola.radial_segments = 8
+	bola.rings = 4
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	mat.disable_fog = true
+	bola.material = mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = bola
+	mm.instance_count = pos.size()
+	for i in pos.size():
+		mm.set_instance_transform(i, Transform3D(Basis(), pos[i]))
+		mm.set_instance_color(i, Color(1, 1, 1, 0))
+	_trilha = MultiMeshInstance3D.new()
+	_trilha.name = "Trilha"
+	_trilha.multimesh = mm
+	_trilha.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_trilha)
+
+
+func _pintar_trilha(fraco: float) -> void:
+	if _trilha == null or not is_instance_valid(_trilha):
+		return
+	var mm := _trilha.multimesh
+	for i in mm.instance_count:
+		var onda := 0.5 + 0.5 * sin(_trilha_s[i] * 0.35 - _t * 7.0)
+		onda = onda * onda * onda
+		if _trilha_k[i] == 0:
+			mm.set_instance_color(i, Color(LARANJA.r, LARANJA.g, LARANJA.b, (0.35 + 0.6 * onda) * fraco))
+		else:
+			mm.set_instance_color(i, Color(AGUA.r, AGUA.g, AGUA.b, (0.14 + 0.3 * onda) * fraco))
+
+
 func _apagar() -> void:
 	for mi in _aros:
 		if is_instance_valid(mi):
 			mi.queue_free()
 	_aros.clear()
 	_mats.clear()
+	if _trilha and is_instance_valid(_trilha):
+		_trilha.queue_free()
+	_trilha = null
+	if _fantasma and is_instance_valid(_fantasma):
+		_fantasma.queue_free()
+	_fantasma = null
+	_fantasma_mat = null
 	if _alvo and is_instance_valid(_alvo):
 		_alvo.queue_free()
 	_alvo = null
@@ -573,6 +729,8 @@ func _pintar_aros() -> void:
 				c.a = 0.55 if escuro else 1.0
 			mat.albedo_color = c
 			mat.disable_fog = true
+			if _fantasma_mat:
+				_fantasma_mat.albedo_color = Color(c.r, c.g, c.b, c.a * 0.42)
 		else:
 			var a := 0.1 if escuro else (0.5 if i == proximo + 1 else 0.3)
 			mat.albedo_color = Color(AGUA.r, AGUA.g, AGUA.b, a)
@@ -580,6 +738,7 @@ func _pintar_aros() -> void:
 	if _alvo_mat:
 		var na_vez := proximo >= _aros.size()
 		_alvo_mat.albedo_color.a = (0.75 + 0.2 * sin(_t * 5.0)) if na_vez else 0.18
+	_pintar_trilha(0.35 if escuro else 1.0)
 
 
 func _prazo_do(i: int) -> float:
@@ -588,7 +747,8 @@ func _prazo_do(i: int) -> float:
 	var de: Vector3 = r["baliza"] if i == 0 else aros[i - 1]
 	var ate: Vector3 = aros[i]
 	var vel := VEL_AGUA if r.get("agua", false) else VEL_AR
-	var extra := 6.0 if i == 0 else FOLGA  # o primeiro inclui decolar
+	# o primeiro inclui decolar; depois do aro de largada, o seguinte inclui sair da subida e virar para ele
+	var extra := 6.0 if i == 0 or (i == 1 and r.get("largada", false)) else FOLGA
 	return de.distance_to(ate) / vel + extra
 
 
@@ -624,10 +784,9 @@ func _completar() -> void:
 	if nivel == 2 and antes < 2:
 		Experiencia.descobrir("rota_dificil:" + id, Experiencia.ROTA_DIFICIL)
 	if antes == 0:
-		rastro = id
-		if Guardado.ativo:
-			Guardado.por_progresso("rastro", rastro)
-		sub = "jatos novos: " + String(NOMES_COR[id]) + " · troque na oficina da base"
+		# a cor fica guardada na oficina; quem troca é o jogador, na base (pedido do usuário, 2026-11-24: antes
+		# os jatos já mudavam de cor ali mesmo)
+		sub = "cor nova para os jatos: " + String(NOMES_COR[id]) + " · troque na oficina da base"
 	elif nivel == 2 and antes < 2:
 		sub = "uma miniatura do lugar foi para a estante da base"
 	if todas_feitas() and not Melhorias.achadas.has("corrida") and not Melhorias.instaladas.has("corrida"):
@@ -694,7 +853,7 @@ func _physics_process(delta: float) -> void:
 		if hud:
 			hud.avisar(titulo(atual) + " · corrida", "a gravação chegou primeiro · termine a rota mesmo assim")
 	var aros: Array = r["aros"]
-	var raio := RAIO_AGUA if r.get("agua", false) else RAIO_AR
+	var raio := _raio(r, proximo)
 	var centro := p + Vector3(0, armadura.altura_corpo() * 0.5, 0)
 	if proximo < aros.size():
 		var alvo: Vector3 = aros[proximo]
@@ -712,6 +871,8 @@ func _physics_process(delta: float) -> void:
 			else:
 				_prazo = _prazo_do(proximo) if dificil else 0.0
 				Hud.aro_rota = aros[proximo]
+			_por_fantasma()
+			_montar_trilha()
 		elif dificil and _t_aro > _prazo:
 			_falhar("apagou")
 			return

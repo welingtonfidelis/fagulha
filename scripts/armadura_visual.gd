@@ -125,6 +125,10 @@ func vestir_melhorias(extra: Array = []) -> void:
 	if not has_meta("descanso"):
 		return
 	MelhoriasVisual.limpar(self)
+	# as peças medidas para sentar e abaixar (`_medir_malhas`) incluíam as que acabaram de ser apagadas
+	_malhas.clear()
+	_pontos.clear()
+	_perna.clear()
 	asas_f = 0.0
 	var lista := Melhorias.vestidas()
 	if Arsenal.tem("mira") and not Arsenal.tudo:
@@ -368,17 +372,19 @@ func _medir_malhas() -> void:
 		_perna.append(perna)
 
 
-## Sentar num móvel (sofá, poltrona, banco): coxas na horizontal, canelas pendendo, mãos nos joelhos.
-## Sentando, dobra os joelhos com os braços à frente e leva o peso para trás até o assento; levantando,
-## joga o tronco à frente, empurra com as pernas e estica o corpo. A última coluna é o peso: 0 de pé, 1 com
-## a bacia no assento. Devolve a altura da bacia (em alturas de armadura de 1 m de porte).
+## Sentar num móvel (sofá, poltrona, banco): pernas esticadas para a frente, como os robozinhos e o antigo, e
+## as mãos no colo (com as canelas pendendo, os pés do robô pequeno sumiam dentro do móvel; pedido do usuário,
+## 2026-11-24). Sentando, dobra os joelhos com os braços à frente e leva o peso para trás até o assento;
+## levantando, recolhe os pés, joga o tronco à frente, empurra com as pernas e estica o corpo. A penúltima
+## coluna gira o antebraço para dentro (para as mãos chegarem ao meio do colo); a última é o peso: 0 de pé, 1
+## com a bacia no assento. Devolve a altura da bacia (em alturas de armadura de 1 m de porte).
 const CADEIRA := [
-	# quadril x, quadril z, joelho, tornozelo, raiz, tronco, cabeça, ombro x, ombro z, cotovelo, peso
-	[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # de pé
-	[-64.0, 7.0, 82.0, -22.0, 0.0, 30.0, -18.0, -52.0, 8.0, -12.0, 0.4],  # agachando, braços à frente
-	[-90.0, 8.0, 86.0, 2.0, 0.0, -4.0, -2.0, -26.0, 10.0, -44.0, 1.0],  # sentado, mãos nos joelhos
-	[-104.0, 9.0, 104.0, -12.0, 0.0, 40.0, -22.0, -46.0, 10.0, -18.0, 1.0],  # tronco à frente, pés embaixo
-	[-46.0, 5.0, 58.0, -22.0, 0.0, 22.0, -12.0, -20.0, 8.0, -14.0, 0.45],  # meio de pé, empurrando
+	# quadril x, quadril z, joelho, tornozelo, raiz, tronco, cabeça, ombro x, ombro z, cotovelo, antebraço, peso
+	[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # de pé
+	[-64.0, 7.0, 82.0, -22.0, 0.0, 30.0, -18.0, -52.0, 8.0, -12.0, 0.0, 0.4],  # agachando, braços à frente
+	[-88.0, 3.0, 8.0, 6.0, 0.0, -2.0, -6.0, -12.0, 2.0, -64.0, -38.0, 1.0],  # sentado, pernas à frente, mãos no colo
+	[-104.0, 9.0, 104.0, -12.0, 0.0, 40.0, -22.0, -46.0, 10.0, -18.0, 0.0, 1.0],  # tronco à frente, pés embaixo
+	[-46.0, 5.0, 58.0, -22.0, 0.0, 22.0, -12.0, -20.0, 8.0, -14.0, 0.0, 0.45],  # meio de pé, empurrando
 ]
 const CADEIRA_DESCE := 0.77  # quanto a bacia desce sentada, antes do acerto medido (`_cadeira_ajuste`)
 var _cadeira_ajuste := 0.0
@@ -404,7 +410,7 @@ func _cadeira(a) -> float:
 		i += 1
 	var k := smoothstep(0.0, 1.0, (p - float(tempos[i])) / maxf(0.001, float(tempos[i + 1]) - float(tempos[i])))
 	var q: Array = []
-	for n in 11:
+	for n in 12:
 		q.append(lerpf(seq[i][n], seq[i + 1][n], k))
 	_lados("quadril", q[0], q[1])
 	_lados("joelho", q[2], 0.0)
@@ -415,8 +421,9 @@ func _cadeira(a) -> float:
 	_alvo("tronco", q[5])
 	_alvo("cabeca", q[6], olha)
 	_lados("ombro", q[7], q[8])
-	_lados("cotovelo", q[9], 0.0)
-	return float(q[10]) * (-CADEIRA_DESCE + _cadeira_ajuste)
+	_alvo("cotoveloE", q[9], q[10])
+	_alvo("cotoveloD", q[9], -q[10])
+	return float(q[11]) * (-CADEIRA_DESCE + _cadeira_ajuste)
 
 
 func _erguer(p: float) -> float:
@@ -818,6 +825,13 @@ func atualizar(delta: float, a) -> void:
 					(j["aleta%s%d" % [lado, i]] as Node3D).rotation = Vector3(deg_to_rad(i * 10.0 * ab), 0, deg_to_rad(i * 9.0 * s * ab))
 	# abaixado, sentado ou levantando: mede a peça mais baixa do corpo e sobe a bacia até ela encostar no
 	# chão, sem entrar (abaixado, os pés afundavam)
+	# as peças medidas somem quando o equipamento troca (as armas e as âncoras são apagadas): mede de novo
+	for mi in _malhas:
+		if not is_instance_valid(mi):
+			_malhas.clear()
+			_pontos.clear()
+			_perna.clear()
+			break
 	if (no_chao_baixo or a.no_assento) and not esqueleto and _malhas.is_empty():
 		_medir_malhas()
 	if no_chao_baixo and not esqueleto:

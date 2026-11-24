@@ -48,10 +48,64 @@ static func dentro(x: float, z: float, folga := 4.0) -> bool:
 			and RochaMalha.dentro(x, z, folga)
 
 
+## Dentro da caixa da peça (com folga), sem olhar o desenho.
+static func na_caixa(x: float, z: float, folga := 0.0) -> bool:
+	return existe and x > _mn.x - folga and x < _mx.x + folga and z > _mn.z - folga and z < _mx.z + folga
+
+
+# ---------------------------------------------------------------- o alto da rocha como chão (doc §163)
+
+## O alto da rocha é chão firme onde o vazio mais perto fica a mais que SOLO_FOLGA de um ponto 2 m abaixo dele
+## (com meia diagonal da quadra de SOLO_PASSO de sobra): rocha grossa por cima do salão, da câmara e da
+## galeria, e uns 6 m de beira em volta das bocas (o poço, a varanda e o túnel), onde não nasce nada.
+const SOLO_PASSO := 2.0
+const SOLO_FOLGA := 5.0
+static var _solo := PackedByteArray()
+static var _solo_n := Vector2i.ZERO
+
+
+## A altura do chão em cima da peça para uma planta, num ponto onde a grade foi rebaixada
+## (RochaMalha.rebaixado_perto): a que se vê (a rocha, ou a grade onde ela fica por cima), ou NAN onde a rocha é
+## fina ou fica perto de uma boca.
+static func chao_firme(x: float, z: float) -> float:
+	if not na_caixa(x, z):
+		return NAN
+	if _solo.is_empty():
+		_mapa_solo()
+	var i := int((x - _mn.x) / SOLO_PASSO)
+	var j := int((z - _mn.z) / SOLO_PASSO)
+	if i < 0 or j < 0 or i >= _solo_n.x or j >= _solo_n.y or _solo[j * _solo_n.x + i] == 0:
+		return NAN
+	return maxf(RochaMalha.topo(x, z), RochaMalha.vale.altura_da_malha(x, z))
+
+
+static func _mapa_solo() -> void:
+	_solo_n = Vector2i(int((_mx.x - _mn.x) / SOLO_PASSO) + 1, int((_mx.z - _mn.z) / SOLO_PASSO) + 1)
+	var nome := "solo_sumidouro_%d_%d_%d" % [int(centro.x), int(centro.y), _solo_n.x * 10000 + _solo_n.y]
+	var guardado: Variant = Cache.ler(nome)
+	if guardado is PackedByteArray and (guardado as PackedByteArray).size() == _solo_n.x * _solo_n.y:
+		_solo = guardado
+		return
+	var t0 := Time.get_ticks_msec()
+	_solo.resize(_solo_n.x * _solo_n.y)
+	var firmes := 0
+	for j in _solo_n.y:
+		for i in _solo_n.x:
+			var x := _mn.x + (i + 0.5) * SOLO_PASSO
+			var z := _mn.z + (j + 0.5) * SOLO_PASSO
+			var antes := Cavernas.chao_antes(x, z)
+			if vazio(Vector3(x, antes - 2.0, z)) > SOLO_FOLGA + SOLO_PASSO * 0.71:
+				_solo[j * _solo_n.x + i] = 1
+				firmes += 1
+	Cache.gravar(nome, _solo)
+	print("sumidouro: chão firme em %d de %d quadras de %d m (%d ms)" % [firmes, _solo.size(), int(SOLO_PASSO), Time.get_ticks_msec() - t0])
+
+
 # ---------------------------------------------------------------- o lugar
 
 static func cavar(v: Vale) -> void:
 	existe = false
+	_solo = PackedByteArray()
 	var t0 := Time.get_ticks_msec()
 	if not _achar_lugar(v):
 		print("sumidouro: nenhum morro serviu")

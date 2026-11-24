@@ -13,10 +13,16 @@ const SHADER := "res://scripts/shaders/vale_gruta.gdshader"
 static var vale: Vale
 static var ruido := FastNoiseLite.new()
 static var fino := FastNoiseLite.new()
+## Os nós da grade do vale que `rebaixar` desceu: o índice dá a altura de antes (por fora, a rocha da peça
+## refaz o morro nessa altura). `marca` tem 1 nesses nós, para quem lê a grade inteira (a luz do chão).
+static var antes_do_rebaixo := {}
+static var marca := PackedByteArray()
 
 
 static func preparar(v: Vale) -> void:
 	vale = v
+	antes_do_rebaixo = {}
+	marca = PackedByteArray()
 	ruido.seed = 4411
 	ruido.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	ruido.frequency = 0.075
@@ -117,10 +123,49 @@ static func rebaixar(mn: Vector3, mx: Vector3, vazio: Callable) -> void:
 			for chave: Vector2i in mais:
 				novo[chave] = mais[chave]
 		Cache.gravar(nome, novo)
+	if marca.is_empty():
+		marca.resize(Vale.F_N * Vale.F_N)
 	for chave: Vector2i in novo:
 		var i := chave.y * Vale.F_N + chave.x
 		if float(novo[chave]) < vale._fora_h[i]:
+			if not antes_do_rebaixo.has(i):
+				antes_do_rebaixo[i] = vale._fora_h[i]
+				marca[i] = 1
 			vale._fora_h[i] = float(novo[chave])
+
+
+## A quadra de 4 m da grade que tem o ponto tem um nó rebaixado (ali a grade mergulha debaixo da rocha)?
+static func rebaixado_perto(x: float, z: float) -> bool:
+	if antes_do_rebaixo.is_empty():
+		return false
+	var gx := clampi(floori((x + Vale.F_META) / Vale.F_PASSO), 0, Vale.F_N - 2)
+	var gz := clampi(floori((z + Vale.F_META) / Vale.F_PASSO), 0, Vale.F_N - 2)
+	var i := gz * Vale.F_N + gx
+	return marca[i] == 1 or marca[i + 1] == 1 or marca[i + Vale.F_N] == 1 or marca[i + Vale.F_N + 1] == 1
+
+
+## Plantas (árvore, flor, pedra, capim) perto das peças de rocha (doc §163): a altura em que nascem num ponto.
+## `padrao` onde nenhuma peça mexeu na grade; NAN onde não nasce nada. Na grade rebaixada pelo Sumidouro elas
+## nascem em cima da rocha, onde ela é grossa e longe das bocas (era tudo careca, com a forma da caverna vista
+## de cima); perto da gruta de gelo da terra nova segue a folga de sempre.
+static func chao_de_planta(x: float, z: float, padrao: float, folga := 4.0) -> float:
+	if vale == null:
+		return padrao
+	if BocaDegelo.dentro(x, z, folga):
+		return NAN
+	if not rebaixado_perto(x, z):
+		return padrao
+	return Sumidouro.chao_firme(x, z)
+
+
+## A inclinação (normal.y) do chão para o capim num ponto: perto do Sumidouro, a do morro como se vê por fora
+## (Vale.normal_vista); 0 onde nada nasce.
+static func ny_de_capim(mapa: Node, x: float, z: float) -> float:
+	if vale == null or mapa != vale:
+		return 0.0 if dentro(x, z) else mapa.normal_em(x, z).y
+	if BocaDegelo.dentro(x, z):
+		return 0.0
+	return vale.normal_vista(x, z).y
 
 
 ## A superfície do morro que a peça refaz: igual ao chão de antes onde a grade foi rebaixada, e
@@ -164,12 +209,25 @@ static func furos(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, pa
 ## Gera a malha da caixa e grava em `arquivo`. `chave` identifica o lugar (se o relevo mudar, avisa).
 static func assar(mn: Vector3, mx: Vector3, vazio: Callable, extra: Callable, arquivo: String, chave: Vector3) -> void:
 	assar_com(mn, mx, func(p: Vector3) -> float: return rocha(p, vazio, extra),
-		func(p: Vector3) -> float: return Cavernas.chao_antes(p.x, p.z) - p.y, arquivo, chave)
+		func(p: Vector3) -> float: return Cavernas.chao_antes(p.x, p.z) - p.y, arquivo, chave,
+		func(p: Vector3, n: Vector3) -> Vector3: return _normal_do_alto(p, n, vazio))
+
+
+## No alto da peça (o morro refeito, longe das bocas) a normal é a do chão do vale em volta, tirada da grade de
+## 4 em 4 m como a da malha do chão: a do desenho, tirada a 0,35 m, pegava as dobras da grade e a rocha pintava
+## pedra em manchas onde o chão em volta pinta capim (doc §163).
+static func _normal_do_alto(p: Vector3, n: Vector3, vazio: Callable) -> Vector3:
+	var w := (1.0 - smoothstep(0.3, 0.9, absf(p.y - topo(p.x, p.z)))) * smoothstep(0.8, 2.4, float(vazio.call(p)))
+	if w <= 0.0:
+		return n
+	return n.lerp(vale.normal_vista(p.x, p.z), w).normalized()
 
 
 ## O mesmo, para qualquer relevo: `dens` dá a distância com sinal até a rocha (negativa dentro) e `fundo`
 ## quanto o ponto fica abaixo do chão de antes (a cor do vértice). A terra nova usa este (BocaDegelo).
-static func assar_com(mn: Vector3, mx: Vector3, dens_f: Callable, fundo_f: Callable, arquivo: String, chave: Vector3) -> void:
+## `normal_f`, se vier, recebe o ponto e a normal do desenho e devolve a normal do vértice.
+static func assar_com(mn: Vector3, mx: Vector3, dens_f: Callable, fundo_f: Callable, arquivo: String, chave: Vector3,
+		normal_f := Callable()) -> void:
 	var t0 := Time.get_ticks_msec()
 	var nx := int((mx.x - mn.x) / PASSO) + 2
 	var ny := int((mx.y - mn.y) / PASSO) + 2
@@ -248,6 +306,8 @@ static func assar_com(mn: Vector3, mx: Vector3, dens_f: Callable, fundo_f: Calla
 			float(dens_f.call(p + Vector3(e, 0, 0))) - float(dens_f.call(p - Vector3(e, 0, 0))),
 			float(dens_f.call(p + Vector3(0, e, 0))) - float(dens_f.call(p - Vector3(0, e, 0))),
 			float(dens_f.call(p + Vector3(0, 0, e))) - float(dens_f.call(p - Vector3(0, 0, e)))).normalized()
+		if normal_f.is_valid():
+			normais[i] = normal_f.call(p, normais[i])
 		var fundo: float = fundo_f.call(p)
 		cores[i] = Color(1.0 - smoothstep(0.9, 2.2, fundo), clampf(fundo / 14.0, 0.0, 1.0), 0.0)
 	var arr := []

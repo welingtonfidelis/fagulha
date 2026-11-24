@@ -702,52 +702,6 @@ static func no_ombro(x: float, z: float) -> bool:
 	return _ombro_marca[gz * Vale.F_N + gx] == 1
 
 
-## A colisão do chão na área do ombro, com os mesmos triângulos da malha. A grade de colisão de fora
-## (HeightMapShape3D, no Jolt) corta cada quadrado de 4 m pela diagonal contrária à da malha; num quadrado torcido
-## (um canto subiu e os outros não, como no barranco das pontas da ferradura) as duas ficam até 1 m uma da outra
-## e o robô afundava no capim (o usuário, em -489, 101, -305). Aqui a grade de colisão desce `DESCE` metros e
-## uma malha de colisão com os triângulos da malha do chão fica no lugar dela. Chamada pela `_colisao_fora`.
-static func colisao_do_ombro(v: Vale, dados: PackedFloat32Array) -> void:
-	if _ombro_marca.is_empty():
-		return
-	const DESCE := 8.0
-	var n := Vale.F_N
-	var gx0 := clampi(floori((CENTRO.x - OMBRO_LADO_ATE - 12.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
-	var gx1 := clampi(ceili((CENTRO.x + OMBRO_LADO_ATE + 12.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
-	var gz0 := clampi(floori((CENTRO.y - MZ - 160.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
-	var gz1 := clampi(ceili((CENTRO.y + MZ + 70.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
-	var faces := PackedVector3Array()
-	var ponto := func(gx: int, gz: int) -> Vector3:
-		return Vector3(-Vale.F_META + gx * Vale.F_PASSO, v._fora_h[gz * n + gx], -Vale.F_META + gz * Vale.F_PASSO)
-	for gz in range(gz0, gz1 + 1):
-		for gx in range(gx0, gx1 + 1):
-			var i := gz * n + gx
-			if _ombro_marca[i] + _ombro_marca[i + 1] + _ombro_marca[i + n] + _ombro_marca[i + n + 1] == 0:
-				continue
-			var a: Vector3 = ponto.call(gx, gz)
-			var b: Vector3 = ponto.call(gx + 1, gz)
-			var c: Vector3 = ponto.call(gx + 1, gz + 1)
-			var d: Vector3 = ponto.call(gx, gz + 1)
-			# a mesma ordem da `Vale._malha_fora`: (a, b, c) e (a, c, d), a diagonal de a até c
-			faces.append_array(PackedVector3Array([a, b, c, a, c, d]))
-	for gz in range(gz0, gz1 + 2):
-		for gx in range(gx0, gx1 + 2):
-			if _ombro_marca[gz * n + gx] == 1:
-				dados[gz * n + gx] -= DESCE
-	var forma := ConcavePolygonShape3D.new()
-	forma.set_faces(faces)
-	forma.backface_collision = true
-	var corpo := StaticBody3D.new()
-	corpo.name = "ChaoDoOmbro"
-	corpo.collision_layer = 1
-	corpo.collision_mask = 0
-	var cs := CollisionShape3D.new()
-	cs.shape = forma
-	corpo.add_child(cs)
-	v.add_child(corpo)
-	print("fundição: colisão do ombro com %d triângulos" % (faces.size() / 3))
-
-
 ## Troca, nos nós que o ombro mudou, o relevo novo pelo do corte antigo (`antigo`) ou de volta. Os sorteios da
 ## mata e dos paredões de fora correm no antigo, para o resto da ilha continuar com as mesmas árvores e pedras.
 static func relevo_antigo(v: Vale, antigo: bool) -> void:

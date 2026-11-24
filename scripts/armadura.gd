@@ -664,6 +664,12 @@ func analogico() -> Vector2:
 
 ## O lugar de sentar vago mais perto do robô (lista vazia: nenhum ao alcance). O que tem um robozinho sentado
 ## fica de fora, e o robô senta no próximo vago (no outro lado do sofá; doc §157).
+## O assento `p` tem alguém: um robozinho jogando (`MiniRobos`) ou o robô antigo no banco da fogueira
+## (`AmigoRobo`). Antes só os robozinhos contavam, e o robô sentava em cima do antigo (doc §163).
+func assento_tomado(p: Vector3) -> bool:
+	return MiniRobos.lugar_ocupado(p) or (is_inside_tree() and AmigoRobo.assento_tomado(get_tree(), p))
+
+
 func assento_perto() -> Array:
 	var melhor: Array = []
 	var md := ASSENTO_PERTO
@@ -671,14 +677,14 @@ func assento_perto() -> Array:
 	for lugar: Array in assentos:
 		var p: Vector3 = lugar[0]
 		var d := Vector2(p.x - global_position.x, p.z - global_position.z).length()
-		if d < ASSENTO_PERTO and absf(p.y - global_position.y) < 1.6 and MiniRobos.lugar_ocupado(p):
+		if d < ASSENTO_PERTO and absf(p.y - global_position.y) < 1.6 and assento_tomado(p):
 			tomado = true
 	if tomado:
 		md = ASSENTO_PERTO + 1.0
 	for lugar: Array in assentos:
 		var p: Vector3 = lugar[0]
 		var d := Vector2(p.x - global_position.x, p.z - global_position.z).length()
-		if d < md and absf(p.y - global_position.y) < 1.6 and not MiniRobos.lugar_ocupado(p):
+		if d < md and absf(p.y - global_position.y) < 1.6 and not assento_tomado(p):
 			md = d
 			melhor = lugar
 	return melhor

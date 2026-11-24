@@ -51,6 +51,7 @@ var _salto_de := Vector3.ZERO
 var _salto_ate := Vector3.ZERO
 var _roda_i := 0
 var _ultimo := ""
+var _banco_p := Vector3.INF  # o assento do banco (de `Armadura.assentos`) que o antigo usa
 
 
 func _ready() -> void:
@@ -156,6 +157,7 @@ func _achar_lugares() -> void:
 				if p.distance_to(BaseLar.fogueira) < 3.5 and (a[1] as Vector3).dot(fora) > melhor:
 					melhor = (a[1] as Vector3).dot(fora)
 					lugares["banco"] = [p - Vector3(0, _raiz_y - 0.045, 0), a[1], a[2]]
+					_banco_p = p
 		# o telhado: a bacia na beira da frente do telheiro; o pulo sai do chão à frente dela
 		var beira: Vector3 = tb * Vector3(TELHADO.x, BaseLar.teto_y(TELHADO.z) + 0.075, TELHADO.z)
 		lugares["telhado"] = [beira - Vector3(0, _raiz_y - 0.045, 0), fora]
@@ -250,6 +252,20 @@ func _andar_para(p: Vector3, depois: String) -> void:
 	estado = "andando"
 
 
+## O robô do jogador está sentado no assento do banco que o antigo usa?
+func _banco_do_jogador() -> bool:
+	return armadura != null and _banco_p.is_finite() and armadura.assento_atual().distance_to(_banco_p) < 0.35
+
+
+## Algum robô achado está sentado no assento `p` de `Armadura.assentos`? (o jogador não senta em cima dele)
+static func assento_tomado(arvore: SceneTree, p: Vector3) -> bool:
+	for n in arvore.get_nodes_in_group("amigos"):
+		var a := n as AmigoRobo
+		if a != null and a.estado == "banco" and a._banco_p.is_finite() and a._banco_p.distance_to(p) < 0.35:
+			return true
+	return false
+
+
 ## O que o antigo faz agora: de noite o telhado; de dia uma das três coisas, sem repetir a última.
 func _proximo_antigo() -> void:
 	if noite():
@@ -257,7 +273,7 @@ func _proximo_antigo() -> void:
 		return
 	var opcoes: Array = []
 	for o: String in ["horta", "campo", "banco"]:
-		if lugares.has(o) and o != _ultimo:
+		if lugares.has(o) and o != _ultimo and not (o == "banco" and _banco_do_jogador()):
 			opcoes.append(o)
 	var o_que: String = opcoes[_rng.randi() % opcoes.size()]
 	if o_que == "banco":
@@ -293,6 +309,11 @@ func _rotina_antigo(delta: float) -> void:
 			if _aceno <= 0.0 and _passo(delta, ANDA):
 				match _depois:
 					"banco":
+						if _banco_do_jogador():
+							# o robô do jogador sentou ali enquanto ele vinha: vai para outro canto
+							_ultimo = "banco"
+							_proximo_antigo()
+							return
 						var b: Array = lugares["banco"]
 						_pos = b[0]
 						_yaw = _yaw_de(b[1])

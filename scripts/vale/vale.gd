@@ -983,11 +983,136 @@ func _fora_coberto(p: Vector3, para_fora: Vector2) -> bool:
 
 
 func normal_em_fora(gx: int, gz: int) -> Vector3:
-	var hl := _fora_h[gz * F_N + maxi(gx - 1, 0)]
-	var hr := _fora_h[gz * F_N + mini(gx + 1, F_N - 1)]
-	var hd := _fora_h[maxi(gz - 1, 0) * F_N + gx]
-	var hu := _fora_h[mini(gz + 1, F_N - 1) * F_N + gx]
+	var il := gz * F_N + maxi(gx - 1, 0)
+	var ir := gz * F_N + mini(gx + 1, F_N - 1)
+	var id := maxi(gz - 1, 0) * F_N + gx
+	var iu := mini(gz + 1, F_N - 1) * F_N + gx
+	var hl := _fora_h[il]
+	var hr := _fora_h[ir]
+	var hd := _fora_h[id]
+	var hu := _fora_h[iu]
+	# o vizinho que o Sumidouro rebaixou entra com a altura de antes: por fora a rocha dele refaz o morro ali, e
+	# com a grade lá no fundo a beira ganhava luz e cor de paredão (riscos claros e escuros, doc §163)
+	var mr := RochaMalha.marca
+	if not mr.is_empty() and (mr[il] == 1 or mr[ir] == 1 or mr[id] == 1 or mr[iu] == 1):
+		hl = float(RochaMalha.antes_do_rebaixo.get(il, hl))
+		hr = float(RochaMalha.antes_do_rebaixo.get(ir, hr))
+		hd = float(RochaMalha.antes_do_rebaixo.get(id, hd))
+		hu = float(RochaMalha.antes_do_rebaixo.get(iu, hu))
 	return Vector3(hl - hr, 2.0 * F_PASSO, hd - hu).normalized()
+
+
+## A grade como se vê por fora (doc §163): nos nós que o Sumidouro rebaixou, a altura de antes (a rocha dele
+## refaz o morro por cima). Bilinear, como `_fora`.
+func _fora_vista(x: float, z: float) -> float:
+	var fx := clampf((x + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var fz := clampf((z + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var ix := int(fx)
+	var iz := int(fz)
+	var i := iz * F_N + ix
+	var a := RochaMalha.antes_do_rebaixo
+	var h00 := float(a.get(i, _fora_h[i]))
+	var h10 := float(a.get(i + 1, _fora_h[i + 1]))
+	var h01 := float(a.get(i + F_N, _fora_h[i + F_N]))
+	var h11 := float(a.get(i + F_N + 1, _fora_h[i + F_N + 1]))
+	return lerpf(lerpf(h00, h10, fx - ix), lerpf(h01, h11, fx - ix), fz - iz)
+
+
+## A normal do chão como se vê por fora: perto do Sumidouro, a do morro de antes (onde a grade mergulha
+## debaixo da rocha, `normal_em` dava paredão); no resto, a de sempre. Para plantar mato e capim em cima da
+## rocha e para a luz do alto dela (doc §163).
+func normal_vista(x: float, z: float) -> Vector3:
+	if RochaMalha.antes_do_rebaixo.is_empty() or not Sumidouro.na_caixa(x, z, 12.0):
+		return normal_em(x, z)
+	var e := F_PASSO
+	return Vector3(_fora_vista(x - e, z) - _fora_vista(x + e, z), 2.0 * e, _fora_vista(x, z - e) - _fora_vista(x, z + e)).normalized()
+
+
+## A altura da malha do chão num ponto, nos triângulos dela (a diagonal de (0,0) a (1,1) de cada quadrado):
+## na grade rebaixada ela difere muito da bilinear de `_fora`.
+func altura_da_malha(x: float, z: float) -> float:
+	var fx := clampf((x + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var fz := clampf((z + F_META) / F_PASSO, 0.0, F_N - 1.001)
+	var ix := int(fx)
+	var iz := int(fz)
+	fx -= ix
+	fz -= iz
+	var i := iz * F_N + ix
+	var h00 := _fora_h[i]
+	var h11 := _fora_h[i + F_N + 1]
+	if fx >= fz:
+		return h00 + fx * (_fora_h[i + 1] - h00) + fz * (h11 - _fora_h[i + 1])
+	return h00 + fz * (_fora_h[i + F_N] - h00) + fx * (h11 - _fora_h[i + F_N])
+
+
+const TORTO := 0.2  # metros entre as duas diagonais, no meio do quadrado, a partir dos quais ele ganha colisão própria
+
+
+## A colisão dos quadrados tortos com os mesmos triângulos da malha (doc §162). A grade de colisão
+## (HeightMapShape3D, no Jolt) corta cada quadrado de 4 m pela diagonal contrária à da `_malha_fora`. Num quadrado
+## plano isso não muda nada; num torto (um canto fora do plano dos outros três) as duas diagonais ficam metros uma
+## da outra, e o robô afundava no capim (o usuário, no barranco da Fundição em -489, 101, -305; a leste dela a
+## colisão chegava a 2,4 m abaixo). Onde as diagonais passam de `TORTO` metros uma da outra no meio do quadrado,
+## os cantos dele descem `DESCE` metros na grade, e uma malha de colisão com os triângulos da malha do chão cobre
+## todo quadrado que toca um canto descido. A malha que se vê não muda (os cortes de caverna foram encaixados nela).
+func _colisao_dos_tortos(dados: PackedFloat32Array, meio: int, furo: int) -> void:
+	const DESCE := 8.0
+	var t0 := Time.get_ticks_msec()
+	var n := F_N
+	var desce := PackedByteArray()
+	desce.resize(n * n)
+	var ha := _fora_h
+	# os quadrados da clareira ficam como estão (lá a malha é a dela, e a grade já foi rebaixada)
+	var c0 := meio - furo - 2
+	var c1 := meio + furo + 2
+	var tortos := 0
+	for gz in n - 1:
+		var l0 := gz * n
+		var na_clareira_z := gz >= c0 and gz <= c1
+		for gx in n - 1:
+			if na_clareira_z and gx >= c0 and gx <= c1:
+				continue
+			var i := l0 + gx
+			if absf(ha[i] + ha[i + n + 1] - ha[i + 1] - ha[i + n]) > 2.0 * TORTO:
+				desce[i] = 1
+				desce[i + 1] = 1
+				desce[i + n] = 1
+				desce[i + n + 1] = 1
+				tortos += 1
+	var faces := PackedVector3Array()
+	for gz in n - 1:
+		var l0 := gz * n
+		var z0 := -F_META + gz * F_PASSO
+		var z1 := z0 + F_PASSO
+		for gx in n - 1:
+			var i := l0 + gx
+			if desce[i] + desce[i + 1] + desce[i + n] + desce[i + n + 1] == 0:
+				continue
+			var x0 := -F_META + gx * F_PASSO
+			var x1 := x0 + F_PASSO
+			var a := Vector3(x0, ha[i], z0)
+			var b := Vector3(x1, ha[i + 1], z0)
+			var c := Vector3(x1, ha[i + n + 1], z1)
+			var d := Vector3(x0, ha[i + n], z1)
+			# a mesma ordem da `_malha_fora`: (a, b, c) e (a, c, d), a diagonal de a até c
+			faces.append_array(PackedVector3Array([a, b, c, a, c, d]))
+	for i in n * n:
+		if desce[i] == 1:
+			dados[i] -= DESCE
+	if faces.is_empty():
+		return
+	var forma := ConcavePolygonShape3D.new()
+	forma.set_faces(faces)
+	forma.backface_collision = true
+	var corpo := StaticBody3D.new()
+	corpo.name = "ChaoDosTortos"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	corpo.add_child(cs)
+	add_child(corpo)
+	print("vale: %d quadrados tortos; colisão própria com %d triângulos (%d ms)" % [tortos, faces.size() / 3, Time.get_ticks_msec() - t0])
 
 
 func _colisao_fora() -> void:
@@ -1001,8 +1126,8 @@ func _colisao_fora() -> void:
 			var x := -F_META + gx * F_PASSO
 			var z := -F_META + gz * F_PASSO
 			dados[gz * F_N + gx] = minf(dados[gz * F_N + gx], super.altura(x, z)) - 1.0
-	# na área do ombro da Fundição a colisão é uma malha com os triângulos da malha do chão (doc §162)
-	Fundicao.colisao_do_ombro(self, dados)
+	# nos quadrados tortos a colisão é uma malha com os triângulos da malha do chão (doc §162)
+	_colisao_dos_tortos(dados, meio, furo)
 	var corpo := StaticBody3D.new()
 	corpo.name = "ChaoFora"
 	corpo.collision_layer = 1
@@ -1097,6 +1222,8 @@ func _plantas_do_chao() -> void:
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2311
+	var rng_rocha := RandomNumberGenerator.new()  # em cima do Sumidouro (doc §163): a ilha segue com o mesmo sorteio
+	rng_rocha.seed = 2377
 	var fila: Array = []
 	var pedras: Array = []
 	var guardado: Variant = Cache.ler("plantas_chao")
@@ -1117,7 +1244,13 @@ func _plantas_do_chao() -> void:
 				var tam := rng.randf_range(0.8, 1.25)
 				x += passo
 				var h := altura(px, pz)
-				if h < 2.5 or agua(px, pz) > -INF or normal_em(px, pz).y < 0.82 or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
+				var na_rocha := Cavernas.dentro(px, pz)
+				var r := rng_rocha if na_rocha else rng
+				if na_rocha:
+					h = RochaMalha.chao_de_planta(px, pz, h)
+					if is_nan(h):
+						continue
+				if h < 2.5 or agua(px, pz) > -INF or _normal_planta(px, pz, na_rocha).y < 0.82 or not Ruinas.livre(px, pz):
 					continue
 				if Vector2(px - spawn.x, pz - spawn.z).length() < 10.0:
 					continue
@@ -1169,6 +1302,8 @@ func _plantas_do_chao() -> void:
 				# no ombro da Fundição quem planta é ela (doc §162); o sorteio segue igual para o resto da ilha
 				var poe := not Fundicao.no_ombro(px, pz)
 				if tipo == "q_pedra":
+					if na_rocha:
+						continue  # a pedra solta tem colisão e conta o chão pela grade (lá embaixo)
 					tipo = ["q_pedra_a", "q_pedra_b", "q_pedra_c"][int(qual * 3.0) % 3]
 					s = rng.randf_range(0.3, 0.62)
 					var xfp := Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.12 * s, pz))
@@ -1177,7 +1312,7 @@ func _plantas_do_chao() -> void:
 						pedras.append([tipo, xfp])
 					continue
 				# deitada no chão inclinado
-				var n := normal_em(px, pz)
+				var n := _normal_planta(px, pz, na_rocha)
 				var b := Basis(Vector3.UP, giro)
 				b = Basis(Quaternion(Vector3.UP, n)) * b
 				if poe:
@@ -1185,22 +1320,25 @@ func _plantas_do_chao() -> void:
 				if tipo.begins_with("q_flor"):
 					# flor vem em canteiro: mais três ou quatro em volta, da mesma espécie
 					for k in 3 + int(qual * 2.0):
-						var of := Vector2.from_angle(giro + k * 1.7) * rng.randf_range(0.6, 2.4)
-						var hf := altura(px + of.x, pz + of.y)
-						if agua(px + of.x, pz + of.y) > -INF:
+						var of := Vector2.from_angle(giro + k * 1.7) * r.randf_range(0.6, 2.4)
+						var hf := _chao_planta(px + of.x, pz + of.y, na_rocha)
+						if agua(px + of.x, pz + of.y) > -INF or is_nan(hf):
 							continue
-						var esc_f := rng.randf_range(0.7, 1.2)
+						var esc_f := r.randf_range(0.7, 1.2)
 						if poe:
 							fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * esc_f),
 								Vector3(px + of.x, hf - 0.03, pz + of.y))])
 				if tipo == "q_cogumelo":
 					# cogumelo vem em grupo
 					for k in 2:
-						var o := Vector2.from_angle(giro + k * 2.2) * rng.randf_range(0.35, 0.8)
-						var esc_c := rng.randf_range(0.5, 0.9)
+						var o := Vector2.from_angle(giro + k * 2.2) * r.randf_range(0.35, 0.8)
+						var esc_c := r.randf_range(0.5, 0.9)
+						var hc := _chao_planta(px + o.x, pz + o.y, na_rocha)
+						if is_nan(hc):
+							continue
 						if poe:
 							fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * esc_c),
-								Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
+								Vector3(px + o.x, hc - 0.03, pz + o.y))])
 			z += passo
 		Cache.gravar("plantas_chao", {"fila": fila, "pedras": pedras})
 	plantas_chao = fila.size()
@@ -1247,9 +1385,21 @@ func _plantas_do_chao() -> void:
 	print("plantas de chão: %d peças, %d pedras com colisão" % [fila.size(), pedras.size()])
 
 
+## A normal para plantar: em cima do Sumidouro e na volta dele, a do morro como se vê por fora (doc §163).
+func _normal_planta(x: float, z: float, na_rocha: bool) -> Vector3:
+	return normal_vista(x, z) if na_rocha else normal_em(x, z)
+
+
+## A altura para plantar: em cima do Sumidouro e na volta dele, a do alto da rocha (NAN onde não nasce nada).
+func _chao_planta(x: float, z: float, na_rocha: bool) -> float:
+	return RochaMalha.chao_de_planta(x, z, altura(x, z)) if na_rocha else altura(x, z)
+
+
 func _mata_fora() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 17
+	var rng_rocha := RandomNumberGenerator.new()
+	rng_rocha.seed = 1763
 	var primeiro := arv_pos.size()
 	var fila: Array = []
 	var passo := 9.0
@@ -1268,27 +1418,35 @@ func _mata_fora() -> void:
 			if rng.randf() > (0.92 if c == 2 else 0.5):
 				continue
 			var h := _fora(px, pz)
-			if h < 3.0 or normal_em(px, pz).y < 0.76 or _perto_dagua(px, pz) or not Ruinas.livre(px, pz) or Cavernas.dentro(px, pz):
+			# em cima do Sumidouro a árvore nasce no alto da rocha, onde ela é grossa (doc §163); o sorteio dali corre
+			# em outro gerador, para a mata do resto da ilha continuar a mesma
+			var na_rocha := Cavernas.dentro(px, pz)
+			var r := rng_rocha if na_rocha else rng
+			if na_rocha:
+				h = RochaMalha.chao_de_planta(px, pz, h)
+				if is_nan(h):
+					continue
+			if h < 3.0 or _normal_planta(px, pz, na_rocha).y < 0.76 or _perto_dagua(px, pz) or not Ruinas.livre(px, pz):
 				continue
 			# colada num paredão a árvore sumia dentro da rocha
 			var na_parede := false
 			for viz: Vector2 in [Vector2(8, 0), Vector2(-8, 0), Vector2(0, 8), Vector2(0, -8)]:
-				if normal_em(px + viz.x, pz + viz.y).y < 0.62:
+				if _normal_planta(px + viz.x, pz + viz.y, na_rocha).y < 0.62:
 					na_parede = true
 			if na_parede:
 				continue
-			var sorte := rng.randf()
+			var sorte := r.randf()
 			var tipo := "carvalho_a"
-			var s := rng.randf_range(0.9, 1.5)
+			var s := r.randf_range(0.9, 1.5)
 			if h > 95.0:
 				tipo = "pinheiro" if sorte < 0.85 else "betula"
 			elif c == 2:
 				# mata fechada: árvores maiores, mais carvalho e pinheiro escuro
 				tipo = "carvalho_b" if sorte < 0.5 else ("pinheiro" if sorte < 0.8 else "carvalho_a")
-				s = rng.randf_range(1.3, 2.0)
+				s = r.randf_range(1.3, 2.0)
 			else:
 				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
-			var giro := rng.randf() * TAU
+			var giro := r.randf() * TAU
 			if Fundicao.no_ombro(px, pz):
 				continue  # o ombro da Fundição tem as árvores dele (o sorteio daqui corre no relevo de antes)
 			arv_pos.append(Vector3(px, h - 0.15, pz))

@@ -210,7 +210,7 @@ func _calcular_longe(chave: Vector2i) -> Dictionary:
 			var giro := rng.randf() * TAU
 			if sorte >= _chance(mapa.cobertura(px, pz)):
 				continue
-			var ny := 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
+			var ny := RochaMalha.ny_de_capim(mapa, px, pz)
 			var h := _chao(px, pz, ny, rng)
 			if h == -INF:
 				continue
@@ -311,6 +311,10 @@ func _chao(px: float, pz: float, ny: float, rng: RandomNumberGenerator) -> float
 	if Pista.em(px, pz) == 1 and rng.randf() > 0.1:
 		return -INF
 	var h := mapa.altura(px, pz)
+	if mapa is Vale:
+		h = RochaMalha.chao_de_planta(px, pz, h, 0.0)  # em cima do Sumidouro, no alto da rocha (doc §163)
+		if is_nan(h):
+			return -INF
 	if h < 2.2 or ny < 0.9:
 		return -INF
 	return h
@@ -358,7 +362,7 @@ func _calcular(chave: Vector2i) -> Dictionary:
 			var px := x0 + i * AMOSTRA
 			var pz := z0 + j * AMOSTRA
 			ncob[j * n + i] = mapa.cobertura(px, pz)
-			nny[j * n + i] = 0.0 if RochaMalha.dentro(px, pz) else mapa.normal_em(px, pz).y
+			nny[j * n + i] = RochaMalha.ny_de_capim(mapa, px, pz)
 	var ts: Array = []
 	var altos := PackedFloat32Array()
 	var rng := RandomNumberGenerator.new()

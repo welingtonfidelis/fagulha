@@ -5149,13 +5149,99 @@ centro dos blocos), e três lugares de bichos perto dali mudaram.
   aparece. Com a correção da ponta, o chão sobe logo no pé da linha, e no quadrado do ponto um canto subiu
   cerca de 2 m e os outros três não. Ali a colisão ficava até 1,09 m abaixo do capim, e o robô parava 0,5 m
   enterrado.
-- **A correção** (`Fundicao.colisao_do_ombro`, chamada pela `Vale._colisao_fora`): na área do ombro
-  (`_ombro_marca`) a grade de colisão desce 8 m. No lugar dela fica a malha de colisão `ChaoDoOmbro`, com os
-  mesmos triângulos da malha do chão (3.048 triângulos).
-- **Conferido com raios de cima** numa grade de 1 m em 300 × 300 m em volta. Na área do ombro nenhum ponto tem a
-  colisão abaixo da malha. O robô posto no ponto fica em 101,30 m, com a malha em 101,27 m.
-- **Fora do ombro já era assim.** A mesma diagonal trocada deixa a colisão até 0,3–0,6 m abaixo do relevo
-  natural em encostas tortas da ilha. A leste da Fundição, entre x = -474 e -430, z = -440 e -380, a diferença
-  passa de 1 m, até 2,4 m (4,8 m num ponto). Nada disso foi mexido aqui.
+- **A correção, na ilha inteira** (`Vale._colisao_dos_tortos`, chamada pela `_colisao_fora`). A primeira versão
+  cobria só o ombro da Fundição (`Fundicao.colisao_do_ombro`, malha `ChaoDoOmbro`) e saiu, porque a mesma diagonal
+  trocada deixava a colisão até 0,3–0,6 m abaixo do relevo em encostas tortas da ilha toda, e a leste da Fundição
+  (x = -474 a -430, z = -440 a -380) até 2,4 m (4,8 m num ponto).
+  - Um quadrado é torto quando as duas diagonais ficam a mais de `TORTO` (0,2 m) uma da outra no meio dele.
+  - Os quatro cantos de cada quadrado torto descem 8 m na grade de colisão.
+  - A malha de colisão `ChaoDosTortos` cobre, com os mesmos triângulos da malha do chão, todo quadrado que toca
+    um canto descido.
+  - A clareira fica como estava. A malha que se vê não muda (os cortes de caverna já estavam encaixados nela).
+  - São 22.017 quadrados tortos e 110.706 triângulos, montados em cerca de 140 ms na abertura.
+- **Nos quadrados que ficaram na grade**, as duas diagonais ficam a menos de 0,2 m uma da outra, e a colisão
+  fica no máximo 0,1 m fora do capim. No ponto relatado, o robô fica em 101,30 m, com a malha em 101,27 m.
 
-**Estado:** aprovado ("ficou muito bom", depois da ponta e da colisão). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação básica 28/28.
+**Estado:** aprovado ("ficou muito bom", depois da ponta e da colisão). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação básica 28/28. A colisão na ilha inteira entrou depois, com a §163.
+
+## 163. Banco, bússola, emenda do Sumidouro, sentar e a largada das rotas (2026-11-24)
+
+Uma leva de pedidos do usuário depois da Fundição (§162), aprovada em 2026-11-24 ("ficou bom").
+
+**O banco da fogueira.** Tocar para sentar com o robô antigo no banco fazia o robô do jogador sentar em cima dele.
+- `Armadura.assento_tomado(p)`: um assento conta como tomado se tiver um robozinho jogando (`MiniRobos`) ou o
+  antigo sentado nele (`AmigoRobo.assento_tomado`, pelo `_banco_p`, o assento do banco que o antigo usa). O robô
+  do jogador senta no outro lado do banco.
+- Se o jogador senta primeiro, o antigo não escolhe o banco. Se ele já vinha andando para lá, vai para outro canto.
+
+**O erro ao sentar perto de um robozinho.** "Invalid access to property or key 'global_transform' on a base object
+of type 'previously freed'" (`ArmaduraVisual.atualizar`), repetido no terminal. `vestir_melhorias` apaga as peças
+vestidas e as refaz, mas as listas medidas para sentar e abaixar (`_malhas`, `_pontos`, `_perna`) guardavam as
+apagadas. Agora elas são limpas junto, e `_medir_malhas` as refaz.
+
+**As balizas das rotas na bússola** (o usuário: "são muito pequenas e difíceis de ver de longe"):
+- Cada baliza a menos de `Rotas.BUSSOLA` (600 m) aparece na faixa da bússola como um poste com o aro laranja no
+  alto, como a própria baliza (`Rotas.na_bussola`, `Hud._desenhar_bussola`).
+- A rota já feita fica mais apagada.
+- Com uma rota acesa, some tudo e fica só o aro da vez.
+
+**A emenda do Sumidouro** (o usuário: "acho que consegue melhorar como fez na Fundição"). Fotos de perto e de longe
+acharam quatro defeitos; o usuário aprovou mexer nos três primeiros ("Sim, faz 1 a 3"):
+1. **Riscos claros e escuros na beira.** Não era a forma: era a luz. `RochaMalha.rebaixar` baixa os nós da grade
+   sob as bocas do Sumidouro em 40 a 60 m. A normal dos vizinhos (`Vale.normal_em_fora`) usava esses nós
+   rebaixados e virava parede, e o `vale_chao` pintava pedra em degraus. Agora a rocha guarda a altura de antes
+   de cada nó rebaixado (`RochaMalha.antes_do_rebaixo`, `marca`), e a normal do chão usa essa altura.
+2. **Manchas no alto da rocha.** O alto da malha do Sumidouro tinha normais e capim com regras próprias.
+   - `RochaMalha._normal_do_alto` puxa a normal do alto para a do chão em volta (`Vale.normal_vista`).
+   - O capim do `vale_gruta` usa a mesma conta do `vale_chao`: o tom (×0,92), o capim pintado de longe (38 a 84 m)
+     e a pedra na mesma inclinação.
+   - `assets/vale/sumidouro.res` foi reassado (`-- --assar-rochas`; o `boca_degelo.res` saiu igual).
+   - As manchas que sobram são encostas de verdade, pintadas como no resto da ilha.
+3. **Careca sem mato em cima da rocha.**
+   - Árvores, flores, cogumelos e capim agora nascem em cima da rocha grossa (`Sumidouro.chao_firme`).
+   - Um mapa de 2 m guarda onde, 2 m abaixo da superfície, o vazio fica a mais de `SOLO_FOLGA` (5 m)
+     (`_mapa_solo`, no cache).
+   - A planta fica na altura da malha que se vê (`RochaMalha.chao_de_planta`, `Vale.altura_da_malha`).
+   - Os sorteios em cima da rocha correm em geradores próprios (1763 nas árvores, 2377 nas plantas), e a mata do
+     resto da ilha continua igual.
+
+   O defeito 4 (a fenda da varanda) ficou para outra vez. Fotos em `tools/capturas/sumidouro_emenda/` (`antes/`,
+   `depois/`, `magenta/`, `defeitos.jpg`, `antes_depois.jpg`).
+
+**Sentar no banco e na poltrona** (o usuário: com as canelas pendendo, "os pés somem dentro do modelo"):
+- As pernas ficam esticadas para a frente, como as dos robozinhos e do antigo.
+- As mãos ficam no colo: o ombro vem para dentro, o cotovelo dobra e o antebraço gira para dentro.
+- A tabela `ArmaduraVisual.CADEIRA` ganhou a coluna do antebraço (agora são 12). Sentar no chão não mudou.
+- Conferido também com o conjunto Urso, sem nada atravessando.
+- Fotos em `tools/capturas/sentar/` (`sentar_antes_depois.jpg`).
+
+**A largada das rotas** (o usuário: o primeiro aro da cachoeira "está muito escondido"; depois: "o nosso robô inicia
+o voo na vertical (segurando X) e depois vai pra frente"):
+- **O aro de largada fica deitado em cima da baliza**, a 7,5 m (`Rotas._por_largada`, `LARGADA_ALTO`).
+  - A decolagem de pé atravessa esse aro sozinha e, de longe, ele mostra onde a rota começa.
+  - Vale em todas as rotas, a represa incluída: a lagoa fica a uns 200 m, e lá esse aro tem o tamanho dos aros do
+    ar (`_raio`).
+  - Antes ele ficava de pé, 16 m à frente da baliza. O robô sobe uns 13 m e só depois sai para a frente, sem poder
+    descer por 1,6 s, então aquele aro pedia subir e despencar.
+- **O primeiro aro de verdade fica ao alcance de quem sai voando reto.** Medido do alto da decolagem
+  (`DECOLAGEM_TOPO`, 13 m acima da baliza):
+  - Torres, mastro e ninho: o aro fica acima e à frente (+21°, +28° e +67°; no ninho é continuar subindo, e o
+    calor não chega perto do limite).
+  - Volta da ilha (191 m, -22°) e represa (211 m, -11°): longe, numa descida leve.
+  - **Cachoeira:** o aro de dentro da queda (50 m abaixo, 45 m à frente) saiu. Agora vem primeiro um aro em cima da
+    nascente, na altura da decolagem, e depois um no respingo, em frente ao pé da queda (`POCO_NIVEL` + 6). Entre
+    os dois, um mergulho de uns 50°, na inclinação da própria água.
+  - **Fenda:** os aros começam a 78 m ao longo da linha (eram 30, logo abaixo de quem acabava de subir).
+- **A trilha de luz** (`_montar_trilha`, `_pintar_trilha`):
+  - Pontinhos laranja vão de onde se vem até o aro da vez, com um pulso correndo para a frente.
+  - Mais apagados, pontinhos azuis seguem do aro da vez até o seguinte, para se ver para onde a rota vira.
+  - A trilha é refeita a cada aro passado e fica mais apagada na fenda.
+- **O aro da vez aparece através de tudo**, bem apagado (`_fantasma`, sem teste de fundo): por trás da água, das
+  árvores e da pedra. Na fenda não, porque lá o aro só aparece quando a luz do peito chega.
+- **Modo difícil:** o aro depois da largada também ganha os 6 s de folga do primeiro.
+- **A cor dos jatos** ganha na primeira vez de uma rota não é mais posta na hora: ela fica na oficina da base, e
+  quem troca é o jogador (o aviso diz "cor nova para os jatos: …").
+- Fotos em `tools/capturas/rotas/` (`folha_v4.jpg`: cada baliza e a vista do alto da decolagem).
+
+**Estado:** aprovado em 2026-11-24 ("ficou bom"). Testes no mesmo dia, sem janela: `--teste-vale` 116/116, `--teste`
+94/94 e a simulação básica 28/28.

@@ -222,6 +222,25 @@ func _desenhar_bussola() -> void:
 				var pt := Vector2(cx + off_t * escala, y0 + 12.0)
 				draw_colored_polygon(PackedVector2Array([pt + Vector2(-8, 6), pt + Vector2(-9, -6), pt + Vector2(-4, -1), pt + Vector2(0, -8),
 					pt + Vector2(4, -1), pt + Vector2(9, -6), pt + Vector2(8, 6)]), cor_t)
+	# as balizas das rotas do piloto de teste a menos de 600 m: um poste com o aro laranja no alto, como a baliza
+	# (pedido do usuário: de longe ela é pequena demais). A rota já feita fica mais apagada; com uma rota acesa
+	# fica só o aro da vez
+	if alvo and not aro_rota.is_finite():
+		for item: Array in Rotas.na_bussola:
+			var dr: Vector3 = (item[0] as Vector3) - alvo.global_position
+			dr.y = 0.0
+			if dr.length() > Rotas.BUSSOLA or dr.length() < 8.0:
+				continue
+			var off_r := wrapf(atan2(dr.x, -dr.z) - rumo, -PI, PI)
+			var forca := 0.5 if Rotas.feitas.has(String(item[1])) else 1.0
+			var cor_r := Color(Rotas.LARANJA, forca)
+			if absf(off_r) > meia:
+				_seta_da_ponta(cx, y0 + 12.0, signf(off_r), cor_r)
+			else:
+				var pr := Vector2(cx + off_r * escala, y0 + 12.0)
+				draw_line(pr + Vector2(0, -1), pr + Vector2(0, 10), Color(0.85, 0.85, 0.85, forca), 2.0)
+				draw_line(pr + Vector2(-4, 10), pr + Vector2(4, 10), Color(0.85, 0.85, 0.85, forca), 2.0)
+				draw_arc(pr + Vector2(0, -5.5), 5.0, 0.0, TAU, 18, cor_r, 2.8, true)
 	# a semente mais perto ainda no chão, a menos de 150 m: uma folhinha verde
 	if alvo:
 		var melhor := Vector3.INF
