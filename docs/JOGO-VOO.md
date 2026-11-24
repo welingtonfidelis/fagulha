@@ -5022,3 +5022,140 @@ topo da cabeça é da antena: sem mastro próprio, ela vai para o ponto de fábr
 
 **Estado:** no jogo nos níveis 16 a 18 ("Sim, níveis 16–18"; depois "envia pro git os robôs novos"). Testes em
 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação 28/28.
+
+## 161. A luz do cilindro e do cantinho sem lavar as cores (2026-11-24)
+
+O usuário notou que, dentro do cilindro, as peças brilhavam muito mais que lá fora, e que perto das poltronas
+acontecia o mesmo. Ele queria a cor das peças igual dentro e fora.
+
+**Por que acontecia:**
+- As placas do robô usam a luz em faixas (`luz_faixas`), feita para um sol só: cada lâmpada acende quase por
+  inteiro o lado virado para ela, e a força cresce perto dela (1/d).
+- No berço, cinco lâmpadas se somavam por lados diferentes: o foco (1,6), a luz da oficina (0,95), a fria (0,55), a
+  da boca do cilindro (até 2,5) e a do drone (0,7). Na conta, davam mais de 1,8 no robô, contra 1,0 do sol lá fora,
+  que vem de um lado só. Todas as faces à vista ficavam acesas, a cor passava de 1 e o brilho espalhava.
+- As lâmpadas pontuais não têm sombra, então a da boca e a do drone atravessavam a parede. O sol não entra (a casca
+  do cilindro faz sombra), mas a luz do céu entra cheia.
+- Defeito: a lâmpada laranja da boca ("conjunto novo") não é filha do aro. Quando o jogador via os conjuntos novos, o
+  aro sumia e a lâmpada ficava acesa na força daquele instante, até fechar o jogo.
+- No cantinho, a luz ao lado do sofá (1,7, alcance 7,5) e a do estrado (1,2, alcance 11) ficavam iguais de dia e de
+  noite. Debaixo do telheiro, de dia, eram elas que pintavam o robô de laranja.
+
+**O que mudou:**
+- **Sol de ateliê:** com o interior novo, a oficina acende um `DirectionalLight3D` sem sombra com a cor e a força do
+  sol das 11h (`SOL_COR`, `SOL_FORCA` = 1,08). Ele fica alto (55°), vindo de trás e de lado (120° da câmera). De
+  frente, ele acendia todas as faces à vista e o roxo do Mago virava rosa; assim metade fica na sombra, onde a cor
+  aparece como lá fora. Acende ao entrar e apaga ao sair, junto com a luz antiga.
+- **Lâmpadas do cilindro:** a luz da oficina sai do interior novo (força 0). Com a oficina aberta, o foco apaga e a
+  fria vai a 0,15 (`InteriorCilindro.luz_oficina`).
+- **Luzes que atravessam a parede:** com `Oficina.por_dentro` (da entrada até fechar), a luz da boca e a do drone
+  apagam.
+- **Luz da boca:** apaga quando não há conjunto novo (o defeito) e ficou mais fraca, de 0,3 a 1,3 com alcance 4.
+- **Lâmpadas da base:** `LuzesNoite.lampada(luz, dia, noite)` passa a força com o escurecer. A do cantinho vai de
+  0,15 de dia a 0,9 de noite, com alcance 5. A do estrado fica apagada de dia e vai a 0,7 de noite.
+
+**Fotos:** em `tools/capturas/luz_base/`:
+- `antes_depois.jpg`: o Mago longe das lâmpadas, no tapete do sofá e no berço, de dia e de noite;
+- `cores_dentro_fora.jpg`: o de fábrica, o Touro, a Águia e o Cavaleiro lá fora e no berço.
+
+**Estado:** aprovada com a Fundição da seção 162 ("ficou muito bom"). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação básica 28/28.
+
+## 162. A Fundição entrando na montanha, refeita (2026-11-24)
+
+O usuário achou uma faixa de terra flutuando em (-588, 137, -371) e pediu para trabalhar com bastante detalhe a
+emenda do galpão com a montanha, onde já tinha havido muitos problemas visuais. As fotos de 16 lados
+(`tools/capturas/fundicao_emenda/antes/`, folha `defeitos.jpg`) acharam oito defeitos. Todos vinham de uma escolha
+só: o `_morro` era uma tampa de 192 × 94 m posta por cima do relevo, com o alto subindo 0,22 m por metro e
+esperando a encosta alcançar. A encosta não alcançava, e por isso:
+1. A beira de trás, a 102 m do meio, ficava até 12,7 m acima do chão ao longo de 140 m (a faixa achada).
+2. De cima, aparecia um retângulo de capim de beiras retas, sem árvores.
+3. De trás, aparecia uma laje chata colada na serra.
+4. De longe, o paredão era uma faixa cinza em ferradura.
+5. A cara era lisa, riscada em pé pela grade, com a beira reta.
+6. Nos lados, rampas cinza em faixa reta.
+7. Nos cantos, uma lombada e uma pedra pálida.
+8. Por baixo, o relevo ficava no nível de antes: a tampa era oca, e as árvores e a câmera usavam o chão de baixo.
+
+**O que mudou** (`scripts/vale/fundicao.gd`):
+- **O ombro da serra está no próprio relevo.** `cavar` levanta a grade atrás da cara do paredão até
+  `alto_ombro(lx, lz)`:
+  - Na cara o alto fica em `PAREDAO` (33 m) e sobe `OMBRO_SOBE` (0,12) por metro para trás, com ondulações
+    leves.
+  - Ele encontra a encosta de antes num máximo suave (k = 9 m) e nunca fica abaixo dela.
+  - Para os lados ele desce até a encosta entre |x| = 44 e 100 m (`OMBRO_LADO_*`). Com 84 m o flanco passava de
+    40° e o chão pintava pedra clara nele.
+  - A grade muda em 1.018 nós; nenhum deles tinha sido mexido por caverna.
+  - O corte do galpão e o corredor do túnel continuam iguais: a grade segue no piso ali, porque os robôs saem do
+    corredor.
+- **A tampa** (superfície 1 da malha `MorroDaFundicao`, com o shader do chão do vale):
+  - Cobre só onde a grade não pode subir: os 24 m dos fundos do telhado, o corte em volta, o corredor e uma
+    faixa de 6 m atrás do pé da cara (`FAIXA_CARA`), onde a grade fica baixa dentro da rocha.
+  - As fileiras saem do alto da cara para trás. Onde o relevo já chegou, o ponto se esconde 0,4 m abaixo dele,
+    e a beira some sem degrau.
+  - Normais na escala da grade, cor de cobertura igual à do chão.
+- **A cara do paredão** (superfície 0) é uma parede de verdade: 48 fiadas por coluna de 1,25 m, do pé até o
+  alto do ombro. O pé fica no telhado ou no chão da frente.
+  - `_relevo` dá a forma: a cara deita 8% para trás, tem colunas e fendas em pé, camadas deitadas com a quina de
+    baixo marcada e um beiral no alto.
+  - A linha do pé (`linha`) é a de antes: torta, com a ferradura nas pontas.
+- **Pedras** (`_pedras_do_paredao`, com colisão):
+  - massas de rocha encaixadas na cara, como as dos paredões da ilha;
+  - nas pontas da ferradura, a cara desce em degraus de massas da altura dela até sumir na encosta;
+  - pedras na beira de cima;
+  - cascalho no telhado junto do pé, só nos lados do arco e no vão de baixo da cara (no alto e no vão da frente
+    há rombos, e a pedra boiava);
+  - as dez soltas do chão dos cantos, como antes.
+- **Mata e plantas do ombro** (`arvores_do_ombro`, chamada pela `_mata_fora`, e `_plantas_do_ombro`): a mesma
+  regra de tipo, tamanho e inclinação da mata de fora, com sorteio próprio. Perto da beira as árvores são menores.
+  Tufos no telhado junto do pé.
+
+**O resto da ilha não muda.** A mata de fora, as plantas do chão e os paredões são sorteados com números que
+dependem do que cada lugar aceita. Mudar o relevo ali mudaria as árvores, flores e pedras de toda a ilha ao sul.
+Por isso esses três sorteios correm no relevo de antes do ombro (`Fundicao.relevo_antigo`), e o que cai na área
+do ombro (`no_ombro`) é largado depois de sorteado. Conferido com o ombro ligado e desligado: além de 230 m, as
+árvores, as plantas, as pedras e as peças soltas ficam iguais. As árvores de longe mudam só na casa decimal (o
+centro dos blocos), e três lugares de bichos perto dali mudaram.
+
+**Fotos:** em `tools/capturas/fundicao_emenda/`:
+- `antes/` e `depois4/` (16 vistas e as duas pontas), `defeitos.jpg`;
+- `antes_depois_1.jpg`: o ponto relatado, de cima, de trás e de longe;
+- `antes_depois_2.jpg`: a cara, o telhado entrando, o canto e o lado leste.
+
+**A ponta da ferradura** (o usuário: "ficou muito bom, acerta só essa falha na emenda posição -479,105,-312"):
+- **O defeito.** No fim da ferradura (x ≈ 101 m no lugar) corria uma tira fina de pedra pelo capim, com uma
+  lâmina em pé na ponta. A cara e a tampa seguiam até |x| = 102 m, onde o ombro já é a encosta. Ali a cara tinha
+  menos de 1 m, e o beiral do `_relevo` (+1,3 m para a frente) saltava por cima do chão da frente.
+- **Quando a cara era baixa, sobrava uma lasca.** O barranco que a grade de 4 m faz no pé cobria a parte de
+  baixo da cara, e só ficava a lasca de cima.
+- **A correção:**
+  - A altura da cara agora é medida: `degrau_cara(lx)` vai do alto do ombro até o que fica na frente do pé
+    (o telhado no meio, o chão cortado nos lados). Ela vale cerca de 30 m nos cantos, 4,6 m em |x| = 84 e
+    0,5 m na ponta.
+  - A faixa baixa da grade atrás do pé só existe onde a cara passa de 4 m (`FAIXA_DEGRAU`). Onde a cara é mais
+    baixa, o chão sobe logo do pé.
+  - A cara e a tampa só existem nas colunas cujo nó da grade do lado de dentro tem a faixa baixa
+    (`cara_ativa`). Assim elas acabam junto com a faixa, sem oco atrás. Nas colunas sem cara, a tampa fica
+    toda sob o chão.
+  - O relevo da cara cresce com a altura dela (`smoothstep(1,2; 6; degrau)`), e a cara baixa não tem beiral
+    saltado.
+  - Onde a cara acaba, uma massa de rocha da altura dela fecha a ponta. Outras rochas, menores e fora de fila,
+    seguem a linha pelo barranco até a encosta (sorteio próprio, 4545).
+- Fotos em `tools/capturas/fundicao_emenda/falha_ponta/`: `antes_depois_falha.jpg` (o ponto relatado) e
+  `antes_depois_pontas.jpg` (as duas pontas e os lados, `depois4/` contra `depois5/`).
+
+**A colisão do barranco** (o usuário: "ficou muito bom, só falhou a colisão em -489,101,-305. o robô afunda"):
+- **A causa.** A colisão do chão de fora (`HeightMapShape3D`, no Jolt) corta cada quadrado de 4 m pela diagonal
+  contrária à da malha (`_malha_fora` liga o canto (i, j) ao (i+1, j+1)). Num quadrado quase plano isso não
+  aparece. Com a correção da ponta, o chão sobe logo no pé da linha, e no quadrado do ponto um canto subiu
+  cerca de 2 m e os outros três não. Ali a colisão ficava até 1,09 m abaixo do capim, e o robô parava 0,5 m
+  enterrado.
+- **A correção** (`Fundicao.colisao_do_ombro`, chamada pela `Vale._colisao_fora`): na área do ombro
+  (`_ombro_marca`) a grade de colisão desce 8 m. No lugar dela fica a malha de colisão `ChaoDoOmbro`, com os
+  mesmos triângulos da malha do chão (3.048 triângulos).
+- **Conferido com raios de cima** numa grade de 1 m em 300 × 300 m em volta. Na área do ombro nenhum ponto tem a
+  colisão abaixo da malha. O robô posto no ponto fica em 101,30 m, com a malha em 101,27 m.
+- **Fora do ombro já era assim.** A mesma diagonal trocada deixa a colisão até 0,3–0,6 m abaixo do relevo
+  natural em encostas tortas da ilha. A leste da Fundição, entre x = -474 e -430, z = -440 e -380, a diferença
+  passa de 1 m, até 2,4 m (4,8 m num ponto). Nada disso foi mexido aqui.
+
+**Estado:** aprovado ("ficou muito bom", depois da ponta e da colisão). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação básica 28/28.

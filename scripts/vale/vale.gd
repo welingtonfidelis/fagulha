@@ -120,16 +120,24 @@ func gerar(_semente := 7) -> void:
 	_cume()
 	Tempos.marca("_cume")
 	await _avisar(0.46, "Plantando a mata")
+	# a mata e os paredões de fora são sorteados no relevo de antes do ombro da Fundição (doc §162): o resto da
+	# ilha fica com as mesmas árvores e pedras, e no ombro quem planta é ela
+	Fundicao.relevo_antigo(self, true)
 	_mata_fora()
+	Fundicao.relevo_antigo(self, false)
 	Tempos.marca("_mata_fora")
 	if terra_nova:
 		terra_nova.plantar(self)
 		Tempos.marca("TerraNova.plantar")
 	await _avisar(0.54, "Espalhando flores e pedras")
+	Fundicao.relevo_antigo(self, true)
 	_plantas_do_chao()
+	Fundicao.relevo_antigo(self, false)
 	Tempos.marca("_plantas_do_chao")
 	await _avisar(0.60, "Erguendo os paredões")
+	Fundicao.relevo_antigo(self, true)
 	Paredoes.montar(self)
+	Fundicao.relevo_antigo(self, false)
 	Tempos.marca("Paredoes.montar")
 	if "--assar-rochas" in OS.get_cmdline_user_args():
 		Sumidouro.assar()
@@ -993,6 +1001,8 @@ func _colisao_fora() -> void:
 			var x := -F_META + gx * F_PASSO
 			var z := -F_META + gz * F_PASSO
 			dados[gz * F_N + gx] = minf(dados[gz * F_N + gx], super.altura(x, z)) - 1.0
+	# na área do ombro da Fundição a colisão é uma malha com os triângulos da malha do chão (doc §162)
+	Fundicao.colisao_do_ombro(self, dados)
 	var corpo := StaticBody3D.new()
 	corpo.name = "ChaoFora"
 	corpo.collision_layer = 1
@@ -1156,18 +1166,22 @@ func _plantas_do_chao() -> void:
 						plantas_amostra["margem"] = Vector3(px, h, pz)
 				if tipo == "":
 					continue
+				# no ombro da Fundição quem planta é ela (doc §162); o sorteio segue igual para o resto da ilha
+				var poe := not Fundicao.no_ombro(px, pz)
 				if tipo == "q_pedra":
 					tipo = ["q_pedra_a", "q_pedra_b", "q_pedra_c"][int(qual * 3.0) % 3]
 					s = rng.randf_range(0.3, 0.62)
 					var xfp := Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.12 * s, pz))
-					fila.append([tipo, xfp])
-					pedras.append([tipo, xfp])
+					if poe:
+						fila.append([tipo, xfp])
+						pedras.append([tipo, xfp])
 					continue
 				# deitada no chão inclinado
 				var n := normal_em(px, pz)
 				var b := Basis(Vector3.UP, giro)
 				b = Basis(Quaternion(Vector3.UP, n)) * b
-				fila.append([tipo, Transform3D(b.scaled(Vector3.ONE * s * tam), Vector3(px, h - 0.03, pz))])
+				if poe:
+					fila.append([tipo, Transform3D(b.scaled(Vector3.ONE * s * tam), Vector3(px, h - 0.03, pz))])
 				if tipo.begins_with("q_flor"):
 					# flor vem em canteiro: mais três ou quatro em volta, da mesma espécie
 					for k in 3 + int(qual * 2.0):
@@ -1175,14 +1189,18 @@ func _plantas_do_chao() -> void:
 						var hf := altura(px + of.x, pz + of.y)
 						if agua(px + of.x, pz + of.y) > -INF:
 							continue
-						fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * rng.randf_range(0.7, 1.2)),
-							Vector3(px + of.x, hf - 0.03, pz + of.y))])
+						var esc_f := rng.randf_range(0.7, 1.2)
+						if poe:
+							fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * esc_f),
+								Vector3(px + of.x, hf - 0.03, pz + of.y))])
 				if tipo == "q_cogumelo":
 					# cogumelo vem em grupo
 					for k in 2:
 						var o := Vector2.from_angle(giro + k * 2.2) * rng.randf_range(0.35, 0.8)
-						fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * rng.randf_range(0.5, 0.9)),
-							Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
+						var esc_c := rng.randf_range(0.5, 0.9)
+						if poe:
+							fila.append([tipo, Transform3D(Basis(Vector3.UP, giro * (k + 2)).scaled(Vector3.ONE * s * tam * esc_c),
+								Vector3(px + o.x, altura(px + o.x, pz + o.y) - 0.03, pz + o.y))])
 			z += passo
 		Cache.gravar("plantas_chao", {"fila": fila, "pedras": pedras})
 	plantas_chao = fila.size()
@@ -1270,13 +1288,17 @@ func _mata_fora() -> void:
 				s = rng.randf_range(1.3, 2.0)
 			else:
 				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
+			var giro := rng.randf() * TAU
+			if Fundicao.no_ombro(px, pz):
+				continue  # o ombro da Fundição tem as árvores dele (o sorteio daqui corre no relevo de antes)
 			arv_pos.append(Vector3(px, h - 0.15, pz))
 			arv_escala.append(s * 0.8)
 			tipo = tipo_variado(tipo, sorte_do_lugar(px, pz))
 			arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
 			arv_nome.append(tipo)
-			fila.append([tipo, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(px, h - 0.15, pz))])
+			fila.append([tipo, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(px, h - 0.15, pz))])
 		z += passo
+	Fundicao.arvores_do_ombro(self, fila)
 	arvores_fora = fila.size()
 	_fila_q = fila
 	# grade para a colisão e para as folhas ao atravessar as copas

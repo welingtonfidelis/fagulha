@@ -314,8 +314,8 @@ static func _cantinho(o: Ruinas.Obra, cy: float) -> void:
 	var luz := OmniLight3D.new()
 	luz.name = "LuzDoCantinho"
 	luz.light_color = Color(1.0, 0.74, 0.44)
-	luz.light_energy = 1.7
-	luz.omni_range = 7.5
+	luz.omni_range = 5.0  # era 7,5 e 1,7 de dia e de noite: lavava o cantinho (doc §161)
+	LuzesNoite.lampada(luz, 0.15, 0.9)
 	luz.position = o.t * Vector3(lx + 0.5, cy + 1.7, zs - 0.6)
 	o.v.add_child(luz)
 	LuzesNoite.por(o.v, o.t * Vector3(lx, cy + 1.36, zs + 0.1), LuzesNoite.AMBAR, 1.3)

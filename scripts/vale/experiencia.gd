@@ -144,11 +144,13 @@ func _pulsar(delta: float) -> void:
 	_boca.visible = _tem_novo
 	if not _tem_novo:
 		_pulso = 0.0
+		_boca_luz.light_energy = 0.0  # a lâmpada não é filha do aro: sem isto ficava acesa na última força
 		return
 	_boca_mat.albedo_color = Color(COR_ARO, 0.45 + 0.55 * f)
 	_boca_mat.emission_energy_multiplier = 1.2 + 3.8 * f
 	_halo_mat.albedo_color = Color(COR_ARO, 0.08 + 0.3 * f)
-	_boca_luz.light_energy = 0.5 + 2.0 * f
+	# com o robô na oficina ela apaga: atravessa a parede do cilindro (doc §161)
+	_boca_luz.light_energy = 0.0 if Oficina.por_dentro else 0.3 + 1.0 * f
 
 
 func _criar_boca() -> void:
@@ -193,7 +195,7 @@ func _criar_boca() -> void:
 	_boca.add_child(halo)
 	_boca_luz = OmniLight3D.new()
 	_boca_luz.light_color = Color(1.0, 0.6, 0.28)
-	_boca_luz.omni_range = 5.5
+	_boca_luz.omni_range = 4.0  # era 5,5 e 2,5 de força: chegava ao berço e ao sofá (doc §161)
 	_boca_luz.shadow_enabled = false
 	add_child(_boca_luz)
 	_boca_luz.global_position = t * Vector3(x + 0.9, -0.8, 0)

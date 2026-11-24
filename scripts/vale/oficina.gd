@@ -43,6 +43,14 @@ var _para := Vector3.ZERO
 var _cam: Camera3D
 var _luz: OmniLight3D
 var _luz_forca := 1.3
+## O sol de ateliê (2026-11-24, doc §161): com o interior novo, o robô no berço leva uma luz só, da cor e da força do
+## sol das 11h lá fora, de cima e de três quartos. As lâmpadas que havia (o foco, a luz fria, a da oficina, e a da
+## boca e a do drone atravessando a parede) se somavam no estilo em faixas e lavavam as cores das peças.
+var _sol: DirectionalLight3D
+const SOL_COR := Color(1.0, 0.9026, 0.7188)  # o sol às 11h, céu limpo (CicloDia)
+const SOL_FORCA := 1.08
+## O robô está na oficina (entrando, dentro ou saindo): a luz da boca do cilindro e a do drone apagam (doc §161).
+static var por_dentro := false
 var _bracos: Array[Dictionary] = []
 var _desce := 0.0  # 0 braços recolhidos no teto, 1 em volta do robô
 var _instalando := ""
@@ -68,11 +76,20 @@ func _ready() -> void:
 	_luz = OmniLight3D.new()
 	# o cilindro por dentro (doc §138) é branco e conservado: a luz fria combina; o antigo era de ferrugem
 	_luz.light_color = Color(0.86, 0.95, 1.0) if InteriorCilindro.ativo else Color(1.0, 0.86, 0.66)
-	_luz_forca = 0.95 if InteriorCilindro.ativo else 1.3  # o interior novo tem luzes próprias (de costas, a nuca estourava)
+	# o interior novo tem o sol de ateliê no lugar desta lâmpada (doc §161; antes 0,95, e de costas a nuca estourava)
+	_luz_forca = 0.0 if InteriorCilindro.ativo else 1.3
 	_luz.light_energy = 0.0
 	_luz.omni_range = 7.0
 	_luz.position = t * Vector3(BaseVale.MEIO_CIL - FUNDO + 0.9, 0.9, 0.0)
 	add_child(_luz)
+	por_dentro = false
+	if InteriorCilindro.ativo:
+		_sol = DirectionalLight3D.new()
+		_sol.light_color = SOL_COR
+		_sol.light_energy = 0.0
+		_sol.shadow_enabled = false  # com sombra, a casca do cilindro tapava
+		_sol.visible = false
+		add_child(_sol)
 	if not InteriorCilindro.ativo:
 		_montar_bracos()  # o interior novo tem os braços dele, nos trilhos do teto
 	_montar_tela()
@@ -86,6 +103,14 @@ func _parada() -> Vector3:
 
 func _eixo() -> Vector3:
 	return BaseVale.cilindro_t.basis.x.normalized()
+
+
+## A luz da oficina de 0 (fora) a 1 (dentro): o sol de ateliê acende e as lâmpadas do interior baixam (doc §161).
+func _luz_atelie(f: float) -> void:
+	if _sol:
+		_sol.light_energy = SOL_FORCA * f
+	if _berco():
+		_berco().luz_oficina(f)
 
 
 ## O berço de montagem do cilindro (doc §138), quando o interior novo está no jogo.
@@ -1372,6 +1397,16 @@ func entrar() -> void:
 	_cam.look_at(_para + Vector3(0, 0.66, 0) - t.basis.z.normalized() * 0.85)
 	_cam.make_current()
 	_cam_longe = _cam.global_transform
+	por_dentro = true
+	if _sol:
+		# de trás e de lado (120° da câmera) e alto como o sol das 11h: de frente ele acendia todas as faces à vista e
+		# o roxo do Mago virava rosa; assim metade fica na sombra, onde a cor da peça aparece como lá fora
+		var para_cam := _cam.global_position - _para
+		para_cam.y = 0.0
+		var lado := para_cam.normalized().rotated(Vector3.UP, deg_to_rad(-120.0))
+		var de_onde := (lado * cos(deg_to_rad(55.0)) + Vector3.UP * sin(deg_to_rad(55.0))).normalized()
+		_sol.global_basis = Basis.looking_at(-de_onde, Vector3.UP)
+		_sol.visible = true
 	if sons:
 		sons._toque("religar", -8.0)
 
@@ -1520,6 +1555,7 @@ func _physics_process(delta: float) -> void:
 			armadura.velocity = -e * (2.6 if f < 0.9 else 0.0)
 			armadura.visual.yaw_forcado = atan2(e.x, e.z)
 			_luz.light_energy = _luz_forca * f
+			_luz_atelie(f)
 			_desce = clampf((_t - T_ENTRAR * 0.6) / 0.9, 0.0, 1.0)
 			_por_bracos(_desce, 0.0)
 			if _t >= T_ENTRAR + 0.6:
@@ -1595,6 +1631,7 @@ func _physics_process(delta: float) -> void:
 			armadura.global_position = _de.lerp(_para, smoothstep(0.0, 1.0, f))
 			armadura.velocity = _eixo() * (2.6 if f < 0.9 else 0.0)
 			_luz.light_energy = _luz_forca * (1.0 - f)
+			_luz_atelie(1.0 - f)
 			if f >= 1.0:
 				_fechar()
 
@@ -1661,6 +1698,10 @@ func _abrir() -> void:
 
 func _fechar() -> void:
 	fase = Fase.FORA
+	por_dentro = false
+	_luz_atelie(0.0)
+	if _sol:
+		_sol.visible = false
 	_rastro_de_volta()
 	if _berco():
 		_berco().soltar(armadura.visual)

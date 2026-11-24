@@ -145,9 +145,10 @@ static func montar(v: Vale) -> void:
 					var pos := Vector3(px, v._fora(px, pz) - alt * rng.randf_range(0.0, 0.25), pz) + fora * larg * rng.randf_range(-0.15, 0.12)
 					var xf := Transform3D(base.scaled_local(esc * 0.5 / 0.5), pos)
 					var vi := rng.randi() % VARIANTES
-					_guardar(grupos, vi, xf, true)
-					n_parede += 1
-					_casco(cols, pontos[vi], xf)
+					if not Fundicao.no_ombro(pos.x, pos.z):  # no ombro da Fundição as pedras são dela (doc §162)
+						_guardar(grupos, vi, xf, true)
+						n_parede += 1
+						_casco(cols, pontos[vi], xf)
 				# pedras caídas no pé: desce a encosta até o chão deitar e larga algumas ali
 				if rng.randf() < 0.3 * forca + 0.06:
 					var p2 := Vector2(x, z)
@@ -166,6 +167,8 @@ static func montar(v: Vale) -> void:
 							var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))).scaled_local(esc),
 								Vector3(qx, v._fora(qx, qz) + tam * 0.15, qz))
 							var vi := rng.randi() % VARIANTES
+							if Fundicao.no_ombro(qx, qz):
+								continue
 							_guardar(grupos, vi, xf, false)
 							n_pe += 1
 							if tam > 1.3:
@@ -173,7 +176,9 @@ static func montar(v: Vale) -> void:
 				# arbustos agarrados na beira de cima e nos degraus menos em pé
 				if forca < 0.5 and rng.randf() < 0.1:
 					var s := rng.randf_range(0.8, 1.5)
-					arbustos.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
+					var giro := rng.randf() * TAU
+					if not Fundicao.no_ombro(x, z):
+						arbustos.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
 		Tempos.marca("  par: grade")
 		# a falésia da borda do mapa (Vale._falesia_da_borda) é uma parede reta: colunas de rocha encostadas
 		# nela, de alturas e larguras variadas, quebram a linha; no pé, pedras meio dentro d'água

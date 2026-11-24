@@ -182,6 +182,7 @@ func _olhar(para: Vector3, delta: float, pressa: float) -> void:
 
 func _process(delta: float) -> void:
 	_fase += delta
+	_luz.light_energy = 0.0 if Oficina.por_dentro else 0.7  # atravessa a parede do cilindro (doc §161)
 	if _gesto_t > 0.0:
 		_gesto_t -= delta
 		if _gesto_t <= 0.0:

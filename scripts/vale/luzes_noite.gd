@@ -7,6 +7,9 @@ extends Node
 ## Qualquer construção pode pedir um ponto com `LuzesNoite.por(...)`; este nó só acende, apaga e pisca.
 
 const GRUPO := "luzes_noite"
+## Lâmpadas de verdade (Light3D) com uma força de dia e outra de noite (2026-11-24, doc §161): a do cantinho e a do
+## estrado da base ficavam acesas iguais de dia e de noite e lavavam as cores do robô perto do sofá.
+const GRUPO_LAMPADAS := "lampadas_noite"
 const BRILHO := 2.6
 const VERMELHO := Color(1.0, 0.16, 0.1)
 const BRASA := Color(1.0, 0.45, 0.12)
@@ -19,6 +22,15 @@ static var _malha: QuadMesh
 
 var acesas := 0  # quantas estão à vista agora (testes)
 var _t := 0.0
+
+
+## Põe a lâmpada `l` no grupo: este nó passa a força dela de `dia` para `noite` com o escurecer.
+static func lampada(l: Light3D, dia: float, noite: float) -> void:
+	l.set_meta("dia", dia)
+	l.set_meta("noite", noite)
+	l.light_energy = dia
+	l.visible = dia > 0.01
+	l.add_to_group(GRUPO_LAMPADAS)
 
 
 ## Um ponto de luz em `pos` (no espaço de `pai`). `pisca` > 0: acende por um instante a cada `pisca` segundos.
@@ -70,6 +82,10 @@ func _process(delta: float) -> void:
 	var n := ArmaduraVisual.noite
 	for chave: String in _mats:
 		(_mats[chave] as StandardMaterial3D).albedo_color.a = n
+	for no: Node in get_tree().get_nodes_in_group(GRUPO_LAMPADAS):
+		var l := no as Light3D
+		l.light_energy = lerpf(float(l.get_meta("dia", 0.0)), float(l.get_meta("noite", 1.0)), n)
+		l.visible = l.light_energy > 0.01
 	acesas = 0
 	for no: Node in get_tree().get_nodes_in_group(GRUPO):
 		var mi := no as MeshInstance3D

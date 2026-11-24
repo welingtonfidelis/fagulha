@@ -76,8 +76,8 @@ static func montar(o: Ruinas.Obra) -> void:
 	_peca(o, "Prop_Light_Wide", Vector3(0.4, cy + 3.5, fz - 0.75), PI * 0.5, 1.6, 0.2, 0.0, false)
 	var luz := OmniLight3D.new()
 	luz.light_color = Color(1.0, 0.82, 0.6)  # era ciano; a base ficou de luz quente
-	luz.light_energy = 1.2
 	luz.omni_range = 11.0
+	LuzesNoite.lampada(luz, 0.0, 0.7)  # só de noite; era 1,2 o dia todo (doc §161)
 	luz.position = o.t * Vector3(0.4, cy + 3.3, fz - 1.6)
 	o.v.add_child(luz)
 	_cilindro(o, cy)

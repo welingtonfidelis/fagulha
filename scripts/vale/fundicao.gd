@@ -67,28 +67,58 @@ var caixas_pegas := 0
 ## relevo. O túnel atrás da porta ganha o seu corredor, coberto depois por um bloco de concreto.
 static func cavar(v: Vale) -> void:
 	var n := Vale.F_N
+	_ombro_idx.clear()
+	_ombro_antes.clear()
+	_ombro_novo.clear()
+	_ombro_marca = PackedByteArray()
+	_ombro_marca.resize(n * n)
+	var marca := PackedByteArray()
+	marca.resize(n * n)
+	var ja_mexidos := 0
 	for gz in n:
 		var z := -Vale.F_META + gz * Vale.F_PASSO
-		if absf(z - CENTRO.y) > MZ + 60.0:
+		var lz := z - CENTRO.y
+		if lz > MZ + 60.0 or lz < -MZ - 150.0:
 			continue
 		for gx in n:
 			var x := -Vale.F_META + gx * Vale.F_PASSO
 			var lx := x - CENTRO.x
-			var lz := z - CENTRO.y
-			if absf(lx) > MX + 40.0:
+			if absf(lx) > OMBRO_LADO_ATE + 6.0:
 				continue
+			var i := gz * n + gx
 			# o chão de luta fica limpo: o capim só nasce ao pé das paredes e na frente aberta (5: o chão comum,
 			# sem capim). Antes ele subia pelas frestas do meio todo e escondia os robôs pequenos
 			if absf(lx) < MX - 6.0 and lz > -MZ + 3.0 and lz < MZ - 3.0:
-				v._cob[gz * n + gx] = 5
-			var d := Vector2(maxf(absf(lx) - (MX + 5.0), 0.0), maxf(maxf((-MZ - 3.0) - lz, lz - (MZ + 24.0)), 0.0)).length()
-			# o corredor do túnel, atrás da porta
-			var dt := Vector2(maxf(absf(lx) - 12.5, 0.0), maxf(maxf((-MZ - 22.0) - lz, lz + MZ), 0.0)).length()
-			var t := minf(smoothstep(0.0, 13.0, d), smoothstep(0.0, 5.0, dt))
-			if t >= 1.0:
-				continue
+				v._cob[i] = 5
+			var t := corte(lx, lz)
+			var nat := v._fora_h[i]
+			var velho := nat if t >= 1.0 else lerpf(PISO, nat, t)
+			var novo := velho
+			# o ombro da serra (doc §162): atrás da cara do paredão o relevo sobe até o alto dele; perto do pé da
+			# cara a grade fica baixa, dentro da rocha, e a tampa do `_morro` cobre
+			var atras := linha(lx) - lz
+			if atras > -2.0 and absf(lx) < OMBRO_LADO_ATE:
+				var sobe := alto_ombro(lx, lz) + PISO
+				# a faixa baixa só atrás da cara alta; onde ela é baixa o chão já sobe do pé (sem oco nas pontas)
+				if atras > FAIXA_CARA or (atras > 0.0 and degrau_cara(lx) < FAIXA_DEGRAU):
+					novo = sobe if t >= 1.0 else lerpf(PISO, sobe, t)
+				if sobe > nat + 0.05 or t < 1.0:
+					marca[i] = 1
+				if absf(nat - Cavernas._orig[i]) > 0.01:
+					ja_mexidos += 1
+			v._fora_h[i] = novo
+			if absf(novo - velho) > 0.005:
+				_ombro_idx.append(i)
+				_ombro_antes.append(velho)
+				_ombro_novo.append(novo)
+				marca[i] = 1
+	# a área do ombro, com a folga de um nó para cada lado
+	for gz in range(1, n - 1):
+		for gx in range(1, n - 1):
 			var i := gz * n + gx
-			v._fora_h[i] = lerpf(PISO, v._fora_h[i], t)
+			if marca[i] == 1 or marca[i - 1] == 1 or marca[i + 1] == 1 or marca[i - n] == 1 or marca[i + n] == 1:
+				_ombro_marca[i] = 1
+	print("fundição: ombro da serra em %d nós da grade (%d já mexidos antes dela)" % [_ombro_idx.size(), ja_mexidos])
 
 
 # O galpão (pedido do usuário, com um desenho de referência): um lugar fechado e arruinado pelo abandono,
@@ -581,139 +611,351 @@ static func _fio(v: Node3D, de: Vector3, ate: Vector3, barriga: float) -> void:
 
 
 ## O paredão de rocha em que o galpão entra (pedido do usuário, com um desenho: o galpão construído na
-## forma dele e então enfiado em parte na montanha; a versão anterior, uma capa curva de terra acompanhando
-## o telhado, foi rejeitada). A grade de alturas só guarda um chão por ponto, e ali o chão é o piso do
-## galpão; então a rocha é uma peça própria: uma parede quase a pique, de borda torta, que nasce em cima do
-## telhado a COBRE metros dos fundos, passa bem acima dele e emenda atrás e dos lados na encosta de verdade.
-## O telhado continua inteiro e à vista até sumir dentro da pedra.
+## forma dele e então enfiado em parte na montanha). Refeito em 2026-11-24 (doc §162): a tampa de 192 × 94 m
+## que ficava por cima do relevo (a beira de trás solta no ar, uma laje chata sem árvore, oca por dentro) deu
+## lugar a um ombro da serra no próprio relevo (`cavar`), com mata, capim e pedras como o resto da ilha. Peças
+## próprias só onde a grade não dá conta: a cara do paredão, em pé, e a tampa por cima dos 24 m dos fundos do
+## telhado, que entram na pedra (ali a grade guarda o piso do galpão).
 const COBRE := 24.0  # metros do comprimento do galpão, a partir dos fundos, que ficam dentro da rocha
 const PAREDAO := 33.0  # altura da rocha acima do piso, no meio
+const OMBRO_SOBE := 0.12  # quanto o alto do ombro sobe por metro para trás, até a encosta de antes o alcançar
+const OMBRO_LADO_DE := 44.0  # de |x| = isto até OMBRO_LADO_ATE o ombro desce para os lados até a encosta
+const OMBRO_LADO_ATE := 100.0  # (com 84 o flanco passava de 40° e o chão pintava pedra clara nele)
+const FAIXA_CARA := 6.0  # metros atrás do pé da cara em que a grade fica baixa (dentro da rocha, sob a tampa)
+const FAIXA_DEGRAU := 4.0  # a faixa baixa só onde a cara passa disto (mais baixa, o chão sobe do pé dela)
+const CARA_MINIMA := 1.2  # o relevo da cara começa a crescer a partir deste degrau
+const CARA_DEITA := 0.08  # a cara recua isto por metro de altura
+const CARA_FIADAS := 48
+const CARA_PASSO := 1.25  # metros entre as colunas da cara e da tampa
+static var _ombro_idx := PackedInt32Array()  # os nós da grade que o ombro mudou
+static var _ombro_antes := PackedFloat32Array()  # a altura deles no corte antigo (os sorteios correm nela)
+static var _ombro_novo := PackedFloat32Array()
+static var _ombro_marca := PackedByteArray()  # um por nó: a área do ombro, onde os sorteios de fora não põem nada
+
+
+## O pé da cara do paredão (z no lugar): avança e recua de leve; nas pontas recua para dentro da encosta, em
+## ferradura, e a cara vai acabando nela.
+static func linha(lx: float) -> float:
+	var fora := maxf(0.0, absf(lx) - 56.0)
+	return -MZ + COBRE + sin(lx * 0.13) * 2.2 + sin(lx * 0.37 + 1.0) * 1.0 - fora * 0.7
+
+
+## O quanto o corte do galpão baixa o chão num ponto do lugar: 0 é o piso, 1 é o relevo de antes.
+static func corte(lx: float, lz: float) -> float:
+	var d := Vector2(maxf(absf(lx) - (MX + 5.0), 0.0), maxf(maxf((-MZ - 3.0) - lz, lz - (MZ + 24.0)), 0.0)).length()
+	# o corredor do túnel, atrás da porta
+	var dt := Vector2(maxf(absf(lx) - 12.5, 0.0), maxf(maxf((-MZ - 22.0) - lz, lz + MZ), 0.0)).length()
+	return minf(smoothstep(0.0, 13.0, d), smoothstep(0.0, 5.0, dt))
+
+
+## A altura da cara do paredão na coluna `lx`: do alto do ombro até o que fica na frente do pé dela (o telhado,
+## no meio; o chão cortado, nos lados). Nas pontas da ferradura ela vai a zero.
+static func degrau_cara(lx: float) -> float:
+	var lz := linha(lx)
+	if absf(lx) < ARCO_A:
+		return alto_ombro(lx, lz) - teto(lx)
+	var w := aqui(lx, 0, lz + 1.75)
+	return alto_ombro(lx, lz) - (Cavernas.chao_antes(w.x, w.z) - PISO) * corte(lx, lz + 1.75)
+
+
+## A coluna `lx` tem cara (e tampa)? Só enquanto o nó da grade do lado de dentro dela tem a faixa baixa
+## (`FAIXA_DEGRAU`): assim a cara acaba junto com a faixa, sem oco atrás dela e sem a tira fina de pedra que
+## sobrava por cima do barranco quando a cara seguia baixa até o fim da ferradura.
+static func cara_ativa(lx: float) -> bool:
+	var g := (CENTRO.x + lx + Vale.F_META) / Vale.F_PASSO
+	var gi := ceilf(g) - 1.0 if lx > 0.0 else floorf(g) + 1.0
+	return degrau_cara(gi * Vale.F_PASSO - Vale.F_META - CENTRO.x) >= FAIXA_DEGRAU
+
+
+static func _max_suave(a: float, b: float, k: float) -> float:
+	var h := maxf(k - absf(a - b), 0.0) / k
+	return maxf(a, b) + h * h * k * 0.25
+
+
+## A altura do ombro acima do piso num ponto do lugar atrás do pé da cara: o alto do paredão sobe devagar para
+## trás até a encosta de antes o alcançar, num encontro arredondado; para os lados ele desce até ela. Nunca fica
+## abaixo da encosta de antes.
+static func alto_ombro(lx: float, lz: float) -> float:
+	var w := aqui(lx, 0, lz)
+	var nat := Cavernas.chao_antes(w.x, w.z) - PISO
+	var d := maxf(0.0, linha(lx) - lz)
+	var topo := PAREDAO + sin(lx * 0.07 + 0.5) * 0.9 + d * OMBRO_SOBE \
+		+ (sin(lx * 0.09 + d * 0.05) * 1.2 + sin(lx * 0.041 - d * 0.11 + 2.0) * 0.8) * smoothstep(0.0, 14.0, d)
+	return lerpf(_max_suave(nat, topo, 9.0), nat, smoothstep(OMBRO_LADO_DE, OMBRO_LADO_ATE, absf(lx)))
+
+
+## A normal do alto do ombro (diferença de 4 m, a mesma escala da grade do relevo, para a luz emendar).
+static func _normal_ombro(lx: float, lz: float) -> Vector3:
+	var e := 4.0
+	return Vector3(alto_ombro(lx - e, lz) - alto_ombro(lx + e, lz), 2.0 * e, alto_ombro(lx, lz - e) - alto_ombro(lx, lz + e)).normalized()
+
+
+## O ponto (no mundo) cai na área do ombro? Ali os sorteios de fora (mata e paredões) não põem nada: eles
+## correm no relevo de antes, e quem planta no ombro é a Fundição (`arvores_do_ombro`, `_morro`).
+static func no_ombro(x: float, z: float) -> bool:
+	if _ombro_marca.is_empty():
+		return false
+	var gx := roundi((x + Vale.F_META) / Vale.F_PASSO)
+	var gz := roundi((z + Vale.F_META) / Vale.F_PASSO)
+	if gx < 0 or gz < 0 or gx >= Vale.F_N or gz >= Vale.F_N:
+		return false
+	return _ombro_marca[gz * Vale.F_N + gx] == 1
+
+
+## A colisão do chão na área do ombro, com os mesmos triângulos da malha. A grade de colisão de fora
+## (HeightMapShape3D, no Jolt) corta cada quadrado de 4 m pela diagonal contrária à da malha; num quadrado torcido
+## (um canto subiu e os outros não, como no barranco das pontas da ferradura) as duas ficam até 1 m uma da outra
+## e o robô afundava no capim (o usuário, em -489, 101, -305). Aqui a grade de colisão desce `DESCE` metros e
+## uma malha de colisão com os triângulos da malha do chão fica no lugar dela. Chamada pela `_colisao_fora`.
+static func colisao_do_ombro(v: Vale, dados: PackedFloat32Array) -> void:
+	if _ombro_marca.is_empty():
+		return
+	const DESCE := 8.0
+	var n := Vale.F_N
+	var gx0 := clampi(floori((CENTRO.x - OMBRO_LADO_ATE - 12.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
+	var gx1 := clampi(ceili((CENTRO.x + OMBRO_LADO_ATE + 12.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
+	var gz0 := clampi(floori((CENTRO.y - MZ - 160.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
+	var gz1 := clampi(ceili((CENTRO.y + MZ + 70.0 + Vale.F_META) / Vale.F_PASSO), 0, n - 2)
+	var faces := PackedVector3Array()
+	var ponto := func(gx: int, gz: int) -> Vector3:
+		return Vector3(-Vale.F_META + gx * Vale.F_PASSO, v._fora_h[gz * n + gx], -Vale.F_META + gz * Vale.F_PASSO)
+	for gz in range(gz0, gz1 + 1):
+		for gx in range(gx0, gx1 + 1):
+			var i := gz * n + gx
+			if _ombro_marca[i] + _ombro_marca[i + 1] + _ombro_marca[i + n] + _ombro_marca[i + n + 1] == 0:
+				continue
+			var a: Vector3 = ponto.call(gx, gz)
+			var b: Vector3 = ponto.call(gx + 1, gz)
+			var c: Vector3 = ponto.call(gx + 1, gz + 1)
+			var d: Vector3 = ponto.call(gx, gz + 1)
+			# a mesma ordem da `Vale._malha_fora`: (a, b, c) e (a, c, d), a diagonal de a até c
+			faces.append_array(PackedVector3Array([a, b, c, a, c, d]))
+	for gz in range(gz0, gz1 + 2):
+		for gx in range(gx0, gx1 + 2):
+			if _ombro_marca[gz * n + gx] == 1:
+				dados[gz * n + gx] -= DESCE
+	var forma := ConcavePolygonShape3D.new()
+	forma.set_faces(faces)
+	forma.backface_collision = true
+	var corpo := StaticBody3D.new()
+	corpo.name = "ChaoDoOmbro"
+	corpo.collision_layer = 1
+	corpo.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	cs.shape = forma
+	corpo.add_child(cs)
+	v.add_child(corpo)
+	print("fundição: colisão do ombro com %d triângulos" % (faces.size() / 3))
+
+
+## Troca, nos nós que o ombro mudou, o relevo novo pelo do corte antigo (`antigo`) ou de volta. Os sorteios da
+## mata e dos paredões de fora correm no antigo, para o resto da ilha continuar com as mesmas árvores e pedras.
+static func relevo_antigo(v: Vale, antigo: bool) -> void:
+	var fonte := _ombro_antes if antigo else _ombro_novo
+	for k in _ombro_idx.size():
+		v._fora_h[_ombro_idx[k]] = fonte[k]
+
+
+## O relevo da cara (metros para a frente, +z) na coluna `lx`, a `hy` metros do pé, na fração `f` da altura e
+## na altura `y` acima do piso: a cara deita um pouco para trás, tem colunas e fendas em pé, camadas deitadas
+## com a quina de baixo marcada e um beiral que avança no alto.
+static func _relevo(lx: float, hy: float, f: float, y: float) -> float:
+	var o := -CARA_DEITA * hy
+	o += sin(lx * 0.06 + 1.0) * sin(f * PI) * 0.8
+	var col := 0.5 + 0.5 * sin(lx * 0.23 + sin(lx * 0.071) * 2.0)
+	o += col * col * col * 1.1
+	var r := fposmod(lx / 8.3 + sin(lx * 0.05) * 0.6, 1.0)
+	o -= 0.9 * exp(-pow((r - 0.5) / 0.07, 2.0))
+	var c := fposmod((y + sin(lx * 0.11) * 1.4 + sin(lx * 0.031) * 2.0) / 3.6, 1.0)
+	o += 0.6 * smoothstep(0.0, 0.08, c) * (1.0 - smoothstep(0.3, 1.0, c))
+	o += 1.3 * smoothstep(0.84, 1.0, f) - 0.5 * smoothstep(0.97, 1.0, f)
+	return o
+
+
+## As árvores do ombro (doc §162): a mesma regra de tipo e tamanho da mata de fora, com sorteio próprio.
+## Chamada pela `Vale._mata_fora` depois do sorteio dela, antes de desenhar.
+static func arvores_do_ombro(v: Vale, fila: Array) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6262
+	var passo := 9.0
+	var lz := 6.0
+	while lz > -MZ - 140.0:
+		var lx := -OMBRO_LADO_ATE - 8.0
+		while lx < OMBRO_LADO_ATE + 8.0:
+			var qx := lx + rng.randf_range(-3.6, 3.6)
+			var qz := lz + rng.randf_range(-3.6, 3.6)
+			var sorte := rng.randf()
+			var tam := rng.randf()
+			var giro := rng.randf() * TAU
+			var fica := rng.randf()
+			lx += passo
+			var w := aqui(qx, 0, qz)
+			if not no_ombro(w.x, w.z):
+				continue
+			var d := linha(qx) - qz
+			if d < 4.0:
+				continue
+			var c := v.cobertura(w.x, w.z)
+			if c != 1 and c != 2:
+				continue
+			if fica > (0.92 if c == 2 else 0.5):
+				continue
+			if _normal_ombro(qx, qz).y < 0.76:
+				continue
+			var na_parede := false
+			for viz: Vector2 in [Vector2(8, 0), Vector2(-8, 0), Vector2(0, 8), Vector2(0, -8)]:
+				if _normal_ombro(qx + viz.x, qz + viz.y).y < 0.62:
+					na_parede = true
+			if na_parede:
+				continue
+			var h := PISO + alto_ombro(qx, qz)
+			var tipo := "carvalho_a"
+			var s := lerpf(0.9, 1.5, tam)
+			if h > 95.0:
+				tipo = "pinheiro" if sorte < 0.85 else "betula"
+			elif c == 2:
+				tipo = "carvalho_b" if sorte < 0.5 else ("pinheiro" if sorte < 0.8 else "carvalho_a")
+				s = lerpf(1.3, 2.0, tam)
+			else:
+				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
+			if d < 10.0:
+				s *= 0.7  # na beira do paredão, árvores menores, agarradas na pedra
+			var pos := Vector3(w.x, h - 0.15, w.z)
+			v.arv_pos.append(pos)
+			v.arv_escala.append(s * 0.8)
+			tipo = Clareira.tipo_variado(tipo, Clareira.sorte_do_lugar(w.x, w.z))
+			v.arv_tipo.append(0 if tipo.contains("pinheiro") else 1)
+			v.arv_nome.append(tipo)
+			fila.append([tipo, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), pos)])
+		lz -= passo
+
 
 static func _morro(v: Vale, raiz: Node3D) -> void:
-	var passo := 2.0
-	var x0 := -96.0
-	var z0 := -MZ - 64.0
-	var nx := int(192.0 / passo) + 1
-	var nz := int((64.0 + COBRE + 6.0) / passo) + 1
-	var alt := PackedFloat32Array()
-	var vale_a_pena := PackedByteArray()
-	alt.resize(nx * nz)
-	vale_a_pena.resize(nx * nz)
-	for iz in nz:
-		for ix in nx:
-			var lx := x0 + ix * passo
-			var lz := z0 + iz * passo
-			var w := aqui(lx, 0, lz)
-			var real := v.altura(w.x, w.z) - PISO
-			var antes := Cavernas.chao_antes(w.x, w.z) - PISO
-			var arco := teto(lx) if lz > -MZ - 0.5 else 0.0
-			# a linha da frente do paredão avança e recua de leve; nas pontas ela recua para dentro da encosta,
-			# em ferradura, e o paredão vai acabando na subida do morro em vez de terminar num degrau
-			var fora := maxf(0.0, absf(lx) - 56.0)
-			var linha := -MZ + COBRE + sin(lx * 0.13) * 2.2 + sin(lx * 0.37 + 1.0) * 1.0 - fora * 0.7
-			# o alto é liso e sobe devagar para trás, até encontrar a encosta (antes era uma laje cheia de ondas)
-			var atras := maxf(0.0, linha - lz)
-			# para os lados o alto baixa até a altura da encosta, e o paredão some nela sem deixar muro de lado
-			var topo := lerpf(PAREDAO + atras * 0.22 + sin(lx * 0.07 + 0.5) * 0.9, antes + 0.6, smoothstep(40.0, 68.0, absf(lx)))
-			var sobe := smoothstep(linha, linha - 6.0, lz)  # 0 na frente da linha, 1 seis metros para trás
-			# a cara da rocha tem relevo (saliências em pé), que some no alto
-			var relevo := (sin(lx * 0.55) * 0.5 + sin(lx * 1.3 + 2.0) * 0.25) * sin(sobe * PI)
-			var base := maxf(real, arco)  # de onde a pedra nasce: do chão, ou de cima do telhado
-			var y := lerpf(base, maxf(topo, antes), smoothstep(0.0, 1.0, clampf(sobe + relevo * 0.12, 0.0, 1.0)))
-			if lz < linha - 6.0:
-				y = maxf(y, antes)
-			# onde não há rocha (na frente da linha, ou onde ela não passa do chão) a peça se esconde: um palmo
-			# debaixo do chão, ou debaixo do telhado
-			if y < base + 0.2:
-				y = base - (0.7 if arco > real else 0.3)
-			alt[iz * nx + ix] = y
-			vale_a_pena[iz * nx + ix] = 1 if y > base + 0.2 else 0
-	# duas superfícies: o que é deitado (o alto do paredão e as rampas dos lados) leva o chão de capim do
-	# vale; o que é em pé leva a rocha. Tudo em rocha, as rampas viravam duas faixas cinza no morro
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_smooth_group(0)
-	var sc := SurfaceTool.new()
-	sc.begin(Mesh.PRIMITIVE_TRIANGLES)
-	sc.set_smooth_group(0)
-	sc.set_color(Color(0, 0, 0, 1))
-	var faces := PackedVector3Array()
-	for iz in nz - 1:
-		for ix in nx - 1:
-			var i := iz * nx + ix
-			if vale_a_pena[i] + vale_a_pena[i + 1] + vale_a_pena[i + nx] + vale_a_pena[i + nx + 1] == 0:
-				continue
-			var p00 := aqui(x0 + ix * passo, alt[i], z0 + iz * passo)
-			var p10 := aqui(x0 + (ix + 1) * passo, alt[i + 1], z0 + iz * passo)
-			var p01 := aqui(x0 + ix * passo, alt[i + nx], z0 + (iz + 1) * passo)
-			var p11 := aqui(x0 + (ix + 1) * passo, alt[i + nx + 1], z0 + (iz + 1) * passo)
-			var sobe := maxf(maxf(p00.y, p10.y), maxf(p01.y, p11.y)) - minf(minf(p00.y, p10.y), minf(p01.y, p11.y))
-			var deitado := sobe < passo * 1.15  # menos de uns 40 graus
-			for p: Vector3 in [p00, p10, p11, p00, p11, p01]:
-				if deitado:
-					sc.set_color(Color(0, 0, 0, 1))
-					sc.add_vertex(p)
-				else:
-					st.add_vertex(p)
-				faces.append(p)
-	st.index()
-	st.generate_normals()
-	sc.index()
-	sc.generate_normals()
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scripts/shaders/vale_rocha.gdshader")
 	mat.set_shader_parameter("ruido", _tex)
 	var mat_chao := ShaderMaterial.new()
 	mat_chao.shader = load("res://scripts/shaders/vale_chao.gdshader")
 	mat_chao.set_shader_parameter("ruido", _tex)
-	var mi := MeshInstance3D.new()
-	mi.name = "MorroDaFundicao"
+	var x0 := -(OMBRO_LADO_ATE + 2.0)
+	var nx := int(2.0 * (OMBRO_LADO_ATE + 2.0) / CARA_PASSO) + 1
+	var nf := CARA_FIADAS + 1
+	var faces := PackedVector3Array()
+	# a cara: em cada coluna, do pé (em cima do telhado, ou no chão da frente) até o alto do ombro
+	var cara := PackedVector3Array()
+	var pe := PackedFloat32Array()
+	var alto := PackedFloat32Array()
+	var ativa := PackedByteArray()  # a coluna tem cara (`cara_ativa`)
+	for ix in nx:
+		var lx := x0 + ix * CARA_PASSO
+		var lz := linha(lx)
+		var w1 := aqui(lx, 0, lz + 1.0)
+		var w2 := aqui(lx, 0, lz + 2.5)
+		var chao := minf(v.altura(w1.x, w1.z), v.altura(w2.x, w2.z)) - PISO
+		var base := (maxf(teto(lx) - 0.25, chao - 0.7) if absf(lx) < ARCO_A else chao - 0.7)
+		var topo := alto_ombro(lx, lz)
+		var degrau := degrau_cara(lx)
+		pe.append(base)
+		alto.append(topo)
+		ativa.append(1 if cara_ativa(lx) else 0)
+		# o relevo cresce com a cara: numa cara baixa o beiral e as colunas saltavam por cima do chão da frente
+		var forca := smoothstep(CARA_MINIMA, 6.0, degrau)
+		for j in nf:
+			var f := float(j) / CARA_FIADAS
+			var y := lerpf(base, topo, f)
+			cara.append(aqui(lx, y, lz + _relevo(lx, y - base, f, y) * forca))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
+	for ix in nx - 1:
+		if ativa[ix] == 0 or ativa[ix + 1] == 0:
+			continue
+		var fora := Vector3(-(linha(x0 + (ix + 1) * CARA_PASSO) - linha(x0 + ix * CARA_PASSO)) / CARA_PASSO, 0, 1).normalized()
+		for j in CARA_FIADAS:
+			var a := cara[ix * nf + j]
+			var b := cara[(ix + 1) * nf + j]
+			var c := cara[(ix + 1) * nf + j + 1]
+			var d := cara[ix * nf + j + 1]
+			for tri: Array in [[a, b, c], [a, c, d]]:
+				var t0: Vector3 = tri[0]
+				var t1: Vector3 = tri[1]
+				var t2: Vector3 = tri[2]
+				# a cara olha para fora (a frente do galpão); o SurfaceTool desenha os triângulos no sentido horário
+				if (t1 - t0).cross(t2 - t0).dot(fora) > 0.0:
+					var tt := t1
+					t1 = t2
+					t2 = tt
+				for p: Vector3 in [t0, t1, t2]:
+					st.add_vertex(p)
+					faces.append(p)
+	st.index()
+	st.generate_normals()
 	var malha := st.commit()
 	malha.surface_set_material(0, mat)
-	sc.commit(malha)
+	# a tampa: do alto da cara para trás, até o relevo de verdade passar por cima dela; onde ele já está, ela se
+	# esconde um palmo abaixo (a beira some sob o chão sem degrau)
+	var dists: Array[float] = [0.0, 0.7, 1.6, 2.8, 4.2]
+	var dd := 6.0
+	while dd <= 70.0:
+		dists.append(dd)
+		dd += 2.5
+	var nd := dists.size()
+	var tv := PackedVector3Array()
+	var tn := PackedVector3Array()
+	var tc := PackedColorArray()
+	var coberto := PackedByteArray()
+	for ix in nx:
+		var lx := x0 + ix * CARA_PASSO
+		var topo_p := cara[ix * nf + CARA_FIADAS]
+		var lz0 := topo_p.z - CENTRO.y
+		for j in nd:
+			var lz := lz0 - dists[j]
+			var h := alto_ombro(lx, lz)
+			var p := topo_p if j == 0 else aqui(lx, h, lz)
+			var tapa := 0
+			if ativa[ix] == 0:
+				# sem cara, sem tampa: ela fica toda sob o chão, que já faz o ombro sozinho
+				p.y = minf(p.y, v.altura(p.x, p.z) - 0.4)
+				tapa = 1
+			elif j > 0 and v.altura(p.x, p.z) >= p.y - 0.15:
+				p.y -= 0.4
+				tapa = 1
+			tv.append(p)
+			tn.append(_normal_ombro(lx, lz))
+			var cob := v.cobertura(p.x, p.z)
+			tc.append(Color(0.3 if cob == 2 else 0.0, 0.0, 0.0, 0.0 if cob == 3 else 1.0))
+			coberto.append(tapa)
+	var ti := PackedInt32Array()
+	for ix in nx - 1:
+		for j in nd - 1:
+			var a := ix * nd + j
+			var b := (ix + 1) * nd + j
+			var c := (ix + 1) * nd + j + 1
+			var d := ix * nd + j + 1
+			if coberto[a] + coberto[b] + coberto[c] + coberto[d] == 4:
+				continue
+			for tri: Array in [[a, b, c], [a, c, d]]:
+				var i0: int = tri[0]
+				var i1: int = tri[1]
+				var i2: int = tri[2]
+				if (tv[i1] - tv[i0]).cross(tv[i2] - tv[i0]).y > 0.0:
+					var t := i1
+					i1 = i2
+					i2 = t
+				ti.append_array(PackedInt32Array([i0, i1, i2]))
+				faces.append_array(PackedVector3Array([tv[i0], tv[i1], tv[i2]]))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = tv
+	arr[Mesh.ARRAY_NORMAL] = tn
+	arr[Mesh.ARRAY_COLOR] = tc
+	arr[Mesh.ARRAY_INDEX] = ti
+	malha.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	malha.surface_set_material(1, mat_chao)
+	var mi := MeshInstance3D.new()
+	mi.name = "MorroDaFundicao"
 	mi.mesh = malha
 	raiz.add_child(mi)
-	# capim e mato nas rampas e no alto, para emendar com o morro
-	var rm := RandomNumberGenerator.new()
-	rm.seed = 9911
-	for k in 150:
-		var ix := rm.randi_range(1, nx - 2)
-		var iz := rm.randi_range(1, nz - 2)
-		var i := iz * nx + ix
-		if vale_a_pena[i] == 0 or absf(alt[i + 1] - alt[i]) > passo * 0.9 or absf(alt[i + nx] - alt[i]) > passo * 0.9:
-			continue
-		var nome: String = ["q_planta_a", "q_samambaia", "q_moita", "q_planta_c", "q_trevo", "q_planta_b"][rm.randi() % 6]
-		if v._malhas.has(nome):
-			v._por(nome, Transform3D(Basis(Vector3.UP, rm.randf() * TAU).scaled(Vector3.ONE * rm.randf_range(0.9, 1.9)), aqui(x0 + ix * passo, alt[i] - 0.05, z0 + iz * passo)))
-	var pedra := Paredoes.rocha(77, 4)
-	var pedra2 := Paredoes.rocha(91, 3)
-	var corpo_p := StaticBody3D.new()
-	corpo_p.name = "PedrasDaFundicao"
-	corpo_p.collision_layer = 1
-	corpo_p.collision_mask = 0
-	raiz.add_child(corpo_p)
-	var rp := RandomNumberGenerator.new()
-	rp.seed = 4242
-	for dados in [[-58.0, -8.0, 5.0], [-64.0, -2.0, 3.2], [-53.5, -13.0, 3.6], [58.0, -9.0, 4.6], [65.0, -3.0, 3.0], [54.0, -13.5, 3.8],
-			[-70.0, 4.0, 2.2], [71.0, 3.0, 2.4], [-61.0, 8.0, 1.6], [62.0, 9.0, 1.8], [-30.0, -19.0, 4.2], [8.0, -20.0, 3.4], [34.0, -19.5, 4.6]]:
-		var esc: float = dados[2]
-		var wp := aqui(dados[0], 0, dados[1])
-		var chao_p := 0.0
-		# as três últimas ficam na beira de cima do paredão
-		if float(dados[1]) < -15.0:
-			chao_p = PAREDAO + 0.2
-		var bp := Basis.from_euler(Vector3(rp.randf_range(-0.2, 0.2), rp.randf() * TAU, rp.randf_range(-0.2, 0.2))).scaled(Vector3(esc * rp.randf_range(0.9, 1.3), esc * rp.randf_range(0.7, 1.0), esc))
-		var mp := MeshInstance3D.new()
-		mp.mesh = pedra if rp.randf() < 0.5 else pedra2
-		mp.material_override = mat
-		mp.transform = Transform3D(bp, wp + Vector3(0, chao_p + esc * 0.45, 0))
-		raiz.add_child(mp)
-		var cp := CollisionShape3D.new()
-		cp.shape = mp.mesh.create_convex_shape()
-		cp.transform = mp.transform
-		corpo_p.add_child(cp)
-		Obstaculos.registrar(wp.x, wp.z, esc * 0.95)
 	var corpo := StaticBody3D.new()
 	corpo.name = "MorroDaFundicaoCorpo"
 	corpo.collision_layer = 1
@@ -725,6 +967,161 @@ static func _morro(v: Vale, raiz: Node3D) -> void:
 	cs.shape = forma
 	corpo.add_child(cs)
 	raiz.add_child(corpo)
+	_pedras_do_paredao(v, raiz, mat, cara, pe, alto, x0, nf)
+	_plantas_do_ombro(v, raiz)
+
+
+## As pedras: massas de rocha encaixadas na cara (de pé como colunas, como nos paredões da ilha), outras na
+## beira de cima, cascalho caído no telhado junto da pedra e as soltas no chão dos cantos.
+static func _pedras_do_paredao(v: Vale, raiz: Node3D, mat: Material, cara: PackedVector3Array, pe: PackedFloat32Array,
+		alto: PackedFloat32Array, x0: float, nf: int) -> void:
+	var pedras: Array[ArrayMesh] = [Paredoes.rocha(77, 4), Paredoes.rocha(91, 3), Paredoes.rocha(53, 5)]
+	var corpo_p := StaticBody3D.new()
+	corpo_p.name = "PedrasDaFundicao"
+	corpo_p.collision_layer = 1
+	corpo_p.collision_mask = 0
+	raiz.add_child(corpo_p)
+	var por := func(xf: Transform3D, malha: Mesh, colide: bool) -> void:
+		var mp := MeshInstance3D.new()
+		mp.mesh = malha
+		mp.material_override = mat
+		mp.transform = xf
+		raiz.add_child(mp)
+		if colide:
+			var cp := CollisionShape3D.new()
+			cp.shape = malha.create_convex_shape()
+			cp.transform = xf
+			corpo_p.add_child(cp)
+	# as soltas no chão dos cantos, ao pé do paredão (as mesmas de antes)
+	var rp := RandomNumberGenerator.new()
+	rp.seed = 4242
+	for dados in [[-58.0, -8.0, 5.0], [-64.0, -2.0, 3.2], [-53.5, -13.0, 3.6], [58.0, -9.0, 4.6], [65.0, -3.0, 3.0], [54.0, -13.5, 3.8],
+			[-70.0, 4.0, 2.2], [71.0, 3.0, 2.4], [-61.0, 8.0, 1.6], [62.0, 9.0, 1.8]]:
+		var esc: float = dados[2]
+		var wp := aqui(dados[0], 0, dados[1])
+		var bp := Basis.from_euler(Vector3(rp.randf_range(-0.2, 0.2), rp.randf() * TAU, rp.randf_range(-0.2, 0.2))).scaled(Vector3(esc * rp.randf_range(0.9, 1.3), esc * rp.randf_range(0.7, 1.0), esc))
+		por.call(Transform3D(bp, wp + Vector3(0, esc * 0.45, 0)), pedras[0] if rp.randf() < 0.5 else pedras[1], true)
+		Obstaculos.registrar(wp.x, wp.z, esc * 0.95)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4343
+	# massas encaixadas na cara: uma aqui, outra ali, com a fenda escura entre elas
+	var lx := -OMBRO_LADO_ATE + rng.randf_range(2.0, 6.0)
+	while lx < OMBRO_LADO_ATE - 4.0:
+		var ix := clampi(roundi((lx - x0) / CARA_PASSO), 0, pe.size() - 1)
+		var alt_cara := alto[ix] - pe[ix]
+		if alt_cara > 5.0:
+			var larg := rng.randf_range(2.2, 3.8)
+			var alt := minf(larg * rng.randf_range(1.3, 2.1), alt_cara * 0.42)
+			var f := rng.randf_range(0.18, 0.62)
+			var j := clampi(roundi(f * CARA_FIADAS), 1, CARA_FIADAS - 1)
+			var p := cara[ix * nf + j]
+			var fora := Vector3(-(linha(lx + 0.5) - linha(lx - 0.5)), 0, 1).normalized()
+			var base := Basis.looking_at(-fora, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.14), rng.randf_range(-0.4, 0.4), rng.randf_range(-0.1, 0.1)))
+			var xf := Transform3D(base.scaled_local(Vector3(larg, alt, larg * rng.randf_range(0.55, 0.75))), p + fora * larg * rng.randf_range(0.0, 0.18))
+			por.call(xf, pedras[rng.randi() % pedras.size()], true)
+		lx += rng.randf_range(6.0, 13.0)
+	# na beira de cima, meio enterradas na tampa
+	lx = -OMBRO_LADO_DE + rng.randf_range(0.0, 8.0)
+	while lx < OMBRO_LADO_DE:
+		var ix := clampi(roundi((lx - x0) / CARA_PASSO), 0, pe.size() - 1)
+		var tam := rng.randf_range(1.2, 2.6)
+		var p := cara[ix * nf + CARA_FIADAS] + Vector3(0, -tam * 0.35, -tam * rng.randf_range(0.3, 0.9))
+		por.call(Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.25, 0.25), rng.randf() * TAU, rng.randf_range(-0.25, 0.25))).scaled_local(
+			Vector3(tam * rng.randf_range(1.0, 1.5), tam * rng.randf_range(0.6, 0.9), tam)), p), pedras[rng.randi() % pedras.size()], tam > 1.8)
+		lx += rng.randf_range(9.0, 17.0)
+	# nas pontas da ferradura a cara desce em degraus: massas de rocha encostadas, cada uma da altura da cara
+	# ali, que vão baixando até sumir na encosta (sem elas a ponta era uma rampa lisa de pedra)
+	for lado: float in [-1.0, 1.0]:
+		var ax := 49.0 + rng.randf_range(0.0, 2.0)
+		while ax < OMBRO_LADO_ATE - 2.0:
+			var px := ax * lado
+			var ix := clampi(roundi((px - x0) / CARA_PASSO), 0, pe.size() - 1)
+			var alt_cara := alto[ix] - pe[ix]
+			if alt_cara > 1.4 and cara_ativa(px):
+				var larg := clampf(alt_cara * 0.32, 1.8, 4.2) * rng.randf_range(0.9, 1.2)
+				var j := clampi(roundi(CARA_FIADAS * 0.45), 1, CARA_FIADAS - 1)
+				var p := cara[ix * nf + j]
+				var fora := Vector3(-(linha(px + 0.5) - linha(px - 0.5)), 0, 1).normalized()
+				var base := Basis.looking_at(-fora, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.12), rng.randf_range(-0.35, 0.35), rng.randf_range(-0.08, 0.08)))
+				var esc := Vector3(larg, alt_cara * rng.randf_range(0.5, 0.6), larg * rng.randf_range(0.6, 0.8))
+				por.call(Transform3D(base.scaled_local(esc), p + fora * larg * rng.randf_range(0.15, 0.35)), pedras[rng.randi() % pedras.size()], true)
+			ax += rng.randf_range(4.0, 6.0)
+	# onde a cara acaba: uma massa grande fecha a ponta dela e outras, cada vez menores, seguem a linha pelo
+	# barranco até a encosta (a cara se desfaz em afloramentos em vez de virar uma tira fina)
+	var rf := RandomNumberGenerator.new()
+	rf.seed = 4545
+	for lado: float in [-1.0, 1.0]:
+		var ult := -1
+		for ix in pe.size():
+			var cx := x0 + ix * CARA_PASSO
+			if cx * lado > 0.0 and cara_ativa(cx) and (ult < 0 or absf(cx) > absf(x0 + ult * CARA_PASSO)):
+				ult = ix
+		if ult < 0:
+			continue
+		var lf := x0 + ult * CARA_PASSO
+		var alt_f := alto[ult] - pe[ult]
+		var ax := absf(lf) - 0.6
+		var k := 0
+		while ax < OMBRO_LADO_ATE - 1.0:
+			var px := ax * lado
+			# a altura do degrau que a rocha marca: na ponta a da cara; depois o que sobra do ombro sobre o chão,
+			# com tamanhos bem variados e fora de fila (para dentro e para fora do barranco)
+			var alt := alt_f if k == 0 else maxf(degrau_cara(px), 0.6) * rf.randf_range(0.6, 1.25)
+			var larg := clampf(alt * 0.75, 0.9, 4.6) * rf.randf_range(0.85, 1.2)
+			var lz := linha(px) - larg * 0.25 + (0.0 if k == 0 else rf.randf_range(-1.6, 0.7))
+			var w := aqui(px, 0, lz)
+			var chao := v.altura(w.x, w.z) - PISO
+			var fora := Vector3(-(linha(px + 0.5) - linha(px - 0.5)), 0, 1).normalized()
+			var base := Basis.looking_at(-fora, Vector3.UP) * Basis.from_euler(Vector3(rf.randf_range(-0.05, 0.15), rf.randf_range(-0.9, 0.9), rf.randf_range(-0.12, 0.12)))
+			var esc := Vector3(larg * rf.randf_range(0.8, 1.2), alt * rf.randf_range(0.5, 0.75), larg * rf.randf_range(0.7, 1.0))
+			var y := (pe[ult] + alt * 0.45) if k == 0 else chao + esc.y * 0.2
+			por.call(Transform3D(base.scaled_local(esc), aqui(px, y, lz)), pedras[rf.randi() % pedras.size()], larg > 1.6)
+			ax += larg * rf.randf_range(0.9, 2.4) + 0.5
+			k += 1
+	# o cascalho que caiu da cara no telhado, junto do pé dela: só nos lados do arco e no vão de baixo da cara,
+	# onde não falta painel (no alto e no vão da frente o telhado tem rombos, e a pedra ficaria boiando)
+	for k in 14:
+		var qx := rng.randf_range(22.0, 42.0) * (1.0 if rng.randf() < 0.5 else -1.0)
+		var tam := rng.randf_range(0.5, 1.6) * (1.6 if rng.randf() < 0.2 else 1.0)
+		var qz := linha(qx) + rng.randf_range(0.6, maxf(0.8, -MZ + 2.0 * MZ / 8.0 * 3.0 - 0.6 - linha(qx)))
+		var y := teto(qx) + tam * 0.2
+		por.call(Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))).scaled_local(
+			Vector3(tam * rng.randf_range(0.9, 1.3), tam * rng.randf_range(0.5, 0.8), tam * rng.randf_range(0.9, 1.3))), aqui(qx, y, qz)),
+			pedras[rng.randi() % pedras.size()], tam > 1.2)
+
+
+## Capim, samambaia, flores e moitas no ombro e na tampa (os sorteios de fora largam o que cai aqui), e tufos
+## no telhado junto do pé da cara.
+static func _plantas_do_ombro(v: Vale, raiz: Node3D) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9911
+	var mato := ["q_samambaia", "q_samambaia", "q_planta_a", "q_planta_b", "q_moita", "q_moita_flor", "q_cogumelo", "q_trevo"]
+	var campo := ["q_trevo", "q_trevo_b", "q_planta_c", "q_planta_d", "q_flor_a", "q_flor_c", "q_moita"]
+	for k in 3200:
+		var qx := rng.randf_range(-OMBRO_LADO_ATE - 6.0, OMBRO_LADO_ATE + 6.0)
+		var qz := rng.randf_range(-MZ - 135.0, 0.0)
+		var sorte := rng.randf()
+		var giro := rng.randf() * TAU
+		var tam := rng.randf_range(0.8, 1.3)
+		var w := aqui(qx, 0, qz)
+		if not no_ombro(w.x, w.z) or linha(qx) - qz < 1.2:
+			continue
+		if _normal_ombro(qx, qz).y < 0.82 or sorte > 0.3:
+			continue
+		var cob := v.cobertura(w.x, w.z)
+		var lista: Array = mato if cob == 1 or cob == 2 else campo
+		var nome: String = lista[int(sorte / 0.3 * lista.size()) % lista.size()]
+		if not v._malhas.has(nome):
+			continue
+		var s := tam * (0.3 if nome.begins_with("q_flor") else 0.7)
+		v._por(nome, Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(w.x, PISO + alto_ombro(qx, qz) - 0.05, w.z)))
+	# tufos no telhado, agarrados no pé da cara
+	for k in 26:
+		var qx := rng.randf_range(21.0, 44.0) * (1.0 if rng.randf() < 0.5 else -1.0)
+		var nome: String = ["q_samambaia", "q_moita", "q_planta_a", "q_trevo"][rng.randi() % 4]
+		var s := rng.randf_range(0.5, 0.9)
+		if v._malhas.has(nome):
+			v._por(nome, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), aqui(qx, teto(qx) + 0.15, linha(qx) + rng.randf_range(0.3, 2.5))))
 
 
 static func montar(v: Vale) -> void:

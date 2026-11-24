@@ -37,6 +37,8 @@ var _aro_luz: MeshInstance3D
 var _tela_mat: ShaderMaterial
 var _presos: Array[Node] = []  # o que vai junto do robô (presilhas, cabos, anéis das juntas): some ao soltar
 var _solda: OmniLight3D
+var _foco: SpotLight3D
+var _fria: OmniLight3D
 var _preso: ArmaduraVisual  # o robô no berço
 var _discos := {}  # junta -> anel de luz do encaixe
 var _presilhas: Array[Node3D] = []
@@ -279,6 +281,7 @@ func _construir() -> void:
 	amb.omni_range = 6.5
 	amb.position = Vector3(-0.6, 0.9, 0.0)
 	add_child(amb)
+	_fria = amb
 	var foco := SpotLight3D.new()
 	foco.light_color = Color(1.0, 0.95, 0.86)
 	foco.light_energy = 1.6
@@ -287,6 +290,16 @@ func _construir() -> void:
 	foco.position = Vector3(PARADA.x, 1.85, 0.0)
 	foco.rotation = Vector3(-PI * 0.5, 0, 0)
 	add_child(foco)
+	_foco = foco
+
+
+## A oficina aberta (`f` 1) ou fechada (0), doc §161: lá dentro quem ilumina o robô é o sol de ateliê da oficina;
+## o foco apaga e a luz fria fica só de fundo (as três se somavam no robô e lavavam as cores das peças).
+func luz_oficina(f: float) -> void:
+	if _foco:
+		_foco.light_energy = lerpf(1.6, 0.0, f)
+	if _fria:
+		_fria.light_energy = lerpf(0.55, 0.15, f)
 
 
 ## Um quadrilátero com a frente para `frente` (sem ela, para o eixo do tubo). Na Godot a frente é a do giro
