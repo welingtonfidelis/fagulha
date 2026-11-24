@@ -1,6 +1,6 @@
 class_name Corpo
 extends RefCounted
-## O corpo do robô em peças (doc §143 e §146, ideia do usuário): cabeça, tronco, braço D e E, perna D e E de 15
+## O corpo do robô em peças (doc §143 e §146, ideia do usuário): cabeça, tronco, braço D e E, perna D e E de 18
 ## conjuntos, cada lado à parte, só visuais (as juntas ficam nos mesmos lugares, então nada muda na mecânica nem nas animações). As peças de cada
 ## conjunto estão em assets/vale/corpo/<chave>.glb, feitas por tools/vale/robo_pecas.py: o esqueleto inteiro do
 ## robo_v2 (juntas vazias) com as peças do conjunto presas nas juntas. `ArmaduraVisual.vestir_corpo` passa cada
@@ -23,7 +23,8 @@ const JUNTAS := {
 const ANTIGAS := {"bracos": ["bracoD", "bracoE"], "pernas": ["pernaD", "pernaE"]}
 ## Peças do robô que nenhum conjunto troca (o pescoço, a cintura e o jato dos pés).
 const FIXAS := ["pescoco", "cintura", "lamina", "brasa_pe", "chama_pe"]
-## [chave, nome, nome curto (no cartão), nível que abre]: um por nível, do 3 ao 15 (doc §154). O jogo começa só
+## [chave, nome, nome curto (no cartão), nível que abre]: um por nível, do 3 ao 18 (doc §154; Touro, Mago e Águia
+## no 16, 17 e 18 desde 2026-11-24, §160). O jogo começa só
 ## com o Original, para o jogador usar bastante antes do primeiro (pedido do usuário, 2026-11-23; antes Gato e
 ## Cachorro vinham no 1 e havia um por nível do 2 ao 12). Nível 0 é de robô achado: abre ao acordar aquele robô
 ## (ACHADOS), não por nível.
@@ -34,7 +35,8 @@ const CONJUNTOS := [
 	["caldeira", "Caldeira", "Caldeira", 9], ["lucano", "Lucano", "Lucano", 10],
 	["majestade", "Majestade", "Majestade", 11], ["sabre", "Dente-de-sabre", "Sabre", 12],
 	["samurai", "Samurai", "Samurai", 13], ["solar", "Solar", "Solar", 14],
-	["cavaleiro", "Cavaleiro", "Cavaleiro", 15],
+	["cavaleiro", "Cavaleiro", "Cavaleiro", 15], ["touro", "Touro", "Touro", 16],
+	["mago", "Mago", "Mago", 17], ["aguia", "Águia", "Águia", 18],
 	["antigo", "Antigo", "Antigo", 0], ["mergulhador", "Mergulhador", "Mergulhador", 0],
 ]
 ## Os conjuntos dos robôs achados (2026-11-23): o robô de cada um (o índice em RoboAntigo.ROBOS), a figura do
@@ -49,9 +51,10 @@ const ACHADOS := {
 const COR := {"besouro": "detalhe_besouro", "gato": "detalhe_gato", "urso": "placa_urso", "cachorro": "detalhe_cachorro",
 	"caldeira": "placa_caldeira", "majestade": "placa_majestade", "lucano": "placa_lucano", "cavaleiro": "placa_cavaleiro",
 	"enfermeira": "placa_enfermeira", "samurai": "placa_samurai", "marinheiro": "placa_marinheiro", "sabre": "placa_sabre",
-	"solar": "placa_solar", "mergulhador": "placa_mergulhador", "antigo": "placa_antigo"}
+	"solar": "placa_solar", "mergulhador": "placa_mergulhador", "antigo": "placa_antigo",
+	"touro": "placa_touro", "mago": "placa_mago", "aguia": "detalhe_aguia"}
 ## Os conjuntos com rabo (o rabo vem no tronco; o jogo balança parado e estica correndo e voando).
-const COM_RABO := ["gato", "cachorro", "sabre"]
+const COM_RABO := ["gato", "cachorro", "sabre", "touro"]
 
 static var vestido := {"cabeca": "", "tronco": "", "bracoD": "", "bracoE": "", "pernaD": "", "pernaE": ""}
 static var tudo := false  # testes e fotos: todos os conjuntos abertos

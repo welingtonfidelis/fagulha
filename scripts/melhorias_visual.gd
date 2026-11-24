@@ -494,7 +494,8 @@ static var _cena_armas: PackedScene
 const PUNHO_Z := 0.345
 const PUNHO_FIM := {"besouro": 0.3450, "gato": 0.3663, "urso": 0.3359, "cachorro": 0.3661, "caldeira": 0.3450,
 	"majestade": 0.3450, "lucano": 0.3560, "cavaleiro": 0.3450, "enfermeira": 0.3356, "samurai": 0.3561,
-	"marinheiro": 0.3560, "sabre": 0.3459, "solar": 0.3560, "mergulhador": 0.3450, "antigo": 0.3580}
+	"marinheiro": 0.3560, "sabre": 0.3459, "solar": 0.3560, "mergulhador": 0.3450, "antigo": 0.3580,
+	"touro": 0.3359, "mago": 0.3450, "aguia": 0.3560}
 const VAO_COR := Color(0.06, 0.065, 0.075)
 
 

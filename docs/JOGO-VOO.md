@@ -4977,3 +4977,48 @@ oficina".
 
 **Estado:** aprovado ("Está bom"). Testes em 2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a
 simulação 28/28.
+
+## 160. Touro, Mago e Águia: três conjuntos novos no 16, 17 e 18 (2026-11-24)
+
+Pedido do usuário: robôs novos inspirados em três figuras que ele mandou (um minotauro, um mago e uma águia). Viraram
+três conjuntos do Corpo em `tools/vale/robo_pecas.py` (classes `Touro`, `Mago` e `Aguia`), no mesmo esqueleto e com
+as mesmas medidas do robo_v2. Como os outros, são só visuais e seguem a regra de nada afiado: chifres de ponta
+redonda, penas largas e garras curtas.
+- **Touro** (nível 16): placas vermelhas e detalhes pretos e dourados. Tem chifres com anéis, focinho com argola,
+  ombreiras de duas camadas, cascos e um rabo de gomos com tufo, por isso entra em `Corpo.COM_RABO`.
+- **Mago** (nível 17): roxo, dourado e creme. Tem chapéu alto de ponta dobrada, túnica com cinto, gola alta, manto
+  nos ombros, punho em boca de sino e sapatos de bico virado. Leva cristais laranja na faixa do chapéu e na fivela.
+- **Águia** (nível 18): branca e azul, com laranja no bico e nas pernas. Tem sobrancelhas em V, crista de penas para
+  trás, bico curvo, asa dobrada por fora de cada ombro, uma pena atrás do cotovelo, canelas de escama e quatro
+  dedos.
+
+**O equipamento cabe neles.** O usuário temia que a antena, os lançadores e as barbatanas ficassem estranhos nos
+modelos novos. As fotos no jogo, com tudo vestido, mostraram três problemas, e o rascunho mudou antes de entrar:
+- **Mago, braço:** a manga larga engolia o disco do escudo, e as barbatanas saíam dela como palitos. Agora o
+  antebraço tem o tamanho dos outros e a boca de sino fica só no punho. Os cristais encostavam no escudo e saíram
+  do braço.
+- **Mago, antena:** ela ficava dentro do chapéu. Ele ganhou um mastrinho dourado na ponta do chapéu (malha
+  `antena`, que `MelhoriasVisual._mastro` acha), e os anéis e a luz da antena sentam ali, como uma estrela.
+- **Águia:** as penas que subiam do ombro cruzavam os lançadores das costas, e as penas do antebraço disputavam o
+  lugar do escudo e das barbatanas. Agora são três penas deitadas por fora do ombro e uma atrás do cotovelo. O
+  branco foi para o da fábrica (0,50), porque o 0,78 estourava no contraluz.
+
+**Regra para conjuntos novos:** o meio do lado de fora do antebraço é do escudo e das barbatanas, e o pulso direito
+é da mira. O alto dos ombros é das ombreiras de vida. Atrás dos ombros, rente à cabeça, ficam os dois lançadores. O
+topo da cabeça é da antena: sem mastro próprio, ela vai para o ponto de fábrica.
+
+- `Corpo.CONJUNTOS`: os três vêm depois do Cavaleiro (15) e antes dos robôs achados, que seguem no fim das setas.
+- `Corpo.COR`: Touro `placa_touro`, Mago `placa_mago`, Águia `detalhe_aguia`.
+- `MelhoriasVisual.PUNHO_FIM` medido por `tools/vale/medir_punhos.py`: Touro 0,3359, Mago 0,3450 e Águia 0,3560. Os
+  outros saíram iguais.
+- Arquivos: `assets/vale/corpo/<chave>.glb` (`EXPORTAR_PECAS=`), os retratos em `retratos/` (`RETRATOS=`) e as seis
+  miniaturas de cada um em `pecas/` (`MINIATURAS=`).
+
+**Fotos:** em `tools/capturas/robo_pecas/rascunho_1124/`:
+- o rascunho: `novos.png`;
+- o antes e depois com todo o equipamento: `no_jogo/antes_depois.jpg`;
+- no jogo: `integrado/cartoes.jpg` (cartões 16 a 18) e `integrado/aba_corpo.jpg` (aba Corpo no nível 17, com a
+  Águia fechada e o Mago vestido).
+
+**Estado:** no jogo nos níveis 16 a 18 ("Sim, níveis 16–18"; depois "envia pro git os robôs novos"). Testes em
+2026-11-24, sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação 28/28.

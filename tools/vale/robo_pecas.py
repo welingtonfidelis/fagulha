@@ -1308,10 +1308,267 @@ class Antigo:
         sola(s, lado, comp=0.24, y=-0.035)
 
 
+# ---------- rascunho de 2026-11-24: Touro, Mago e Águia (das três imagens que o usuário mandou; só o tema) ----------
+def pena(nome, p0, p1, larg, esp, mat, pai, fina=(0, 1, 0), ponta=0.35, bevel=0.008):
+    """Uma pena achatada de p0 a p1: `larg` de largura na base, `esp` de grossura na direção `fina`, afinando para
+    a ponta (`ponta` é a fração da largura que sobra lá); o bisel arredonda tudo."""
+    p0, p1 = Vector(p0), Vector(p1)
+    z = p1 - p0
+    comp = z.length
+    z.normalize()
+    y = Vector(fina) - z * Vector(fina).dot(z)
+    if y.length < 1e-4:
+        y = Vector((1, 0, 0)) - z * z.x
+    y.normalize()
+    x = y.cross(z)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        f = ponta if v.co.z > 0 else 1.0
+        v.co.x *= larg * f
+        v.co.y *= esp
+        v.co.z *= comp
+    m = Matrix.Translation((p0 + p1) / 2) @ Matrix((x, y, z)).transposed().to_4x4()
+    bmesh.ops.transform(bm, matrix=m, verts=bm.verts)
+    return malha(nome, bm, mat, pai, bevel, 2)
+
+
+class Touro:
+    """Touro: elmo vermelho de testa dourada, chifres cor de osso que sobem em curva com pontas redondas, focinho
+    escuro com argola dourada; peito largo escuro com peitorais vermelhos e cintas douradas, rabo com tufo;
+    ombreiras de duas camadas com borda dourada, manoplas grandes e punhos escuros; caneleiras vermelhas e cascos
+    fendidos."""
+    nome = "Touro"
+
+    @staticmethod
+    def cores():
+        return (cor("placa_touro", (0.42, 0.035, 0.03), 0.15, 0.45), cor("detalhe_touro", (0.05, 0.045, 0.05), 0.2, 0.55),
+                cor("laranja_touro", (0.85, 0.6, 0.16), 0.6, 0.3))
+
+    @staticmethod
+    def cabeca():
+        V, E, O = Touro.cores()
+        OSSO = cor("detalhe_touro_chifre", (0.82, 0.76, 0.62), 0.05, 0.45)
+        casco(V, (0.45, 0.41, 0.39))
+        rosto("faixa", "baixo")
+        caixa("testa", (0, -0.152, 1.05), (0.36, 0.11, 0.04), O, cabeca, topo=(0.86, 0.8), rot=(-10, 0, 0), bevel=0.012)
+        caixa("crista", (0, 0.03, 1.128), (0.08, 0.3, 0.03), E, cabeca, bevel=0.01)
+        casca("focinho", (0, -0.17, 0.80), (0.2, 0.11, 0.095), E, cabeca, topo=(0.92, 0.85), bevel=0.03)
+        for s in (1, -1):
+            esfera("narina", (s * 0.042, -0.226, 0.808), (0.017, 0.008, 0.013), JUNTA, cabeca, u=10, v=6)
+        argola = [(0.03 * math.sin(a), -0.232, 0.77 - 0.03 * math.cos(a)) for a in [k * 2 * math.pi / 14 for k in range(15)]]
+        tubo("argola", argola, [0.0065] * 15, O, cabeca, segs=8)
+        for s in (1, -1):
+            cil("anel_chifre", (s * 0.208, 0.0, 1.02), 0.056, 0.056, 0.035, O, cabeca, rot=(0, 90, 0), segs=16, bevel=0.004)
+            pts = [(s * 0.21, 0.0, 1.02), (s * 0.27, -0.01, 1.045), (s * 0.325, -0.02, 1.09), (s * 0.355, -0.03, 1.155),
+                   (s * 0.355, -0.04, 1.22), (s * 0.335, -0.045, 1.27)]
+            tubo("chifre", pts, (0.05, 0.045, 0.038, 0.03, 0.022, 0.016), OSSO, cabeca, segs=14)
+            esfera("ponta_chifre", pts[-1], (0.016,) * 3, OSSO, cabeca, u=12, v=8)
+
+    @staticmethod
+    def tronco_():
+        V, E, O = Touro.cores()
+        pelve(V)
+        caixa("tronco_p", (0, 0, 0.578), (0.31, 0.21, 0.2), E, tronco, base=(0.72, 0.84), bevel=0.04)
+        for s in (1, -1):
+            casca("peitoral", (s * 0.07, -0.078, 0.622), (0.13, 0.06, 0.1), V, tronco, rot=(0, 0, s * -10), bevel=0.02)
+        for k, z in enumerate((0.538, 0.503)):
+            caixa("cinta", (0, -0.088, z), (0.2 - k * 0.03, 0.032, 0.022), O, tronco, bevel=0.005)
+        nucleo(y=-0.118, z=0.6, aro=O, anel=V)
+        cil("gola", (0, 0.005, 0.683), 0.11, 0.12, 0.03, O, tronco, segs=14, bevel=0.008)
+        cauda([(0, 0.075, 0.43), (0, 0.13, 0.4), (0, 0.17, 0.345), (0, 0.19, 0.285)], (0.014, 0.013, 0.012, 0.011), E,
+              ponta=(0.03, 0.03, 0.042), ponta_mat=E)
+
+    @staticmethod
+    def braco(s, lado):
+        V, E, O = Touro.cores()
+        om, lu = J["ombro" + lado], J["luva" + lado]
+        casca("ombro_p", (s * 0.235, 0, 0.665), (0.16, 0.17, 0.11), V, om, topo=(0.78, 0.82), bevel=0.03)
+        caixa("borda_ombro", (s * 0.238, 0, 0.613), (0.165, 0.175, 0.018), O, om, bevel=0.005)
+        caixa("ombro_baixo", (s * 0.27, 0, 0.585), (0.08, 0.15, 0.06), V, om, rot=(0, -s * 20, 0), bevel=0.015)
+        cil("braco", (s * 0.228, 0, 0.57), 0.032, 0.032, 0.10, JUNTA, om, rot=(0, s * -20, 0), segs=8)
+        casca("antebraco", (s * 0.264, -0.005, 0.425), (0.14, 0.155, 0.18), V, lu, base=(1.25, 1.2), topo=(0.85, 0.85), bevel=0.03)
+        caixa("faixa_luva", (s * 0.262, -0.005, 0.505), (0.122, 0.135, 0.02), O, lu, bevel=0.005)
+        caixa("faixa_luva", (s * 0.264, -0.005, 0.362), (0.17, 0.185, 0.02), O, lu, bevel=0.005)
+        cano(s, lado)
+        mao(s, lado, "punho", mat=E)
+
+    @staticmethod
+    def perna(s, lado):
+        V, E, O = Touro.cores()
+        jo, to = J["joelho" + lado], J["tornozelo" + lado]
+        coxa(s, lado, r=0.05, mat=E, placa=V)
+        caixa("joelho_p", (s * 0.097, -0.05, 0.258), (0.075, 0.04, 0.065), O, jo, bevel=0.012)
+        casca("bota", (s * 0.10, 0.0, 0.16), (0.135, 0.155, 0.17), V, jo, base=(1.2, 1.15), bevel=0.03)
+        caixa("faixa_bota", (s * 0.10, 0.0, 0.215), (0.13, 0.15, 0.02), O, jo, bevel=0.005)
+        cil("aro_casco", (s * 0.10, -0.01, 0.088), 0.08, 0.08, 0.02, O, to, segs=18, bevel=0.004)
+        casca("casco_pe", (s * 0.10, -0.03, 0.045), (0.16, 0.2, 0.08), E, to, topo=(0.85, 0.8), bevel=0.025)
+        caixa("fenda", (s * 0.10, -0.125, 0.045), (0.012, 0.05, 0.075), JUNTA, to, bevel=0.002)
+        sola(s, lado, larg=0.16, comp=0.22, y=-0.03)
+
+
+class Mago:
+    """Mago: capuz roxo com chapéu alto de ponta dobrada para trás e bolinha dourada (com um mastrinho onde a antena
+    acende como estrela), faixa dourada com cristal laranja; túnica creme com cinto dourado e fivela de cristal sob o
+    manto roxo de gola alta e faldas compridas; manto caindo nos ombros, antebraço justo com boca de sino só no punho
+    (o meio do antebraço fica livre para o escudo e as barbatanas); sapatos de bico virado."""
+    nome = "Mago"
+
+    @staticmethod
+    def cores():
+        return (cor("placa_mago", (0.2, 0.05, 0.4), 0.1, 0.45), cor("laranja_mago", (0.85, 0.62, 0.22), 0.55, 0.3),
+                cor("detalhe_mago", (0.86, 0.82, 0.7), 0.05, 0.5))
+
+    @staticmethod
+    def cabeca():
+        P, O, C = Mago.cores()
+        K = cor("detalhe_mago_cristal", (1.0, 0.4, 0.06), 0.0, 0.18)
+        casco(P, (0.44, 0.41, 0.39))
+        rosto("redondo", "redondo")
+        cil("aba", (0, 0.015, 1.112), 0.25, 0.24, 0.024, P, cabeca, segs=24, bevel=0.006)
+        cil("faixa_chapeu", (0, 0.015, 1.148), 0.162, 0.156, 0.04, O, cabeca, segs=20, bevel=0.004)
+        caixa("pedra", (0, -0.148, 1.148), (0.04, 0.022, 0.04), K, cabeca, rot=(0, 45, 0), bevel=0.007)
+        tubo("chapeu", [(0, 0.015, 1.12), (0, 0.02, 1.2), (0, 0.035, 1.28), (0, 0.07, 1.35), (0, 0.13, 1.39), (0, 0.19, 1.385)],
+             (0.16, 0.122, 0.085, 0.052, 0.03, 0.018), P, cabeca, segs=20)
+        esfera("ponta_chapeu", (0, 0.192, 1.385), (0.024,) * 3, O, cabeca, u=12, v=8)
+        # o mastrinho da ponta: com a antena vestida, os anéis e a luz dela sentam aqui (o jogo procura `antena*`)
+        cil("antena", (0, 0.192, 1.43), 0.006, 0.005, 0.05, O, cabeca, segs=6, bevel=0)
+
+    @staticmethod
+    def tronco_():
+        P, O, C = Mago.cores()
+        pelve(P)
+        casca("tronco_p", (0, 0, 0.575), (0.26, 0.2, 0.19), P, tronco, base=(0.66, 0.84), bevel=0.035)
+        caixa("tunica", (0, -0.09, 0.57), (0.11, 0.025, 0.17), C, tronco, base=(1.2, 1), bevel=0.008)
+        for s in (1, -1):
+            caixa("borda_tunica", (s * 0.062, -0.097, 0.57), (0.014, 0.022, 0.17), O, tronco, rot=(0, s * 4, 0), bevel=0.003)
+        nucleo(y=-0.108, z=0.605, aro=O, anel=P)
+        cil("cinto", (0, 0, 0.487), 0.1, 0.106, 0.03, O, tronco, segs=18, bevel=0.004)
+        caixa("fivela", (0, -0.108, 0.487), (0.04, 0.012, 0.036), O, tronco, bevel=0.004)
+        caixa("cristal_fivela", (0, -0.116, 0.487), (0.022, 0.008, 0.022), cor("detalhe_mago_cristal", (1.0, 0.4, 0.06), 0.0, 0.18),
+              tronco, rot=(0, 45, 0), bevel=0.004)
+        faixa_arco("gola_alta", (0, 0.01, 0.64), 0.12, 0.16, 0.08, 10, 170, 0.018, P, tronco, segs=16)
+        faixa_arco("gola_borda", (0, 0.01, 0.718), 0.16, 0.162, 0.012, 10, 170, 0.02, O, tronco, segs=16)
+        faldas(P, borda=O, alt=0.13, z=0.37)
+
+    @staticmethod
+    def braco(s, lado):
+        P, O, C = Mago.cores()
+        om, lu = J["ombro" + lado], J["luva" + lado]
+        casca("ombro_p", (s * 0.226, 0, 0.652), (0.13, 0.14, 0.1), P, om, topo=(0.8, 0.85), bevel=0.03)
+        caixa("manto", (s * 0.255, 0.01, 0.635), (0.1, 0.17, 0.12), P, om, base=(1.2, 1.05), topo=(0.6, 0.9), rot=(0, -s * 18, 0), bevel=0.012)
+        caixa("borda_manto", (s * 0.275, 0.01, 0.578), (0.1, 0.18, 0.014), O, om, rot=(0, -s * 18, 0), bevel=0.004)
+        cil("braco", (s * 0.228, 0, 0.57), 0.026, 0.026, 0.10, JUNTA, om, rot=(0, s * -20, 0), segs=8)
+        # antebraço justo como os outros (o escudo e as barbatanas sentam no meio dele) e a boca de sino só no punho
+        cil("manga", (s * 0.262, -0.005, 0.4525), 0.064, 0.062, 0.125, P, lu, segs=18, bevel=0.01)
+        cil("sino_manga", (s * 0.262, -0.005, 0.372), 0.086, 0.066, 0.04, P, lu, segs=18, bevel=0.006)
+        cil("barra_manga", (s * 0.262, -0.005, 0.352), 0.088, 0.088, 0.014, O, lu, segs=18, bevel=0.004)
+        cano(s, lado)
+        mao(s, lado)
+
+    @staticmethod
+    def perna(s, lado):
+        P, O, C = Mago.cores()
+        jo, to = J["joelho" + lado], J["tornozelo" + lado]
+        coxa(s, lado, r=0.036, mat=JUNTA)
+        esfera("joelho_p", (s * 0.097, -0.045, 0.255), (0.036, 0.03, 0.036), O, jo, u=14, v=10)
+        casca("bota", (s * 0.10, 0.0, 0.16), (0.105, 0.125, 0.17), P, jo, base=(1.1, 1.05), topo=(1.12, 1.12), bevel=0.03)
+        cil("cano_bota", (s * 0.10, 0.0, 0.238), 0.068, 0.072, 0.024, C, jo, segs=18, bevel=0.005)
+        casca("pe", (s * 0.10, -0.05, 0.05), (0.12, 0.24, 0.07), P, to, topo=(0.7, 0.6), bevel=0.02)
+        bico = [(s * 0.10, -0.15, 0.05), (s * 0.10, -0.2, 0.062), (s * 0.10, -0.225, 0.09), (s * 0.10, -0.215, 0.115)]
+        tubo("bico_pe", bico, (0.03, 0.022, 0.014, 0.009), P, to, segs=10)
+        esfera("ponta_bico", bico[-1], (0.013,) * 3, O, to, u=10, v=6)
+        sola(s, lado, larg=0.12, comp=0.2, y=-0.06)
+
+
+class Aguia:
+    """Águia: capacete branco com sobrancelhas azuis em V, crista de penas azuis e brancas para trás e bico laranja
+    curvo de ponta redonda; peito branco com V azul e um leque de penas de cauda; três penas de asa deitadas por fora
+    de cada ombro (longe dos lançadores das costas), uma pena atrás do cotovelo (o lado de fora do antebraço fica
+    livre para o escudo e as barbatanas); coxas brancas, canelas laranja de ave e garras de quatro dedos."""
+    nome = "Águia"
+
+    @staticmethod
+    def cores():
+        return (cor("placa_aguia", (0.5, 0.52, 0.56), 0.1, 0.45), cor("detalhe_aguia", (0.03, 0.17, 0.55), 0.1, 0.4),
+                cor("laranja_aguia", (0.95, 0.45, 0.05), 0.05, 0.45))
+
+    @staticmethod
+    def cabeca():
+        B, A, L = Aguia.cores()
+        casco(B, (0.43, 0.41, 0.39))
+        rosto("faixa", "baixo")
+        for s in (1, -1):
+            caixa("sobrancelha", (s * 0.085, -0.158, 1.03), (0.17, 0.09, 0.035), A, cabeca, rot=(-12, 0, s * -10), bevel=0.01)
+        casca("bico_base", (0, -0.17, 0.825), (0.11, 0.07, 0.075), L, cabeca, bevel=0.02)
+        tubo("bico", [(0, -0.19, 0.84), (0, -0.235, 0.835), (0, -0.265, 0.812), (0, -0.272, 0.782), (0, -0.258, 0.758)],
+             (0.045, 0.036, 0.026, 0.016, 0.009), L, cabeca, segs=12)
+        esfera("ponta_bico", (0, -0.258, 0.758), (0.01,) * 3, L, cabeca, u=10, v=6)
+        # a crista: penas largas de ponta redonda deitadas para trás (de pé pareciam espinhos)
+        for k, dx in enumerate((-0.05, 0.0, 0.05)):
+            pena("crista", (dx, 0.0, 1.1), (dx * 1.5, 0.25, 1.17 - abs(dx) * 0.6), 0.075, 0.018, B if k != 1 else A, cabeca,
+                 fina=(0, -0.4, 1), ponta=0.55, bevel=0.012)
+        for s in (1, -1):
+            pena("pena_lado", (s * 0.2, 0.03, 0.97), (s * 0.24, 0.22, 1.0), 0.06, 0.016, A, cabeca, fina=(1, 0, 0), ponta=0.55, bevel=0.012)
+
+    @staticmethod
+    def tronco_():
+        B, A, L = Aguia.cores()
+        pelve(A)
+        casca("tronco_p", (0, 0, 0.578), (0.27, 0.2, 0.2), B, tronco, base=(0.66, 0.84), bevel=0.04)
+        for s in (1, -1):
+            caixa("v_peito", (s * 0.055, -0.098, 0.6), (0.03, 0.02, 0.16), A, tronco, rot=(0, s * 28, 0), bevel=0.004)
+        nucleo(y=-0.112, z=0.565, aro=A, anel=L)
+        cil("gola", (0, 0.005, 0.683), 0.1, 0.11, 0.028, A, tronco, segs=14, bevel=0.005)
+        for k, dx in enumerate((-0.02, 0.0, 0.02)):
+            pena("pena_cauda", (dx, 0.07, 0.425), (dx * 1.8, 0.2, 0.3 - (0.02 if k == 1 else 0)), 0.05, 0.012,
+                 A if k == 1 else B, raiz, fina=(0, 1, 1))
+
+    @staticmethod
+    def braco(s, lado):
+        B, A, L = Aguia.cores()
+        om, co, lu = J["ombro" + lado], J["cotovelo" + lado], J["luva" + lado]
+        casca("ombro_p", (s * 0.226, 0, 0.652), (0.13, 0.14, 0.105), B, om, topo=(0.8, 0.85), bevel=0.03)
+        caixa("ombro_azul", (s * 0.29, 0, 0.655), (0.02, 0.12, 0.07), A, om, bevel=0.006)
+        # a asa dobrada: três penas largas deitadas por fora do ombro, para trás (subindo atrás do ombro elas
+        # cruzavam os lançadores das costas; abertas para o lado pareciam dedos)
+        for k in range(3):
+            p0 = (s * (0.292 + k * 0.006), 0.02 + k * 0.015, 0.685 - k * 0.03)
+            p1 = (s * (0.33 + k * 0.012), 0.2 + k * 0.012, 0.75 - k * 0.055)
+            pena("asa", p0, p1, 0.07, 0.016, A if k % 2 == 0 else B, om, fina=(1, 0, 0), ponta=0.5, bevel=0.012)
+        cil("braco", (s * 0.228, 0, 0.57), 0.026, 0.026, 0.10, JUNTA, om, rot=(0, s * -20, 0), segs=8)
+        casca("antebraco", (s * 0.262, -0.005, 0.435), (0.11, 0.12, 0.16), B, lu, base=(1.12, 1.12), topo=(0.9, 0.9), bevel=0.028)
+        caixa("faixa_luva", (s * 0.262, -0.005, 0.5), (0.1, 0.11, 0.016), A, lu, bevel=0.004)
+        # uma pena atrás do cotovelo (junta que não torce); o lado de fora fica para o escudo e as barbatanas
+        pena("pena_braco", (s * 0.262, 0.05, 0.5), (s * 0.27, 0.15, 0.44), 0.055, 0.012, A, co, fina=(1, 0, 0), ponta=0.55, bevel=0.01)
+        cano(s, lado)
+        mao(s, lado)
+
+    @staticmethod
+    def perna(s, lado):
+        B, A, L = Aguia.cores()
+        LE = cor("laranja_aguia_escama", (0.6, 0.24, 0.03), 0.05, 0.5)
+        jo, to = J["joelho" + lado], J["tornozelo" + lado]
+        coxa(s, lado, r=0.048, mat=B, placa=A)
+        casca("joelheira", (s * 0.097, -0.03, 0.245), (0.1, 0.1, 0.06), B, jo, bevel=0.02)
+        cil("canela", (s * 0.10, 0.0, 0.15), 0.038, 0.042, 0.17, L, jo, segs=12, bevel=0.006)
+        for z in (0.19, 0.15, 0.11):
+            cil("escama", (s * 0.10, 0.0, z), 0.044, 0.044, 0.01, LE, jo, segs=12, bevel=0.002)
+        casca("pe", (s * 0.10, -0.01, 0.04), (0.08, 0.1, 0.06), L, to, bevel=0.02)
+        for dx in (-0.04, 0.0, 0.04):
+            ponta = (s * 0.10 + dx * 1.3, -0.15, 0.02)
+            tubo("dedo_pe", arco((s * 0.10 + dx * 0.5, -0.03, 0.04), ponta, (0, 0, 0.012), 4), (0.022, 0.02, 0.017, 0.014), L, to, segs=10)
+            esfera("garra", (ponta[0], -0.165, 0.018), (0.012, 0.016, 0.012), JUNTA, to, u=10, v=6)
+        tubo("dedo_tras", arco((s * 0.10, 0.02, 0.04), (s * 0.10, 0.1, 0.02), (0, 0, 0.01), 4), (0.02, 0.018, 0.016, 0.014), L, to, segs=10)
+        esfera("garra", (s * 0.10, 0.112, 0.018), (0.012, 0.016, 0.012), JUNTA, to, u=10, v=6)
+        sola(s, lado, larg=0.15, comp=0.2, y=-0.04)
+
+
 CONJUNTOS = {"besouro": Besouro, "gato": Gato, "urso": Urso, "cachorro": Cachorro, "caldeira": Caldeira,
              "majestade": Majestade, "lucano": Lucano, "cavaleiro": Cavaleiro, "enfermeira": Enfermeira,
              "samurai": Samurai, "marinheiro": Marinheiro, "sabre": Sabre, "solar": Solar,
-             "mergulhador": Mergulhador, "antigo": Antigo}
+             "mergulhador": Mergulhador, "antigo": Antigo,
+             "touro": Touro, "mago": Mago, "aguia": Aguia}
 SLOTS = ("cabeca", "tronco", "bracoE", "bracoD", "pernaE", "pernaD")
 
 
