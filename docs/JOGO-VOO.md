@@ -4882,3 +4882,73 @@ nenhuma olhava a outra.
 
 **Estado (§154–157):** aprovado ("Está bom"). Testes em 2026-11-23, sem janela: `--teste-vale` 116/116,
 `--teste` 94/94 e a simulação 28/28.
+
+## 158. As armas espalhadas pela curva lenta (2026-11-24)
+
+Pedido do usuário: o game designer revisou os níveis e os custos de cada arma depois da curva lenta da §154. Achado
+principal: as armas e os degraus tinham sido pensados para a curva antiga, quatro vezes mais rápida. Tudo do arsenal
+ainda abria até o nível 10, quase tudo entre o 2 e o 6 (o nível 2 sozinho abria seis coisas). Quem luta ganhava 17
+coisas na primeira hora e depois ficava de 5 a 6 horas, do nível 11 ao 15, só com as armaduras.
+
+O usuário escolheu a proposta A do game designer, com duas mudanças dele: a rajada abre antes do canhão, e o tiro
+duplo tira menos.
+
+- **Uma coisa nova por nível, do 1 ao 9** (`Arsenal.RECEITAS`, na ordem em que abrem):
+
+  | Item | Nível antes → agora | Custo antes → agora |
+  |---|---|---|
+  | Tiro duplo | 1 → 1 | 10 de sucata |
+  | Mira assistida | 2 → 2 | 15 de sucata |
+  | Escudo | 3 → 3 | 30 de sucata e 2 núcleos |
+  | Lança-granadas | 2 → 4 | 20 → 25 de sucata |
+  | Vida extra | 4 → 5 | 40 de sucata e 3 núcleos |
+  | Precisão | 3 → 6 | 30 → 45 de sucata, 1 núcleo |
+  | Rajada | 4 → 7 | 45 → 50 de sucata, 2 núcleos |
+  | Canhão | 2 → 8 | 25 + 1 núcleo → 55 + 2 núcleos |
+  | Lança-mísseis | 5 → 9 | 60 + 2 núcleos + 1 chip → 70 + 3 núcleos + 1 chip |
+
+- **Degraus até o nível 15.** O terceiro degrau soma 6 ao nível da receita (era 5; `CUSTO_DEGRAU`). A pistola e a
+  espada, que não têm receita, partem de `BASE_DEGRAU`: a pistola no 1, 3 e 6; a espada no 3, 5 e 8. O escudo fica
+  no 6 e no 9. Os custos dos degraus não mudaram.
+- **O tiro duplo tira 0,7 por tiro** (`Arsenal.MODOS`; era 1,0, igual à pistola com dois gatilhos). Ainda tira mais
+  que a pistola, mas não passa mais a rajada e as outras.
+- **A roda e a oficina seguem a ordem nova**: `Arsenal.ORDEM` é pistola, duplo, precisão, rajada, canhão e mísseis
+  (as teclas 1 a 6 também); a aba Armas (`Oficina.ARMAS`) é pistola, espada, duplo, precisão, rajada, canhão,
+  mísseis e granadas. As granadas ficam no fim da lista, depois dos mísseis (pedido do usuário): é só a posição na
+  tela, elas continuam abrindo no nível 4.
+
+O que abre em cada nível (tirado do código):
+
+| Nível | Conjunto | Arsenal |
+|---|---|---|
+| 1 | — | tiro duplo, pistola 1 |
+| 2 | — | mira assistida, duplo 1 |
+| 3 | Gato | escudo, pistola 2, espada 1 |
+| 4 | Cachorro | lança-granadas, duplo 2 |
+| 5 | Urso | vida extra, granadas 1, espada 2 |
+| 6 | Enfermeira | precisão, pistola 3, escudo 1 |
+| 7 | Besouro | rajada, duplo 3, precisão 1, granadas 2 |
+| 8 | Marinheiro | canhão, rajada 1, espada 3 |
+| 9 | Caldeira | lança-mísseis, canhão 1, precisão 2, escudo 2 |
+| 10 | Lucano | rajada 2, mísseis 1, granadas 3 |
+| 11 | Majestade | canhão 2 |
+| 12 | Dente-de-sabre | precisão 3, mísseis 2 |
+| 13 | Samurai | rajada 3 |
+| 14 | Solar | canhão 3 |
+| 15 | Cavaleiro | mísseis 3 |
+
+Ficaram para outra conversa (achados do game designer):
+- **O material sobra.** O catálogo inteiro custa 1.115 de sucata, 38 núcleos e 10 chips. Uma rodada até a onda 10
+  dá 90 de sucata, 16 núcleos e 2 chips. Para quem luta, o que segura o ritmo é o nível.
+- **A rajada** tira menos que a pistola segurando o gatilho. Ele sugeriu subir o dano por tiro de 0,34 para 0,45,
+  depois de ver o filho jogar.
+- **O cartão de nível** (`Hud.cartao_nivel`) mostra só as receitas. Do nível 10 em diante ele mostra só o conjunto,
+  embora o nível também abra degraus.
+
+Testes ajustados: em `testes_vale.gd`, a vida extra pede o nível 5 e os degraus do escudo pedem o 9.
+
+**Fotos:** em `tools/capturas/arsenal_158/`: os cartões dos níveis 7 (Besouro e rajada) e 8 (Marinheiro e canhão) e
+a aba Armas no nível 4.
+
+**Estado:** aprovado (o usuário pediu as granadas no fim da lista e mandou testar e enviar). Testes em 2026-11-24,
+sem janela: `--teste-vale` 116/116, `--teste` 94/94 e a simulação 28/28. Os três achados acima ficam para conversar.

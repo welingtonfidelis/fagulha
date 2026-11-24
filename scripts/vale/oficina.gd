@@ -197,7 +197,9 @@ func _por_bracos(f: float, trabalho: float) -> void:
 
 const T_SEGURAR := 0.55  # segundos segurando X para instalar, fabricar ou melhorar
 const PILULAS := [["peca", "Peças"], ["pistola", "Armas"], ["escudo", "Defesa"], ["bocais", "Jatos"], ["corpo", "Corpo"]]
-const ARMAS := ["pistola", "espada", "duplo", "canhao", "precisao", "rajada", "misseis", "granadas"]
+## As armas na ordem em que abrem, com as granadas no fim, depois dos mísseis (doc §158; só a lista, o nível
+## de cada uma não muda).
+const ARMAS := ["pistola", "espada", "duplo", "precisao", "rajada", "canhao", "misseis", "granadas"]
 const DEFESA := ["mira", "escudo", "vida"]
 ## Os nomes curtos dos quadradinhos de peça.
 const CURTO := {"antena": "Antena", "radiador": "Radiador", "radiador2": "Radiador 2", "bocais": "Bocais", "asas": "Asas",

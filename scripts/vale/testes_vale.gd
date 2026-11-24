@@ -1786,7 +1786,7 @@ func _ponto_31() -> void:
 	# fabricáveis: sem a mira assistida a mira não trava; com materiais e nível, a oficina fabrica
 	Arsenal.tudo = false
 	_ok(not Arsenal.tem("mira") and Arsenal.falta("mira") != "" and Arsenal.golpes_pane() == Ajustes.PANE_GOLPES, "a mira assistida é fabricável: sem ela não trava, e sem materiais não fabrica")
-	Arsenal.xp = Arsenal.xp_do_nivel(4)  # a vida extra pede o nível 4
+	Arsenal.xp = Arsenal.xp_do_nivel(5)  # a vida extra pede o nível 5 (doc §158)
 	Arsenal.sucata = 100
 	Arsenal.nucleos = 9
 	var fez: bool = Arsenal.fabricar("mira") and Arsenal.fabricar("escudo") and Arsenal.fabricar("vida")
@@ -1798,8 +1798,8 @@ func _ponto_31() -> void:
 	a.avaria = 0
 	a.levar_golpe(Vector3.FORWARD, 1.0)
 	var quebrou_1: bool = a.escudo_t > 0.0 and a.avaria == 0
-	# os dois degraus pedem nível 6 e 8 e levam o escudo a 2 e a 3 acertos, o máximo
-	Arsenal.xp = Arsenal.xp_do_nivel(8)
+	# os dois degraus pedem nível 6 e 9 e levam o escudo a 2 e a 3 acertos, o máximo
+	Arsenal.xp = Arsenal.xp_do_nivel(9)
 	Arsenal.sucata += 80
 	Arsenal.nucleos += 3
 	Arsenal.chips += 1
