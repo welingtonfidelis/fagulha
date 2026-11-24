@@ -518,43 +518,25 @@ func _cortina(v: Vale, c: Vale.Curso, k: int, sv: float, topo: float, pe: float,
 		x_ant = x
 		xs.append(x)
 		ys.append(y)
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var colunas := 10
-	for j in linhas:
-		for cnum in colunas:
-			for canto: Array in [[cnum, j], [cnum + 1, j], [cnum + 1, j + 1], [cnum, j], [cnum + 1, j + 1], [cnum, j + 1]]:
-				var u := float(canto[0]) / colunas
-				var jj: int = canto[1]
-				var t := float(jj) / linhas
-				var ang := PI * u
-				var larg := meia * lerpf(1.1, 1.25, t)
-				var bojo := lerpf(0.35, 1.1, t)  # mais gorda embaixo
-				var pp := p0 + dir * (xs[jj] + sin(ang) * bojo - 0.3) - lado * cos(ang) * larg
-				var fora := (Vector3(dir.x, 0, dir.y) * sin(ang) - Vector3(lado.x, 0, lado.y) * cos(ang)).normalized()
-				st.set_normal((fora + Vector3.UP * 0.2).normalized())
-				st.set_uv(Vector2(u, t))
-				st.add_vertex(Vector3(pp.x, ys[jj], pp.y))
-	var mi := MeshInstance3D.new()
-	mi.name = "CachoeiraDegelo"
-	mi.mesh = st.commit()
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://scripts/shaders/cachoeira.gdshader")
-	var ruido_q := NoiseTexture2D.new()
-	ruido_q.width = 256
-	ruido_q.height = 256
-	ruido_q.seamless = true
-	ruido_q.noise = v._ruido(91 + quedas.size() + int(sv), 1.0 / 14.0, 3)
-	mat.set_shader_parameter("ruido", ruido_q)
-	mat.set_shader_parameter("fundo", Color(0.13, 0.42, 0.48))
-	mat.set_shader_parameter("meio", Color(0.42, 0.72, 0.76))
-	mi.material_override = mat
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
+	# a água com volume (QuedaDagua, doc §164), verde-água do degelo: o caminho é o lado de trás da água, a 0,3 m
+	# do vão livre medido acima; mais grossa embaixo, e tanto mais quanto mais alta a queda
+	var pts := PackedVector3Array()
+	for j in linhas + 1:
+		var pp := p0 + dir * (xs[j] - 0.3)
+		pts.append(Vector3(pp.x, ys[j], pp.y))
+	var raiz := Node3D.new()
+	raiz.name = "CachoeiraDegelo"
+	add_child(raiz)
+	var lado3 := Vector3(lado.x, 0, lado.y)
+	var mats := QuedaDagua.materiais(v._tex, Color(0.13, 0.42, 0.48), Color(0.42, 0.72, 0.76), Color(0.7, 0.9, 0.9))
+	QuedaDagua.queda(raiz, pts, lado3, meia * 2.2, meia * 2.5, 0.7, clampf(queda * 0.12, 1.4, 3.0), mats, "Cortina")
 	var x_pe := xs[xs.size() - 1] + 1.0
 	var pe2 := p0 + dir * x_pe
 	cortinas_feitas.append([Vector3(p0.x, topo, p0.y), Vector3(pe2.x, pe, pe2.y)])
 	_nevoa(Vector3(pe2.x, pe + 0.8, pe2.y), dir, meia)
+	QuedaDagua.pe(raiz, Vector3(pe2.x, pe + 0.25, pe2.y), meia * 0.9, 91 + quedas.size() + int(sv))
+	var ondas_em := pe2 + dir * 1.0
+	QuedaDagua.ondas(raiz, Vector3(ondas_em.x, pe + 0.04, ondas_em.y), v._tex, clampf(meia * 2.4, 6.0, 13.0), Color(0.3, 0.66, 0.68))
 	return sv + x_pe + 0.5
 
 

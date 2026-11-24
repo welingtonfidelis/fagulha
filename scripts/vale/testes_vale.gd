@@ -2242,9 +2242,9 @@ func _ponto_33() -> void:
 	var cach0: int = a.cachoeiras
 	a.teleportar(meio_q, Armadura.Estado.PAIRAR)
 	await _esperar(0.3)
-	# as duas da ilha e as dos rios de degelo da terra nova
+	# as da ilha (os dois degraus da cachoeira do poço e a represa, doc §164) e as dos rios de degelo da terra nova
 	var n_tn: int = v.terra_nova.quedas.size() if v.terra_nova else 0
-	_ok(v.cortinas.size() == 2 + n_tn and n_tn > 0 and a.cachoeiras == cach0 + 1 and a.calor < 5.0,
+	_ok(v.cortinas.size() == 3 + n_tn and n_tn > 0 and a.cachoeiras == cach0 + 1 and a.calor < 5.0,
 		"cachoeira: %d quedas no vale (%d na terra nova); atravessar uma zera o calor (de 80%% para %.0f%%)" % [v.cortinas.size(), n_tn, a.calor])
 	# a vida na água: fundo plantado, e um cardume nasce quando o robô chega perto e some quando ele vai embora
 	var va: VidaAgua = m.vida_agua

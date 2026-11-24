@@ -5245,3 +5245,102 @@ o voo na vertical (segurando X) e depois vai pra frente"):
 
 **Estado:** aprovado em 2026-11-24 ("ficou bom"). Testes no mesmo dia, sem janela: `--teste-vale` 116/116, `--teste`
 94/94 e a simulação básica 28/28.
+
+## 164. A cachoeira nova, em dois degraus, e as quedas d'água com volume (2026-11-24)
+
+O usuário achou que a cachoeira do poço "não tem cara de cachoeira". Ela era uma fita lisa colada na encosta, sem
+espuma no pé, e o poço parecia cascalho. Ele mandou uma ideia: um desenho de banco de imagens, com marca d'água,
+usado só como referência e fora do repositório. No desenho a água cai em dois degraus, faz a curva na beirada, fica
+branca onde bate e abre ondas num poço redondo; ao lado há uma coluna de pedras empilhadas e mato em volta.
+Fizemos um rascunho, aprovado em três voltas:
+- primeiro a forma;
+- depois a pedra: "dão uma impressão de não fazerem parte daquele lugar", e ganharam a cor dos paredões, musgo e plantas;
+- por fim o volume: "a água caindo vista de lado sempre parece uma linha fina muito artificial". Isso valia para
+  todas as quedas do jogo, e todas mudaram.
+
+**A cachoeira do poço** (`CachoeiraAlta`, `scripts/vale/cachoeira_alta.gd`; `Vale._cachoeira` só chama `montar`):
+- As medidas vão pelo eixo da queda: `al` vai da nascente para o poço, `lat` vai para o lado (+ do lado da coluna,
+  o oposto da gruta). `aqui(al, lat, y)` leva ao mundo.
+- **A queda de cima** sai da bacia da nascente por cima de uma laje (a beirada, `BEIRA` 3,5 m). Ela faz a curva e
+  cai em arco (`QuedaDagua.arco`, o caminho de quem sai com velocidade de lado) uns 19 m, até o degrau
+  (`POUSO_CIMA` 14 m, `DEGRAU_Y` 122). Tem 7,6 m de largura em cima e 9,6 m embaixo.
+- **O degrau** (`DEGRAU_DE` 9,5 a `DEGRAU_ATE` 25,5):
+  - Quatro camadas de lajes de lado a lado; as de baixo ficam um pouco mais à frente.
+  - No alto, o canal: o meio fica 0,25 m abaixo da água e as margens sobem 1,4 m.
+  - Por cima dele corre a água rasa (meio-cano aberto, `material_rasa`).
+- **As duas quedas de baixo** caem do degrau ao poço (uns 14 m), uma de cada lado da pedra do meio (`BAIXO_LAT` 4,
+  `BAIXO_LONGE` 4,2). Cada uma tem de 4,8 a 6,2 m de largura.
+- **A coluna empilhada** fica em pé do lado de fora da gruta (`COLUNA`). São oito lajes cada vez menores, do poço
+  ao alto.
+- Há pedras redondas na beira do poço.
+- **A pedra** (`cachoeira_pedra.gdshader`) é a dos paredões (`cor_rocha`), com:
+  - veios deitados bem de leve, para as lajes lerem como pedra empilhada;
+  - musgo verde-escuro escorrendo pelas faces de lado;
+  - o capim em cima de cada laje, mais generoso que nos paredões.
+  - Tudo tem colisão (`PedrasDaCachoeira`).
+  - Um primeiro rascunho em arenito ficou de fora: parecia pedra trazida de outro lugar.
+- **O mato:**
+  - arbustos e samambaias na frente de cada camada do degrau, nas margens do canal, subindo a coluna e na beira de cima;
+  - moitas no pé.
+- **Os blocos do paredão saem do lugar da cachoeira** (`CachoeiraAlta.tira_bloco`, chamado por `Paredoes` na hora de
+  montar). Três blocos grandes, de até 39 m de altura, ficavam bem na frente da queda de cima e a escondiam quase
+  toda, vista do poço; outro estava no lugar da coluna. Só some o que já tinha sido sorteado: o sorteio e o cache
+  dos paredões não mudam, e o chão também não (mexer no chão mudaria as árvores da ilha inteira).
+- **O poço** (`ondas_poco.gdshader`, um disco por cima da água, desenhado depois dela, com `render_priority` 2):
+  - uma tinta azul no poço inteiro, mais forte perto do pé das quedas, que acaba com a cara de cascalho;
+  - anéis brancos saindo do pé das quedas, tortos pelo ruído;
+  - espuma boiando perto do pé.
+- **Espuma, gotas e névoa** ficam onde a queda de cima bate no degrau e no pé das duas de baixo.
+- O som (`quedas`) e o frio de atravessar (`cortinas`) valem para os dois degraus. Agora são 3 cortinas na ilha
+  (eram 2), e o ponto do vale que conta as quedas mudou.
+- A rota do rio não mudou: o aro de cima da nascente e o do respingo (46 m à frente, `POCO_NIVEL` + 6) continuam
+  livres, e o mergulho entre eles passa por cima do degrau.
+
+**As quedas com volume** (`QuedaDagua`, `scripts/vale/queda_dagua.gd`, e `queda_dagua.gdshader`, que substitui o
+`cachoeira.gdshader`):
+- Antes cada queda era um meio-cano aberto: de frente passava, de lado era uma linha.
+- **A água agora é um tubo fechado** (seção em elipse, 20 colunas), com as pontas tampadas (do alto da nascente se
+  via a boca oca):
+  - mais grossa embaixo (na do poço, de 1,2 m em cima a 3,6 m no pé);
+  - o caminho dado é o lado de trás da água, o que encosta na pedra;
+  - calombos descendo com a água (`bolo`, no vertex) fazem o contorno mexer.
+- **A casca de espuma por fora** (`casca`) usa a mesma malha, um pouco maior:
+  - é branca, rasgada pelo ruído em riscas verticais e corre mais depressa que a água;
+  - é rala no meio, cheia nas beiradas (o que se vê de lado) e quase toda branca no pé.
+  - De frente a queda fica azul com riscas brancas, como na ideia.
+  - Um primeiro jeito, com bolas brancas presas na água, parecia algodão e saiu.
+- **No pé** (`QuedaDagua.pe`, `nevoa`): bolhas de espuma crescendo e murchando, gotas pulando e névoa.
+- **Onde está:**
+  - a cachoeira do poço;
+  - as dez cortinas dos rios de degelo (`TerraNova._cortina`, nas cores verde-água de antes e no mesmo vão livre);
+  - a queda do rombo da represa (`MarcosLeste`, que ganhou espuma e névoa no pé).
+**A água na velocidade de verdade.** Já com tudo aprovado, o usuário abriu o jogo perto da base e achou a água
+"acelerada demais, parece um curto circuito":
+- As riscas corriam o equivalente a 30–80 m/s.
+- O ruído fino piscava de um quadro para o outro.
+- O que mudou no `queda_dagua.gdshader`:
+  - Tudo agora é medido em metros: `L = UV.y*8` é a distância descida.
+  - A correnteza fica em `correnteza` (3,2 m/s; a água rasa do degrau anda a 40% disso).
+  - As camadas de ruído andam a 0,5–1,4 vezes a correnteza.
+  - O ruído é lido num mip mais borrado (`textureLod` 1,6), em faixas largas, com menos repetição de lado.
+  - O balanço do contorno (`onda`) ficou mais lento.
+- A troca de pixels entre um quadro e o seguinte (a 30 fps) caiu de 7,3 para 3,4.
+- GIF: `tools/capturas/cachoeira/cachoeira_agua_mexendo.gif`.
+
+**As ondas no pé das outras quedas.** O usuário gostou das ondas do poço e pediu o mesmo "nas outras quedas que fazem
+sentido". O disco virou `QuedaDagua.ondas(pai, onde, ruido, raio, azul, poco)`: com `poco` (centro e raio), o poço
+inteiro fica mais azul (só na cachoeira do poço); sem ele, só há tinta, anéis e espuma em volta do pé.
+- **A represa:** o disco tem raio de 6 m, 1,5 m rio abaixo do pé. Só aparece se ali houver água de verdade (o nível do
+  rio a menos de 2,5 m do pé).
+- **As cortinas do degelo:** o disco fica 1 m rio abaixo do pé, num verde-água igual ao da cortina. O raio é 2,4 vezes
+  a meia largura, entre 6 e 13 m.
+
+**Fotos:**
+- `tools/capturas/cachoeira/`: `cachoeira_rascunho.jpg` (ideia, hoje, rascunho) e `cachoeira_volume.jpg` (hoje e
+  agora, de lado).
+- `tools/capturas/quedas/`:
+  - `quedas_volume.jpg`: a represa e quatro cortinas do degelo, antes e depois;
+  - `quedas_ondas.jpg`: a represa e duas cortinas, hoje e com volume e ondas.
+
+**Estado:** aprovado em 2026-11-24 ("Está bom, envie", e de novo depois da água mais lenta e das ondas). Testes OK
+(vale 116, voo 94, simulação 28). A build foi para o PC no mesmo dia.

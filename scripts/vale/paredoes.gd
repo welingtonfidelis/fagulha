@@ -221,6 +221,8 @@ static func montar(v: Vale) -> void:
 		Cache.gravar("paredoes", {"grupos": grupos, "arbustos": arbustos, "cols": cols, "n_parede": n_parede, "n_pe": n_pe, "n_borda": n_borda})
 	Tempos.marca("  par: sorteio ou cache")
 	for item: Array in cols:
+		if CachoeiraAlta.tira_bloco(item[1]):  # o lugar da cachoeira (doc §164)
+			continue
 		_colisao(corpo, item[0], item[1])
 	Tempos.marca("  par: colisão")
 	Tempos.marca("  par: borda")
@@ -228,6 +230,9 @@ static func montar(v: Vale) -> void:
 	for chave: String in grupos:
 		var partes := chave.split("|")
 		var xfs: Array = grupos[chave]
+		xfs = xfs.filter(func(xf: Transform3D) -> bool: return not CachoeiraAlta.tira_bloco(xf.origin))
+		if xfs.is_empty():
+			continue
 		var centro := Vector3.ZERO
 		for xf: Transform3D in xfs:
 			centro += xf.origin

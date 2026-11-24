@@ -198,44 +198,23 @@ static func _agua_da_represa(v: Vale) -> void:
 	lamina.position = Vector3(0, Vale.REPRESA_NIVEL - 0.02, 0)
 	lamina.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	v.add_child(lamina)
-	# a queda: sai do rombo, na linha d'água, e cai no começo do córrego
-	var ruido_q := NoiseTexture2D.new()
-	ruido_q.width = 256
-	ruido_q.height = 256
-	ruido_q.seamless = true
-	ruido_q.noise = v._ruido(67, 1.0 / 14.0, 3)
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://scripts/shaders/cachoeira.gdshader")
-	mat.set_shader_parameter("ruido", ruido_q)
+	# a queda: sai do rombo, na linha d'água, e cai no começo do córrego. Com volume (QuedaDagua, doc §164): o
+	# caminho é o lado de trás da água
 	var topo := Vector3(represa_x(ROMBO) + 1.0, Vale.REPRESA_NIVEL - 0.15, REPRESA.y + ROMBO)
 	var pe_x := REPRESA.x + 7.0
 	var pe := Vector3(pe_x, v._fora(pe_x, REPRESA.y + ROMBO) + 0.5, REPRESA.y + ROMBO)
-	var dir := Vector3(1, 0, 0)
-	var lado := Vector3(0, 0, 1)
-	var q := SurfaceTool.new()
-	q.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts := PackedVector3Array()
 	var linhas := 18
-	for k in linhas:
-		var faixa: Array = []
-		for t: float in [float(k) / linhas, float(k + 1) / linhas]:
-			var centro := Vector3(lerpf(topo.x, pe.x, pow(t, 0.55)), lerpf(topo.y, pe.y, t * t * 0.4 + t * 0.6), topo.z)
-			faixa.append([centro, 2.2 * lerpf(0.85, 1.3, t), lerpf(0.7, 1.7, t), t])
-		var colunas := 8
-		for cn in colunas:
-			for canto: Array in [[cn, 0], [cn + 1, 0], [cn + 1, 1], [cn, 0], [cn + 1, 1], [cn, 1]]:
-				var u := float(canto[0]) / colunas
-				var ang := PI * u
-				var f: Array = faixa[canto[1]]
-				var fora := (dir * sin(ang) - lado * cos(ang)).normalized()
-				q.set_normal((fora + Vector3.UP * 0.2).normalized())
-				q.set_uv(Vector2(u, f[3]))
-				q.add_vertex((f[0] as Vector3) - lado * cos(ang) * float(f[1]) + dir * (sin(ang) * float(f[2]) - 0.4))
-	var queda := MeshInstance3D.new()
-	queda.name = "QuedaDaRepresa"
-	queda.mesh = q.commit()
-	queda.material_override = mat
-	queda.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	v.add_child(queda)
+	for k in linhas + 1:
+		var t := float(k) / linhas
+		pts.append(Vector3(lerpf(topo.x, pe.x, pow(t, 0.55)) - 0.4, lerpf(topo.y, pe.y, t * t * 0.4 + t * 0.6), topo.z))
+	var lado3 := Vector3(0, 0, 1)
+	QuedaDagua.queda(v, pts, lado3, 3.8, 5.8, 0.8, 2.4, QuedaDagua.materiais(v._tex), "QuedaDaRepresa")
+	QuedaDagua.pe(v, pe + Vector3(0, 0.2, 0), 2.6, 67)
+	QuedaDagua.nevoa(v, pe + Vector3(0, 0.8, 0), lado3, 3.0, 14)
+	var nivel := v.agua(pe.x + 1.5, pe.z)
+	if nivel > pe.y - 2.5:
+		QuedaDagua.ondas(v, Vector3(pe.x + 1.5, nivel + 0.04, pe.z), v._tex, 6.0)
 	v.quedas.append((topo + pe) * 0.5)
 	v.cortinas.append([topo, pe, 3.2])
 
