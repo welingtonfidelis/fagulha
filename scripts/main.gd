@@ -673,7 +673,7 @@ func _ready() -> void:
 		add_child(cv)
 		cv.call("rodar", self)
 	else:
-		if OS.has_feature("linux"):
+		if OS.has_feature("linux") or OS.has_feature("windows"):
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 

@@ -5431,3 +5431,29 @@ também flutuavam. Por fim achou água no ar na beira de um lago da terra nova, 
 
 **Estado:** aprovado em 2026-11-24 ("melhorou", e depois "está bom" para os lagos). Testes OK (vale 116, voo 94,
 simulação 28).
+
+
+## 166. A versão 1.0.0 e a build de Windows (2026-11-25)
+
+**A release:** a primeira versão publicada saiu em 2026-11-25, como 1.0.0
+(https://github.com/welingtonfidelis/fagulha/releases/tag/v1.0.0). São dois pacotes:
+- `Fagulha-1.0.0-linux-x86_64.tar.gz`: o executável num `.tar.gz`, para não perder a permissão de rodar.
+- `Fagulha-1.0.0-windows-x86_64.zip`: o `Fagulha.exe`, sem janela de console, com nome, versão e copyright gravados
+  no arquivo. O ícone é o padrão da Godot (o projeto não tem um).
+- Os dois levam o `LICENSE`, o `CREDITOS.md`, um `LEIA-ME.txt` e o `LICENCAS-GODOT.txt`. A Godot é MIT e pede o
+  aviso junto do jogo, e o `CREDITOS.md` não a citava; o arquivo sai da própria Godot (`Engine.get_license_text()`,
+  `get_copyright_info()` e `get_license_info()`), com a Jolt e os outros componentes.
+
+**Debug e versão final:** as builds saem com `--export-release`. O jogo não usa `assert` nem
+`OS.is_debug_build()`, então a diferença fica só no motor (sem as checagens extras do GDScript, sem debugger). O
+cache (`Cache.chave`) separa editor de build exportada, não debug de final.
+
+**Windows:**
+- Preset `Windows` em `export_presets.cfg`, com os mesmos filtros do Linux (tira `tools/` e `docs/`).
+- A tela cheia ao abrir valia só no Linux. No Windows o jogo abriria numa janela de 1600×900, maior que a tela de
+  muitos notebooks, então `main.gd` liga a tela cheia nos dois.
+- O `.exe` não tem assinatura: o Windows avisa na primeira vez ("Mais informações → Executar assim mesmo"), e o
+  LEIA-ME explica.
+
+**Estado:** release publicada. A build de Windows não foi testada num Windows.
+

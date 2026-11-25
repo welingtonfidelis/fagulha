@@ -26,6 +26,10 @@ Luz em faixas, sombra colorida, névoa azul ao longe e céu pintado. A mata usa 
 
 ![Antes e depois do visual de luz e cor](docs/visual/luz_e_cor_antes_depois.jpg)
 
+## Baixar
+
+A versão pronta para jogar fica nas [releases](https://github.com/welingtonfidelis/fagulha/releases): Linux (`.tar.gz`) e Windows (`.zip`), cada uma com o LEIA-ME, as licenças e os créditos.
+
 ## Rodar
 
 Precisa da [Godot 4.7](https://godotengine.org) (o comando `godot` no terminal).
@@ -36,10 +40,14 @@ godot --path .
 
 Joga-se com controle (feito para o DualSense) ou teclado e mouse. Os controles estão em [docs/JOGO-VOO.md](docs/JOGO-VOO.md), seções 5.2 e 33.
 
-A build de Linux sai com:
+As builds de Linux e de Windows saem com:
 
 ```bash
 godot --headless --path . --export-release "Linux" build/linux/Fagulha.x86_64
+```
+
+```bash
+godot --headless --path . --export-release "Windows" build/windows/Fagulha.exe
 ```
 
 O `CREDITOS.md` vai junto da build (os sons CC-BY pedem o crédito ao lado do jogo):
@@ -47,6 +55,8 @@ O `CREDITOS.md` vai junto da build (os sons CC-BY pedem o crédito ao lado do jo
 ```bash
 cp CREDITOS.md build/linux/
 ```
+
+Os pacotes das releases levam também o `LICENSE`, um `LEIA-ME.txt` e o `LICENCAS-GODOT.txt`, com a licença da Godot e dos componentes dela (sai de `Engine.get_license_text()`, `get_copyright_info()` e `get_license_info()`). O de Linux vai em `.tar.gz` para o executável não perder a permissão de rodar.
 
 ## Testes e fotos
 
