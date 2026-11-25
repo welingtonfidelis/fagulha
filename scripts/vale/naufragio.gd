@@ -14,11 +14,13 @@ const COMP := 46.0 * E
 const BOCA := 9.0 * E  # a largura no meio
 const PONTAL := 6.5 * E  # da quilha ao convés, no meio
 const CHAPA := 0.32  # grossura do casco
+const MASTRO := 30.0  # m do mastro de vante acima do convés (o marco do navio, doc §168)
 const ENTERRA := 1.9 * E  # quanto a quilha fica abaixo da areia
 const ESTACOES := 46  # cortes ao longo do casco
 const VOLTA := 12  # pontos em cada meia seção, da borda do convés à quilha
 
 static var centro := Vector3.INF
+static var lanterna := Vector3.INF  # a ponta do mastro alto, no mundo
 static var raio := 46.0  # o que fica livre em volta (bichos, troncos)
 
 
@@ -242,9 +244,31 @@ static func _conves(o: Ruinas.Obra) -> void:
 	# o guindaste: o mastro de pé no meio e a lança tombada por cima do porão aberto
 	_b(o, Vector3(-1.4, 6.5 + 2.6, 2.6), Vector3(0.9, 5.2, 0.9), Basis.IDENTITY, "lata_ocre")
 	MarcosMar._trelica(o, Vector3(-1.4, 6.5 + 4.9, 2.6) * E, Vector3(10.5, 6.5 + 0.9, -3.4) * E, 0.75 * E, 0.14 * E, "lata_ocre")
-	# o mastro de vante, com a verga
-	_b(o, Vector3(16.0, _alto(0.7) / E + 4.4, 0.0), Vector3(0.36, 8.8, 0.36), Basis.IDENTITY, "ferrugem", false)
-	_b(o, Vector3(16.0, _alto(0.7) / E + 7.4, 0.0), Vector3(0.22, 0.22, 4.4), Basis.IDENTITY, "ferrugem", false)
+	# o mastro de vante, alto: 30 m acima do convés, com a verga, o cesto da vigia (dá para pousar nele), os
+	# estais e a lanterna que acende de noite. É o marco do navio, que se vê da praia toda e do mar (doc §168).
+	var pe := Vector3(16.0, _alto(0.7) / E, 0.0)
+	var alto := MASTRO / E
+	_b(o, pe + Vector3(0, alto * 0.5, 0), Vector3(0.42, alto, 0.42), Basis.IDENTITY, "ferrugem")
+	_b(o, pe + Vector3(0, alto * 0.63, 0), Vector3(0.24, 0.24, 10.0), Basis.IDENTITY, "ferrugem", false)
+	var cesto_y := alto * 0.8
+	var cesto := CylinderMesh.new()
+	cesto.top_radius = 1.05 * E
+	cesto.bottom_radius = 0.9 * E
+	cesto.height = 0.9 * E
+	cesto.radial_segments = 14
+	o._solto(cesto, (pe + Vector3(0, cesto_y, 0)) * E, "casco_navio")
+	var tampa := CylinderShape3D.new()
+	tampa.radius = 1.05 * E
+	tampa.height = 0.9 * E
+	o.forma(tampa, Transform3D(Basis.IDENTITY, (pe + Vector3(0, cesto_y, 0)) * E))
+	var topo := pe + Vector3(0, alto, 0)
+	_cabo(o, topo, Vector3(23.0, _alto(1.0) / E + 0.3, 0.0))
+	for zs: float in [-1.0, 1.0]:
+		_cabo(o, topo, Vector3(9.0, _alto(9.0 / 23.0) / E + 0.2, zs * (_meia_boca(9.0 / 23.0) / E - 0.3)))
+		_cabo(o, pe + Vector3(0, alto * 0.63, zs * 5.0), Vector3(16.0, _alto(0.7) / E + 0.2, zs * (_meia_boca(0.7) / E - 0.3)))
+	_b(o, topo + Vector3(0, 0.3, 0), Vector3(0.5, 0.6, 0.5), Basis.IDENTITY, "vidro_velho", false)  # a lanterna
+	lanterna = o.t * ((topo + Vector3(0, 0.4, 0)) * E)
+	LuzesNoite.por(o.v, lanterna, LuzesNoite.AMBAR, 6.0)
 
 
 ## A casa do comando na popa: dois andares de tinta branca encardida, a ponte com a fileira de janelas de
@@ -275,6 +299,14 @@ static func _comando(o: Ruinas.Obra) -> void:
 	o._solto(faixa, Vector3(-20.4, y0 + 6.4, 0.0) * E, "junta")
 	_b(o, Vector3(-17.4, y0 + 7.2, 0.0), Vector3(0.16, 2.8, 0.16), Basis.IDENTITY, "ferrugem", false)
 	_b(o, Vector3(-17.4, y0 + 8.0, 0.0), Vector3(0.12, 0.12, 2.2), Basis.IDENTITY, "ferrugem", false)
+
+
+## Um cabo esticado de `de` até `ate`, na medida do desenho.
+static func _cabo(o: Ruinas.Obra, de: Vector3, ate: Vector3) -> void:
+	var d := (ate - de) * E
+	var y := d.normalized()
+	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+	o.bloco((de + ate) * 0.5 * E, Vector3(0.07, d.length(), 0.07), Basis(x, y, x.cross(y)), "junta", false)
 
 
 ## Um bloco na medida do desenho (o navio de 46 m), crescido por E.

@@ -40,7 +40,7 @@ godot --path .
 
 Joga-se com controle (feito para o DualSense) ou teclado e mouse. Os controles estão em [docs/JOGO-VOO.md](docs/JOGO-VOO.md), seções 5.2 e 33.
 
-As builds de Linux e de Windows saem com:
+As builds de Linux, de Windows e de Mac saem com:
 
 ```bash
 godot --headless --path . --export-release "Linux" build/linux/Fagulha.x86_64
@@ -49,6 +49,12 @@ godot --headless --path . --export-release "Linux" build/linux/Fagulha.x86_64
 ```bash
 godot --headless --path . --export-release "Windows" build/windows/Fagulha.exe
 ```
+
+```bash
+godot --headless --path . --export-release "macOS" build/mac/Fagulha.app
+```
+
+A de Mac é universal (Intel e Apple Silicon), com assinatura ad-hoc e sem notarização: na primeira vez, o macOS só abre pelo botão direito → Abrir.
 
 O `CREDITOS.md` vai junto da build (os sons CC-BY pedem o crédito ao lado do jogo):
 

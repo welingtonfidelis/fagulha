@@ -776,6 +776,10 @@ func plantar(v: Vale) -> void:
 	fila.append_array(_secas())
 	fila.append_array(Planicie.arvores(self))
 	fila.append_array(Vilarejo.arvores(v))
+	# o lugar dos marcos de longe fica sem mata (a clareira da Árvore Branca, a igrejinha, o comboio)
+	fila = fila.filter(func(item: Array) -> bool:
+		var o: Vector3 = (item[1] as Transform3D).origin
+		return not MarcosTerraNova.sem_mata(o.x, o.z))
 	arvores = fila.size()
 	var primeiro := v.arv_pos.size()
 	for item: Array in fila:
@@ -843,6 +847,12 @@ func _fontes(v: Vale) -> void:
 			# o respiro do gêiser solta o vapor pela boca do cone
 			vapor.raio = 0.45
 			vapor.position = fq.geiser.position + Vector3.UP * (GeiserFonte.ALTO - 0.1)
+			# e a coluna alta, o marco das fontes de longe (doc §168)
+			var pluma := VaporFonte.new()
+			pluma.pluma = true
+			pluma.semente = 650
+			pluma.position = vapor.position
+			add_child(pluma)
 		add_child(vapor)
 
 
@@ -988,6 +998,7 @@ func lugares_com_nome() -> void:
 		Marcos.lugares.append([Vilarejo.NOME, Vilarejo.CENTRO, 60.0])
 	if BocaDegelo.existe:
 		Marcos.lugares.append([BocaDegelo.NOME, Vector2(BocaDegelo.salao.x, BocaDegelo.salao.z).lerp(Vector2(BocaDegelo.boca.x, BocaDegelo.boca.z), 0.5), 55.0])
+	MarcosTerraNova.lugares_com_nome()
 
 
 func _perto_de(p: Vector3, lista: Array[Vector3], dist: float) -> bool:

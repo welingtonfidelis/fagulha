@@ -151,6 +151,13 @@ As peças dos três acampamentos (`assets/vale/acampamentos/`, copiadas em 2026-
 O resto (chapas onduladas, lonas, contêineres, vigas, cabos, bandeirolas, baterias, o chão batido e o miolo dos montes
 de sucata) é feito por código em `scripts/vale/acampamentos.gd`.
 
+## O Comboio da Neve (KayKit)
+
+Os três carros do Comboio da Neve (`assets/vale/comboio/`: chassi de seis rodas, cabine de comando, vagão e carga)
+são a base móvel do **KayKit Space Base Bits 1.0**, de Kay Lousberg (www.kaylousberg.com), licença Creative Commons
+Zero (CC0), copiados em 2026-11-25 da coleção local em `bibliotecas/`. A textura `spacebits_laranja.png` é a do
+pacote com a parte branca pintada de laranja.
+
 ## O Vilarejo (OpenGameArt)
 
 O vilarejo da terra nova (`assets/vale/vilarejo/`) é feito por código em `tools/arte/vilarejo_vila1.py`, menos três

@@ -154,6 +154,8 @@ func gerar(_semente := 7) -> void:
 	Marcos.montar(self)
 	Tempos.marca("Marcos.montar")
 	if terra_nova:
+		MarcosTerraNova.montar(self)
+		Tempos.marca("MarcosTerraNova.montar")
 		terra_nova.lugares_com_nome()
 	await _avisar(0.86, "Acendendo as forjas")
 	Fundicao.montar(self)

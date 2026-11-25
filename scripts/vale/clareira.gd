@@ -239,6 +239,11 @@ func _materiais() -> void:
 		"conteiner_azul": _solido(Color(0.15, 0.24, 0.31)),
 		"conteiner_ocre": _solido(Color(0.42, 0.31, 0.13)),
 		"madeira_deriva": _solido(Color(0.33, 0.30, 0.27)),
+		# os marcos de longe da terra nova (doc §168): a igrejinha e o mastro do cume
+		"cal": _concreto(Color(0.68, 0.665, 0.61), 0.4),  # o reboco caiado da igrejinha, encardido
+		"telha": _solido(Color(0.38, 0.16, 0.10)),
+		"aco_vermelho": _solido(Color(0.50, 0.15, 0.10)),
+		"aco_branco": _solido(Color(0.60, 0.60, 0.58)),
 	}
 	# árvores e plantas dos pacotes do Quaternius (assets/vale/q): textura do modelo com a luz do vale
 	var folha_q := Color(0.52, 0.64, 0.44)
@@ -246,6 +251,8 @@ func _materiais() -> void:
 	_mats["q_casca_betula"] = _tex_q("casca_betula.png", Color(0.82, 0.82, 0.78), 0.0, 0.0)
 	_mats["q_folha"] = _tex_q("folha.png", folha_q, 0.4, 1.0)
 	_mats["q_folha_betula"] = _tex_q("folha_betula.png", folha_q, 0.4, 1.0)
+	_mats["q_folha_prata"] = _tex_q("folha_betula.png", Color(0.80, 0.86, 0.78), 0.4, 1.0)  # a Árvore Branca
+	_mats["q_folha_prata"].set_shader_parameter("prata", 0.85)
 	_mats["q_folha_amarela"] = _tex_q("folha_amarela.png", Color(0.80, 0.70, 0.42), 0.4, 1.0)
 	_mats["q_planta"] = _tex_q("planta.png", Color(0.60, 0.72, 0.50), 0.4, 0.5, 1.2)
 	_mats["q_flor"] = _tex_q("flor.png", Color(0.95, 0.9, 0.85), 0.4, 0.5, 1.2)
@@ -433,6 +440,7 @@ const Q_CORES := {
 	"q_betula_c_amarela": ["q_betula_c", "q_folha_betula", "q_folha_amarela"],
 	"q_comum_b_vinho": ["q_comum_b", "q_folha_comum", "q_folha_comum_vinho"],
 	"q_comum_d_laranja": ["q_comum_d", "q_folha_comum", "q_folha_comum_laranja"],
+	"q_betula_a_prata": ["q_betula_a", "q_folha_betula", "q_folha_prata"],  # a Árvore Branca (MarcosTerraNova)
 }
 
 

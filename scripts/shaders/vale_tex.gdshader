@@ -13,6 +13,7 @@ uniform float borda = 0.18;
 uniform float clarao = 0.0;  // pisca claro (máquina levando tiro)
 uniform float apagado = 0.0;  // escurece (máquina desligada)
 uniform float desbotado = 0.0;  // tira a cor e puxa para a ferrugem (os gigantes que dormem)
+uniform float prata = 0.0;  // tira o verde e clareia: a copa prateada da Árvore Branca (MarcosTerraNova)
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
@@ -52,6 +53,10 @@ void fragment() {
 	if (desbotado > 0.0) {
 		float cinza = dot(c, vec3(0.3, 0.55, 0.15));
 		c = mix(c, mix(vec3(cinza), vec3(0.30, 0.21, 0.15) * (0.6 + cinza * 2.0), 0.55), desbotado);
+	}
+	if (prata > 0.0) {
+		float claro = dot(c, vec3(0.3, 0.55, 0.15));
+		c = mix(c, vec3(0.66, 0.70, 0.66) * (0.5 + claro * 1.5), prata);
 	}
 	ALBEDO = c;
 	if (!FRONT_FACING) {

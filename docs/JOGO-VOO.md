@@ -5524,3 +5524,72 @@ ou 203 m. As máquinas sem árvore continuam como eram.
 
 **Estado:** aprovado em 2026-11-25 ("pode levar ao jogo" para o alcance, "está bom" para tudo). Testes OK (vale 116,
 voo 94, simulação 28).
+
+
+
+## 168. Os marcos de longe da terra nova e o ícone do jogo (2026-11-25)
+
+Veio da ideia guardada na §10 ("Pontos de interesse com marcos de longe") e do item 1 do acabamento (o ícone).
+O usuário notou que a Cidade Velha, o navio naufragado e os gêiseres não estavam no mapa. Na terra nova, quem andava
+pelo chão ficava sem nada para se orientar em boa parte do mapa. A lista de seis marcos foi aprovada, com a
+igrejinha no lugar da caixa-d'água do Vilarejo. Rascunhos e fotos ficam em `tools/capturas/marcos_longe/`.
+
+**Os quatro novos** (`scripts/vale/marcos_terra_nova.gd`, classe `MarcosTerraNova`, montada pelo `Vale` logo
+depois do `Marcos.montar`):
+- **A igrejinha do Vilarejo** (`_igreja`): fica na beira do platô, a 80 m da praça. Tem nave caiada de 7 × 13 m,
+  telhado de duas águas e torre do sino na frente, virada para a praça. A porta é a da torre. Um embasamento de
+  pedra deixa o piso reto na encosta. A mata não planta em volta dela (`sem_mata`).
+- **O mastro do Cume do Degelo** (`_cume`): o código acha o pico numa grade de 4 m. Ali fica uma treliça de três
+  pernas, com 26 m, em faixas vermelhas e brancas, antena de prato e para-raios. A luz vermelha pisca à noite
+  (`LuzesNoite`). A montanha já é o marco; o mastro marca o ponto exato.
+- **A Árvore Branca** (`_arvore`): uma bétula de 70 m numa clareira do sopé oeste. A copa ficou prateada com um
+  parâmetro novo, `prata`, no `vale_tex`, porque tingir a textura verde não a deixava branca. Ela entra na lista de
+  árvores do mapa, com colisão do tronco e da copa.
+- **O Comboio da Neve** (`_comboio`), ideia do usuário: um veículo de neve que quebrou no caminho.
+  - Primeiro foi um trator de caixas. O usuário achou estranha a neve em cima (bolas e placas soltas) e pediu um
+    modelo pronto.
+  - Na internet não havia veículo de neve com licença livre. O que encaixou foi a base móvel da **KayKit Space
+    Base Bits** (CC0, já na coleção local): três carros (cabine de comando, vagão e carga), cada um sobre um chassi
+    de seis rodas.
+  - Os carros estão em escala 6,5, com 13 m cada. A pintura escolhida foi a laranja-polar (opção A): a parte branca
+    da textura virou laranja, porque em branco o trem sumia na neve.
+  - **A frente:** nas peças da KayKit a frente é o +z (o para-brisa e as rodas "front"). No rascunho os vagões
+    ficaram na frente da cabine; agora a cabine abre o trem e olha morro acima.
+  - **O lugar:** o usuário pediu que não ficasse pendurado num pico, só parado numa parte da subida.
+    - O relevo do noroeste foi medido de 5 em 5 m, com cobertura e água. Quase toda a montanha é paredão ou chão
+      áspero demais para um carro de 13 m.
+    - O fundo do circo, que parecia o melhor lugar, é o lago.
+    - De três posições no ombro, foi escolhida a encosta nevada a 520 m, acima do lago do circo
+      (`COMBOIO`, `COMBOIO_RUMO`). As outras duas deixavam a cabine pendurada num barranco ou o trem numa crista.
+  - **Assentar no chão:** cada carro acha o plano do chão por nove pontos numa grade de 13 m. Depois afunda até não
+    sobrar vão embaixo: o fundo fica ao menos 0,3 m abaixo do chão em todos os pontos, e o afundamento vai de 0,9 a
+    2,3 m. O
+    último carro saiu da trilha e ficou torto (`COMBOIO_CARROS`).
+  - **A neve no teto** é do shader: o parâmetro `neve` novo no `vale_tex_opaco` branqueia, em manchas, as faces
+    viradas para cima. A normal no mundo sai do `INV_VIEW_MATRIX` no fragmento, sem varying a mais, então as outras
+    peças desse shader não pagam nada.
+  - Cada carro tem uma caixa de colisão registrada no `Obstaculos`. As peças ficam em `assets/vale/comboio/`, com
+    crédito no `CREDITOS.md`.
+  - De longe o comboio continua discreto: é um achado de quem voa perto da montanha.
+
+**Os dois que já existiam e ficaram mais fortes:**
+- **O navio** (`Naufragio._conves`): o mastro da proa virou um mastro de 30 m, com verga, cesto onde dá para pousar
+  e cabos até a proa e aos lados. A lanterna fica acesa à noite (âmbar).
+- **O gêiser** (`VaporFonte.pluma`): uma coluna de vapor alta e branca, que se vê de longe e também à noite, com
+  shader próprio (`vapor_pluma.gdshader`). A fumaça da Kenney é cinza e quase transparente; o shader usa só o alfa
+  dela, em branco.
+
+**No mapa:** "O Cume do Degelo", "A Árvore Branca" e "O Comboio da Neve" entraram nos lugares com nome
+(`MarcosTerraNova.lugares_com_nome`) e ganham página no álbum.
+
+**O ícone** (opção A): a cabeça do robô de frente, com os olhos acesos, num fundo laranja e rosa
+(`assets/ui/icone.png`, 512 × 512). Ele é o ícone do projeto e vai nas builds de Windows e de Mac.
+
+**A build de Mac:** o preset `macOS` (universal, assinatura ad-hoc, sem notarização) entrou no
+`export_presets.cfg`. Como o app não é notarizado, o macOS barra a primeira abertura: é preciso abrir com o botão
+direito → Abrir. A Godot só exporta para Apple Silicon com as texturas ETC2/ASTC, então o projeto passou a importar
+esse formato também (`textures/vram_compression/import_etc2_astc`). Os presets de Linux e Windows continuam só com
+S3TC/BPTC, então as builds deles não mudam.
+
+**Estado:** aprovado ("está bom") em 2026-11-25. Testes OK (vale 116, voo 94, simulação 28). Builds novas de Linux,
+Windows e Mac.

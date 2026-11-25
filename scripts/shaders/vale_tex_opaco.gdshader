@@ -15,6 +15,7 @@ uniform float borda = 0.18;
 uniform float clarao = 0.0;  // pisca claro (máquina levando tiro)
 uniform float apagado = 0.0;  // escurece (máquina desligada)
 uniform float desbotado = 0.0;  // tira a cor e puxa para a ferrugem (os gigantes que dormem)
+uniform float neve = 0.0;  // neve assentada nas faces de cima, em manchas (o Comboio da Neve)
 uniform sampler2D ruido : filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
@@ -44,6 +45,13 @@ void fragment() {
 	if (desbotado > 0.0) {
 		float cinza = dot(c, vec3(0.3, 0.55, 0.15));
 		c = mix(c, mix(vec3(cinza), vec3(0.30, 0.21, 0.15) * (0.6 + cinza * 2.0), 0.55), desbotado);
+	}
+	if (neve > 0.0) {
+		// a normal no mundo, sem varying a mais (as outras peças deste shader não pagam nada)
+		vec3 wn = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+		float n = texture(ruido, wpos.xz * 0.12).r;
+		float cima = smoothstep(0.45, 0.75, wn.y + (n - 0.5) * 0.35);
+		c = mix(c, vec3(0.56, 0.585, 0.64) * (0.9 + 0.2 * n), cima * neve);
 	}
 	ALBEDO = c;
 	if (!FRONT_FACING) {

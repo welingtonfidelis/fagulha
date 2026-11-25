@@ -17,6 +17,7 @@ var forca := 1.0  # 0 a 1: quanto vapor (poças mais quentes soltam mais)
 var vento := Vector3(0.5, 0.0, 0.2)  # deriva horizontal, em m/s
 var semente := 0  # mesma semente, mesmo vapor em todas as rodadas
 var coluna := false  # a coluna alta do Olho Azul
+var pluma := false  # a coluna de ~95 m do gêiser: o marco das fontes, que se vê de longe (doc §168)
 
 var _p: CPUParticles3D
 var _rajada := 0.0  # 0 a 1
@@ -30,6 +31,9 @@ func _ready() -> void:
 	_prox_rajada = _rng.randf_range(8.0, 40.0)
 	if coluna:
 		_coluna()
+		return
+	if pluma:
+		_pluma()
 		return
 	_p = CPUParticles3D.new()
 	_p.one_shot = false
@@ -144,6 +148,55 @@ func _coluna() -> void:
 	add_child(_p)
 
 
+## A coluna do gêiser: nuvens largas que sobem devagar até uns 95 m e o vento entorta lá em cima. É o marco
+## das Fontes Quentes de longe: sem corte por distância, mais branca que o vapor das poças e um pouco apagada de
+## noite (o vapor de perto é que brilha no escuro).
+func _pluma() -> void:
+	_p = CPUParticles3D.new()
+	_p.one_shot = false
+	_p.emitting = true
+	_p.lifetime = 42.0
+	_p.preprocess = 42.0
+	_p.amount = 48
+	_p.local_coords = true
+	_p.position = Vector3(0.0, 6.0, 0.0)
+	_p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_p.emission_sphere_radius = 3.0
+	_p.direction = Vector3.UP
+	_p.spread = 5.0
+	_p.initial_velocity_min = 2.2
+	_p.initial_velocity_max = 2.6
+	var deriva := Vector3(vento.x, 0.0, vento.z).normalized() * 0.037
+	_p.gravity = Vector3(deriva.x, 0.0, deriva.z)
+	_p.damping_min = 0.0
+	_p.damping_max = 0.0
+	_p.angle_min = 0.0
+	_p.angle_max = 360.0
+	_p.angular_velocity_min = -3.0
+	_p.angular_velocity_max = 3.0
+	var curva := Curve.new()
+	curva.max_value = 4.0
+	curva.add_point(Vector2(0.0, 0.55))
+	curva.add_point(Vector2(1.0, 3.9))
+	_p.scale_amount_curve = curva
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.9 * FOLGA), Color(1, 1, 1, 0.7 * FOLGA), Color(1, 1, 1, 0.0)])
+	g.offsets = PackedFloat32Array([0.0, 0.05, 0.75, 1.0])
+	_p.color_ramp = g
+	var q := QuadMesh.new()
+	q.size = Vector2(16.0, 16.0)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scripts/shaders/vapor_pluma.gdshader")
+	mat.set_shader_parameter("tex", load(TEXTURA))
+	q.material = mat
+	_p.mesh = q
+	_p.draw_order = CPUParticles3D.DRAW_ORDER_VIEW_DEPTH
+	_p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_p.use_fixed_seed = true
+	_p.seed = semente
+	add_child(_p)
+
+
 ## O vapor respira: mais grosso de madrugada e de manhã cedo (o ar frio condensa mais), na chuva e nas
 ## rajadas; mais ralo no meio da tarde. Só a vista (±40%).
 func _process(delta: float) -> void:
@@ -162,7 +215,8 @@ func _process(delta: float) -> void:
 		k = 0.8 + 0.4 * clampf(frio, 0.0, 1.0) + 0.25 * ciclo.chuva
 	var pulso := sin(PI * minf(1.0, (1.0 - _rajada) * 1.0)) if _rajada > 0.0 else 0.0
 	k = clampf(k + 0.45 * pulso, 0.6, 1.4 + 0.3 * pulso)
-	_p.color = Color(1, 1, 1, k / FOLGA)  # a cor da partícula só escurece (vai de 0 a 1): a rampa já vem com a folga
+	var b := lerpf(1.0, 0.4, ArmaduraVisual.noite) if pluma else 1.0
+	_p.color = Color(b, b, b, k / FOLGA)  # a cor da partícula só escurece (vai de 0 a 1): a rampa já vem com a folga
 	_p.speed_scale = 1.0 + 0.3 * pulso
 
 
