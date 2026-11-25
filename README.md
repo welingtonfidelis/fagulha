@@ -28,7 +28,7 @@ Luz em faixas, sombra colorida, névoa azul ao longe e céu pintado. A mata usa 
 
 ## Baixar
 
-A versão pronta para jogar fica nas [releases](https://github.com/welingtonfidelis/fagulha/releases): Linux (`.tar.gz`) e Windows (`.zip`), cada uma com o LEIA-ME, as licenças e os créditos.
+A versão pronta para jogar fica nas [releases](https://github.com/welingtonfidelis/fagulha/releases): Linux (`.tar.gz`), Windows (`.zip`) e Mac (`.zip`, universal), cada uma com o LEIA-ME, as licenças e os créditos.
 
 ## Rodar
 

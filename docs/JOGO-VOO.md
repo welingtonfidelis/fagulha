@@ -5591,5 +5591,9 @@ direito → Abrir. A Godot só exporta para Apple Silicon com as texturas ETC2/A
 esse formato também (`textures/vram_compression/import_etc2_astc`). Os presets de Linux e Windows continuam só com
 S3TC/BPTC, então as builds deles não mudam.
 
-**Estado:** aprovado ("está bom") em 2026-11-25. Testes OK (vale 116, voo 94, simulação 28). Builds novas de Linux,
-Windows e Mac.
+**A versão 1.1.0:** saiu em 2026-11-25, a pedido do usuário, com os três pacotes: Linux (`.tar.gz`), Windows
+(`.zip`) e Mac (`.zip`, universal). Ela junta a §167 e esta seção. A versão 1.1.0 ficou gravada no `.exe` e no app de Mac.
+A build de Mac passou na bateria do vale (116) rodando o próprio app (`--headless -- --teste-vale`).
+
+**Estado:** aprovado ("está bom") em 2026-11-25. Testes OK (vale 116, voo 94, simulação 28). Release
+https://github.com/welingtonfidelis/fagulha/releases/tag/v1.1.0.
