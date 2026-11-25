@@ -5344,3 +5344,90 @@ inteiro fica mais azul (só na cachoeira do poço); sem ele, só há tinta, ané
 
 **Estado:** aprovado em 2026-11-24 ("Está bom, envie", e de novo depois da água mais lenta e das ondas). Testes OK
 (vale 116, voo 94, simulação 28). A build foi para o PC no mesmo dia.
+
+## 165. A água encostada na pedra, a enseada do poço e os lagos da terra nova (2026-11-24)
+
+O usuário abriu a cachoeira nova e achou que "a água na cachoeira fica afastada das pedras, flutuando". Pediu para
+encaixar mais, "pra parecer que a água realmente corre sobre as rochas". Depois apontou três coisas: o lago onde a
+cachoeira cai estava pequeno ("tem partes caindo em terra"); havia um vão entre as pedras do degrau, em
+(-295, 108, -514), onde dava para entrar e ver a água voando por cima; e queria saber se as cachoeiras da geleira
+também flutuavam. Por fim achou água no ar na beira de um lago da terra nova, em (-2449, 307, -2551).
+
+**As costas da água achatadas** (`QuedaDagua`):
+- `queda`, `_quadros` e `fita` ganharam `costas`. A metade da frente da elipse fica como era e a de trás fica
+  achatada: com 0,25 (`CachoeiraAlta.COSTAS`) a água tem só um quarto da grossura atrás do caminho.
+- O caminho continua sendo o lado de trás da água, então ela encosta na pedra de lado a lado, até as beiradas.
+  Com a elipse inteira, as beiradas ficavam longe da pedra mesmo com o meio encostado.
+
+**A cachoeira do poço desce pela pedra** (`CachoeiraAlta`):
+- Em arco solto, a queda de cima passava de 2 a 6 m na frente da pedra. Agora o caminho dela é `_costas_cima(y)`:
+  sai da quina da laje da beirada e se afasta aos poucos, uns 4,3 m até embaixo, seguindo o caimento.
+- Atrás dela vão pedras de encosto, deitadas no caimento, em fiadas alternadas como tijolo (com duas pedras
+  lado a lado ficava uma emenda no meio). A frente delas fica 0,25 m dentro da água (`EMBUTE`).
+- Dos dois lados, três umbrais por lado (lat ±6,5) fazem um rego para a água, com samambaia e moita em cima.
+- O pouso no degrau ficou mais perto do fundo (`POUSO_CIMA` 10,6).
+- As quedas de baixo descem rente à frente das lajes do degrau. O caminho (`_caminho_baixo`) sai da própria malha
+  das lajes: `_guarda_laje` guarda os triângulos virados para a frente e `_frente_laje` acha a frente com um raio
+  em cada altura. Pela caixa da laje a frente saía mais longe do que a pedra de verdade.
+- O pé das quedas de baixo ficou mais perto do degrau (`BAIXO_LONGE` 2,4). Três pedras de sapata, embaixo da frente
+  do degrau, seguram as lajes no fundo do poço.
+
+**O vão no degrau.**
+- Entre a fileira de lajes de trás e a da frente sobrava um corredor de 1 a 3 m, da água até o chão. Era o vão
+  que o usuário achou.
+- Havia outro bolso atrás do degrau, do lado da gruta.
+- Três pedras altas fecham o miolo (al 18,2, lat −6,6, 0 e 6,6) e uma fecha o bolso (al 6,6, lat −8,4).
+- Uma bola de 0,6 m (mais ou menos o robô) não cabe mais em lugar nenhum ali. Sobram só pontos soltos dentro da
+  pedra.
+
+**A enseada do poço** (`CachoeiraAlta.cavar_enseada`, chamada por `Vale.gerar` depois de `Fundicao.cavar`):
+- O poço chegava a uns 30 m da nascente, e o pé das quedas de baixo caía em terra seca.
+- A enseada é uma elipse torta pelo ruído (`ENSEADA`: meio a 28,5 m ao longo, meios-eixos de 7,5 e 12,5 m). Ela
+  baixa a grade de fora até 3,4 m abaixo do nível do poço (`ENSEADA_FUNDO`), sobe aos poucos até a margem e emenda
+  no poço. São 23 nós da grade.
+- `Vale.agua` conta a enseada como poço (`na_enseada`). O espelho do poço virou um leque (`EspelhoDoPoco`): em cada
+  um dos 48 raios ele vai até onde a enseada acaba, mais 2 m.
+- **O resto da ilha não muda.** É o mesmo jeito do ombro da Fundição (§162):
+  - a mata, as plantas e os paredões sorteiam no relevo de antes (`Vale._relevo_antigo`, que chama a Fundição e a
+    cachoeira);
+  - onde o chão mudou não nasce nada (`Vale.chao_mexido`, que junta `Fundicao.no_ombro` e `enseada_mexida`);
+  - as moitas do pé foram para a margem, e as plantas que caíam na água são puladas.
+- **O chão de antes das cavernas desce junto** (`Cavernas._orig`). A enseada é chão de fora, não corte de caverna.
+  Sem isso, 218 pontos do fundo dela contavam como subsolo (escuro e sem chuva para quem mergulhasse), e o ponto 22
+  do vale achou dois "furos" por cima da rocha do Sumidouro.
+
+**As cortinas do degelo** (`TerraNova._cortina`):
+- Elas também flutuavam: o lado de trás da água ficava, no meio, de 0,8 a 2,9 m da rocha, e as beiradas até uns
+  5 m.
+- Antes a água caía em arco e tinha de passar livre de parede a parede. Num desfiladeiro estreito isso a empurrava
+  para a frente.
+- Agora ela faz a curva na beira (até 0,6 m), procura o vão livre só no meio (`_vao_livre` com 45% da meia
+  largura) e usa `COSTAS`. As beiradas podem entrar nas paredes do lado.
+- Ficou de 0 a 1,7 m da rocha.
+- A queda do rombo da represa tem uma folga de uns 3 m e ficou assim: é um jato saindo de um rombo, não água
+  escorrendo pela pedra.
+
+**Os lagos da terra nova** (`TerraNova._mapear_lagos`, `_espelho_lago`, `_no_lago`):
+- O espelho de cada lago era um disco 18 m maior que o raio (`LAGO_SOBRA`), contando que o chão em volta
+  escondesse a sobra.
+- Onde a beira é fina e o chão desce do lado de fora, a sobra ficava no ar por cima da encosta. Foi o que o usuário
+  viu no lago da montanha. O lago grande, lá embaixo, tinha o mesmo defeito, com água a até 12 m acima do chão perto
+  de (-1356, -2868).
+- **Agora a água se espalha do fundo do lago pela grade de 4 m**:
+  - passa só por pontos pelo menos 0,5 m abaixo do nível (`LAGO_FUNDO`), para não vazar por uma sela rasa da beira;
+  - molha também os rasos encostados neles;
+  - não passa do raio mais `LAGO_SOBRA`.
+- Uma célula tem água se tem ponto molhado e os outros pontos dela estão molhados ou acima do nível (ali o chão
+  cobre o espelho). O espelho é um quadrado no nível da água em cada célula assim. `agua` usa o mesmo mapa.
+- O mapa é feito ao carregar e de novo depois de `BocaDegelo.cavar`.
+- Nenhum ponto dentro do raio dos lagos ficou seco. Saíram uns 300 m² de água solta no lago da montanha e uns
+  2.000 m² no lago grande.
+
+**Fotos:**
+- `tools/capturas/cachoeira/`: `cachoeira_encaixe.jpg` (a água na pedra) e `cachoeira_enseada.jpg` (do poço, o
+  pé de baixo, o vão de lado e do alto; hoje e agora).
+- `tools/capturas/quedas/cortinas_encostadas.jpg`: as cortinas 4, 5, 9 e 10 cortadas de lado, hoje e agora.
+- `tools/capturas/terreno_agua/`: `lago_beira.jpg` (o lago da montanha) e `lago_grande_beira.jpg`.
+
+**Estado:** aprovado em 2026-11-24 ("melhorou", e depois "está bom" para os lagos). Testes OK (vale 116, voo 94,
+simulação 28).

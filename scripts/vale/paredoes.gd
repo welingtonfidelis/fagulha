@@ -145,7 +145,7 @@ static func montar(v: Vale) -> void:
 					var pos := Vector3(px, v._fora(px, pz) - alt * rng.randf_range(0.0, 0.25), pz) + fora * larg * rng.randf_range(-0.15, 0.12)
 					var xf := Transform3D(base.scaled_local(esc * 0.5 / 0.5), pos)
 					var vi := rng.randi() % VARIANTES
-					if not Fundicao.no_ombro(pos.x, pos.z):  # no ombro da Fundição as pedras são dela (doc §162)
+					if not Vale.chao_mexido(pos.x, pos.z):  # no ombro da Fundição as pedras são dela (doc §162)
 						_guardar(grupos, vi, xf, true)
 						n_parede += 1
 						_casco(cols, pontos[vi], xf)
@@ -167,7 +167,7 @@ static func montar(v: Vale) -> void:
 							var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))).scaled_local(esc),
 								Vector3(qx, v._fora(qx, qz) + tam * 0.15, qz))
 							var vi := rng.randi() % VARIANTES
-							if Fundicao.no_ombro(qx, qz):
+							if Vale.chao_mexido(qx, qz):
 								continue
 							_guardar(grupos, vi, xf, false)
 							n_pe += 1
@@ -177,7 +177,7 @@ static func montar(v: Vale) -> void:
 				if forca < 0.5 and rng.randf() < 0.1:
 					var s := rng.randf_range(0.8, 1.5)
 					var giro := rng.randf() * TAU
-					if not Fundicao.no_ombro(x, z):
+					if not Vale.chao_mexido(x, z):
 						arbustos.append(Transform3D(Basis(Vector3.UP, giro).scaled(Vector3.ONE * s), Vector3(x, h - 0.1, z)))
 		Tempos.marca("  par: grade")
 		# a falésia da borda do mapa (Vale._falesia_da_borda) é uma parede reta: colunas de rocha encostadas

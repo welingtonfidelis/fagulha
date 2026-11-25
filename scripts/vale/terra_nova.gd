@@ -21,7 +21,8 @@ const FUNDO := -40.0  # o fundo do mar fora das grades (tools/vale/terra_unida.p
 const META_VELHA := 1500.0  # a ilha de hoje (Vale.F_META)
 ## [células por quadrado, de, até] em metros da câmera: o detalhe todo (4 m) até 650 m, depois 8, 20 e 40 m
 const NIVEIS := [[1, 0.0, 650.0], [2, 650.0, 1500.0], [5, 1500.0, 3300.0], [10, 3300.0, 0.0]]
-const LAGO_SOBRA := 18.0  # o espelho dos lagos passa da beira; o chão em volta esconde a sobra
+const LAGO_SOBRA := 18.0  # até onde o espelho dos lagos pode passar do raio (só onde a água chega, `_mapear_lagos`)
+const LAGO_FUNDO := 0.5  # a água do lago só se espalha por pontos da grade pelo menos isto abaixo do nível
 const FONTE_SOBRA := 0.8  # nas fontes quentes a beira de mineral é estreita
 const PONTA_A := Vector2(150, -1790)  # a ponta leste da terra nova (área A), onde a praia termina
 const NAVIO := Vector2(-450, -1713)  # o navio encalhado, na praia que dá para o canal e para as Torres
@@ -33,6 +34,7 @@ var cob := PackedByteArray()  # dois bytes por ponto: o código da cobertura e q
 var rios: Array = []  # Vale.Curso
 var faixas := PackedFloat32Array()  # a meia largura da fita de cada rio
 var lagos: Array = []  # [Vector2(x, z), raio, nível]
+var _lago_mapa: Array = []  # por lago: [gx0, gz0, células em x, células em z, PackedByteArray (1 = célula com água)]
 var fontes: Array = []  # as fontes quentes da área B: [Vector2(x, z), raio, nível, força do vapor]; a primeira é o Olho Azul
 var respiros: Array[Vector2] = []  # os furos que só soltam vapor
 var quedas: Array = []  # [Vector3 beira, Vector3 pé, rio] de cada queda d'água (o pé desenhado: `cortinas_feitas`)
@@ -88,6 +90,7 @@ func carregar() -> bool:
 			quedas.append([Vector3(q[0], q[2], q[1]), Vector3(q[0], q[3], q[1]), rios.size() - 1])
 	for l: Dictionary in j["lagos"]:
 		lagos.append([Vector2(l["x"], l["z"]), float(l["raio"]), float(l["nivel"])])
+	_mapear_lagos()
 	for f: Dictionary in j.get("fontes", []):
 		fontes.append([Vector2(f["x"], f["z"]), float(f["raio"]), float(f["nivel"]), float(f["forca"])])
 	for q: Dictionary in j.get("respiros", []):
@@ -141,8 +144,9 @@ func agua(x: float, z: float, hh: float) -> float:
 			var n := c.nivel(r.y)
 			if hh < n:
 				return n
-	for l: Array in lagos:
-		if Vector2(x, z).distance_to(l[0]) < float(l[1]) + LAGO_SOBRA and hh < float(l[2]):
+	for k in lagos.size():
+		var l: Array = lagos[k]
+		if hh < float(l[2]) and Vector2(x, z).distance_to(l[0]) < float(l[1]) + LAGO_SOBRA and _no_lago(k, x, z):
 			return l[2]
 	for f: Array in fontes:
 		if Vector2(x, z).distance_to(f[0]) < float(f[1]) + FONTE_SOBRA and hh < float(f[2]):
@@ -211,6 +215,7 @@ func montar(v: Vale) -> void:
 		return
 	name = "TerraNova"
 	BocaDegelo.cavar(self)  # rebaixa a grade debaixo da gruta antes de o chão e a colisão saírem dela
+	_mapear_lagos()
 	_chao(v)
 	_colisao()
 	_aguas(v)
@@ -400,26 +405,134 @@ func _aguas(v: Vale) -> void:
 			# da pedra, e o poço (mais largo que a cortina) fica todo coberto
 			de = maxf(sv_b - 3.0, 0.0)
 		_fita(c, f, de, c.total(), mat, 0.0, teto)
-	for l: Array in lagos:
-		var disco := MeshInstance3D.new()
-		var cil := CylinderMesh.new()
-		cil.top_radius = float(l[1]) + LAGO_SOBRA
-		cil.bottom_radius = cil.top_radius
-		cil.height = 0.02
-		cil.radial_segments = 64
-		cil.cap_bottom = false
-		disco.mesh = cil
-		disco.material_override = _mat_degelo(v, 81, 0.06)
-		var c2: Vector2 = l[0]
-		disco.position = Vector3(c2.x, float(l[2]) - 0.01, c2.y)
-		disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(disco)
+	for k in lagos.size():
+		_espelho_lago(v, k)
 	# atravessar uma queda d'água esfria o motor, como na cachoeira do vale
 	for q: Array in cortinas_feitas:
 		var topo: Vector3 = q[0]
 		var pe: Vector3 = q[1]
 		v.cortinas.append([topo, pe, 7.0])
 		v.quedas.append((topo + pe) * 0.5)
+
+
+## Onde a água de cada lago chega, na grade de 4 m. Antes o espelho era um disco 18 m mais largo que o lago, e
+## onde a beira é fina e o chão desce do lado de fora a sobra ficava no ar por cima da encosta (o usuário viu em
+## -2449, 307, -2551). Agora a água se espalha do meio do lago pelos pontos da grade abaixo do nível (pelo menos
+## `LAGO_FUNDO`, para não vazar por uma sela rasa da beira) e molha também os rasos encostados neles. Uma célula
+## tem água se tem ponto molhado e os outros pontos dela estão molhados ou acima do nível (ali o chão cobre o
+## espelho); a que tem um ponto baixo de fora fica seca. O mesmo mapa serve ao desenho e a `agua`.
+func _mapear_lagos() -> void:
+	_lago_mapa.clear()
+	for l: Array in lagos:
+		var c: Vector2 = l[0]
+		var nivel := float(l[2])
+		var alcance := float(l[1]) + LAGO_SOBRA
+		var gx0 := clampi(floori((c.x - alcance - X0) / PASSO), 0, NX - 2)
+		var gz0 := clampi(floori((c.y - alcance - Z0) / PASSO), 0, NZ - 2)
+		var gx1 := clampi(ceili((c.x + alcance - X0) / PASSO), 0, NX - 1)
+		var gz1 := clampi(ceili((c.y + alcance - Z0) / PASSO), 0, NZ - 1)
+		var nx := gx1 - gx0 + 1
+		var nz := gz1 - gz0 + 1
+		# 0 seco, 1 fundo (espalha), 2 raso molhado
+		var no := PackedByteArray()
+		no.resize(nx * nz)
+		var dentro := func(i: int, j: int) -> bool:
+			var x := X0 + (gx0 + i) * PASSO
+			var z := Z0 + (gz0 + j) * PASSO
+			return Vector2(x, z).distance_to(c) < alcance
+		# a semente: o ponto mais fundo perto do meio
+		var semente := Vector2i(-1, -1)
+		var mais_baixo := INF
+		for j in nz:
+			for i in nx:
+				var x := X0 + (gx0 + i) * PASSO
+				var z := Z0 + (gz0 + j) * PASSO
+				if Vector2(x, z).distance_to(c) < float(l[1]) * 0.5:
+					var hh := h[(gz0 + j) * NX + gx0 + i]
+					if hh < mais_baixo:
+						mais_baixo = hh
+						semente = Vector2i(i, j)
+		var fila: Array[Vector2i] = []
+		if semente.x >= 0 and mais_baixo < nivel - LAGO_FUNDO:
+			no[semente.y * nx + semente.x] = 1
+			fila.append(semente)
+		while not fila.is_empty():
+			var p: Vector2i = fila.pop_back()
+			for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var q := p + d
+				if q.x < 0 or q.y < 0 or q.x >= nx or q.y >= nz or no[q.y * nx + q.x] != 0:
+					continue
+				var hq := h[(gz0 + q.y) * NX + gx0 + q.x]
+				if hq >= nivel or not dentro.call(q.x, q.y):
+					continue
+				if hq < nivel - LAGO_FUNDO:
+					no[q.y * nx + q.x] = 1
+					fila.append(q)
+				else:
+					no[q.y * nx + q.x] = 2
+		var cel := PackedByteArray()
+		cel.resize((nx - 1) * (nz - 1))
+		for j in nz - 1:
+			for i in nx - 1:
+				var molhado := false
+				var ok := true
+				for o: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+					var a := (j + o.y) * nx + i + o.x
+					if no[a] != 0:
+						molhado = true
+					elif h[(gz0 + j + o.y) * NX + gx0 + i + o.x] < nivel:
+						ok = false
+				if molhado and ok:
+					cel[j * (nx - 1) + i] = 1
+		_lago_mapa.append([gx0, gz0, nx - 1, nz - 1, cel])
+
+
+func _no_lago(k: int, x: float, z: float) -> bool:
+	if k >= _lago_mapa.size():
+		return true
+	var mp: Array = _lago_mapa[k]
+	var i := floori((x - X0) / PASSO) - int(mp[0])
+	var j := floori((z - Z0) / PASSO) - int(mp[1])
+	if i < 0 or j < 0 or i >= int(mp[2]) or j >= int(mp[3]):
+		return false
+	return (mp[4] as PackedByteArray)[j * int(mp[2]) + i] == 1
+
+
+## O espelho de um lago: um quadrado no nível da água em cada célula do mapa.
+func _espelho_lago(v: Vale, k: int) -> void:
+	var mp: Array = _lago_mapa[k]
+	var nivel := float(lagos[k][2]) - 0.01
+	var cel: PackedByteArray = mp[4]
+	var verts := PackedVector3Array()
+	var idx := PackedInt32Array()
+	for j in int(mp[3]):
+		for i in int(mp[2]):
+			if cel[j * int(mp[2]) + i] != 1:
+				continue
+			var x := X0 + (int(mp[0]) + i) * PASSO
+			var z := Z0 + (int(mp[1]) + j) * PASSO
+			var b := verts.size()
+			verts.append_array(PackedVector3Array([Vector3(x, nivel, z), Vector3(x + PASSO, nivel, z),
+				Vector3(x, nivel, z + PASSO), Vector3(x + PASSO, nivel, z + PASSO)]))
+			idx.append_array(PackedInt32Array([b, b + 1, b + 2, b + 1, b + 3, b + 2]))
+	if idx.is_empty():
+		return
+	var nrms := PackedVector3Array()
+	nrms.resize(verts.size())
+	nrms.fill(Vector3.UP)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = nrms
+	arr[Mesh.ARRAY_INDEX] = idx
+	var malha := ArrayMesh.new()
+	malha.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.name = "LagoDegelo"
+	mi.mesh = malha
+	mi.material_override = _mat_degelo(v, 81, 0.06)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
 
 
 ## O chão do leito, no meio e nos lados do canal, continua perto do nível da água (não é o paredão de uma queda).
@@ -510,16 +623,20 @@ func _cortina(v: Vale, c: Vale.Curso, k: int, sv: float, topo: float, pe: float,
 	for j in linhas + 1:
 		var t := float(j) / linhas
 		var y := topo - 0.05 - (queda + 0.3) * t
-		var x := maxf(x_ant, 2.4 * sqrt(2.0 * maxf(0.0, topo - y) / 9.8))
+		# a água faz a curva na beira (até 0,6 m) e desce rente à rocha do meio do vão; as beiradas podem entrar
+		# nas paredes do lado. Antes ela caía em arco e tinha de passar livre de parede a parede: num desfiladeiro
+		# estreito ficava de 1 a 3 m na frente do paredão e parecia flutuar (doc §165)
+		var x := maxf(x_ant, minf(1.6 * sqrt(2.0 * maxf(0.0, topo - y) / 9.8), 0.6))
 		var tent := 0
-		while tent < 80 and not _vao_livre(p0 + dir * x, lado, meia * (1.0 + 0.2 * t), y - 0.6):
+		while tent < 80 and not _vao_livre(p0 + dir * x, lado, meia * 0.45, y - 0.6):
 			x += 0.25
 			tent += 1
 		x_ant = x
 		xs.append(x)
 		ys.append(y)
 	# a água com volume (QuedaDagua, doc §164), verde-água do degelo: o caminho é o lado de trás da água, a 0,3 m
-	# do vão livre medido acima; mais grossa embaixo, e tanto mais quanto mais alta a queda
+	# do vão livre medido acima; mais grossa embaixo, e tanto mais quanto mais alta a queda; as costas achatadas,
+	# coladas na rocha até as beiradas (doc §165)
 	var pts := PackedVector3Array()
 	for j in linhas + 1:
 		var pp := p0 + dir * (xs[j] - 0.3)
@@ -529,7 +646,7 @@ func _cortina(v: Vale, c: Vale.Curso, k: int, sv: float, topo: float, pe: float,
 	add_child(raiz)
 	var lado3 := Vector3(lado.x, 0, lado.y)
 	var mats := QuedaDagua.materiais(v._tex, Color(0.13, 0.42, 0.48), Color(0.42, 0.72, 0.76), Color(0.7, 0.9, 0.9))
-	QuedaDagua.queda(raiz, pts, lado3, meia * 2.2, meia * 2.5, 0.7, clampf(queda * 0.12, 1.4, 3.0), mats, "Cortina")
+	QuedaDagua.queda(raiz, pts, lado3, meia * 2.2, meia * 2.5, 0.7, clampf(queda * 0.12, 1.4, 3.0), mats, "Cortina", CachoeiraAlta.COSTAS)
 	var x_pe := xs[xs.size() - 1] + 1.0
 	var pe2 := p0 + dir * x_pe
 	cortinas_feitas.append([Vector3(p0.x, topo, p0.y), Vector3(pe2.x, pe, pe2.y)])

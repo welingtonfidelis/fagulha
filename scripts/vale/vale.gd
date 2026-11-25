@@ -95,6 +95,8 @@ func gerar(_semente := 7) -> void:
 	Tempos.marca("Sumidouro.cavar")
 	Fundicao.cavar(self)
 	Tempos.marca("Fundicao.cavar")
+	CachoeiraAlta.cavar_enseada(self)
+	Tempos.marca("CachoeiraAlta.cavar_enseada")
 	MarcosOeste.cavar(self)
 	Tempos.marca("MarcosOeste.cavar")
 	await _avisar(0.12, "Abrindo a clareira")
@@ -120,24 +122,24 @@ func gerar(_semente := 7) -> void:
 	_cume()
 	Tempos.marca("_cume")
 	await _avisar(0.46, "Plantando a mata")
-	# a mata e os paredões de fora são sorteados no relevo de antes do ombro da Fundição (doc §162): o resto da
-	# ilha fica com as mesmas árvores e pedras, e no ombro quem planta é ela
-	Fundicao.relevo_antigo(self, true)
+	# a mata e os paredões de fora são sorteados no relevo de antes do ombro da Fundição (doc §162) e da enseada do
+	# poço (doc §165): o resto da ilha fica com as mesmas árvores e pedras, e no ombro quem planta é a Fundição
+	_relevo_antigo(true)
 	_mata_fora()
-	Fundicao.relevo_antigo(self, false)
+	_relevo_antigo(false)
 	Tempos.marca("_mata_fora")
 	if terra_nova:
 		terra_nova.plantar(self)
 		Tempos.marca("TerraNova.plantar")
 	await _avisar(0.54, "Espalhando flores e pedras")
-	Fundicao.relevo_antigo(self, true)
+	_relevo_antigo(true)
 	_plantas_do_chao()
-	Fundicao.relevo_antigo(self, false)
+	_relevo_antigo(false)
 	Tempos.marca("_plantas_do_chao")
 	await _avisar(0.60, "Erguendo os paredões")
-	Fundicao.relevo_antigo(self, true)
+	_relevo_antigo(true)
 	Paredoes.montar(self)
-	Fundicao.relevo_antigo(self, false)
+	_relevo_antigo(false)
 	Tempos.marca("Paredoes.montar")
 	if "--assar-rochas" in OS.get_cmdline_user_args():
 		Sumidouro.assar()
@@ -169,6 +171,18 @@ func _carregar() -> void:
 		_fora_h.resize(F_N * F_N)
 		_fora_h.fill(22.0)
 		_cob.resize(F_N * F_N)
+
+
+## A grade de fora no relevo de antes do ombro da Fundição e da enseada do poço (`antigo`) ou no de agora.
+func _relevo_antigo(antigo: bool) -> void:
+	Fundicao.relevo_antigo(self, antigo)
+	CachoeiraAlta.relevo_antigo(self, antigo)
+
+
+## Onde os sorteios de fora (mata, plantas, paredões) não põem nada: no ombro da Fundição quem planta é ela, e na
+## enseada do poço o chão desceu depois do sorteio.
+static func chao_mexido(x: float, z: float) -> bool:
+	return Fundicao.no_ombro(x, z) or CachoeiraAlta.enseada_mexida(x, z)
 
 
 ## A costa da ilha vem pronta no arquivo de alturas (tools/vale/mapa_3km.py): mar em toda a volta.
@@ -554,15 +568,30 @@ func _fita_rio() -> void:
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
-	# o espelho do poço
+	# o espelho do poço: um leque em volta do meio dele, até o raio de sempre ou até além do contorno da enseada
+	# debaixo da cachoeira (doc §165), o que for mais longe; onde a margem é mais alta que a água, o chão esconde a borda
 	var disco := MeshInstance3D.new()
-	var cil := CylinderMesh.new()
-	cil.top_radius = POCO.z * 1.32
-	cil.bottom_radius = POCO.z * 1.32
-	cil.height = 0.02
-	cil.radial_segments = 28
-	cil.cap_bottom = false
-	disco.mesh = cil
+	disco.name = "EspelhoDoPoco"
+	var raios := PackedFloat32Array()
+	for k in 48:
+		var d := Vector2.from_angle(TAU * k / 48.0)
+		var r := POCO.z * 1.32
+		var s := r
+		while s < 60.0:
+			if CachoeiraAlta._e_enseada(POCO.x + d.x * s, POCO.y + d.y * s) < 1.3:
+				r = s + 2.0
+			s += 1.0
+		raios.append(r)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for k in 48:
+		var k2 := (k + 1) % 48
+		var a := Vector2.from_angle(TAU * k / 48.0) * raios[k]
+		var b := Vector2.from_angle(TAU * k2 / 48.0) * raios[k2]
+		for p: Vector2 in [Vector2.ZERO, a, b]:
+			st.add_vertex(Vector3(p.x, 0.01, p.y))
+	disco.mesh = st.commit()
 	disco.material_override = _mat_rio(64, 0.15)
 	disco.position = Vector3(POCO.x, POCO_NIVEL - 0.01, POCO.y)
 	disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -626,7 +655,7 @@ func agua(x: float, z: float) -> float:
 		if Vector2(x, z).distance_to(Vector2(REPRESA_LAGOA.x, REPRESA_LAGOA.y)) < REPRESA_LAGOA.z \
 				or (x > REPRESA_X - 46.0 and absf(dz) < MarcosLeste.REPRESA_MEIA and x < MarcosLeste.represa_x(dz) - 1.5):
 			return REPRESA_NIVEL
-	if Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.15 and h < POCO_NIVEL:
+	if (Vector2(x, z).distance_to(Vector2(POCO.x, POCO.y)) < POCO.z * 1.15 or CachoeiraAlta.na_enseada(x, z)) and h < POCO_NIVEL:
 		return POCO_NIVEL
 	if Vector2(x, z).distance_to(NASCENTE) < 5.0 and h < queda_topo.y:
 		return queda_topo.y
@@ -1209,8 +1238,9 @@ func _plantas_do_chao() -> void:
 						plantas_amostra["margem"] = Vector3(px, h, pz)
 				if tipo == "":
 					continue
-				# no ombro da Fundição quem planta é ela (doc §162); o sorteio segue igual para o resto da ilha
-				var poe := not Fundicao.no_ombro(px, pz)
+				# no ombro da Fundição quem planta é ela (doc §162) e na enseada do poço o chão desceu (doc §165); o
+				# sorteio segue igual para o resto da ilha
+				var poe := not chao_mexido(px, pz)
 				if tipo == "q_pedra":
 					if na_rocha:
 						continue  # a pedra solta tem colisão e conta o chão pela grade (lá embaixo)
@@ -1357,8 +1387,8 @@ func _mata_fora() -> void:
 			else:
 				tipo = "pinheiro" if sorte < 0.2 else ("betula" if sorte > 0.84 else ("carvalho_a" if sorte < 0.6 else "carvalho_b"))
 			var giro := r.randf() * TAU
-			if Fundicao.no_ombro(px, pz):
-				continue  # o ombro da Fundição tem as árvores dele (o sorteio daqui corre no relevo de antes)
+			if chao_mexido(px, pz):
+				continue  # o ombro da Fundição tem as árvores dele, e a enseada do poço é água (o sorteio corre no relevo de antes)
 			arv_pos.append(Vector3(px, h - 0.15, pz))
 			arv_escala.append(s * 0.8)
 			tipo = tipo_variado(tipo, sorte_do_lugar(px, pz))

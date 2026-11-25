@@ -42,9 +42,9 @@ static func material_rasa(agua: ShaderMaterial) -> ShaderMaterial:
 ## espuma por fora. `pts` é o caminho do lado de trás da água (o que encosta na pedra), de cima para baixo; `lado3`
 ## é o rumo de uma beirada à outra, deitado.
 static func queda(pai: Node3D, pts: PackedVector3Array, lado3: Vector3, l0: float, l1: float, g0: float, g1: float,
-		mats: Array[ShaderMaterial], nome: String) -> void:
-	fita(pai, pts, lado3, l0, l1, g0, g1, mats[0], nome, true)
-	fita(pai, pts, lado3, l0 + 0.4, l1 + 1.2, g0 + 0.7, g1 + 1.2, mats[1], nome + "Espuma", true, 0.3)
+		mats: Array[ShaderMaterial], nome: String, costas := 1.0) -> void:
+	fita(pai, pts, lado3, l0, l1, g0, g1, mats[0], nome, true, 0.0, costas)
+	fita(pai, pts, lado3, l0 + 0.4, l1 + 1.2, g0 + 0.7, g1 + 1.2, mats[1], nome + "Espuma", true, 0.3, costas)
 
 
 ## O caminho da água que sai de uma beirada: um trecho reto de `antes` até a `beira` e, dali, o arco de quem sai com
@@ -62,11 +62,11 @@ static func arco(antes: Vector3, beira: Vector3, pouso: Vector3, n := 26) -> Pac
 	return pts
 
 
-## O quadro de cada ponto do caminho: [meio da seção, para fora, meia largura, meia fundura, quanto já passou (0 a 1),
-## comprimento até ali]. "Para fora" é para cima no trecho deitado e para a frente na queda. `atras` recua a seção
+## O quadro de cada ponto do caminho: [meio da seção, para fora, meia largura, meia fundura da frente, quanto já passou
+## (0 a 1), comprimento até ali, meia fundura de trás]. "Para fora" é para cima no trecho deitado e para a frente na queda. `atras` recua a seção
 ## (a casca de espuma passa um pouco por trás da água, para as duas não se encostarem).
 static func _quadros(pts: PackedVector3Array, lado3: Vector3, l0: float, l1: float, g0: float, g1: float, fechada: bool,
-		atras: float) -> Array:
+		atras: float, costas := 1.0) -> Array:
 	var s := PackedFloat32Array([0.0])
 	for i in range(1, pts.size()):
 		s.append(s[i - 1] + pts[i].distance_to(pts[i - 1]))
@@ -77,18 +77,25 @@ static func _quadros(pts: PackedVector3Array, lado3: Vector3, l0: float, l1: flo
 		var fora := lado3.cross(tng).normalized()
 		var f := s[i] / total
 		var meia_g := lerpf(g0, g1, f) * (0.5 if fechada else 1.0)
-		# fechada, a seção é inteira e o caminho é o lado de trás dela (a água encosta na pedra e cresce para fora)
-		var meio := pts[i] + fora * ((meia_g - atras) if fechada else 0.0)
-		q.append([meio, fora, lerpf(l0, l1, f) * 0.5, meia_g, f, s[i]])
+		# fechada, a seção é inteira e o caminho é o lado de trás dela (a água encosta na pedra e cresce para fora);
+		# `costas` achata a metade de trás (1 = elipse; 0,25 = quase reta, colada na pedra até as beiradas)
+		var frente_g := meia_g
+		var tras_g := meia_g
+		if fechada:
+			frente_g = 2.0 * meia_g / (1.0 + costas)
+			tras_g = frente_g * costas
+		var meio := pts[i] + fora * ((tras_g - atras) if fechada else 0.0)
+		q.append([meio, fora, lerpf(l0, l1, f) * 0.5, frente_g, f, s[i], tras_g])
 	return q
 
 
 ## Uma fita d'água com corpo. Aberta (`fechada` falso), a seção é um meio-cano (água rasa); fechada, é uma elipse
-## inteira: de lado a queda tem a grossura de verdade. UV.x atravessa a fita (0 numa beira e 1 na outra, pela frente
+## inteira: de lado a queda tem a grossura de verdade (com `costas` < 1, a metade de trás fica achatada, colada na
+## pedra). UV.x atravessa a fita (0 numa beira e 1 na outra, pela frente
 ## e por trás), UV.y é o comprimento (em 8 m), a cor do vértice guarda de 0 a 1 o quanto já passou (o pé vira espuma).
 static func fita(pai: Node3D, pts: PackedVector3Array, lado3: Vector3, l0: float, l1: float, g0: float, g1: float,
-		mat: Material, nome: String, fechada := false, atras := 0.0) -> MeshInstance3D:
-	var quadros := _quadros(pts, lado3, l0, l1, g0, g1, fechada, atras)
+		mat: Material, nome: String, fechada := false, atras := 0.0, costas := 1.0) -> MeshInstance3D:
+	var quadros := _quadros(pts, lado3, l0, l1, g0, g1, fechada, atras, costas)
 	var colunas := 20 if fechada else 10
 	var volta := TAU if fechada else PI
 	var secoes: Array = []
@@ -96,10 +103,10 @@ static func fita(pai: Node3D, pts: PackedVector3Array, lado3: Vector3, l0: float
 		var meio: Vector3 = qd[0]
 		var fora: Vector3 = qd[1]
 		var larg: float = qd[2]
-		var gordo: float = qd[3]
 		var sec: Array = []
 		for c in colunas + 1:
 			var ang := volta * float(c) / colunas
+			var gordo: float = qd[3] if sin(ang) >= 0.0 else qd[6]
 			var p := meio - lado3 * cos(ang) * larg + fora * sin(ang) * gordo
 			var nrm := (fora * sin(ang) / gordo - lado3 * cos(ang) / larg).normalized()
 			sec.append([p, nrm, Vector2((1.0 - cos(ang)) * 0.5, float(qd[5]) / 8.0), qd[4]])
