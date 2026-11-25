@@ -15,6 +15,7 @@ const VELOCIDADE := 130.0  # m/s do projétil (as máquinas atiram bala rápida;
 const TRAVA_ANGULO := deg_to_rad(6.5)  # mirando, a máquina a menos disso do centro da mira fica travada
 const TRAVA_SEGURA := 1.6  # a travada continua travada até este tanto do ângulo (não fica trocando)
 const TRAVA_ALCANCE := 130.0
+const DANO_NO_FIM := 0.4  # o dano que resta no fim do alcance da arma, quando o tiro está quase apagado (doc §167)
 ## A rajada esquenta (pedido do usuário, 2026-11-20: sem isso dava para atirar sem parar). Cada tiro enche um
 ## pedaço; cheia, ela trava até esfriar. A tela desenha a curva ao lado da mira.
 ## O limite subiu (pedido do usuário, 2026-11-20): eram 26 tiros, passou a 31 e foi arredondado para 35.
@@ -29,6 +30,7 @@ var hud: Hud
 var poupados := 0  # tiros que não saíram por haver um colega na mira (testes)
 var _aviso_amigo := 0.0
 var barrados := 0  # tiros que pararam num obstáculo antes do ponto mirado (testes)
+var apagados := 0  # tiros que apagaram no ar, no fim do alcance da arma (testes)
 var disparos := 0
 var travado: Node3D  # a máquina em que a mira travou (null: nenhuma); a tela desenha o colchete nela
 
@@ -752,6 +754,13 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 		impacto += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * dist * espalha
 		# o tiro duplo é "solto": mesmo com a mira travada ele mira na máquina mas não a segue, e pode errar
 		guiado = false
+	# o alcance da arma (doc §167): mais longe que `some` o tiro já apagou; vai só até lá e não bate em nada
+	var some := float(modo.get("some", INF))
+	var apaga := false
+	if origem.distance_to(impacto) > some:
+		impacto = origem + (impacto - origem).normalized() * some
+		guiado = false
+		apaga = true
 	# algo sólido entre a mão e o ponto (tronco, copa, rocha, parede): o tiro para ali, travado ou não
 	var fora: Array[RID] = [armadura.get_rid()]
 	if guiado and travado.get("_acerto") is CollisionObject3D:
@@ -761,11 +770,15 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	if not meio.is_empty() and (meio["position"] as Vector3).distance_to(impacto) > 1.6:
 		impacto = meio["position"]
 		guiado = false
+		apaga = false
 		barrados += 1
 	var na_agua := TiroAgua.cruzamento(armadura.ilha, origem, impacto)
 	if na_agua.is_finite():
 		impacto = na_agua
 		guiado = false
+		apaga = false
+	if apaga:
+		apagados += 1
 	disparou.emit(origem, impacto)
 	get_tree().call_group("bichos", "assustar", armadura.global_position)
 
@@ -773,9 +786,23 @@ func _um_tiro(modo: Dictionary, forca: float, esquerdo: bool) -> void:
 	var grosso := float(modo.get("grosso", 1.0)) * lerpf(0.5, 1.0, forca)
 	_clarao(origem, 0.08)
 	EfeitosTiro.clarao(self, origem, impacto - origem, 0.5 + 0.3 * grosso, String(modo.get("boca", "muzzle_01")), cor)
-	EfeitosTiro.risco(self, origem, impacto, cor, grosso)
+	# o risco no ar fica no trecho em que o tiro vale inteiro
+	var cheio := float(modo.get("cheio", INF))
+	EfeitosTiro.risco(self, origem, origem + (impacto - origem).limit_length(cheio), cor, grosso)
 	_projetil(origem, impacto, travado if guiado else null, float(modo["dano"]) * forca, float(modo["area"]) * lerpf(0.6, 1.0, forca), float(modo["vel"]), grosso, 0.0, cor, float(modo.get("comp", 2.2)),
-		String(modo.get("som", "")))
+		String(modo.get("som", "")), cheio, some, apaga)
+
+
+## O desgaste do tiro com a distância (doc §167): 0 até `cheio` (vale inteiro), subindo até 1 em `some` (apagou).
+static func desgaste(cheio: float, some: float, dist: float) -> float:
+	if dist <= cheio or not is_finite(some):
+		return 0.0
+	return clampf((dist - cheio) / maxf(some - cheio, 0.01), 0.0, 1.0)
+
+
+## O dano que resta a `dist` m: inteiro até `cheio`, caindo até DANO_NO_FIM em `some`.
+static func fator_dano(cheio: float, some: float, dist: float) -> float:
+	return lerpf(1.0, DANO_NO_FIM, desgaste(cheio, some, dist))
 
 
 ## Ajuda de mira: mirando (L2), a máquina ligada mais perto do centro da mira, dentro de um cone pequeno e
@@ -791,6 +818,9 @@ func _atualizar_trava() -> void:
 	var melhor: Node3D = null
 	var menor := INF
 	var espaco := get_world_3d().direct_space_state
+	# não trava além de onde o tiro da arma em uso chega (doc §167)
+	var em_uso := Arsenal.dados(Arsenal.modo if Arsenal.tem_arma(Arsenal.modo) else "pistola")
+	var alcance_trava := minf(TRAVA_ALCANCE, float(em_uso.get("some", TRAVA_ALCANCE)))
 	for n in get_tree().get_nodes_in_group("maquinas"):
 		if not n.has_method("ponto_de_trava"):
 			continue
@@ -799,7 +829,7 @@ func _atualizar_trava() -> void:
 			continue
 		var d := p - de
 		var dist := d.length()
-		if dist > TRAVA_ALCANCE or dist < 1.0:
+		if dist > alcance_trava or dist < 1.0:
 			continue
 		var ang := dir.angle_to(d)
 		# de perto o cone abre um pouco (a máquina ocupa mais da tela)
@@ -851,7 +881,7 @@ func _mao(esquerda := false) -> Vector3:
 
 
 func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1.0, area := 0.0, vel := VELOCIDADE, tam := 1.0, atraso := 0.0,
-		cor := Color(1.0, 0.55, 0.2), comp := 2.2, tipo := "") -> void:
+		cor := Color(1.0, 0.55, 0.2), comp := 2.2, tipo := "", cheio := INF, some := INF, apaga := false) -> void:
 	var proj := Node3D.new()
 	add_child(proj)
 	proj.global_position = origem
@@ -889,6 +919,20 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 	luz_p.omni_range = 3.0
 	luz_p.shadow_enabled = false
 	proj.add_child(luz_p)
+	# o desgaste (doc §167): passado o alcance cheio, o tiro afina, encurta e a luz some aos poucos
+	var partes: Array = halo.get_children() + halo2.get_children() + [miolo]
+	var luz_cheia := luz_p.light_energy
+	var desgastar := func(dist: float) -> void:
+		if dist <= cheio:
+			return
+		var k := desgaste(cheio, some, dist)
+		var resta := 1.0 - k * k * (3.0 - 2.0 * k)
+		for gi: GeometryInstance3D in partes:
+			gi.transparency = 1.0 - resta
+		luz_p.light_energy = luz_cheia * resta
+		var fino := lerpf(1.0, 0.55, k)
+		raio.scale = Vector3(fino, fino, lerpf(1.0, 0.6, k))
+		halo2.scale = Vector3.ONE * lerpf(1.0, 0.5, k)
 	var tempo := maxf(0.02, origem.distance_to(impacto) / vel)
 	var tw := proj.create_tween()
 	if atraso > 0.0:
@@ -896,8 +940,14 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 		tw.tween_interval(atraso)
 		tw.tween_callback(func() -> void: proj.visible = true)
 	if guia == null:
-		tw.tween_property(proj, "global_position", impacto, tempo)
-		tw.tween_callback(_impacto.bind(impacto, dano, area, cor, tipo))
+		var total := origem.distance_to(impacto)
+		var anda := func(k: float) -> void:
+			proj.global_position = origem.lerp(impacto, k)
+			desgastar.call(total * k)
+		tw.tween_method(anda, 0.0, 1.0, tempo)
+		# apagou no ar (passou do alcance da arma): some sem bater em nada
+		if not apaga:
+			tw.tween_callback(_impacto.bind(impacto, dano * fator_dano(cheio, some, total), area, cor, tipo))
 	else:
 		# tiro travado: o destino acompanha a máquina até chegar
 		var destino := [impacto]
@@ -911,8 +961,9 @@ func _projetil(origem: Vector3, impacto: Vector3, guia: Node3D = null, dano := 1
 				proj.look_at_from_position(onde, destino[0], cabeca)
 			else:
 				proj.global_position = onde
+			desgastar.call(origem.distance_to(onde))
 		tw.tween_method(passo, 0.0, 1.0, tempo)
-		tw.tween_callback(func() -> void: _impacto(destino[0], dano, area, cor, tipo))
+		tw.tween_callback(func() -> void: _impacto(destino[0], dano * fator_dano(cheio, some, origem.distance_to(destino[0])), area, cor, tipo))
 	tw.tween_callback(proj.queue_free)
 
 

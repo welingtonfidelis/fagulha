@@ -28,13 +28,15 @@ static var misseis := 0  # no lançador agora
 ## A roda segue a ordem em que as armas abrem (doc §158): o tiro duplo cedo, a precisão, a rajada, o canhão e por
 ## último os mísseis. A rajada continua longe do começo (pedido do usuário, 2026-11-20: com ela logo nas primeiras
 ## hordas as lutas ficavam fáceis demais).
+## O alcance (doc §167): até `cheio` m o tiro vale inteiro; dali até `some` ele apaga e perde força (até 40 % do dano)
+## e some no ar, sem bater em nada. Os mísseis vão até onde travam (`Tiro.TRAVA_ALCANCE`).
 const ORDEM := ["pistola", "duplo", "precisao", "rajada", "canhao", "misseis"]
 const MODOS := {
-	"pistola": {"som": "laser_pistola", "cor": Color(1.0, 0.55, 0.2), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Pistola", "resumo": "um tiro por aperto", "gatilho": "aperto", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0},
-	"rajada": {"som": "laser_rajada", "cor": Color(1.0, 0.88, 0.3), "boca": "muzzle_03", "comp": 1.5, "grosso": 0.6, "titulo": "Rajada", "resumo": "muitos tiros fracos; esquenta e para", "gatilho": "segura", "cadencia": 0.085, "dano": 0.34, "calor": 1.5, "area": 0.0, "vel": 150.0, "espalha": 0.022},
-	"canhao": {"som": "canhao_tiro", "cor": Color(1.0, 0.35, 0.15), "boca": "muzzle_05", "comp": 1.6, "grosso": 2.6, "titulo": "Canhão", "resumo": "segure para carregar e solte", "gatilho": "carga", "cadencia": 0.7, "dano": 3.6, "calor": 13.0, "area": 5.0, "vel": 70.0, "carga": 1.1},
-	"precisao": {"som": "laser_precisao", "cor": Color(0.35, 0.75, 1.0), "boca": "muzzle_02", "comp": 6.0, "grosso": 0.7, "titulo": "Precisão", "resumo": "zoom, um tiro forte e lento", "gatilho": "aperto", "cadencia": 1.15, "dano": 3.2, "calor": 8.0, "area": 0.0, "vel": 320.0, "fov": 20.0},
-	"duplo": {"som": "laser_duplo", "cor": Color(0.4, 1.0, 0.8), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Tiro duplo", "resumo": "R2 o braço direito, L2 o esquerdo; menos preciso", "gatilho": "duplo", "cadencia": 0.2, "dano": 0.7, "calor": 3.5, "area": 0.0, "vel": 130.0, "espalha": 0.03, "solto": true},
+	"pistola": {"som": "laser_pistola", "cor": Color(1.0, 0.55, 0.2), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Pistola", "resumo": "um tiro por aperto", "gatilho": "aperto", "cadencia": 0.2, "dano": 1.0, "calor": 3.5, "area": 0.0, "vel": 130.0, "cheio": 70.0, "some": 110.0},
+	"rajada": {"som": "laser_rajada", "cor": Color(1.0, 0.88, 0.3), "boca": "muzzle_03", "comp": 1.5, "grosso": 0.6, "titulo": "Rajada", "resumo": "muitos tiros fracos; esquenta e para", "gatilho": "segura", "cadencia": 0.085, "dano": 0.34, "calor": 1.5, "area": 0.0, "vel": 150.0, "espalha": 0.022, "cheio": 45.0, "some": 70.0},
+	"canhao": {"som": "canhao_tiro", "cor": Color(1.0, 0.35, 0.15), "boca": "muzzle_05", "comp": 1.6, "grosso": 2.6, "titulo": "Canhão", "resumo": "segure para carregar e solte", "gatilho": "carga", "cadencia": 0.7, "dano": 3.6, "calor": 13.0, "area": 5.0, "vel": 70.0, "carga": 1.1, "cheio": 60.0, "some": 100.0},
+	"precisao": {"som": "laser_precisao", "cor": Color(0.35, 0.75, 1.0), "boca": "muzzle_02", "comp": 6.0, "grosso": 0.7, "titulo": "Precisão", "resumo": "zoom, um tiro forte e lento", "gatilho": "aperto", "cadencia": 1.15, "dano": 3.2, "calor": 8.0, "area": 0.0, "vel": 320.0, "fov": 20.0, "cheio": 160.0, "some": 200.0},
+	"duplo": {"som": "laser_duplo", "cor": Color(0.4, 1.0, 0.8), "boca": "muzzle_01", "comp": 2.2, "grosso": 1.0, "titulo": "Tiro duplo", "resumo": "R2 o braço direito, L2 o esquerdo; menos preciso", "gatilho": "duplo", "cadencia": 0.2, "dano": 0.7, "calor": 3.5, "area": 0.0, "vel": 130.0, "espalha": 0.03, "solto": true, "cheio": 55.0, "some": 85.0},
 	"misseis": {"som": "missil_sai", "titulo": "Mísseis", "resumo": "segure para travar os alvos e solte", "gatilho": "trava", "cadencia": 0.9, "dano": 3.0, "calor": 4.0, "area": 4.5, "vel": 34.0},
 }
 ## A espada de laser (quadrado no chão): um golpe em arco, que alterna de lado a cada vez.

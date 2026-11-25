@@ -8,7 +8,7 @@ extends RefCounted
 ## Do mais urgente para o menos, a cada quadro:
 ##   1. quente demais (levou dois tiros)  -> RECUA: anda de costas, de frente para o robô, até esfriar
 ##   2. vê o robô (ou viu há pouco)       -> CAÇA: como antes; ao começar, avisa as máquinas por perto
-##   3. tem uma pista (perdeu de vista, ou outra máquina avisou) -> PROCURA: vai até lá e olha em volta
+##   3. tem uma pista (perdeu de vista, levou tiro ou outra máquina avisou) -> PROCURA: vai até lá e olha em volta
 ##   4. está longe de casa                -> VOLTA
 ##   5. nada disso                        -> RONDA
 ## Antes da árvore a máquina sabia onde o robô estava mesmo sem ver (seguia até 70 m) e nunca recuava.
@@ -56,6 +56,26 @@ static func _par(nome: String, cond: ConditionLeaf, acao: ActionLeaf) -> Sequenc
 	s.add_child(cond)
 	s.add_child(acao)
 	return s
+
+
+## Chama as máquinas de perto que estão na ronda (ou voltando para casa): elas vão olhar `onde`. Quem chama é a
+## que viu o robô ou a que levou um tiro; nesse caso (`alerta`) as chamadas também ficam em alerta (doc §167).
+static func avisar(v: Vigia, onde: Vector3, alerta: bool) -> void:
+	if not v.is_inside_tree() or not onde.is_finite():
+		return
+	for n: Node in v.get_tree().get_nodes_in_group(Vigia.GRUPO):
+		var o := n as Vigia
+		if o == null or o == v or o.desligada or o.arvore == null or o.pista.is_finite():
+			continue
+		if o.estado != Vigia.Estado.RONDA and o.estado != Vigia.Estado.VOLTA:
+			continue
+		if o.global_position.distance_to(v.global_position) < AVISO_RAIO:
+			o.pista = onde
+			o.procura_t = 0.0
+			o.avisada += 1
+			if alerta:
+				o.alerta_t = Vigia.ALERTA
+			avisos += 1
 
 
 # ---------------------------------------------------------------- condições
@@ -114,27 +134,11 @@ class Cacar extends ActionLeaf:
 			if v.estado != Vigia.Estado.RECUA:
 				v._recarga = maxf(v._recarga, 1.0)
 			v.estado = Vigia.Estado.CACA
-			_avisar(v)
+			VigiaArvore.avisar(v, v.visto_em, false)
 		# enquanto caça, a pista é o último lugar onde viu o robô: perdendo de vista, vai procurar lá
 		v.pista = v.visto_em
 		v.procura_t = 0.0
 		return RUNNING
-
-	## Quem vê o robô chama as máquinas de perto que estão na ronda: elas vão olhar o lugar.
-	func _avisar(v: Vigia) -> void:
-		if not v.is_inside_tree() or not v.visto_em.is_finite():
-			return
-		for n: Node in v.get_tree().get_nodes_in_group(Vigia.GRUPO):
-			var o := n as Vigia
-			if o == null or o == v or o.desligada or o.arvore == null or o.pista.is_finite():
-				continue
-			if o.estado != Vigia.Estado.RONDA and o.estado != Vigia.Estado.VOLTA:
-				continue
-			if o.global_position.distance_to(v.global_position) < VigiaArvore.AVISO_RAIO:
-				o.pista = v.visto_em
-				o.procura_t = 0.0
-				o.avisada += 1
-				VigiaArvore.avisos += 1
 
 
 class Procurar extends ActionLeaf:

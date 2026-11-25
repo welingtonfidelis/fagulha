@@ -5457,3 +5457,70 @@ cache (`Cache.chave`) separa editor de build exportada, não debug de final.
 
 **Estado:** release publicada. A build de Windows não foi testada num Windows.
 
+
+
+## 167. Alcance das armas, reação ao tiro de longe, a cabeça na prateleira e a antena à vista (2026-11-25)
+
+O usuário atirou de longe num foragido e nada aconteceu: a máquina não foi procurar quem atirou. A proposta dele foi
+limitar o alcance de cada arma pelo tipo, com o tiro "apagando pelo desgaste da distância" em vez de bater numa
+parede invisível, e dar um campo de reação maior a quem leva tiro de longe. No mesmo pedido: a cabeça na
+prateleira do cilindro estava acima do meio e saía da caixa, e a peça do radar era difícil de achar na primeira
+saída da base.
+
+**Por que a máquina não reagia.** `Vigia._provocada` punha a máquina em caça, mas sem pista. A árvore (`VigiaArvore`)
+desfazia isso no quadro seguinte, porque ela não via o robô: só enxerga a 42 m (`VER`), e o tiro vinha de 60, 116
+ou 203 m. As máquinas sem árvore continuam como eram.
+
+**O alcance de cada arma** (`Arsenal.MODOS`, chaves `cheio` e `some`, que as melhorias da oficina não mexem):
+
+| Arma | Dano cheio até | Some em |
+|---|---|---|
+| pistola | 70 m | 110 m |
+| rajada | 45 m | 70 m |
+| canhão | 60 m | 100 m |
+| precisão | 160 m | 200 m |
+| duplo | 55 m | 85 m |
+
+- Os mísseis não mudaram: vão guiados até o alvo.
+- Entre `cheio` e `some` o dano cai de 100% a 40% (`Tiro.DANO_NO_FIM`, `Tiro.fator_dano`).
+- Além de `some` o tiro se apaga no ar e não acerta (`Tiro.apagados` conta, para os testes). Um tiro guiado que
+  passaria de `some` deixa de ser guiado.
+- **O desgaste visível** (`_projetil`, lambda `desgastar`): depois de `cheio` o tiro afina (até 55%), o raio
+  encurta, o halo encolhe e tudo fica transparente numa curva suave (`GeometryInstance3D.transparency`). A luz
+  apaga junto. O risco do disparo (`EfeitosTiro.risco`) só vai até `cheio`.
+- A trava de mira não pega nada além do alcance da arma em uso.
+- Rascunho aprovado: `tools/capturas/alcance_rascunho.jpg`.
+
+**A reação ao tiro** (`Vigia._provocada`, `VigiaArvore.avisar`):
+- Levar tiro põe a máquina em alerta por 12 s (`Vigia.ALERTA`). No alerta ela enxerga até 70 m (`PERDER`) em vez de 42.
+- Se o robô não está à vista, ela ganha uma pista perto de onde ele está. O erro é de 8% da distância, até 10 m
+  (`ERRO_PISTA`, `ERRO_PISTA_MAX`), e ela vai procurar.
+- Ela avisa as outras máquinas a até 38 m (`AVISO_RAIO`), que também entram em alerta. O aviso saiu de dentro de
+  `Cacar` para `VigiaArvore.avisar`, e a caça usa o mesmo, sem alerta.
+- Medido no Capataz e nos dois ajudantes, com o tiro aplicado direto no chefe: antes, a 60, 116 e 203 m, ninguém
+  saiu da ronda em 80 s. Agora, a 60, 120 e 196 m, os três vão procurar em cerca de 1 s e o chefe chega a caçar e
+  atirar.
+- A pistola medida contra o chefe: dano cheio a 26 e 53 m, 91% a 75 m, 59% a 97 m, e a 124 m o tiro se apagou.
+- Foto: `tools/capturas/reacao_ao_tiro.jpg`.
+
+**A cabeça na prateleira** (`InteriorCilindro._nichos`, `_encaixar`):
+- Com escala 1,3 a cabeça tinha 0,53 m de fundo numa caixa de 0,34 m. Ela passava do vidro e do teto e ficava
+  acima do meio.
+- A caixa ficou com 0,5 m de fundo (`FUNDO_NICHO`). O fundo ficou onde estava e a frente avançou.
+- A cabeça vai no tamanho dela (1,0) e fica no meio da caixa.
+- `_encaixar` mede a peça (`_caixa_no`, que funciona fora da árvore). Se ela não cabe, encolhe; depois empurra para
+  dentro o que sobrar. Os ombros desceram um pouco do teto e a perna saiu do fundo.
+- Foto: `tools/capturas/nicho_cabeca.jpg`.
+
+**A antena de busca à vista** (`PecasMundo.ANTENA`):
+- O usuário chamou de "peça do radar".
+- Ela ficava em (-52, 44), a 54 m do começo e 103° para a esquerda de quem sai da base. Ficava na beira da mata,
+  atrás da própria base.
+- Agora fica em (11,5, 22), a 24 m e 10° da vista de quem sai. É uma clareira de areia no meio do capim, e o facho
+  aparece no meio da tela logo na saída.
+- Nenhum outro ponto da ilha fica a menos de 260 m.
+- `capturas_vale.gd` ainda usa (-52, 44) só como lugar de foto do `--aura`.
+- Foto: `tools/capturas/antena_lugar.jpg`.
+
+**Estado:** aprovado em 2026-11-25 ("pode levar ao jogo" para o alcance, "está bom" para tudo). Testes OK (vale 116,
+voo 94, simulação 28).

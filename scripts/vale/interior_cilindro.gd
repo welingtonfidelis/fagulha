@@ -21,6 +21,7 @@ const X1 := 3.04  # a boca
 const PISO := -1.605  # o alto da grade do piso
 const PARADA := Vector3(0.9, -1.59, 0.0)  # onde o robô fica (BaseVale.MEIO_CIL - Oficina.FUNDO, no estrado)
 const TRECHOS := 8  # vãos entre as costelas
+const FUNDO_NICHO := 0.5  # o fundo das caixas das peças de reposição (eram 0,34 m: a cabeça não cabia)
 const BRANCO := Color(0.6, 0.64, 0.67)
 const BRANCO2 := Color(0.5, 0.55, 0.58)
 const RODAPE := Color(0.29, 0.33, 0.36)  # os painéis de baixo, junto do piso
@@ -614,14 +615,16 @@ func _nichos() -> void:
 	for n in lista:
 		var lado: float = n[1]
 		var ang := PI * 0.5 - 0.18
-		var p := _ponto(n[0], ang, R - 0.18)
+		# a caixa tem FUNDO_NICHO de fundo; o fundo dela fica onde sempre esteve (era de 0,34 m) e a frente avança
+		var p := _ponto(n[0], ang, R - 0.18 - (FUNDO_NICHO - 0.34) * 0.5)
 		p.z *= lado
 		var giro := Basis(Vector3.RIGHT, lado * 0.18) * Basis(Vector3.UP, 0.0 if lado > 0.0 else PI)
 		var nicho := Node3D.new()
+		nicho.name = "Nicho_" + String(n[2])
 		add_child(nicho)
 		nicho.transform = Transform3D(giro, p)
 		# a caixa: fundo, teto, chão e lados, com o vidro na frente e uma luz dentro
-		var cx := Vector3(0.62, 0.78, 0.34)
+		var cx := Vector3(0.62, 0.78, FUNDO_NICHO)
 		_caixa(nicho, Vector3(0, 0, cx.z * 0.5), Vector3(cx.x, cx.y, 0.02), _mat(GRAFITE))
 		_caixa(nicho, Vector3(0, cx.y * 0.5, 0), Vector3(cx.x + 0.06, 0.04, cx.z), _mat(BRANCO2))
 		_caixa(nicho, Vector3(0, -cx.y * 0.5, 0), Vector3(cx.x + 0.06, 0.04, cx.z), _mat(BRANCO2))
@@ -640,7 +643,10 @@ func _nichos() -> void:
 			for mi in peca.find_children("*", "MeshInstance3D", true, false):
 				if mi.name.begins_with("chama") or mi.name.begins_with("brasa"):
 					(mi as Node3D).visible = false
-			peca.transform = Transform3D(Basis(Vector3.UP, n[3]).scaled(Vector3.ONE * 1.3), Vector3(0, cx.y * 0.5 - 0.12 + float(n[4]), 0.04))
+			# a cabeça no tamanho dela (com 1,3 ela tinha 0,53 m de fundo e passava do vidro e do teto)
+			var esc := 1.0 if n[2] == "cabeca" else 1.3
+			peca.transform = Transform3D(Basis(Vector3.UP, n[3]).scaled(Vector3.ONE * esc), Vector3(0, cx.y * 0.5 - 0.12 + float(n[4]), 0.04))
+			_encaixar(nicho, peca, cx, n[2] == "cabeca")
 		var l := OmniLight3D.new()
 		l.light_color = Color(0.85, 0.97, 1.0)
 		l.light_energy = 0.6
@@ -648,6 +654,55 @@ func _nichos() -> void:
 		l.position = Vector3(0, 0.2, 0)
 		nicho.add_child(l)
 	modelo.free()
+
+
+## Põe a peça inteira dentro da caixa do nicho, sem passar do vidro, do teto nem do fundo (pedido do usuário,
+## 2026-11-25: a cabeça ficava acima do meio e saía da prateleira). Se não couber, encolhe; depois empurra para
+## dentro o que sobrar. `centrar` põe o meio dela no meio da caixa (a cabeça, que não pende do gancho).
+func _encaixar(nicho: Node3D, peca: Node3D, cx: Vector3, centrar: bool) -> void:
+	var folga := 0.03
+	var dentro := AABB()
+	dentro.position = Vector3(-cx.x * 0.5 + 0.02 + folga, -cx.y * 0.5 + 0.02 + folga, -cx.z * 0.5 + 0.005 + folga)
+	dentro.end = Vector3(cx.x * 0.5 - 0.02 - folga, cx.y * 0.5 - 0.02 - folga, cx.z * 0.5 - 0.01 - folga)
+	var b := _caixa_no(nicho, peca)
+	if b.size.x <= 0.0:
+		return
+	var cabe := minf(1.0, minf(dentro.size.x / b.size.x, minf(dentro.size.y / b.size.y, dentro.size.z / b.size.z)))
+	if cabe < 1.0:
+		peca.basis = peca.basis.scaled(Vector3.ONE * cabe)
+		b = _caixa_no(nicho, peca)
+	var mexe := dentro.get_center() - b.get_center()
+	if not centrar:
+		mexe = Vector3.ZERO
+		for k in 3:
+			if b.position[k] < dentro.position[k]:
+				mexe[k] = dentro.position[k] - b.position[k]
+			elif b.end[k] > dentro.end[k]:
+				mexe[k] = dentro.end[k] - b.end[k]
+	peca.position += mexe
+
+
+## A caixa das malhas visíveis de `no`, no espaço de `ref` (um pai dele; vale fora da árvore também).
+static func _caixa_no(ref: Node3D, no: Node3D) -> AABB:
+	var cx := AABB()
+	var tem := false
+	for mi in no.find_children("*", "MeshInstance3D", true, false):
+		var g := mi as MeshInstance3D
+		if g.mesh == null:
+			continue
+		var t := g.transform
+		var visivel := g.visible
+		var pai := g.get_parent()
+		while pai != ref and pai is Node3D:
+			t = (pai as Node3D).transform * t
+			visivel = visivel and (pai as Node3D).visible
+			pai = pai.get_parent()
+		if not visivel:
+			continue
+		var b := t * g.mesh.get_aabb()
+		cx = b if not tem else cx.merge(b)
+		tem = true
+	return cx
 
 
 # ------------------------------------------------------------------ a boca: a vedação entre o de fora e o de dentro

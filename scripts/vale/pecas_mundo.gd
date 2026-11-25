@@ -10,6 +10,7 @@ const LUTA_RAIO := 45.0  # m: com máquina ligada mais perto que isto, o drone e
 const PEGA := 1.15  # m do meio do robô ao meio da caixa: tem de encostar nela
 const BOCA := 2.1  # m: distância do meio da boca do cilindro para instalar
 const RADAR := 300.0  # m: alcance da antena de busca
+const ANTENA := Vector2(11.5, 22.0)  # onde a antena de busca fica (a primeira peça, à vista da base)
 
 var armadura: Armadura
 var mapa: Vale
@@ -35,14 +36,17 @@ var _inst_t := 0.0
 
 func _ready() -> void:
 	# As peças em três círculos em volta da base (ilha de 3 km, doc §83):
-	#  perto: antena (ao lado da base), luz do peito (entrada do Sumidouro, perto da cachoeira), células (O Anel);
+	#  perto: antena (na clareira, à vista de quem sai da base), luz do peito (entrada do Sumidouro, perto da
+	#         cachoeira), células (O Anel);
 	#  meio:  molas (Torre Caída), scanner (na frente da Fundição, sem lutar), radiador de aletas (As Colunas),
 	#         barbatanas (na ponta do Cais Submerso);
 	#  longe: asas (Árvore-Mãe), bocais (nas costas do maior gigante), radiador duplo (no alto do Farol).
 	# O radiador duplo e os bocais trocaram de lugar em 2026-11-19: o duplo, que triplica o voo, ficava a 588 m
 	# da base e acabava com o calor nos primeiros minutos; agora é o prêmio mais distante.
 	var alvos := {
-		"antena": Vector2(-52, 44),
+		# na terra batida da clareira, uns 25 m à frente de quem acorda na base (pedido do usuário, 2026-11-25:
+		# em (-52, 44) ela ficava na beira do mato, atrás e ao lado, e era difícil de achar na primeira saída)
+		"antena": ANTENA,
 		# na boca do Sumidouro que dá para a cachoeira, do lado de fora: quem vai entrar no escuro acha a luz antes
 		"farol": Sumidouro.saida + Sumidouro.dir * 7.0 if Sumidouro.existe else Vector2(-290, -560),
 		"celulas": Vector2(Marcos.anel.x, Marcos.anel.z) if Marcos.anel.is_finite() else Vector2(-190, 600),

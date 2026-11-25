@@ -65,6 +65,11 @@ var recuando := false
 var recuo_t := 0.0
 var recuo_folga := 0.0
 var avisada := 0  # vezes em que outra máquina a chamou (testes)
+var alerta_t := 0.0  # levou tiro há pouco: enxerga até PERDER (doc §167)
+var provocadas := 0  # tiros levados com a árvore ligada (testes)
+const ALERTA := 12.0
+const ERRO_PISTA := 0.08  # a pista do tiro erra até isto da distância...
+const ERRO_PISTA_MAX := 10.0  # ...e no máximo isto, em m
 
 
 func calor_por_tiro() -> float:
@@ -115,10 +120,29 @@ func nome_estado() -> String:
 	return "desligado" if desligada else NOMES[estado]
 
 
+## Levou um tiro (ou um mergulho com impacto). Mesmo sem ver quem atirou, sabe de onde veio (doc §167): fica em
+## alerta (enxerga até PERDER em vez de VER) e, sem o robô à vista, a pista vira o lugar do tiro, com um erro que
+## cresce com a distância; as máquinas de perto vão junto. Antes a árvore desfazia a caça no quadro seguinte,
+## porque a máquina não via o robô, e um tiro de mais de 42 m não dava em nada (visto pelo usuário num procurado,
+## 2026-11-25).
 func _provocada() -> void:
-	if estado != Estado.CACA and alvo:
-		estado = Estado.CACA
-		_recarga = 0.8
+	if alvo == null or alvo.em_pane:
+		return
+	if arvore == null:
+		if estado != Estado.CACA:
+			estado = Estado.CACA
+			_recarga = 0.8
+		return
+	alerta_t = ALERTA
+	provocadas += 1
+	if sem_ver <= VigiaArvore.MEMORIA:
+		return  # vendo o robô ela já caça
+	var de := alvo.global_position
+	var erro := minf(de.distance_to(global_position) * ERRO_PISTA, ERRO_PISTA_MAX)
+	var ang := _rng.randf() * TAU
+	pista = de + Vector3(cos(ang), 0.0, sin(ang)) * _rng.randf_range(0.0, erro)
+	procura_t = 0.0
+	VigiaArvore.avisar(self, pista, true)
 
 
 func _ponto_ronda() -> Vector3:
@@ -205,7 +229,8 @@ func _process(delta: float) -> void:
 	_tiro_t = maxf(0.0, _tiro_t - delta)
 	var vel := 0.0
 	var olho := centro() + Vector3(0, altura_m * 0.3, 0)
-	var ve := alvo_visivel(VER, olho)
+	alerta_t = maxf(0.0, alerta_t - delta)
+	var ve := alvo_visivel(PERDER if alerta_t > 0.0 else VER, olho)
 	var alvo_p := centro_alvo() if alvo else global_position
 	var para_alvo := alvo_p - global_position
 	var dist := Vector2(para_alvo.x, para_alvo.z).length()
